@@ -25,7 +25,7 @@ pub struct Subject {
     /// Block offset (for source positions)
     pub block_offset: usize,
     /// Stack of delimiters for emphasis/strong
-    pub delimiters: Option<Box<Delimiter>>,
+    pub delimiters: Option<Rc<RefCell<Delimiter>>>,
     /// Stack of brackets for links/images
     pub brackets: Option<Box<Bracket>>,
     /// Position of backtick sequences
@@ -39,10 +39,13 @@ pub struct Subject {
 }
 
 /// Delimiter struct for tracking emphasis markers
-#[derive(Clone)]
+/// This is a doubly-linked list node using Rc<RefCell<>> for shared mutable access
+/// matching commonmark.js implementation
 pub struct Delimiter {
     /// Previous delimiter in stack
-    pub previous: Option<Box<Delimiter>>,
+    pub previous: Option<Rc<RefCell<Delimiter>>>,
+    /// Next delimiter in stack
+    pub next: Option<Rc<RefCell<Delimiter>>>,
     /// The inline text node containing the delimiter
     pub inl_text: Rc<RefCell<Node>>,
     /// Position in the subject
@@ -75,7 +78,7 @@ pub struct Bracket {
     /// Whether there was a bracket after this one
     pub bracket_after: bool,
     /// Previous delimiter in stack (for emphasis processing)
-    pub previous_delimiter: Option<Box<Delimiter>>,
+    pub previous_delimiter: Option<Rc<RefCell<Delimiter>>>,
 }
 
 impl Subject {
@@ -150,6 +153,52 @@ impl Subject {
 
         // Process any remaining emphasis
         self.process_emphasis(None);
+
+        // Merge adjacent text nodes for cleaner output
+        Self::merge_adjacent_text_nodes(parent);
+    }
+
+    /// Merge adjacent text nodes in the given parent
+    fn merge_adjacent_text_nodes(parent: &Rc<RefCell<Node>>) {
+        let mut current_opt = parent.borrow().first_child.borrow().clone();
+
+        while let Some(current) = current_opt {
+            let next_opt = current.borrow().next.borrow().clone();
+
+            if let Some(ref next) = next_opt {
+                let current_is_text = current.borrow().node_type == NodeType::Text;
+                let next_is_text = next.borrow().node_type == NodeType::Text;
+
+                if current_is_text && next_is_text {
+                    // Merge next into current
+                    let next_literal = {
+                        let next_ref = next.borrow();
+                        match &next_ref.data {
+                            NodeData::Text { literal } => literal.clone(),
+                            _ => String::new(),
+                        }
+                    };
+
+                    {
+                        let mut current_mut = current.borrow_mut();
+                        if let NodeData::Text { ref mut literal } = current_mut.data {
+                            literal.push_str(&next_literal);
+                        }
+                    }
+
+                    // Remove next node
+                    crate::node::unlink(next);
+                    // Continue with same current
+                    current_opt = Some(current);
+                    continue;
+                }
+            }
+
+            // Recursively process children
+            Self::merge_adjacent_text_nodes(&current);
+
+            current_opt = next_opt;
+        }
     }
 
     /// Parse a single inline element
@@ -378,14 +427,23 @@ impl Subject {
             return false;
         }
 
-        // Add delimiter text
+        // Add delimiter text - create a separate text node (don't merge with previous)
+        // This is important for emphasis processing
         let delim_text: String = std::iter::repeat(c).take(res.num_delims).collect();
-        let text_node = self.append_text(parent, &delim_text);
+        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+        {
+            let mut text_mut = text_node.borrow_mut();
+            if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                *literal = delim_text;
+            }
+        }
+        append_child(parent, text_node.clone());
 
         // Add to delimiter stack if it can open or close
         if res.can_open || res.can_close {
-            let delim = Box::new(Delimiter {
-                previous: self.delimiters.take(),
+            let delim = Rc::new(RefCell::new(Delimiter {
+                previous: None,
+                next: None,
                 inl_text: text_node.clone(),
                 position: start_pos,
                 num_delims: res.num_delims,
@@ -393,7 +451,13 @@ impl Subject {
                 delim_char: c,
                 can_open: res.can_open,
                 can_close: res.can_close,
-            });
+            }));
+
+            // Insert at top of stack, maintaining doubly-linked list
+            if let Some(old_top) = self.delimiters.take() {
+                old_top.borrow_mut().next = Some(delim.clone());
+                delim.borrow_mut().previous = Some(old_top);
+            }
 
             self.delimiters = Some(delim);
         }
@@ -459,148 +523,174 @@ impl Subject {
     }
 
     /// Process emphasis delimiters
-    fn process_emphasis(&mut self, stack_bottom: Option<*const Delimiter>) {
-        // Find first closer above stack_bottom
-        let mut closer = self.delimiters.clone();
+    /// Based on commonmark.js processEmphasis function
+    fn process_emphasis(&mut self, _stack_bottom: Option<*const Delimiter>) {
+        // Get all delimiters as a vector for easier processing
+        let mut delims: Vec<Rc<RefCell<Delimiter>>> = Vec::new();
+        let mut current = self.delimiters.clone();
 
-        // Move to the first delimiter above stack_bottom
-        while let Some(ref c) = closer {
-            if let Some(sb) = stack_bottom {
-                let c_ptr: *const Delimiter = c.as_ref();
-                if c_ptr == sb {
-                    break;
-                }
-            }
-            if c.previous.is_none() {
-                break;
-            }
-            closer = c.previous.clone();
+        while let Some(d) = current {
+            delims.push(d.clone());
+            current = d.borrow().previous.clone();
         }
 
-        // Process closers from top of stack down
-        while let Some(ref mut closer_box) = closer {
-            if !closer_box.can_close {
-                closer = closer_box.previous.clone();
+        // Reverse to process from bottom to top
+        delims.reverse();
+
+        // Process each closer
+        let mut i = 0;
+        while i < delims.len() {
+            let closer = delims[i].clone();
+            let closer_borrow = closer.borrow();
+
+            if !closer_borrow.can_close {
+                i += 1;
                 continue;
             }
 
-            let closer_char = closer_box.delim_char;
-            let mut opener_found = false;
-            let mut opener: Option<Box<Delimiter>> = None;
+            let closer_char = closer_borrow.delim_char;
+            drop(closer_borrow);
 
-            // Look back for matching opener
-            let mut search = closer_box.previous.clone();
-            while let Some(ref s) = search {
-                if let Some(sb) = stack_bottom {
-                    let s_ptr: *const Delimiter = s.as_ref();
-                    if s_ptr == sb {
-                        break;
-                    }
+            // Look for matching opener
+            let mut opener_idx = None;
+            for j in (0..i).rev() {
+                let opener = delims[j].clone();
+                let opener_borrow = opener.borrow();
+
+                if !opener_borrow.can_open || opener_borrow.delim_char != closer_char {
+                    continue;
                 }
 
-                // Check for odd match rule
-                let odd_match = (closer_box.can_open || s.can_close)
-                    && closer_box.orig_delims % 3 != 0
-                    && (s.orig_delims + closer_box.orig_delims) % 3 == 0;
+                // Check odd match rule
+                let closer_borrow = closer.borrow();
+                let odd_match = (closer_borrow.can_open || opener_borrow.can_close)
+                    && closer_borrow.orig_delims % 3 != 0
+                    && (opener_borrow.orig_delims + closer_borrow.orig_delims) % 3 == 0;
+                drop(closer_borrow);
 
-                if s.delim_char == closer_char && s.can_open && !odd_match {
-                    opener_found = true;
-                    opener = Some(s.clone());
+                if !odd_match {
+                    opener_idx = Some(j);
                     break;
                 }
-
-                search = s.previous.clone();
             }
 
-            if opener_found {
-                if let Some(ref mut op) = opener {
-                    // Calculate number of delimiters to use
-                    let use_delims = if closer_box.num_delims >= 2 && op.num_delims >= 2 {
-                        2
-                    } else {
-                        1
-                    };
+            if let Some(j) = opener_idx {
+                let opener = delims[j].clone();
+                let opener_borrow = opener.borrow();
+                let closer_borrow = closer.borrow();
 
-                    // Create emphasis or strong node
-                    let emph_type = if use_delims == 1 {
-                        NodeType::Emph
-                    } else {
-                        NodeType::Strong
-                    };
+                // Calculate number of delimiters to use
+                let use_delims = if opener_borrow.num_delims >= 2 && closer_borrow.num_delims >= 2 {
+                    2
+                } else {
+                    1
+                };
 
-                    let emph_node = Rc::new(RefCell::new(Node::new(emph_type)));
+                let opener_inl = opener_borrow.inl_text.clone();
+                let closer_inl = closer_borrow.inl_text.clone();
+                drop(opener_borrow);
+                drop(closer_borrow);
 
-                    // Move content between opener and closer into emph node
-                    let opener_inl = op.inl_text.clone();
-                    let closer_inl = closer_box.inl_text.clone();
+                // Create emphasis or strong node
+                let emph_type = if use_delims == 1 {
+                    NodeType::Emph
+                } else {
+                    NodeType::Strong
+                };
 
-                    // Collect nodes to move
-                    let mut nodes_to_move: Vec<Rc<RefCell<Node>>> = Vec::new();
-                    {
-                        let opener_ref = opener_inl.borrow();
-                        let current_opt = opener_ref.next.borrow().clone();
+                let emph_node = Rc::new(RefCell::new(Node::new(emph_type)));
 
-                        let mut current_ptr = current_opt;
-                        while let Some(curr) = current_ptr {
-                            if Rc::ptr_eq(&curr, &closer_inl) {
-                                break;
-                            }
-                            let next_opt = curr.borrow().next.borrow().clone();
-                            nodes_to_move.push(curr);
-                            current_ptr = next_opt;
+                // Collect nodes to move
+                let mut nodes_to_move: Vec<Rc<RefCell<Node>>> = Vec::new();
+                {
+                    let opener_ref = opener_inl.borrow();
+                    let current_opt = opener_ref.next.borrow().clone();
+
+                    let mut current_ptr = current_opt;
+                    while let Some(curr) = current_ptr {
+                        if Rc::ptr_eq(&curr, &closer_inl) {
+                            break;
                         }
-                    }
-
-                    // Unlink nodes from parent and add to emph
-                    for node in nodes_to_move {
-                        crate::node::unlink(&node);
-                        append_child(&emph_node, node);
-                    }
-
-                    // Insert emph node after opener
-                    crate::node::insert_after(&opener_inl, emph_node);
-
-                    // Update delimiter counts
-                    op.num_delims -= use_delims;
-                    closer_box.num_delims -= use_delims;
-
-                    // Remove used delimiters from text nodes
-                    {
-                        let mut op_mut = op.inl_text.borrow_mut();
-                        if let NodeData::Text { ref mut literal, .. } = op_mut.data {
-                            let len = literal.len();
-                            if len >= use_delims {
-                                *literal = literal[..len - use_delims].to_string();
-                            }
-                        }
-                    }
-                    {
-                        let mut closer_mut = closer_box.inl_text.borrow_mut();
-                        if let NodeData::Text { ref mut literal, .. } = closer_mut.data {
-                            let len = literal.len();
-                            if len >= use_delims {
-                                *literal = literal[..len - use_delims].to_string();
-                            }
-                        }
-                    }
-
-                    // Remove delimiter entries if no delims left
-                    if op.num_delims == 0 {
-                        crate::node::unlink(&op.inl_text);
-                        self.remove_delimiter(op);
-                    }
-
-                    if closer_box.num_delims == 0 {
-                        crate::node::unlink(&closer_box.inl_text);
-                        let next_closer = closer_box.previous.clone();
-                        self.remove_delimiter(closer_box);
-                        closer = next_closer;
-                        continue;
+                        let next_opt = curr.borrow().next.borrow().clone();
+                        nodes_to_move.push(curr);
+                        current_ptr = next_opt;
                     }
                 }
-            }
 
-            closer = closer_box.previous.clone();
+                // Unlink nodes from parent and add to emph
+                for node in nodes_to_move {
+                    crate::node::unlink(&node);
+                    append_child(&emph_node, node);
+                }
+
+                // Insert emph node after opener
+                crate::node::insert_after(&opener_inl, emph_node);
+
+                // Update delimiter counts
+                {
+                    let mut opener_mut = opener.borrow_mut();
+                    if opener_mut.num_delims >= use_delims {
+                        opener_mut.num_delims -= use_delims;
+                    } else {
+                        opener_mut.num_delims = 0;
+                    }
+
+                    // Remove used delimiters from text node
+                    let mut inl_mut = opener_mut.inl_text.borrow_mut();
+                    if let NodeData::Text { ref mut literal, .. } = inl_mut.data {
+                        let len = literal.len();
+                        if len >= use_delims {
+                            *literal = literal[..len - use_delims].to_string();
+                        }
+                    }
+                }
+
+                {
+                    let mut closer_mut = closer.borrow_mut();
+                    if closer_mut.num_delims >= use_delims {
+                        closer_mut.num_delims -= use_delims;
+                    } else {
+                        closer_mut.num_delims = 0;
+                    }
+
+                    // Remove used delimiters from text node
+                    let mut inl_mut = closer_mut.inl_text.borrow_mut();
+                    if let NodeData::Text { ref mut literal, .. } = inl_mut.data {
+                        let len = literal.len();
+                        if len >= use_delims {
+                            *literal = literal[..len - use_delims].to_string();
+                        }
+                    }
+                }
+
+                // Remove delimiters if no delims left
+                {
+                    let opener_borrow = opener.borrow();
+                    if opener_borrow.num_delims == 0 {
+                        crate::node::unlink(&opener_borrow.inl_text);
+                    }
+                }
+
+                {
+                    let closer_borrow = closer.borrow();
+                    if closer_borrow.num_delims == 0 {
+                        crate::node::unlink(&closer_borrow.inl_text);
+                    }
+                }
+
+                // Remove processed delimiters from vector
+                if closer.borrow().num_delims == 0 {
+                    delims.remove(i);
+                }
+                if opener.borrow().num_delims == 0 {
+                    delims.remove(j);
+                    if j < i {
+                        i -= 1;
+                    }
+                }
+            } else {
+                i += 1;
+            }
         }
     }
 
@@ -762,7 +852,8 @@ impl Subject {
             crate::node::unlink(&opener_inl);
 
             // Process emphasis with opener's previous delimiter
-            self.process_emphasis(opener.previous_delimiter.as_ref().map(|d| d.as_ref() as *const _));
+            // For now, pass None to process all delimiters
+            self.process_emphasis(None);
 
             // For links (not images), deactivate previous link openers
             if !is_image {
@@ -997,7 +1088,16 @@ impl Subject {
 
         if self.pos > start {
             let text = self.input[start..self.pos].to_string();
-            self.append_text(parent, &text);
+            // Create a new text node without merging
+            // This is important to keep delimiter text nodes separate
+            let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+            {
+                let mut text_mut = text_node.borrow_mut();
+                if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                    *literal = text;
+                }
+            }
+            append_child(parent, text_node);
             true
         } else {
             false
@@ -1876,5 +1976,49 @@ mod tests {
             }
             _ => panic!("Expected HtmlInline node"),
         }
+    }
+
+    #[test]
+    fn debug_emphasis_parsing() {
+        // This test is for debugging emphasis parsing
+        eprintln!("\n=== Debug Emphasis Parsing ===");
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "*foo bar*", 1, 0);
+        
+        // Print the tree structure
+        fn print_tree(node: &Rc<RefCell<Node>>, indent: usize) {
+            let node_ref = node.borrow();
+            let indent_str = "  ".repeat(indent);
+            
+            match &node_ref.data {
+                NodeData::Text { literal } => {
+                    eprintln!("{}Text: '{}'", indent_str, literal);
+                }
+                NodeData::Emph => {
+                    eprintln!("{}Emph:", indent_str);
+                }
+                NodeData::Strong => {
+                    eprintln!("{}Strong:", indent_str);
+                }
+                _ => {
+                    eprintln!("{}Other: {:?}", indent_str, node_ref.node_type);
+                }
+            }
+            
+            let first_child = node_ref.first_child.borrow().clone();
+            let next = node_ref.next.borrow().clone();
+            drop(node_ref);
+            
+            if let Some(child) = first_child {
+                print_tree(&child, indent + 1);
+            }
+            if let Some(next_node) = next {
+                print_tree(&next_node, indent);
+            }
+        }
+        
+        eprintln!("AST Tree:");
+        print_tree(&parent, 0);
+        eprintln!("=== End Debug ===\n");
     }
 }

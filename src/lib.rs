@@ -53,7 +53,7 @@ pub mod options {
 /// use md::options;
 ///
 /// let html = markdown_to_html("Hello *world*", options::DEFAULT);
-/// assert_eq!(html, "<p>Hello *world*</p>");
+/// assert_eq!(html, "<p>Hello <em>world</em></p>");
 /// ```
 pub fn markdown_to_html(text: &str, options: u32) -> String {
     let parser = parser::Parser::new(options);
