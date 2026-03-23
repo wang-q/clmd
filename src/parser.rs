@@ -31,6 +31,7 @@ impl Parser {
             block_parser.process_line(line);
         }
         block_parser.process_line(""); // Finalize
+        block_parser.finalize_document(); // Finalize all blocks
 
         let doc = block_parser.doc.clone();
         let refmap = block_parser.refmap.clone();

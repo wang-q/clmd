@@ -828,9 +828,9 @@ impl BlockParser {
             let container_type = container.borrow().node_type;
 
             if container_type == NodeType::CodeBlock {
-                self.add_line();
+                self.add_line_to_node(container);
             } else if container_type == NodeType::HtmlBlock {
-                self.add_line();
+                self.add_line_to_node(container);
                 self.check_html_block_end(container);
             } else if self.blank {
                 // Do nothing for blank lines
@@ -839,12 +839,12 @@ impl BlockParser {
                     self.chop_trailing_hashtags();
                 }
                 self.advance_next_nonspace();
-                self.add_line();
+                self.add_line_to_node(container);
             } else {
                 // Create paragraph container for line
                 let new_para = self.add_child(NodeType::Paragraph, self.next_nonspace);
                 self.advance_next_nonspace();
-                self.add_line();
+                self.add_line_to_node(&new_para);
                 // Update tip to the new paragraph
                 self.tip = new_para;
             }
@@ -880,6 +880,11 @@ impl BlockParser {
 
     /// Add current line to tip's content
     fn add_line(&mut self) {
+        self.add_line_to_node(&self.tip.clone());
+    }
+
+    /// Add current line to a specific node's content
+    fn add_line_to_node(&mut self, node: &Rc<RefCell<Node>>) {
         let mut line_content = String::new();
 
         // Handle partially consumed tab
@@ -897,8 +902,8 @@ impl BlockParser {
             line_content.push_str(&self.current_line[self.offset..]);
         }
 
-        // Append to tip's string content
-        self.append_string_content(&self.tip.clone(), &line_content);
+        // Append to node's string content
+        self.append_string_content(node, &line_content);
     }
 
     /// Close unmatched blocks
@@ -1121,7 +1126,7 @@ impl BlockParser {
     }
 
     /// Finalize the entire document
-    fn finalize_document(&mut self) {
+    pub fn finalize_document(&mut self) {
         // Finalize all remaining open blocks
         while !Rc::ptr_eq(&self.tip, &self.doc) {
             let tip = self.tip.clone();
@@ -1352,7 +1357,7 @@ impl BlockParser {
         self.next_nonspace_column = self.column;
 
         while self.next_nonspace < self.current_line.len() {
-            let c = self.current_line.chars().nth(self.next_nonspace).unwrap_or('\0');
+            let c = self.current_line.as_bytes()[self.next_nonspace] as char;
             if c == ' ' {
                 self.next_nonspace += 1;
                 self.next_nonspace_column += 1;
@@ -1371,15 +1376,15 @@ impl BlockParser {
 
         self.indent = self.next_nonspace_column - self.column;
         self.blank = self.next_nonspace >= self.current_line.len()
-            || self.current_line.chars().nth(self.next_nonspace) == Some('\n')
-            || self.current_line.chars().nth(self.next_nonspace) == Some('\r');
+            || self.current_line.as_bytes()[self.next_nonspace] == b'\n'
+            || self.current_line.as_bytes()[self.next_nonspace] == b'\r';
     }
 
     /// Advance offset
     fn advance_offset(&mut self, count: usize, columns: bool) {
         let mut count = count;
         while count > 0 && self.offset < self.current_line.len() {
-            let c = self.current_line.chars().nth(self.offset).unwrap_or('\0');
+            let c = self.current_line.as_bytes()[self.offset] as char;
             if c == '\t' {
                 let chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
                 if columns {
@@ -1415,7 +1420,7 @@ impl BlockParser {
     /// Peek at next non-space
     fn peek_next_nonspace(&self) -> Option<char> {
         if self.next_nonspace < self.current_line.len() {
-            self.current_line.chars().nth(self.next_nonspace)
+            Some(self.current_line.as_bytes()[self.next_nonspace] as char)
         } else {
             None
         }
@@ -1424,7 +1429,7 @@ impl BlockParser {
     /// Peek at current position
     fn peek_current(&self) -> Option<char> {
         if self.offset < self.current_line.len() {
-            self.current_line.chars().nth(self.offset)
+            Some(self.current_line.as_bytes()[self.offset] as char)
         } else {
             None
         }

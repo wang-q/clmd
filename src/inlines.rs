@@ -114,7 +114,7 @@ impl Subject {
 
     /// Peek at the current character without advancing
     pub fn peek(&self) -> Option<char> {
-        self.input.chars().nth(self.pos)
+        self.input[self.pos..].chars().next()
     }
 
     /// Peek at the next character code
@@ -128,8 +128,8 @@ impl Subject {
 
     /// Advance position by one character
     pub fn advance(&mut self) {
-        if self.pos < self.input.len() {
-            self.pos += 1;
+        if let Some(c) = self.peek() {
+            self.pos += c.len_utf8();
         }
     }
 
