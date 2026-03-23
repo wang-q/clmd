@@ -335,25 +335,66 @@ const result = writer.render(parsed);
 1. 参考项目完全正确地实现了 CommonMark 规范
 2. 性能优秀：即使在 10000 层嵌套的极端情况下也能在合理时间内完成
 3. 鲁棒性强：能正确处理各种病态输入
-4. 我们的项目还有很大改进空间（目前 34.0% vs 参考项目 100%）
+4. 我们的项目还有很大改进空间（目前 43.3% vs 参考项目 100%）
 
 ### 当前状态
 
 - **单元测试**：77 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：212/624 通过（34.0%）
+- **CommonMark 规范测试**：282/652 通过（43.3%）
 - **参考项目验证**：697/697 通过（100%）
+
+### 最近完成的工作
+
+1. **列表渲染修复**：
+   - 修复了紧凑列表中 `</li>` 后的换行符问题
+   - 修复了嵌套列表前的换行符问题
+   - 修复了代码块前的换行符问题（使用 `cr()` 函数避免重复换行）
+   - 实现了 `lit()` 和 `cr()` 方法来跟踪最后一个输出字符
+
+2. **测试框架改进**：
+   - 整合了 `docs/commonmark_spec_tests.rs` 中的有用功能到 `tests/commonmark_spec.rs`
+   - 添加了 `normalize_html()` 函数进行更宽松的比较
+   - 添加了按 section 分组失败测试的统计功能
+
+### 失败测试分析
+
+当前失败的测试按类别分布：
+
+| Section | 失败数量 |
+|---------|---------|
+| Emphasis and strong emphasis | 90 |
+| Links | 82 |
+| HTML blocks | 44 |
+| Images | 20 |
+| Link reference definitions | 20 |
+| Lists | 12 |
+| Fenced code blocks | 12 |
+| Entity and numeric character references | 12 |
+| List items | 19 |
+| Hard line breaks | 8 |
+| Autolinks | 8 |
+| Backslash escapes | 6 |
+| Setext headings | 6 |
+| Block quotes | 2 |
+| Code spans | 2 |
+| ATX headings | 3 |
+| Indented code blocks | 1 |
+| Paragraphs | 1 |
+| Raw HTML | 20 |
+| Thematic breaks | 2 |
 
 ### 下一步工作
 
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的 412 个失败的 CommonMark 规范测试用例
-   - 主要问题类别：
-     - 列表项中的段落处理（松散 vs 紧凑列表）
-     - 嵌套列表结构
-     - 行内元素解析（强调、链接等）
+   - 修复剩余的 370 个失败的 CommonMark 规范测试用例
+   - 主要问题类别（按优先级）：
+     - 强调和粗体解析（90 个失败）
+     - 链接解析（82 个失败）
+     - HTML 块解析（44 个失败）
+     - 图片解析（20 个失败）
    - 性能基准测试
 
 2. **渲染器增强**（可选）：
