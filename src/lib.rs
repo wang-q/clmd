@@ -8,7 +8,8 @@ pub mod render;
 
 pub use iterator::{NodeIterator, NodeWalker};
 pub use node::{
-    append_child, prepend_child, unlink, DelimType, ListType, Node, NodeData, NodeType, SourcePos,
+    append_child, prepend_child, unlink, DelimType, ListType, Node, NodeData, NodeType,
+    SourcePos,
 };
 
 /// Options for parsing and rendering
@@ -71,7 +72,10 @@ pub fn markdown_to_html(text: &str, options: u32) -> String {
 /// # Returns
 ///
 /// The root node of the AST
-pub fn parse_document(text: &str, options: u32) -> std::rc::Rc<std::cell::RefCell<Node>> {
+pub fn parse_document(
+    text: &str,
+    options: u32,
+) -> std::rc::Rc<std::cell::RefCell<Node>> {
     let parser = parser::Parser::new(options);
     parser.parse(text)
 }
@@ -86,7 +90,10 @@ pub fn parse_document(text: &str, options: u32) -> std::rc::Rc<std::cell::RefCel
 /// # Returns
 ///
 /// The HTML output as a String
-pub fn render_html(root: &std::rc::Rc<std::cell::RefCell<Node>>, options: u32) -> String {
+pub fn render_html(
+    root: &std::rc::Rc<std::cell::RefCell<Node>>,
+    options: u32,
+) -> String {
     render::html::render(root, options)
 }
 

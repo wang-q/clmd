@@ -7,7 +7,7 @@ fn debug_simple2() {
     let result = markdown_to_html(input, options::DEFAULT);
     println!("Input: {:?}", input);
     println!("Result: {:?}", result);
-    
+
     // Expected: <p>*<a href="/uri">foo*</a></p>
     // The first * should be plain text
     // The link text should contain foo*
@@ -21,7 +21,7 @@ fn debug_emphasis_only() {
     let result = markdown_to_html(input, options::DEFAULT);
     println!("Input: {:?}", input);
     println!("Result: {:?}", result);
-    
+
     // Expected: <p><em>foo</em></p>
     assert!(result.contains("<em>"), "Should contain emphasis");
 }

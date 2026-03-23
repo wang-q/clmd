@@ -67,8 +67,8 @@ fn parse_spec_tests(content: &str) -> Vec<TestCase> {
 
 #[test]
 fn debug_links_failures() {
-    let spec_content = fs::read_to_string("tests/fixtures/spec.txt")
-        .expect("Failed to read spec.txt");
+    let spec_content =
+        fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
 
     let tests = parse_spec_tests(&spec_content);
 

@@ -95,7 +95,10 @@ impl HtmlRenderer {
                 self.lit(">\n");
             }
             NodeType::List => {
-                if let NodeData::List { list_type, tight, .. } = &node.data {
+                if let NodeData::List {
+                    list_type, tight, ..
+                } = &node.data
+                {
                     // Push tight status to stack
                     self.tight_list_stack.push(*tight);
                     self.cr(); // Add newline before list if needed (for nested lists)
@@ -170,6 +173,7 @@ impl HtmlRenderer {
                 }
             }
             NodeType::ThematicBreak => {
+                self.cr();
                 self.lit("<hr");
                 self.add_sourcepos(&node.source_pos);
                 self.lit(" />\n");

@@ -1,6 +1,6 @@
 use md::{markdown_to_html, options};
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
 #[derive(Debug)]
 struct TestCase {
@@ -98,8 +98,8 @@ fn normalize_html(html: &str) -> String {
 
 #[test]
 fn test_commonmark_spec() {
-    let spec_content = fs::read_to_string("tests/fixtures/spec.txt")
-        .expect("Failed to read spec.txt");
+    let spec_content =
+        fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
 
     let tests = parse_spec_tests(&spec_content);
     println!("Found {} test cases", tests.len());
@@ -146,10 +146,18 @@ fn test_commonmark_spec() {
     }
 
     println!("\n=== CommonMark Spec Test Results ===");
-    println!("Passed: {}/{} ({:.1}%)", passed, tests.len(),
-        (passed as f64 / tests.len() as f64) * 100.0);
-    println!("Failed: {}/{} ({:.1}%)", failed, tests.len(),
-        (failed as f64 / tests.len() as f64) * 100.0);
+    println!(
+        "Passed: {}/{} ({:.1}%)",
+        passed,
+        tests.len(),
+        (passed as f64 / tests.len() as f64) * 100.0
+    );
+    println!(
+        "Failed: {}/{} ({:.1}%)",
+        failed,
+        tests.len(),
+        (failed as f64 / tests.len() as f64) * 100.0
+    );
 
     if let Some((num, section)) = first_passed {
         println!("\nFirst passed test: #{} ({})", num, section);
@@ -159,7 +167,10 @@ fn test_commonmark_spec() {
     if !failed_tests.is_empty() {
         let mut failed_by_section: HashMap<String, Vec<usize>> = HashMap::new();
         for (num, section) in &failed_tests {
-            failed_by_section.entry(section.clone()).or_default().push(*num);
+            failed_by_section
+                .entry(section.clone())
+                .or_default()
+                .push(*num);
         }
 
         println!("\n=== Failed Tests by Section ===");
@@ -197,7 +208,10 @@ fn test_specific_examples() {
 
     // Example 1: Thematic breaks
     let result = markdown_to_html("***\n---\n___\n", options::DEFAULT);
-    assert!(result.contains("<hr"), "Thematic breaks should produce <hr> tags");
+    assert!(
+        result.contains("<hr"),
+        "Thematic breaks should produce <hr> tags"
+    );
 
     // Example 2: Basic paragraph
     let result = markdown_to_html("Hello world\n", options::DEFAULT);

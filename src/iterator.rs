@@ -126,7 +126,11 @@ impl NodeWalker {
     }
 
     pub fn resume_at(&mut self, node: Rc<RefCell<Node>>, entering: bool) {
-        let event_type = if entering { EventType::Enter } else { EventType::Exit };
+        let event_type = if entering {
+            EventType::Enter
+        } else {
+            EventType::Exit
+        };
         self.iterator.reset(node, event_type);
     }
 }

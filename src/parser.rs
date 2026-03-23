@@ -44,7 +44,11 @@ impl Parser {
     }
 
     /// Process inline content for all container blocks that contain text
-    fn process_inlines(&self, root: &Rc<RefCell<Node>>, refmap: &std::collections::HashMap<String, (String, String)>) {
+    fn process_inlines(
+        &self,
+        root: &Rc<RefCell<Node>>,
+        refmap: &std::collections::HashMap<String, (String, String)>,
+    ) {
         // Collect all container nodes that have text content
         // These are paragraph, heading nodes that store text in their data field
         let mut nodes_to_process: Vec<(Rc<RefCell<Node>>, String)> = Vec::new();
@@ -62,7 +66,8 @@ impl Parser {
                         NodeType::Paragraph | NodeType::Heading => {
                             if let NodeData::Text { literal } = &node.data {
                                 if !literal.is_empty() {
-                                    nodes_to_process.push((event.node.clone(), literal.clone()));
+                                    nodes_to_process
+                                        .push((event.node.clone(), literal.clone()));
                                 }
                             }
                         }

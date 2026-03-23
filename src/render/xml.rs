@@ -23,8 +23,10 @@ impl XmlRenderer {
     }
 
     fn render(&mut self, root: &Rc<RefCell<Node>>) -> String {
-        self.output.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        self.output.push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
+        self.output
+            .push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        self.output
+            .push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
 
         let mut walker = NodeWalker::new(root.clone());
 

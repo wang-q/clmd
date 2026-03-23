@@ -396,9 +396,8 @@ pub fn unlink(node: &Rc<RefCell<Node>>) {
     } else if let Some(parent_weak) = &parent_weak_opt {
         // Node is last child, update parent's last_child
         if let Some(parent) = parent_weak.upgrade() {
-            *parent.borrow_mut().last_child.borrow_mut() = prev_weak_opt
-                .as_ref()
-                .and_then(|w| w.upgrade());
+            *parent.borrow_mut().last_child.borrow_mut() =
+                prev_weak_opt.as_ref().and_then(|w| w.upgrade());
         }
     }
 

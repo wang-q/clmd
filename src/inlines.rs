@@ -3,7 +3,6 @@
 /// This module implements the inline parsing algorithm based on the CommonMark spec.
 /// It processes the content of leaf blocks (paragraphs, headings, etc.) to produce
 /// inline elements like emphasis, links, code, etc.
-
 use crate::node::{append_child, Node, NodeData, NodeType};
 use htmlescape::decode_html;
 use std::cell::RefCell;
@@ -18,19 +17,19 @@ const MAX_BACKTICKS: usize = 1000;
 fn get_html5_entity(name: &str) -> Option<&'static str> {
     // Common HTML5 entities not in htmlescape
     let entities: HashMap<&str, &str> = [
-        ("Dcaron", "\u{010E}"),                           // Ď
-        ("HilbertSpace", "\u{210B}"),                     // ℋ
-        ("DifferentialD", "\u{2146}"),                    // ⅆ
-        ("ClockwiseContourIntegral", "\u{2232}"),         // ∲
-        ("ngE", "\u{2267}\u{0338}"),                      // ≧̸
-        ("AElig", "\u{00C6}"),                            // Æ
-        ("copy", "\u{00A9}"),                             // ©
-        ("nbsp", "\u{00A0}"),                             // 
-        ("amp", "&"),                                      // &
-        ("lt", "<"),                                       // <
-        ("gt", ">"),                                       // >
-        ("quot", "\""),                                    // "
-        ("frac34", "\u{00BE}"),                           // ¾
+        ("Dcaron", "\u{010E}"),                   // Ď
+        ("HilbertSpace", "\u{210B}"),             // ℋ
+        ("DifferentialD", "\u{2146}"),            // ⅆ
+        ("ClockwiseContourIntegral", "\u{2232}"), // ∲
+        ("ngE", "\u{2267}\u{0338}"),              // ≧̸
+        ("AElig", "\u{00C6}"),                    // Æ
+        ("copy", "\u{00A9}"),                     // ©
+        ("nbsp", "\u{00A0}"),                     //
+        ("amp", "&"),                             // &
+        ("lt", "<"),                              // <
+        ("gt", ">"),                              // >
+        ("quot", "\""),                           // "
+        ("frac34", "\u{00BE}"),                   // ¾
     ]
     .iter()
     .copied()
@@ -127,7 +126,12 @@ impl Subject {
     }
 
     /// Create a new subject with a reference map
-    pub fn with_refmap(input: &str, line: usize, block_offset: usize, refmap: std::collections::HashMap<String, (String, String)>) -> Self {
+    pub fn with_refmap(
+        input: &str,
+        line: usize,
+        block_offset: usize,
+        refmap: std::collections::HashMap<String, (String, String)>,
+    ) -> Self {
         Subject {
             input: input.to_string(),
             pos: 0,
@@ -183,6 +187,29 @@ impl Subject {
 
         // Merge adjacent text nodes for cleaner output
         Self::merge_adjacent_text_nodes(parent);
+
+        // Remove trailing spaces from the last text node
+        Self::remove_trailing_spaces(parent);
+    }
+
+    /// Remove trailing spaces from the last text node
+    fn remove_trailing_spaces(parent: &Rc<RefCell<Node>>) {
+        let last_child_opt = parent.borrow().last_child.borrow().clone();
+
+        if let Some(last_child) = last_child_opt {
+            if last_child.borrow().node_type == NodeType::Text {
+                let mut last_mut = last_child.borrow_mut();
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = last_mut.data
+                {
+                    // Remove trailing spaces
+                    while literal.ends_with(' ') {
+                        literal.pop();
+                    }
+                }
+            }
+        }
     }
 
     /// Merge adjacent text nodes in the given parent
@@ -249,16 +276,71 @@ impl Subject {
         }
     }
 
-    /// Parse a newline. Returns a softbreak node.
+    /// Parse a newline. Returns a softbreak or hardbreak node.
     /// Based on commonmark.js parseNewline
+    /// A line ending with 2+ spaces creates a hard line break
     fn parse_newline(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
+        // Check for preceding spaces (look back in the line)
+        let preceding_spaces = self.count_preceding_spaces();
+
+        // For hard line break, remove trailing spaces from the last text node
+        if preceding_spaces >= 2 {
+            self.remove_trailing_spaces_from_last_text(parent, preceding_spaces);
+        }
+
         self.advance(); // skip \n
 
-        // Create softbreak node
-        let soft_break = Rc::new(RefCell::new(Node::new(NodeType::SoftBreak)));
-        append_child(parent, soft_break);
+        if preceding_spaces >= 2 {
+            // Hard line break: line ends with 2+ spaces
+            let line_break = Rc::new(RefCell::new(Node::new(NodeType::LineBreak)));
+            append_child(parent, line_break);
+        } else {
+            // Soft line break
+            let soft_break = Rc::new(RefCell::new(Node::new(NodeType::SoftBreak)));
+            append_child(parent, soft_break);
+        }
 
         true
+    }
+
+    /// Remove trailing spaces from the last text node
+    fn remove_trailing_spaces_from_last_text(
+        &self,
+        parent: &Rc<RefCell<Node>>,
+        count: usize,
+    ) {
+        let last_child_opt = parent.borrow().last_child.borrow().clone();
+
+        if let Some(last_child) = last_child_opt {
+            if last_child.borrow().node_type == NodeType::Text {
+                let mut last_mut = last_child.borrow_mut();
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = last_mut.data
+                {
+                    // Remove trailing spaces
+                    let new_len = literal.len().saturating_sub(count);
+                    literal.truncate(new_len);
+                }
+            }
+        }
+    }
+
+    /// Count spaces preceding the current position (back to start of line or non-space)
+    fn count_preceding_spaces(&self) -> usize {
+        // Get the substring from start to current position, then iterate backwards
+        let prefix = &self.input[..self.pos];
+        let mut count = 0;
+
+        for c in prefix.chars().rev() {
+            if c == ' ' {
+                count += 1;
+            } else {
+                break;
+            }
+        }
+
+        count
     }
 
     /// Parse backtick-delimited code span
@@ -309,7 +391,10 @@ impl Subject {
                     let code_node = Rc::new(RefCell::new(Node::new(NodeType::Code)));
                     {
                         let mut code_mut = code_node.borrow_mut();
-                        if let NodeData::Code { ref mut literal, .. } = code_mut.data {
+                        if let NodeData::Code {
+                            ref mut literal, ..
+                        } = code_mut.data
+                        {
                             *literal = content;
                         }
                     }
@@ -388,7 +473,11 @@ impl Subject {
             let link_node = Rc::new(RefCell::new(Node::new(NodeType::Link)));
             {
                 let mut link_mut = link_node.borrow_mut();
-                if let NodeData::Link { ref mut url, ref mut title } = link_mut.data {
+                if let NodeData::Link {
+                    ref mut url,
+                    ref mut title,
+                } = link_mut.data
+                {
                     *url = format!("mailto:{}", email);
                     *title = String::new();
                 }
@@ -414,7 +503,11 @@ impl Subject {
             let link_node = Rc::new(RefCell::new(Node::new(NodeType::Link)));
             {
                 let mut link_mut = link_node.borrow_mut();
-                if let NodeData::Link { url: ref mut link_url, title: ref mut link_title } = link_mut.data {
+                if let NodeData::Link {
+                    url: ref mut link_url,
+                    title: ref mut link_title,
+                } = link_mut.data
+                {
                     *link_url = url.clone();
                     *link_title = String::new();
                 }
@@ -474,7 +567,10 @@ impl Subject {
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
         {
             let mut text_mut = text_node.borrow_mut();
-            if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+            if let NodeData::Text {
+                ref mut literal, ..
+            } = text_mut.data
+            {
                 *literal = delim_text;
             }
         }
@@ -695,11 +791,12 @@ impl Subject {
                 let closer_borrow = closer.borrow();
 
                 // Calculate number of delimiters to use
-                let use_delims = if opener_borrow.num_delims >= 2 && closer_borrow.num_delims >= 2 {
-                    2
-                } else {
-                    1
-                };
+                let use_delims =
+                    if opener_borrow.num_delims >= 2 && closer_borrow.num_delims >= 2 {
+                        2
+                    } else {
+                        1
+                    };
 
                 let opener_inl = opener_borrow.inl_text.clone();
                 let closer_inl = closer_borrow.inl_text.clone();
@@ -752,7 +849,10 @@ impl Subject {
 
                     // Remove used delimiters from text node
                     let mut inl_mut = opener_mut.inl_text.borrow_mut();
-                    if let NodeData::Text { ref mut literal, .. } = inl_mut.data {
+                    if let NodeData::Text {
+                        ref mut literal, ..
+                    } = inl_mut.data
+                    {
                         let len = literal.len();
                         if len >= use_delims {
                             *literal = literal[..len - use_delims].to_string();
@@ -770,7 +870,10 @@ impl Subject {
 
                     // Remove used delimiters from text node
                     let mut inl_mut = closer_mut.inl_text.borrow_mut();
-                    if let NodeData::Text { ref mut literal, .. } = inl_mut.data {
+                    if let NodeData::Text {
+                        ref mut literal, ..
+                    } = inl_mut.data
+                    {
                         let len = literal.len();
                         if len >= use_delims {
                             *literal = literal[..len - use_delims].to_string();
@@ -825,7 +928,10 @@ impl Subject {
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
         {
             let mut text_mut = text_node.borrow_mut();
-            if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+            if let NodeData::Text {
+                ref mut literal, ..
+            } = text_mut.data
+            {
                 *literal = "[".to_string();
             }
         }
@@ -889,7 +995,10 @@ impl Subject {
                 if ended_with_space {
                     // Check if there's a title following the space
                     self.skip_spaces_and_newlines();
-                    if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
+                    if self.peek() == Some('"')
+                        || self.peek() == Some('\'')
+                        || self.peek() == Some('(')
+                    {
                         // There's a title, this is valid
                         dest = Some(d);
                         title = self.parse_link_title();
@@ -910,7 +1019,10 @@ impl Subject {
                     self.skip_spaces_and_newlines();
 
                     // Try to parse title
-                    if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
+                    if self.peek() == Some('"')
+                        || self.peek() == Some('\'')
+                        || self.peek() == Some('(')
+                    {
                         title = self.parse_link_title();
                         self.skip_spaces_and_newlines();
                     }
@@ -936,13 +1048,18 @@ impl Subject {
 
             if label_len > 2 {
                 // Full reference link [text][label] with non-empty label
-                let label = self.input[before_label..before_label + label_len].to_string();
+                let label =
+                    self.input[before_label..before_label + label_len].to_string();
                 reflabel = Some(label);
             } else if label_len == 2 {
                 // Collapsed reference link [text][] - use the link text as label
                 // For images, opener.position points to '!', so text starts at position + 2
                 // For links, opener.position points to '[', so text starts at position + 1
-                let label_start = if is_image { opener.position + 2 } else { opener.position + 1 };
+                let label_start = if is_image {
+                    opener.position + 2
+                } else {
+                    opener.position + 1
+                };
                 let label_end = start_pos - 1;
                 if label_start < label_end {
                     reflabel = Some(self.input[label_start..label_end].to_string());
@@ -950,11 +1067,15 @@ impl Subject {
             } else if label_len == 0 {
                 // Shortcut reference link [text]
                 self.pos = before_label; // rewind
-                // Use the text between brackets as label
-                // For images, opener.position points to '!', so text starts at position + 2
-                // For links, opener.position points to '[', so text starts at position + 1
+                                         // Use the text between brackets as label
+                                         // For images, opener.position points to '!', so text starts at position + 2
+                                         // For links, opener.position points to '[', so text starts at position + 1
                 if !opener.bracket_after {
-                    let label_start = if is_image { opener.position + 2 } else { opener.position + 1 };
+                    let label_start = if is_image {
+                        opener.position + 2
+                    } else {
+                        opener.position + 1
+                    };
                     let label_end = start_pos - 1;
                     if label_start < label_end {
                         reflabel = Some(self.input[label_start..label_end].to_string());
@@ -965,7 +1086,8 @@ impl Subject {
             if let Some(label) = reflabel {
                 // Normalize the label and look up in refmap
                 let norm_label = normalize_reference(&label);
-                if let Some((dest_url, dest_title)) = self.lookup_reference(&norm_label) {
+                if let Some((dest_url, dest_title)) = self.lookup_reference(&norm_label)
+                {
                     dest = Some(dest_url);
                     title = Some(dest_title);
                     matched = true;
@@ -975,17 +1097,27 @@ impl Subject {
 
         if matched {
             // Create link or image node
-            let node_type = if is_image { NodeType::Image } else { NodeType::Link };
+            let node_type = if is_image {
+                NodeType::Image
+            } else {
+                NodeType::Link
+            };
             let link_node = Rc::new(RefCell::new(Node::new(node_type)));
 
             {
                 let mut link_mut = link_node.borrow_mut();
                 match &mut link_mut.data {
-                    NodeData::Link { url, title: link_title } => {
+                    NodeData::Link {
+                        url,
+                        title: link_title,
+                    } => {
                         *url = dest.unwrap_or_default();
                         *link_title = title.unwrap_or_default();
                     }
-                    NodeData::Image { url, title: img_title } => {
+                    NodeData::Image {
+                        url,
+                        title: img_title,
+                    } => {
                         *url = dest.unwrap_or_default();
                         *img_title = title.unwrap_or_default();
                     }
@@ -1078,7 +1210,7 @@ impl Subject {
                 if c == '>' {
                     let dest = self.input[start..self.pos].to_string();
                     self.advance(); // skip >
-                    // Unescape and normalize the destination
+                                    // Unescape and normalize the destination
                     let unescaped = unescape_string(&dest);
                     return Some((normalize_uri(&unescaped), false));
                 } else if c == '\n' || c == '<' {
@@ -1165,7 +1297,7 @@ impl Subject {
             if c == close_quote {
                 let title = self.input[start..self.pos].to_string();
                 self.advance(); // skip closing quote
-                // Unescape the title
+                                // Unescape the title
                 return Some(unescape_string(&title));
             } else if c == '\n' {
                 return None;
@@ -1285,7 +1417,10 @@ impl Subject {
             let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
             {
                 let mut text_mut = text_node.borrow_mut();
-                if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = text_mut.data
+                {
                     *literal = text;
                 }
             }
@@ -1297,7 +1432,11 @@ impl Subject {
     }
 
     /// Append text to parent, merging with previous text node if possible
-    fn append_text(&mut self, parent: &Rc<RefCell<Node>>, text: &str) -> Rc<RefCell<Node>> {
+    fn append_text(
+        &mut self,
+        parent: &Rc<RefCell<Node>>,
+        text: &str,
+    ) -> Rc<RefCell<Node>> {
         // Check if last child is a text node we can merge with
         let last_child_opt = parent.borrow().last_child.borrow().clone();
 
@@ -1305,7 +1444,10 @@ impl Subject {
             if last_child.borrow().node_type == NodeType::Text {
                 // Merge with existing text node
                 let mut last_mut = last_child.borrow_mut();
-                if let NodeData::Text { ref mut literal, .. } = last_mut.data {
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = last_mut.data
+                {
                     literal.push_str(text);
                 }
                 return last_child.clone();
@@ -1316,7 +1458,10 @@ impl Subject {
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
         {
             let mut text_mut = text_node.borrow_mut();
-            if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+            if let NodeData::Text {
+                ref mut literal, ..
+            } = text_mut.data
+            {
                 *literal = text.to_string();
             }
         }
@@ -1334,12 +1479,48 @@ struct DelimScanResult {
 
 /// Check if a character is special (has special meaning in inline parsing)
 fn is_special_char(c: char) -> bool {
-    matches!(c, '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!')
+    matches!(
+        c,
+        '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n'
+    )
 }
 
 /// Check if a character can be escaped
 fn is_escapable(c: char) -> bool {
-    matches!(c, '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~')
+    matches!(
+        c,
+        '!' | '"'
+            | '#'
+            | '$'
+            | '%'
+            | '&'
+            | '\''
+            | '('
+            | ')'
+            | '*'
+            | '+'
+            | ','
+            | '-'
+            | '.'
+            | '/'
+            | ':'
+            | ';'
+            | '<'
+            | '='
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '_'
+            | '`'
+            | '{'
+            | '|'
+            | '}'
+            | '~'
+    )
 }
 
 /// Unescape a string by processing backslash escapes and entities
@@ -1473,7 +1654,8 @@ fn normalize_uri(uri: &str) -> String {
                 result.push(c);
             }
             // Reserved characters that are commonly used in URIs
-            ':' | '/' | '?' | '#' | '[' | ']' | '@' | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | ';' | '=' => {
+            ':' | '/' | '?' | '#' | '[' | ']' | '@' | '!' | '$' | '&' | '\'' | '('
+            | ')' | '*' | '+' | ',' | ';' | '=' => {
                 result.push(c);
             }
             // Percent sign (already encoded)
@@ -1526,12 +1708,49 @@ pub fn normalize_reference(label: &str) -> String {
 
 /// Check if a character is punctuation
 fn is_punctuation(c: char) -> bool {
-    matches!(c, '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~')
-        || c.is_ascii_punctuation()
+    matches!(
+        c,
+        '!' | '"'
+            | '#'
+            | '$'
+            | '%'
+            | '&'
+            | '\''
+            | '('
+            | ')'
+            | '*'
+            | '+'
+            | ','
+            | '-'
+            | '.'
+            | '/'
+            | ':'
+            | ';'
+            | '<'
+            | '='
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '_'
+            | '`'
+            | '{'
+            | '|'
+            | '}'
+            | '~'
+    ) || c.is_ascii_punctuation()
 }
 
 /// Parse inline content into the given parent node
-pub fn parse_inlines(parent: &Rc<RefCell<Node>>, content: &str, line: usize, block_offset: usize) {
+pub fn parse_inlines(
+    parent: &Rc<RefCell<Node>>,
+    content: &str,
+    line: usize,
+    block_offset: usize,
+) {
     let mut subject = Subject::new(content, line, block_offset);
     subject.parse_inlines(parent);
 }
@@ -1558,7 +1777,10 @@ pub fn parse_inlines_with_refmap(
 /// Parse a reference definition from the beginning of a string.
 /// Returns the number of characters consumed, or 0 if no reference was found.
 /// If a reference is found, it is added to the refmap.
-pub fn parse_reference(s: &str, refmap: &mut std::collections::HashMap<String, (String, String)>) -> usize {
+pub fn parse_reference(
+    s: &str,
+    refmap: &mut std::collections::HashMap<String, (String, String)>,
+) -> usize {
     let mut subject = Subject::new(s, 1, 0);
     subject.parse_reference_definition(refmap)
 }
@@ -1566,7 +1788,10 @@ pub fn parse_reference(s: &str, refmap: &mut std::collections::HashMap<String, (
 impl Subject {
     /// Parse a reference definition: [label]: url "title"
     /// Returns the number of characters consumed, or 0 if no reference was found
-    fn parse_reference_definition(&mut self, refmap: &mut std::collections::HashMap<String, (String, String)>) -> usize {
+    fn parse_reference_definition(
+        &mut self,
+        refmap: &mut std::collections::HashMap<String, (String, String)>,
+    ) -> usize {
         let start_pos = self.pos;
 
         // Parse label: [label]
@@ -1613,8 +1838,9 @@ impl Subject {
         if !at_line_end {
             // Check if we can still match without title
             self.pos = before_title;
-            let at_line_end_without_title = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
-                || self.pos == self.input.len();
+            let at_line_end_without_title =
+                self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
+                    || self.pos == self.input.len();
             if !at_line_end_without_title {
                 return 0;
             }
@@ -1624,7 +1850,9 @@ impl Subject {
         let norm_label = normalize_reference(&raw_label);
         if !norm_label.is_empty() {
             // Only add if not already present (first definition wins)
-            refmap.entry(norm_label).or_insert((dest, title.unwrap_or_default()));
+            refmap
+                .entry(norm_label)
+                .or_insert((dest, title.unwrap_or_default()));
         }
 
         self.pos
@@ -1633,7 +1861,8 @@ impl Subject {
 
 /// HTML entity patterns
 #[allow(dead_code)]
-const ENTITY_PATTERN: &str = r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
+const ENTITY_PATTERN: &str =
+    r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
 
 /// Parse an HTML entity and return the decoded string and length
 /// Uses htmlescape crate and our entity table to support all HTML5 named entities
@@ -1657,8 +1886,10 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
 
         if rest.starts_with('x') || rest.starts_with('X') {
             // Hex entity: &#x7B;
-            let hex_digits = &rest[1..rest.len()-1]; // Skip 'x' and ';'
-            if !hex_digits.is_empty() && hex_digits.chars().all(|c| c.is_ascii_hexdigit()) {
+            let hex_digits = &rest[1..rest.len() - 1]; // Skip 'x' and ';'
+            if !hex_digits.is_empty()
+                && hex_digits.chars().all(|c| c.is_ascii_hexdigit())
+            {
                 // Valid hex format, use parse_entity
                 if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
                     return Some((decoded, entity_str.len()));
@@ -1666,7 +1897,7 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
             }
         } else {
             // Decimal entity: &#123;
-            let dec_digits = &rest[..rest.len()-1]; // Remove ';'
+            let dec_digits = &rest[..rest.len() - 1]; // Remove ';'
             if !dec_digits.is_empty() && dec_digits.chars().all(|c| c.is_ascii_digit()) {
                 // Valid decimal format, use parse_entity
                 if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
@@ -1680,7 +1911,7 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
 
     // Try named entity from our table
     if entity_str.len() > 2 {
-        let name = &entity_str[1..entity_str.len()-1]; // Remove & and ;
+        let name = &entity_str[1..entity_str.len() - 1]; // Remove & and ;
         if !name.is_empty() {
             if let Some(decoded) = get_html5_entity(name) {
                 return Some((decoded.to_string(), entity_str.len()));
@@ -1757,7 +1988,12 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
             has_colon = true;
             i += 1;
             break;
-        } else if c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '+' || c == '-' || c == '.' {
+        } else if c.is_ascii_alphabetic()
+            || c.is_ascii_digit()
+            || c == '+'
+            || c == '-'
+            || c == '.'
+        {
             if i == 0 && !c.is_ascii_alphabetic() {
                 return None;
             }
@@ -2011,7 +2247,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Code);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Code
+        );
     }
 
     #[test]
@@ -2022,7 +2261,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Text);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Text
+        );
     }
 
     #[test]
@@ -2044,7 +2286,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Link
+        );
 
         // Check link URL
         let link = first_child.as_ref().unwrap().borrow();
@@ -2064,7 +2309,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Link
+        );
 
         let link = first_child.as_ref().unwrap().borrow();
         match &link.data {
@@ -2084,7 +2332,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Image);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Image
+        );
 
         let img = first_child.as_ref().unwrap().borrow();
         match &img.data {
@@ -2139,7 +2390,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Link
+        );
 
         let link = first_child.as_ref().unwrap().borrow();
         match &link.data {
@@ -2158,7 +2412,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Link
+        );
 
         let link = first_child.as_ref().unwrap().borrow();
         match &link.data {
@@ -2174,7 +2431,8 @@ mod tests {
         let mut refmap = std::collections::HashMap::new();
 
         // Parse a reference definition
-        let consumed = parse_reference("[label]: https://example.com \"title\"", &mut refmap);
+        let consumed =
+            parse_reference("[label]: https://example.com \"title\"", &mut refmap);
         assert!(consumed > 0);
 
         // Check that the reference was added
@@ -2199,7 +2457,10 @@ mod tests {
     #[test]
     fn test_reference_link() {
         let mut refmap = std::collections::HashMap::new();
-        refmap.insert("LABEL".to_string(), ("https://example.com".to_string(), "title".to_string()));
+        refmap.insert(
+            "LABEL".to_string(),
+            ("https://example.com".to_string(), "title".to_string()),
+        );
 
         let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
         parse_inlines_with_refmap(&parent, "[text][label]", 1, 0, refmap);
@@ -2207,7 +2468,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Link
+        );
 
         let link = first_child.as_ref().unwrap().borrow();
         match &link.data {
@@ -2227,7 +2491,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2246,7 +2513,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2265,7 +2535,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2279,12 +2552,20 @@ mod tests {
     #[test]
     fn test_parse_html_tag_with_attributes() {
         let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        parse_inlines(&parent, "<a href=\"https://example.com\" class=\"link\">", 1, 0);
+        parse_inlines(
+            &parent,
+            "<a href=\"https://example.com\" class=\"link\">",
+            1,
+            0,
+        );
 
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2303,7 +2584,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2322,7 +2606,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2341,7 +2628,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2360,7 +2650,10 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlInline
+        );
 
         let html = first_child.as_ref().unwrap().borrow();
         match &html.data {
@@ -2377,12 +2670,12 @@ mod tests {
         eprintln!("\n=== Debug Emphasis Parsing ===");
         let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
         parse_inlines(&parent, "*foo bar*", 1, 0);
-        
+
         // Print the tree structure
         fn print_tree(node: &Rc<RefCell<Node>>, indent: usize) {
             let node_ref = node.borrow();
             let indent_str = "  ".repeat(indent);
-            
+
             match &node_ref.data {
                 NodeData::Text { literal } => {
                     eprintln!("{}Text: '{}'", indent_str, literal);
@@ -2397,11 +2690,11 @@ mod tests {
                     eprintln!("{}Other: {:?}", indent_str, node_ref.node_type);
                 }
             }
-            
+
             let first_child = node_ref.first_child.borrow().clone();
             let next = node_ref.next.borrow().clone();
             drop(node_ref);
-            
+
             if let Some(child) = first_child {
                 print_tree(&child, indent + 1);
             }
@@ -2409,7 +2702,7 @@ mod tests {
                 print_tree(&next_node, indent);
             }
         }
-        
+
         eprintln!("AST Tree:");
         print_tree(&parent, 0);
         eprintln!("=== End Debug ===\n");

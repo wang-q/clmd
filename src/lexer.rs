@@ -1,5 +1,5 @@
 /// Lexer for CommonMark documents
-/// 
+///
 /// The lexer processes input text line by line, tracking position information
 /// and providing helper methods for parsing.
 
@@ -75,7 +75,9 @@ impl<'a> LineLexer<'a> {
             }
         }
 
-        self.blank = i >= self.line.len() || self.line[i..].starts_with('\n') || self.line[i..].starts_with('\r');
+        self.blank = i >= self.line.len()
+            || self.line[i..].starts_with('\n')
+            || self.line[i..].starts_with('\r');
         self.next_nonspace = i;
         self.next_nonspace_column = cols;
         self.indent = self.next_nonspace_column - self.column;
@@ -102,7 +104,11 @@ impl<'a> LineLexer<'a> {
                 let chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
                 if columns {
                     self.partially_consumed_tab = chars_to_tab > remaining;
-                    let chars_to_advance = if chars_to_tab > remaining { remaining } else { chars_to_tab };
+                    let chars_to_advance = if chars_to_tab > remaining {
+                        remaining
+                    } else {
+                        chars_to_tab
+                    };
                     self.column += chars_to_advance;
                     if !self.partially_consumed_tab {
                         self.offset += 1;
