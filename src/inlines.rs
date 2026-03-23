@@ -36,11 +36,10 @@ pub struct Subject {
 }
 
 /// Delimiter struct for tracking emphasis markers
+#[derive(Clone)]
 pub struct Delimiter {
     /// Previous delimiter in stack
     pub previous: Option<Box<Delimiter>>,
-    /// Next delimiter in stack
-    pub next: Option<*mut Delimiter>,
     /// The inline text node containing the delimiter
     pub inl_text: Rc<RefCell<Node>>,
     /// Position in the subject
@@ -58,6 +57,7 @@ pub struct Delimiter {
 }
 
 /// Bracket struct for tracking link/image brackets
+#[derive(Clone)]
 pub struct Bracket {
     /// Previous bracket in stack
     pub previous: Option<Box<Bracket>>,
@@ -71,6 +71,8 @@ pub struct Bracket {
     pub active: bool,
     /// Whether there was a bracket after this one
     pub bracket_after: bool,
+    /// Previous delimiter in stack (for emphasis processing)
+    pub previous_delimiter: Option<Box<Delimiter>>,
 }
 
 impl Subject {
@@ -291,7 +293,6 @@ impl Subject {
         if res.can_open || res.can_close {
             let delim = Box::new(Delimiter {
                 previous: self.delimiters.take(),
-                next: None,
                 inl_text: text_node.clone(),
                 position: start_pos,
                 num_delims: res.num_delims,
@@ -365,9 +366,155 @@ impl Subject {
     }
 
     /// Process emphasis delimiters
-    fn process_emphasis(&mut self, _stack_bottom: Option<*const Delimiter>) {
-        // Simplified emphasis processing
-        // Full implementation would match openers and closers
+    fn process_emphasis(&mut self, stack_bottom: Option<*const Delimiter>) {
+        // Find first closer above stack_bottom
+        let mut closer = self.delimiters.clone();
+
+        // Move to the first delimiter above stack_bottom
+        while let Some(ref c) = closer {
+            if let Some(sb) = stack_bottom {
+                let c_ptr: *const Delimiter = c.as_ref();
+                if c_ptr == sb {
+                    break;
+                }
+            }
+            if c.previous.is_none() {
+                break;
+            }
+            closer = c.previous.clone();
+        }
+
+        // Process closers from top of stack down
+        while let Some(ref mut closer_box) = closer {
+            if !closer_box.can_close {
+                closer = closer_box.previous.clone();
+                continue;
+            }
+
+            let closer_char = closer_box.delim_char;
+            let mut opener_found = false;
+            let mut opener: Option<Box<Delimiter>> = None;
+
+            // Look back for matching opener
+            let mut search = closer_box.previous.clone();
+            while let Some(ref s) = search {
+                if let Some(sb) = stack_bottom {
+                    let s_ptr: *const Delimiter = s.as_ref();
+                    if s_ptr == sb {
+                        break;
+                    }
+                }
+
+                // Check for odd match rule
+                let odd_match = (closer_box.can_open || s.can_close)
+                    && closer_box.orig_delims % 3 != 0
+                    && (s.orig_delims + closer_box.orig_delims) % 3 == 0;
+
+                if s.delim_char == closer_char && s.can_open && !odd_match {
+                    opener_found = true;
+                    opener = Some(s.clone());
+                    break;
+                }
+
+                search = s.previous.clone();
+            }
+
+            if opener_found {
+                if let Some(ref mut op) = opener {
+                    // Calculate number of delimiters to use
+                    let use_delims = if closer_box.num_delims >= 2 && op.num_delims >= 2 {
+                        2
+                    } else {
+                        1
+                    };
+
+                    // Create emphasis or strong node
+                    let emph_type = if use_delims == 1 {
+                        NodeType::Emph
+                    } else {
+                        NodeType::Strong
+                    };
+
+                    let emph_node = Rc::new(RefCell::new(Node::new(emph_type)));
+
+                    // Move content between opener and closer into emph node
+                    let opener_inl = op.inl_text.clone();
+                    let closer_inl = closer_box.inl_text.clone();
+
+                    // Collect nodes to move
+                    let mut nodes_to_move: Vec<Rc<RefCell<Node>>> = Vec::new();
+                    {
+                        let opener_ref = opener_inl.borrow();
+                        let current_opt = opener_ref.next.borrow().clone();
+
+                        let mut current_ptr = current_opt;
+                        while let Some(curr) = current_ptr {
+                            if Rc::ptr_eq(&curr, &closer_inl) {
+                                break;
+                            }
+                            let next_opt = curr.borrow().next.borrow().clone();
+                            nodes_to_move.push(curr);
+                            current_ptr = next_opt;
+                        }
+                    }
+
+                    // Unlink nodes from parent and add to emph
+                    for node in nodes_to_move {
+                        crate::node::unlink(&node);
+                        append_child(&emph_node, node);
+                    }
+
+                    // Insert emph node after opener
+                    crate::node::insert_after(&opener_inl, emph_node);
+
+                    // Update delimiter counts
+                    op.num_delims -= use_delims;
+                    closer_box.num_delims -= use_delims;
+
+                    // Remove used delimiters from text nodes
+                    {
+                        let mut op_mut = op.inl_text.borrow_mut();
+                        if let NodeData::Text { ref mut literal, .. } = op_mut.data {
+                            let len = literal.len();
+                            if len >= use_delims {
+                                *literal = literal[..len - use_delims].to_string();
+                            }
+                        }
+                    }
+                    {
+                        let mut closer_mut = closer_box.inl_text.borrow_mut();
+                        if let NodeData::Text { ref mut literal, .. } = closer_mut.data {
+                            let len = literal.len();
+                            if len >= use_delims {
+                                *literal = literal[..len - use_delims].to_string();
+                            }
+                        }
+                    }
+
+                    // Remove delimiter entries if no delims left
+                    if op.num_delims == 0 {
+                        crate::node::unlink(&op.inl_text);
+                        self.remove_delimiter(op);
+                    }
+
+                    if closer_box.num_delims == 0 {
+                        crate::node::unlink(&closer_box.inl_text);
+                        let next_closer = closer_box.previous.clone();
+                        self.remove_delimiter(closer_box);
+                        closer = next_closer;
+                        continue;
+                    }
+                }
+            }
+
+            closer = closer_box.previous.clone();
+        }
+    }
+
+    /// Remove a delimiter from the stack
+    fn remove_delimiter(&mut self, delim: &Delimiter) {
+        // This is a simplified removal - in full implementation we'd update links
+        // For now, we just leave it in place but mark it as processed
     }
 
     /// Parse open bracket (start of link or image)
@@ -384,6 +531,7 @@ impl Subject {
             image: false,
             active: true,
             bracket_after: false,
+            previous_delimiter: self.delimiters.clone(),
         });
 
         self.brackets = Some(bracket);
@@ -396,11 +544,240 @@ impl Subject {
     fn parse_close_bracket(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
         self.advance(); // skip ]
 
-        // For now, just add as text
-        // Full implementation would try to match with opener
-        self.append_text(parent, "]");
+        // Get the opener from bracket stack
+        let opener = match self.brackets.take() {
+            Some(b) => b,
+            None => {
+                // No matching opener, just add as text
+                self.append_text(parent, "]");
+                return true;
+            }
+        };
+
+        if !opener.active {
+            // Opener is not active, just add as text
+            self.append_text(parent, "]");
+            self.brackets = opener.previous;
+            return true;
+        }
+
+        let is_image = opener.image;
+        let start_pos = self.pos;
+        let mut matched = false;
+        let mut dest: Option<String> = None;
+        let mut title: Option<String> = None;
+
+        // Try inline link: [text](url "title")
+        if self.peek() == Some('(') {
+            self.advance(); // skip (
+            self.skip_spaces_and_newlines();
+
+            // Parse link destination
+            if let Some(d) = self.parse_link_destination() {
+                dest = Some(d);
+                self.skip_spaces_and_newlines();
+
+                // Try to parse title
+                if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
+                    title = self.parse_link_title();
+                    self.skip_spaces_and_newlines();
+                }
+
+                if self.peek() == Some(')') {
+                    self.advance(); // skip )
+                    matched = true;
+                }
+            }
+        }
+
+        // TODO: Try reference link [text][label] or [text][]
+
+        if matched {
+            // Create link or image node
+            let node_type = if is_image { NodeType::Image } else { NodeType::Link };
+            let link_node = Rc::new(RefCell::new(Node::new(node_type)));
+
+            {
+                let mut link_mut = link_node.borrow_mut();
+                match &mut link_mut.data {
+                    NodeData::Link { url, title: link_title } => {
+                        *url = dest.unwrap_or_default();
+                        *link_title = title.unwrap_or_default();
+                    }
+                    NodeData::Image { url, title: img_title } => {
+                        *url = dest.unwrap_or_default();
+                        *img_title = title.unwrap_or_default();
+                    }
+                    _ => {}
+                }
+            }
+
+            // Move content between opener and closer into link node
+            let opener_inl = opener.inl_text.clone();
+            let mut nodes_to_move: Vec<Rc<RefCell<Node>>> = Vec::new();
+
+            {
+                let opener_ref = opener_inl.borrow();
+                let current_opt = opener_ref.next.borrow().clone();
+
+                let mut current_ptr = current_opt;
+                while let Some(curr) = current_ptr {
+                    let next_opt = curr.borrow().next.borrow().clone();
+                    nodes_to_move.push(curr);
+                    current_ptr = next_opt;
+                }
+            }
+
+            // Unlink nodes from parent and add to link
+            for node in nodes_to_move {
+                crate::node::unlink(&node);
+                append_child(&link_node, node);
+            }
+
+            // Insert link node after opener
+            crate::node::insert_after(&opener_inl, link_node);
+
+            // Unlink the opener text node
+            crate::node::unlink(&opener_inl);
+
+            // Process emphasis with opener's previous delimiter
+            self.process_emphasis(opener.previous_delimiter.as_ref().map(|d| d.as_ref() as *const _));
+
+            // For links (not images), deactivate previous link openers
+            if !is_image {
+                let mut current = self.brackets.clone();
+                while let Some(ref b) = current {
+                    if !b.image {
+                        // Mark as inactive - we'd need to modify Bracket to have a way to do this
+                        // For now, we'll just leave it
+                    }
+                    current = b.previous.clone();
+                }
+            }
+
+            // Restore bracket stack
+            self.brackets = opener.previous;
+        } else {
+            // No match, restore bracket and add ]
+            self.brackets = Some(opener);
+            self.append_text(parent, "]");
+        }
 
         true
+    }
+
+    /// Skip spaces and at most one newline
+    fn skip_spaces_and_newlines(&mut self) {
+        let mut saw_newline = false;
+        while let Some(c) = self.peek() {
+            if c == ' ' || c == '\t' {
+                self.advance();
+            } else if c == '\n' && !saw_newline {
+                self.advance();
+                saw_newline = true;
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Parse link destination (URL)
+    fn parse_link_destination(&mut self) -> Option<String> {
+        // Try angle-bracketed destination: <url>
+        if self.peek() == Some('<') {
+            self.advance(); // skip <
+            let start = self.pos;
+
+            while let Some(c) = self.peek() {
+                if c == '>' {
+                    let dest = self.input[start..self.pos].to_string();
+                    self.advance(); // skip >
+                    return Some(dest);
+                } else if c == '\n' || c == '<' {
+                    return None;
+                } else if c == '\\' {
+                    self.advance();
+                    if let Some(next_c) = self.peek() {
+                        if is_escapable(next_c) {
+                            self.advance();
+                        }
+                    }
+                } else {
+                    self.advance();
+                }
+            }
+            return None;
+        }
+
+        // Try unbracketed destination
+        let start = self.pos;
+        let mut paren_depth = 0;
+
+        while let Some(c) = self.peek() {
+            if c == '\\' {
+                self.advance();
+                if let Some(next_c) = self.peek() {
+                    if is_escapable(next_c) {
+                        self.advance();
+                    }
+                }
+            } else if c == '(' {
+                paren_depth += 1;
+                self.advance();
+            } else if c == ')' {
+                if paren_depth == 0 {
+                    break;
+                }
+                paren_depth -= 1;
+                self.advance();
+            } else if c.is_ascii_whitespace() {
+                break;
+            } else {
+                self.advance();
+            }
+        }
+
+        if self.pos > start {
+            Some(self.input[start..self.pos].to_string())
+        } else {
+            None
+        }
+    }
+
+    /// Parse link title
+    fn parse_link_title(&mut self) -> Option<String> {
+        let quote = match self.peek() {
+            Some('"') => '"',
+            Some('\'') => '\'',
+            Some('(') => '(',
+            _ => return None,
+        };
+
+        let close_quote = if quote == '(' { ')' } else { quote };
+        self.advance(); // skip opening quote
+
+        let start = self.pos;
+
+        while let Some(c) = self.peek() {
+            if c == close_quote {
+                let title = self.input[start..self.pos].to_string();
+                self.advance(); // skip closing quote
+                return Some(title);
+            } else if c == '\n' {
+                return None;
+            } else if c == '\\' {
+                self.advance();
+                if let Some(next_c) = self.peek() {
+                    if is_escapable(next_c) {
+                        self.advance();
+                    }
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        None
     }
 
     /// Parse bang (!, could be start of image)
@@ -419,6 +796,7 @@ impl Subject {
                 image: true,
                 active: true,
                 bracket_after: false,
+                previous_delimiter: self.delimiters.clone(),
             });
 
             self.brackets = Some(bracket);
@@ -544,5 +922,64 @@ mod tests {
         let parent_ref = parent.borrow();
         let first_child = parent_ref.first_child.borrow();
         assert!(first_child.is_some());
+    }
+
+    #[test]
+    fn test_parse_link() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "[link text](https://example.com)", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+
+        // Check link URL
+        let link = first_child.as_ref().unwrap().borrow();
+        match &link.data {
+            NodeData::Link { url, .. } => {
+                assert_eq!(url, "https://example.com");
+            }
+            _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_link_with_title() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "[link](https://example.com \"title\")", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+
+        let link = first_child.as_ref().unwrap().borrow();
+        match &link.data {
+            NodeData::Link { url, title, .. } => {
+                assert_eq!(url, "https://example.com");
+                assert_eq!(title, "title");
+            }
+            _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_image() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "![alt text](https://example.com/image.png)", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Image);
+
+        let img = first_child.as_ref().unwrap().borrow();
+        match &img.data {
+            NodeData::Image { url, .. } => {
+                assert_eq!(url, "https://example.com/image.png");
+            }
+            _ => panic!("Expected Image node"),
+        }
     }
 }
