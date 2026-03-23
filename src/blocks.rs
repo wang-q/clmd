@@ -387,8 +387,19 @@ impl BlockParser {
             self.find_next_nonspace();
             let indented = self.indent >= CODE_INDENT;
 
+            // Check if we're inside a leaf block that accepts lines
+            // (HTML blocks and code blocks don't allow nested blocks)
+            let container_type = current_container.borrow().node_type;
+            let in_leaf_block = matches!(container_type, NodeType::HtmlBlock | NodeType::CodeBlock);
+
+            // If we're inside a leaf block, don't try to start any new blocks
+            if in_leaf_block {
+                return current_container;
+            }
+
             // Check if we can start a new block
-            if indented && !maybe_lazy && !self.blank {
+            // Don't create indented code block if we're inside a leaf block
+            if indented && !maybe_lazy && !self.blank && !in_leaf_block {
                 // Indented code block
                 self.close_unmatched_blocks();
                 let code_block = self.add_child(NodeType::CodeBlock, self.offset);
@@ -481,11 +492,13 @@ impl BlockParser {
             }
 
             // Try HTML block
-            if !indented && self.peek_next_nonspace() == Some('<') {
+            // Don't start a new HTML block if we're already inside an HTML block
+            // (HTML blocks can contain other tags)
+            let in_html_block = current_container.borrow().node_type == NodeType::HtmlBlock;
+
+            if !indented && !in_html_block && self.peek_next_nonspace() == Some('<') {
                 let line = &self.current_line[self.next_nonspace..];
-                eprintln!("DEBUG: Checking HTML block for line: {:?}", line);
                 if let Some(block_type) = self.scan_html_block_start(line, &current_container, maybe_lazy) {
-                    eprintln!("DEBUG: Matched HTML block type: {}", block_type);
                     self.close_unmatched_blocks();
                     let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
                     self.set_html_block_type(&html_block, block_type);
@@ -561,104 +574,204 @@ impl BlockParser {
     }
 
     /// Scan for HTML block start
+    /// Based on commonmark.js reHtmlBlockOpen patterns
     fn scan_html_block_start(&self, line: &str, container: &Rc<RefCell<Node>>, maybe_lazy: bool) -> Option<u8> {
-        if line.starts_with("<script") || line.starts_with("<pre") ||
-           line.starts_with("<textarea") || line.starts_with("<style") {
+        // Type 1: <script, <pre, <textarea, <style followed by space, >, or EOL
+        if self.match_html_block_type1(line) {
             return Some(1);
         }
+
+        // Type 2: <!--
         if line.starts_with("<!--") {
             return Some(2);
         }
+
+        // Type 3: <?
         if line.starts_with("<?") {
             return Some(3);
         }
-        // Type 4: Declaration <!DOCTYPE ...> or similar
-        // Must start with <! followed by an uppercase ASCII letter
+
+        // Type 4: <! followed by uppercase letter (declaration)
         if line.starts_with("<!") && line.len() > 2 {
             let third_char = line.chars().nth(2).unwrap();
-            // Declaration must be uppercase letter (like DOCTYPE)
             if third_char.is_ascii_uppercase() {
                 return Some(4);
             }
         }
+
+        // Type 5: <![CDATA[
         if line.starts_with("<![CDATA[") {
             return Some(5);
         }
-        if line.starts_with("</") {
-            let tags = ["address", "article", "aside", "base", "basefont", "blockquote", "body",
-                       "caption", "center", "col", "colgroup", "dd", "details", "dialog",
-                       "dir", "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer",
-                       "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6",
-                       "head", "header", "hr", "html", "iframe", "legend", "li", "link",
-                       "main", "menu", "menuitem", "nav", "noframes", "ol", "optgroup",
-                       "option", "p", "param", "section", "search", "summary", "table",
-                       "tbody", "td", "tfoot", "th", "thead", "title", "tr", "track", "ul"];
-            let rest = &line[2..].to_lowercase();
-            if tags.iter().any(|tag| rest.starts_with(tag)) {
-                return Some(6);
-            }
+
+        // Type 6: Specific block-level tags
+        if self.match_html_block_type6(line) {
+            return Some(6);
         }
+
+        // Type 7: Complete HTML tag (cannot interrupt paragraph, not lazy)
         if line.starts_with('<') && !maybe_lazy {
-            // Type 7: any other tag (cannot interrupt paragraph)
-            // Must match valid HTML tag pattern: <tagname> or </tagname>
             if container.borrow().node_type != NodeType::Paragraph {
-                if self.is_valid_html_tag(line) {
+                if self.is_valid_html_tag_type7(line) {
                     return Some(7);
                 }
             }
         }
+
         None
     }
 
-    /// Check if a line starts with a valid HTML tag (for type 7 HTML blocks)
-    /// Type 7: A line that starts with a complete HTML tag (open or close)
-    /// The tag must end on the same line for type 7
-    fn is_valid_html_tag(&self, line: &str) -> bool {
+    /// Match HTML block type 1: <script, <pre, <textarea, <style
+    /// Must be followed by space, >, newline, or end of line
+    fn match_html_block_type1(&self, line: &str) -> bool {
+        let tags = ["script", "pre", "textarea", "style"];
+        for tag in &tags {
+            if line.len() < tag.len() + 1 {
+                continue;
+            }
+            if line[1..].to_lowercase().starts_with(tag) {
+                let after = &line[1 + tag.len()..];
+                // Must be followed by space, tab, >, newline, or end of line
+                return after.is_empty()
+                    || after.starts_with(' ')
+                    || after.starts_with('\t')
+                    || after.starts_with('>')
+                    || after.starts_with('\n')
+                    || after.starts_with('\r');
+            }
+        }
+        false
+    }
+
+    /// Match HTML block type 6: Block-level HTML tags
+    /// Matches: <tag ...> or </tag ...> where tag is in the specific list
+    fn match_html_block_type6(&self, line: &str) -> bool {
+        let tags = ["address", "article", "aside", "base", "basefont", "blockquote", "body",
+                   "caption", "center", "col", "colgroup", "dd", "details", "dialog",
+                   "dir", "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer",
+                   "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6",
+                   "head", "header", "hr", "html", "iframe", "legend", "li", "link",
+                   "main", "menu", "menuitem", "nav", "noframes", "ol", "optgroup",
+                   "option", "p", "param", "section", "search", "summary", "table",
+                   "tbody", "td", "tfoot", "th", "thead", "title", "tr", "track", "ul"];
+
+        // Tags that should end HTML block type 1, not start type 6
+        let type1_end_tags = ["script", "pre", "textarea", "style"];
+
+        let line_lower = line.to_lowercase();
+
+        for tag in &tags {
+            // Check for opening tag: <tag
+            if line_lower.len() >= 1 + tag.len() && line_lower[1..].starts_with(tag) {
+                let after = &line_lower[1 + tag.len()..];
+                // Must be followed by space, tab, >, newline, or />
+                if after.is_empty()
+                    || after.starts_with(' ')
+                    || after.starts_with('\t')
+                    || after.starts_with('>')
+                    || after.starts_with('\n')
+                    || after.starts_with('\r')
+                    || after.starts_with("/>") {
+                    return true;
+                }
+            }
+
+            // Check for closing tag: </tag
+            if line_lower.len() >= 2 + tag.len() && line_lower[2..].starts_with(tag) {
+                let after = &line_lower[2 + tag.len()..];
+                // Must be followed by space, tab, >, newline, or />
+                if after.is_empty()
+                    || after.starts_with(' ')
+                    || after.starts_with('\t')
+                    || after.starts_with('>')
+                    || after.starts_with('\n')
+                    || after.starts_with('\r')
+                    || after.starts_with("/>") {
+                    // Don't match closing tags for type 1 tags (they end type 1 blocks)
+                    if !type1_end_tags.contains(&tag.as_ref()) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if a line is a valid HTML tag for type 7 HTML blocks
+    /// Type 7: The entire line must be a complete open tag or close tag
+    /// Based on commonmark.js: new RegExp("^(?:" + OPENTAG + "|" + CLOSETAG + ")\\s*$", "i")
+    fn is_valid_html_tag_type7(&self, line: &str) -> bool {
         if !line.starts_with('<') {
             return false;
         }
 
-        let rest = &line[1..];
-        if rest.is_empty() {
-            return false;
+        // Check for closing tag first: </tagname>
+        if line.starts_with("</") {
+            return self.is_valid_close_tag_type7(line);
         }
 
-        // Check for closing tag: </tagname>
-        let is_closing = rest.starts_with('/');
-        let tag_start = if is_closing { 1 } else { 0 };
-        let rest = &rest[tag_start..];
+        // Check for open tag: <tagname ...>
+        self.is_valid_open_tag_type7(line)
+    }
 
-        if rest.is_empty() {
+    /// Check if line is a valid open tag for type 7
+    /// Format: <tagname> or <tagname attr="value"> etc.
+    fn is_valid_open_tag_type7(&self, line: &str) -> bool {
+        let mut chars = line.chars().peekable();
+
+        // Must start with <
+        if chars.next() != Some('<') {
             return false;
         }
 
         // Tag name must start with a letter
-        let first_char = rest.chars().next().unwrap();
-        if !first_char.is_ascii_alphabetic() {
-            return false;
-        }
+        let first_char = match chars.next() {
+            Some(c) if c.is_ascii_alphabetic() => c,
+            _ => return false,
+        };
 
-        // Tag name can contain letters, digits, hyphens
-        let mut end_pos = 1;
-        for (i, c) in rest.chars().enumerate().skip(1) {
-            if c.is_ascii_alphanumeric() || c == '-' {
-                end_pos = i + 1;
-            } else {
-                break;
+        // Rest of tag name: letters, digits, hyphens
+        loop {
+            match chars.peek() {
+                Some(&c) if c.is_ascii_alphanumeric() || c == '-' => {
+                    chars.next();
+                }
+                _ => break,
             }
         }
 
-        let after_tag = &rest[end_pos..];
+        // Now parse attributes and closing >
+        self.parse_tag_attributes_and_close(&mut chars)
+    }
 
-        // For type 7 HTML block, the tag must be complete on this line
-        // Valid patterns after tag name:
-        // - > (end of open tag)
-        // - /> (self-closing)
-        // - whitespace + attributes + > or />
-        // - whitespace + >
+    /// Check if line is a valid close tag for type 7
+    /// Format: </tagname>
+    fn is_valid_close_tag_type7(&self, line: &str) -> bool {
+        let mut chars = line.chars().peekable();
+
+        // Must start with </
+        if chars.next() != Some('<') || chars.next() != Some('/') {
+            return false;
+        }
+
+        // Tag name must start with a letter
+        let first_char = match chars.next() {
+            Some(c) if c.is_ascii_alphabetic() => c,
+            _ => return false,
+        };
+
+        // Rest of tag name: letters, digits, hyphens
+        loop {
+            match chars.peek() {
+                Some(&c) if c.is_ascii_alphanumeric() || c == '-' => {
+                    chars.next();
+                }
+                _ => break,
+            }
+        }
 
         // Skip whitespace
-        let mut chars = after_tag.chars().peekable();
         while let Some(&c) = chars.peek() {
             if c.is_whitespace() {
                 chars.next();
@@ -667,29 +780,99 @@ impl BlockParser {
             }
         }
 
-        // Check what comes next
-        match chars.peek() {
-            Some(&'>') => true,  // <tag> or </tag> or <tag >
-            Some(&'/') => {
-                // Check for self-closing: <tag/>
-                chars.next();
-                matches!(chars.peek(), Some(&'>'))
-            }
-            Some(&c) if c.is_ascii_alphabetic() || c == '_' => {
-                // Has attributes - must end with > on this line
-                // But we need to be careful not to match URLs like <https://...>
-                // A URL will have :// after the "tagname", while an HTML attribute won't
-                // Let's check if this looks like a URL scheme
-                let remaining: String = chars.collect();
-                if remaining.contains("://") {
-                    // This is likely a URL, not an HTML tag
-                    false
-                } else {
-                    // Check if there's a > somewhere to close the tag
-                    remaining.contains('>')
-                }
+        // Must end with >
+        match chars.next() {
+            Some('>') => {
+                // Rest must be whitespace only
+                chars.all(|c| c.is_whitespace())
             }
             _ => false,
+        }
+    }
+
+    /// Parse tag attributes and closing >
+    fn parse_tag_attributes_and_close(&self, chars: &mut std::iter::Peekable<std::str::Chars>) -> bool {
+        loop {
+            // Skip whitespace
+            while let Some(&c) = chars.peek() {
+                if c.is_whitespace() {
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+
+            match chars.peek() {
+                Some(&'>') => {
+                    chars.next();
+                    // Rest must be whitespace only
+                    return chars.all(|c| c.is_whitespace());
+                }
+                Some(&'/') => {
+                    // Self-closing tag />
+                    chars.next();
+                    match chars.peek() {
+                        Some(&'>') => {
+                            chars.next();
+                            return chars.all(|c| c.is_whitespace());
+                        }
+                        _ => return false,
+                    }
+                }
+                Some(&c) if c.is_ascii_alphabetic() || c == '_' => {
+                    // Attribute name
+                    chars.next();
+                    loop {
+                        match chars.peek() {
+                            Some(&c) if c.is_ascii_alphanumeric() || c == ':' || c == '_' || c == '-' || c == '.' => {
+                                chars.next();
+                            }
+                            _ => break,
+                        }
+                    }
+
+                    // Check for =value
+                    if let Some(&'=') = chars.peek() {
+                        chars.next();
+                        // Parse attribute value
+                        match chars.peek() {
+                            Some(&'"') => {
+                                chars.next();
+                                loop {
+                                    match chars.next() {
+                                        Some('"') => break,
+                                        Some(_) => continue,
+                                        None => return false,
+                                    }
+                                }
+                            }
+                            Some(&'\'') => {
+                                chars.next();
+                                loop {
+                                    match chars.next() {
+                                        Some('\'') => break,
+                                        Some(_) => continue,
+                                        None => return false,
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Unquoted value
+                                loop {
+                                    match chars.peek() {
+                                        Some(&c) if !c.is_whitespace() && c != '>' && c != '/' => {
+                                            chars.next();
+                                        }
+                                        _ => break,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Continue to next attribute
+                }
+                _ => return false,
+            }
         }
     }
 
@@ -1027,8 +1210,8 @@ impl BlockParser {
             line_content.push_str(&self.current_line[self.offset..]);
         }
 
-        // Append to node's string content (with newline like commonmark.js)
-        line_content.push('\n');
+        // Append to node's string content
+        // Note: current_line already ends with newline from process_line
         self.append_string_content(node, &line_content);
     }
 
