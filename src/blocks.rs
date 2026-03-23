@@ -3,8 +3,9 @@
 /// This module implements the block parsing algorithm based on the CommonMark spec.
 /// It processes input line by line, building the AST structure.
 
+use crate::inlines::parse_reference;
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
-use crate::node::{append_child, DelimType, ListType, Node, NodeData, NodeType, SourcePos};
+use crate::node::{append_child, DelimType, ListType, Node, NodeData, NodeType, SourcePos, unlink};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -44,8 +45,8 @@ pub struct BlockParser {
     pub last_line_length: usize,
     /// Content buffer for accumulating text (used during parsing)
     pub content: String,
-    /// Reference map for link references
-    pub refmap: std::collections::HashMap<String, String>,
+    /// Reference map for link references: label -> (url, title)
+    pub refmap: std::collections::HashMap<String, (String, String)>,
     /// Block info for each node (fence info, list data, etc.)
     pub block_info: std::collections::HashMap<*const (), BlockInfo>,
 }
@@ -1008,15 +1009,63 @@ impl BlockParser {
                 }
             }
             NodeType::Paragraph => {
-                let content = self.get_string_content(block);
+                let mut content = self.get_string_content(block);
+
+                // Process link reference definitions at the beginning of the paragraph
+                let mut has_reference_defs = false;
+                let mut total_lines_removed: usize = 0;
+
+                while !content.is_empty() && content.starts_with('[') {
+                    // Try to parse a reference definition
+                    let consumed = parse_reference(&content, &mut self.refmap);
+
+                    if consumed == 0 {
+                        // Not a reference definition, stop processing
+                        break;
+                    }
+
+                    // Count lines in removed text
+                    let removed_text = &content[..consumed];
+                    let lines: Vec<&str> = removed_text.lines().collect();
+                    let lines_removed = if removed_text.ends_with('\n') {
+                        lines.len()
+                    } else {
+                        lines.len().saturating_sub(1)
+                    };
+                    total_lines_removed += lines_removed;
+
+                    // Remove the parsed reference definition from the content
+                    content = content[consumed..].to_string();
+                    has_reference_defs = true;
+                }
+
+                // Update source_pos if we removed any reference definitions
+                if total_lines_removed > 0 {
+                    let mut block_mut = block.borrow_mut();
+                    let source_pos = block_mut.source_pos;
+                    block_mut.source_pos = SourcePos {
+                        start_line: source_pos.start_line + total_lines_removed as u32,
+                        start_column: source_pos.start_column,
+                        end_line: source_pos.end_line,
+                        end_column: source_pos.end_column,
+                    };
+                }
+
                 // Remove trailing newline
                 let content = content.trim_end_matches('\n');
-                {
-                    let mut block_mut = block.borrow_mut();
-                    if let NodeData::Text { literal: ref mut l } = block_mut.data {
-                        *l = content.to_string();
-                    } else {
-                        block_mut.data = NodeData::Text { literal: content.to_string() };
+
+                // If paragraph is empty after removing reference definitions, mark it for deletion
+                if has_reference_defs && content.trim().is_empty() {
+                    // Store empty content marker
+                    self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
+                } else {
+                    {
+                        let mut block_mut = block.borrow_mut();
+                        if let NodeData::Text { literal: ref mut l } = block_mut.data {
+                            *l = content.to_string();
+                        } else {
+                            block_mut.data = NodeData::Text { literal: content.to_string() };
+                        }
                     }
                 }
             }
@@ -1079,6 +1128,65 @@ impl BlockParser {
             self.finalize_block(&tip);
         }
         self.finalize_block(&self.doc.clone());
+
+        // Remove link reference definitions from the document
+        self.remove_link_reference_definitions();
+    }
+
+    /// Remove link reference definitions from the document
+    /// This processes paragraph nodes marked as empty during finalization
+    fn remove_link_reference_definitions(&mut self) {
+        let empty_nodes = self.find_empty_paragraphs();
+
+        // Remove empty nodes (paragraphs that only contained reference definitions)
+        for node in empty_nodes {
+            unlink(&node);
+        }
+    }
+
+    /// Find paragraphs marked as empty (only contained reference definitions)
+    fn find_empty_paragraphs(&self) -> Vec<Rc<RefCell<Node>>> {
+        let mut empty_nodes = Vec::new();
+        self.collect_empty_paragraphs(&self.doc.clone(), &mut empty_nodes);
+        empty_nodes
+    }
+
+    /// Recursively collect empty paragraphs
+    fn collect_empty_paragraphs(&self, node: &Rc<RefCell<Node>>, empty_nodes: &mut Vec<Rc<RefCell<Node>>>) {
+        let node_type = node.borrow().node_type;
+
+        // Check if this is a paragraph marked as empty
+        if node_type == NodeType::Paragraph {
+            let content = self.get_string_content(node);
+            if content == "__EMPTY_PARAGRAPH__" {
+                empty_nodes.push(node.clone());
+            }
+        }
+
+        // Recursively process children
+        let children_to_process: Vec<Rc<RefCell<Node>>> = {
+            let node_ref = node.borrow();
+            let mut children = Vec::new();
+            if let Some(first_child) = node_ref.first_child.borrow().clone() {
+                children.push(first_child.clone());
+                let mut current = first_child.clone();
+                loop {
+                    let next_opt = current.borrow().next.borrow().clone();
+                    match next_opt {
+                        Some(next) => {
+                            children.push(next.clone());
+                            current = next;
+                        }
+                        None => break,
+                    }
+                }
+            }
+            children
+        };
+
+        for child in children_to_process {
+            self.collect_empty_paragraphs(&child, empty_nodes);
+        }
     }
 
     /// Check if a node ends with a blank line
@@ -1430,5 +1538,64 @@ mod tests {
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
         assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Heading);
+    }
+
+    #[test]
+    fn test_remove_link_reference_definitions() {
+        let input = "[label]: https://example.com\n\nSome text";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        // The reference definition paragraph should be removed
+        // So the first child should be the "Some text" paragraph
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some(), "Document should have a first child");
+        
+        let first_child_ref = first_child.as_ref().unwrap().borrow();
+        assert_eq!(first_child_ref.node_type, NodeType::Paragraph, "First child should be a paragraph");
+
+        // Check the paragraph's data - it should have the text content
+        match &first_child_ref.data {
+            NodeData::Text { literal } => {
+                assert_eq!(literal, "Some text", "Paragraph content should be 'Some text'");
+            }
+            _ => {
+                // If data is not Text, check first_child for inline content
+                let para_content = first_child_ref.first_child.borrow();
+                if let Some(content_node) = para_content.clone() {
+                    let content_ref = content_node.borrow();
+                    if let NodeData::Text { literal } = &content_ref.data {
+                        assert_eq!(literal, "Some text", "Paragraph content should be 'Some text'");
+                    } else {
+                        panic!("Expected Text node, got {:?}", content_ref.data);
+                    }
+                } else {
+                    panic!("Paragraph should have content in either data or first_child");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_remove_multiple_reference_definitions() {
+        let input = "[label1]: https://example.com\n[label2]: https://example.org\n\nSome text";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        // Both reference definitions should be removed
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_reference_definition_with_title() {
+        let input = "[label]: https://example.com \"title\"\n\nSome text";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
     }
 }
