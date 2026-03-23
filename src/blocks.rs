@@ -440,12 +440,9 @@ impl BlockParser {
                                 *l = level as u32;
                             }
                         }
-                        // Extract heading content
-                        let content = self.current_line[self.offset..].to_string();
-                        let content = content.trim_end();
-                        let content = content.trim_end_matches('#').trim_end();
-                        let content = content.trim_start();
-                        self.set_string_content(&heading, content.to_string());
+                        // ATX heading content will be added by add_text_to_container
+                        // which calls add_line_to_node and then finalize_block
+                        // creates the text child node
                         return heading;
                     }
                 }
@@ -853,7 +850,45 @@ impl BlockParser {
 
     /// Chop trailing hashtags from ATX heading
     fn chop_trailing_hashtags(&mut self) {
-        // This is handled in the ATX heading creation
+        // Use offset as the start of content (after ATX marker)
+        // At this point, offset points to just after the # characters
+        let line = &self.current_line[self.offset..];
+
+        // Trim leading whitespace first
+        let line = line.trim_start_matches(|c: char| c == ' ' || c == '\t');
+
+        // Now trim trailing whitespace (including newline) and hashtags
+        let trimmed = line.trim_end_matches(|c: char| c == ' ' || c == '\t' || c == '\n' || c == '\r');
+
+        // Remove trailing hashtags (must be preceded by space/tab)
+        let mut end = trimmed.len();
+        let mut hash_count = 0;
+
+        for (i, c) in trimmed.char_indices().rev() {
+            if c == '#' {
+                hash_count += 1;
+            } else if c == ' ' || c == '\t' {
+                // Space/tab before hashes - this is a valid closing sequence
+                end = i;
+                break;
+            } else {
+                // Non-space, non-hash character - not a closing sequence
+                hash_count = 0;
+                break;
+            }
+        }
+
+        if hash_count > 0 {
+            // Truncate the line to remove closing hashes and trailing spaces
+            // Calculate position: offset + (original line len - trimmed len) + end
+            let leading_ws_len = self.current_line[self.offset..].len() - line.len();
+            let new_len = self.offset + leading_ws_len + end;
+            self.current_line.truncate(new_len);
+            // Also trim trailing spaces from the truncated line
+            while self.current_line.ends_with(' ') || self.current_line.ends_with('\t') {
+                self.current_line.pop();
+            }
+        }
     }
 
     /// Check for HTML block end condition
@@ -1011,6 +1046,20 @@ impl BlockParser {
                     if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {
                         *l = content.to_string();
                     }
+                }
+            }
+            NodeType::Heading => {
+                // For ATX headings, content was set during creation
+                // For Setext headings, content was accumulated in string_content
+                let content = self.get_string_content(block);
+                if !content.is_empty() {
+                    // Create a text node as child for inline processing
+                    let text_node = Node::new_with_data(
+                        NodeType::Text,
+                        NodeData::Text { literal: content.trim_end().to_string() },
+                    );
+                    let text_rc = Rc::new(RefCell::new(text_node));
+                    append_child(block, text_rc);
                 }
             }
             NodeType::Paragraph => {
