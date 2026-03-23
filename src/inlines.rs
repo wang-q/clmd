@@ -1091,6 +1091,13 @@ pub fn parse_inlines_with_refmap(
 ) {
     let mut subject = Subject::with_refmap(content, line, block_offset, refmap);
     subject.parse_inlines(parent);
+
+    // Clear the parent's literal content since it's now represented as child nodes
+    // This prevents the renderer from using the literal instead of children
+    let mut parent_mut = parent.borrow_mut();
+    if let NodeData::Text { ref mut literal } = parent_mut.data {
+        literal.clear();
+    }
 }
 
 /// Parse a reference definition from the beginning of a string.

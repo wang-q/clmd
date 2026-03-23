@@ -1465,6 +1465,14 @@ mod tests {
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
         assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+
+        // Check paragraph content
+        let para = first_child.as_ref().unwrap().borrow();
+        if let NodeData::Text { literal } = &para.data {
+            assert_eq!(literal, "Hello world");
+        } else {
+            panic!("Expected Text data");
+        }
     }
 
     #[test]
