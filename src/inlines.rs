@@ -33,6 +33,8 @@ pub struct Subject {
     pub scanned_for_backticks: bool,
     /// Whether there are no link openers
     pub no_link_openers: bool,
+    /// Reference map for link references
+    pub refmap: std::collections::HashMap<String, (String, String)>,
 }
 
 /// Delimiter struct for tracking emphasis markers
@@ -89,6 +91,24 @@ impl Subject {
             backticks: vec![0; MAX_BACKTICKS + 1],
             scanned_for_backticks: false,
             no_link_openers: false,
+            refmap: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Create a new subject with a reference map
+    pub fn with_refmap(input: &str, line: usize, block_offset: usize, refmap: std::collections::HashMap<String, (String, String)>) -> Self {
+        Subject {
+            input: input.to_string(),
+            pos: 0,
+            line,
+            column_offset: 0,
+            block_offset,
+            delimiters: None,
+            brackets: None,
+            backticks: vec![0; MAX_BACKTICKS + 1],
+            scanned_for_backticks: false,
+            no_link_openers: false,
+            refmap,
         }
     }
 
@@ -242,9 +262,14 @@ impl Subject {
 
     /// Parse entity or numeric character reference
     fn parse_entity(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
-        // For now, just treat & as literal
-        // Full entity parsing would require an entity table
-        self.parse_string(parent)
+        if let Some((c, len)) = parse_entity_char(&self.input[self.pos..]) {
+            self.append_text(parent, &c.to_string());
+            self.pos += len;
+            true
+        } else {
+            // Not a valid entity, treat & as literal
+            self.parse_string(parent)
+        }
     }
 
     /// Parse less-than sign (could be autolink or HTML tag)
@@ -264,9 +289,61 @@ impl Subject {
     }
 
     /// Parse autolink (URL or email in angle brackets)
-    fn parse_autolink(&mut self, _parent: &Rc<RefCell<Node>>) -> bool {
-        // Simplified autolink detection
-        // Full implementation would use regex
+    fn parse_autolink(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
+        let remaining = &self.input[self.pos..];
+
+        // Try email autolink first
+        if let Some((email, len)) = match_email_autolink(remaining) {
+            let link_node = Rc::new(RefCell::new(Node::new(NodeType::Link)));
+            {
+                let mut link_mut = link_node.borrow_mut();
+                if let NodeData::Link { ref mut url, ref mut title } = link_mut.data {
+                    *url = format!("mailto:{}", email);
+                    *title = String::new();
+                }
+            }
+
+            // Add text content
+            let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+            {
+                let mut text_mut = text_node.borrow_mut();
+                if let NodeData::Text { ref mut literal } = text_mut.data {
+                    *literal = email;
+                }
+            }
+            append_child(&link_node, text_node);
+            append_child(parent, link_node);
+
+            self.pos += len;
+            return true;
+        }
+
+        // Try URL autolink
+        if let Some((url, len)) = match_url_autolink(remaining) {
+            let link_node = Rc::new(RefCell::new(Node::new(NodeType::Link)));
+            {
+                let mut link_mut = link_node.borrow_mut();
+                if let NodeData::Link { url: ref mut link_url, title: ref mut link_title } = link_mut.data {
+                    *link_url = url.clone();
+                    *link_title = String::new();
+                }
+            }
+
+            // Add text content
+            let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+            {
+                let mut text_mut = text_node.borrow_mut();
+                if let NodeData::Text { ref mut literal } = text_mut.data {
+                    *literal = url;
+                }
+            }
+            append_child(&link_node, text_node);
+            append_child(parent, link_node);
+
+            self.pos += len;
+            return true;
+        }
+
         false
     }
 
@@ -566,6 +643,7 @@ impl Subject {
         let mut matched = false;
         let mut dest: Option<String> = None;
         let mut title: Option<String> = None;
+        let mut reflabel: Option<String> = None;
 
         // Try inline link: [text](url "title")
         if self.peek() == Some('(') {
@@ -590,7 +668,34 @@ impl Subject {
             }
         }
 
-        // TODO: Try reference link [text][label] or [text][]
+        // Try reference link [text][label] or [text][]
+        if !matched {
+            let before_label = self.pos;
+            let label_len = self.parse_link_label();
+
+            if label_len > 2 {
+                // Collapsed reference link [text][] or full [text][label]
+                let label = self.input[before_label..before_label + label_len].to_string();
+                reflabel = Some(label);
+            } else if label_len == 0 {
+                // Shortcut reference link [text]
+                self.pos = before_label; // rewind
+                // Use the text between brackets as label
+                if !opener.bracket_after {
+                    reflabel = Some(self.input[opener.position..start_pos - 1].to_string());
+                }
+            }
+
+            if let Some(label) = reflabel {
+                // Normalize the label and look up in refmap
+                let norm_label = normalize_reference(&label);
+                if let Some((dest_url, dest_title)) = self.lookup_reference(&norm_label) {
+                    dest = Some(dest_url);
+                    title = Some(dest_title);
+                    matched = true;
+                }
+            }
+        }
 
         if matched {
             // Create link or image node
@@ -780,6 +885,62 @@ impl Subject {
         None
     }
 
+    /// Parse a link label like [label]
+    /// Returns the length of the label including brackets, or 0 if no match
+    fn parse_link_label(&mut self) -> usize {
+        let start_pos = self.pos;
+
+        // Must start with [
+        if self.peek() != Some('[') {
+            return 0;
+        }
+        self.advance(); // skip [
+
+        let label_start = self.pos;
+        let mut bracket_depth = 1;
+
+        while let Some(c) = self.peek() {
+            if c == '\\' {
+                self.advance();
+                if self.peek().is_some() {
+                    self.advance();
+                }
+            } else if c == '[' {
+                bracket_depth += 1;
+                self.advance();
+            } else if c == ']' {
+                bracket_depth -= 1;
+                if bracket_depth == 0 {
+                    self.advance(); // skip ]
+                    let label_len = self.pos - start_pos;
+                    // Label must not be empty and max 999 characters (excluding brackets)
+                    let content_len = self.pos - label_start - 1;
+                    if content_len == 0 || content_len > 999 {
+                        self.pos = start_pos;
+                        return 0;
+                    }
+                    return label_len;
+                }
+                self.advance();
+            } else if c == '\n' {
+                // Labels cannot contain newlines
+                self.pos = start_pos;
+                return 0;
+            } else {
+                self.advance();
+            }
+        }
+
+        // No closing bracket found
+        self.pos = start_pos;
+        0
+    }
+
+    /// Look up a reference in the refmap
+    fn lookup_reference(&self, label: &str) -> Option<(String, String)> {
+        self.refmap.get(label).cloned()
+    }
+
     /// Parse bang (!, could be start of image)
     fn parse_bang(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
         self.advance(); // skip !
@@ -873,6 +1034,26 @@ fn is_escapable(c: char) -> bool {
     matches!(c, '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~')
 }
 
+/// Normalize a reference label for lookup
+/// - Collapses internal whitespace to a single space
+/// - Removes leading/trailing whitespace
+/// - Converts to uppercase (for case-insensitive comparison)
+pub fn normalize_reference(label: &str) -> String {
+    // Remove surrounding brackets if present
+    let label = if label.starts_with('[') && label.ends_with(']') {
+        &label[1..label.len() - 1]
+    } else {
+        label
+    };
+
+    label
+        .trim()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_uppercase()
+}
+
 /// Check if a character is punctuation
 fn is_punctuation(c: char) -> bool {
     matches!(c, '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~')
@@ -883,6 +1064,262 @@ fn is_punctuation(c: char) -> bool {
 pub fn parse_inlines(parent: &Rc<RefCell<Node>>, content: &str, line: usize, block_offset: usize) {
     let mut subject = Subject::new(content, line, block_offset);
     subject.parse_inlines(parent);
+}
+
+/// Parse inline content with reference map
+pub fn parse_inlines_with_refmap(
+    parent: &Rc<RefCell<Node>>,
+    content: &str,
+    line: usize,
+    block_offset: usize,
+    refmap: std::collections::HashMap<String, (String, String)>,
+) {
+    let mut subject = Subject::with_refmap(content, line, block_offset, refmap);
+    subject.parse_inlines(parent);
+}
+
+/// Parse a reference definition from the beginning of a string.
+/// Returns the number of characters consumed, or 0 if no reference was found.
+/// If a reference is found, it is added to the refmap.
+pub fn parse_reference(s: &str, refmap: &mut std::collections::HashMap<String, (String, String)>) -> usize {
+    let mut subject = Subject::new(s, 1, 0);
+    subject.parse_reference_definition(refmap)
+}
+
+impl Subject {
+    /// Parse a reference definition: [label]: url "title"
+    /// Returns the number of characters consumed, or 0 if no reference was found
+    fn parse_reference_definition(&mut self, refmap: &mut std::collections::HashMap<String, (String, String)>) -> usize {
+        let start_pos = self.pos;
+
+        // Parse label: [label]
+        let label_len = self.parse_link_label();
+        if label_len == 0 {
+            return 0;
+        }
+
+        let raw_label = self.input[start_pos..start_pos + label_len].to_string();
+
+        // Expect colon
+        if self.peek() != Some(':') {
+            return 0;
+        }
+        self.advance(); // skip :
+
+        // Skip spaces and newlines
+        self.skip_spaces_and_newlines();
+
+        // Parse link destination
+        let dest = match self.parse_link_destination() {
+            Some(d) => d,
+            None => return 0,
+        };
+
+        let before_title = self.pos;
+        self.skip_spaces_and_newlines();
+
+        // Try to parse optional title
+        let title = if self.pos != before_title {
+            self.parse_link_title()
+        } else {
+            None
+        };
+
+        if title.is_none() {
+            self.pos = before_title;
+        }
+
+        // Must be at end of line
+        let at_line_end = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
+            || self.pos == self.input.len();
+
+        if !at_line_end {
+            // Check if we can still match without title
+            self.pos = before_title;
+            let at_line_end_without_title = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
+                || self.pos == self.input.len();
+            if !at_line_end_without_title {
+                return 0;
+            }
+        }
+
+        // Normalize label and add to refmap
+        let norm_label = normalize_reference(&raw_label);
+        if !norm_label.is_empty() {
+            // Only add if not already present (first definition wins)
+            refmap.entry(norm_label).or_insert((dest, title.unwrap_or_default()));
+        }
+
+        self.pos
+    }
+}
+
+/// HTML entity patterns
+const ENTITY_PATTERN: &str = r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
+
+/// Parse an HTML entity and return the character it represents
+fn parse_entity_char(input: &str) -> Option<(char, usize)> {
+    if !input.starts_with('&') {
+        return None;
+    }
+
+    // Try numeric entity: &#123; or &#x7B;
+    if input.len() >= 3 && input.as_bytes()[1] == b'#' {
+        let hex = input.as_bytes().get(2).copied() == Some(b'x') || input.as_bytes().get(2).copied() == Some(b'X');
+
+        if hex {
+            // Hex entity: &#x7B;
+            let end = input.find(';').unwrap_or(input.len());
+            if end > 3 && end <= 9 {
+                let hex_str = &input[3..end];
+                if let Ok(code) = u32::from_str_radix(hex_str, 16) {
+                    if let Some(c) = char::from_u32(code) {
+                        return Some((c, end + 1));
+                    }
+                }
+            }
+        } else {
+            // Decimal entity: &#123;
+            let end = input.find(';').unwrap_or(input.len());
+            if end > 2 && end <= 8 {
+                let num_str = &input[2..end];
+                if let Ok(code) = num_str.parse::<u32>() {
+                    if let Some(c) = char::from_u32(code) {
+                        return Some((c, end + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    // Try named entity
+    let end = input.find(';').unwrap_or(input.len());
+    if end > 1 && end <= 33 {
+        let name = &input[1..end];
+        if let Some(c) = lookup_named_entity(name) {
+            return Some((c, end + 1));
+        }
+    }
+
+    None
+}
+
+/// Look up a named HTML entity
+fn lookup_named_entity(name: &str) -> Option<char> {
+    match name {
+        "amp" => Some('&'),
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        "nbsp" => Some('\u{00A0}'),
+        "copy" => Some('\u{00A9}'),
+        "reg" => Some('\u{00AE}'),
+        "trade" => Some('\u{2122}'),
+        "mdash" => Some('\u{2014}'),
+        "ndash" => Some('\u{2013}'),
+        "hellip" => Some('\u{2026}'),
+        "laquo" => Some('\u{00AB}'),
+        "raquo" => Some('\u{00BB}'),
+        "ldquo" => Some('\u{201C}'),
+        "rdquo" => Some('\u{201D}'),
+        "lsquo" => Some('\u{2018}'),
+        "rsquo" => Some('\u{2019}'),
+        _ => None,
+    }
+}
+
+/// Email autolink pattern
+fn match_email_autolink(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with('<') {
+        return None;
+    }
+
+    // Simple email pattern: <local@domain.tld>
+    let rest = &input[1..];
+
+    let mut at_pos = None;
+    let mut end_pos = 0;
+
+    for (i, c) in rest.chars().enumerate() {
+        if c == '@' && at_pos.is_none() && i > 0 {
+            at_pos = Some(i);
+        } else if c == '>' {
+            end_pos = i;
+            break;
+        } else if c == '\n' || c == '<' {
+            return None;
+        }
+    }
+
+    if let Some(at) = at_pos {
+        if at > 0 && end_pos > at + 1 {
+            let email = &rest[..end_pos];
+            // Basic validation: must have @ and at least one dot after @
+            let domain_part = &rest[at + 1..end_pos];
+            if domain_part.contains('.') {
+                return Some((email.to_string(), end_pos + 2)); // +2 for < and >
+            }
+        }
+    }
+
+    None
+}
+
+/// URL autolink pattern
+fn match_url_autolink(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with('<') {
+        return None;
+    }
+
+    // URL pattern: <scheme:...>
+    let rest = &input[1..];
+
+    // Must start with a letter, then letters/digits/+-.
+    let mut i = 0;
+    let mut has_colon = false;
+
+    for c in rest.chars() {
+        if c == ':' {
+            has_colon = true;
+            i += 1;
+            break;
+        } else if c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '+' || c == '-' || c == '.' {
+            if i == 0 && !c.is_ascii_alphabetic() {
+                return None;
+            }
+            i += 1;
+            if i > 32 {
+                return None; // Scheme too long
+            }
+        } else {
+            return None;
+        }
+    }
+
+    if !has_colon || i < 2 {
+        return None;
+    }
+
+    // Now parse the rest of the URL
+    let url_start = i;
+    let mut end_pos = 0;
+
+    for (j, c) in rest[url_start..].chars().enumerate() {
+        if c == '>' {
+            end_pos = url_start + j;
+            break;
+        } else if c == '\n' || c == '<' || c.is_ascii_control() {
+            return None;
+        }
+    }
+
+    if end_pos > url_start {
+        let url = &rest[..end_pos];
+        return Some((url.to_string(), end_pos + 2)); // +2 for < and >
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -980,6 +1417,130 @@ mod tests {
                 assert_eq!(url, "https://example.com/image.png");
             }
             _ => panic!("Expected Image node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_entity() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "&amp; &lt; &gt; &quot;", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+
+        let text = first_child.as_ref().unwrap().borrow();
+        match &text.data {
+            NodeData::Text { literal } => {
+                assert_eq!(literal, "& < > \"");
+            }
+            _ => panic!("Expected Text node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_numeric_entity() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "&#60; &#x3C;", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+
+        let text = first_child.as_ref().unwrap().borrow();
+        match &text.data {
+            NodeData::Text { literal } => {
+                assert_eq!(literal, "< <");
+            }
+            _ => panic!("Expected Text node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_url_autolink() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<https://example.com>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+
+        let link = first_child.as_ref().unwrap().borrow();
+        match &link.data {
+            NodeData::Link { url, .. } => {
+                assert_eq!(url, "https://example.com");
+            }
+            _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_email_autolink() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<test@example.com>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+
+        let link = first_child.as_ref().unwrap().borrow();
+        match &link.data {
+            NodeData::Link { url, .. } => {
+                assert_eq!(url, "mailto:test@example.com");
+            }
+            _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_reference() {
+        let mut refmap = std::collections::HashMap::new();
+
+        // Parse a reference definition
+        let consumed = parse_reference("[label]: https://example.com \"title\"", &mut refmap);
+        assert!(consumed > 0);
+
+        // Check that the reference was added
+        let (url, title) = refmap.get("LABEL").expect("Reference should be in map");
+        assert_eq!(url, "https://example.com");
+        assert_eq!(title, "title");
+    }
+
+    #[test]
+    fn test_parse_reference_no_title() {
+        let mut refmap = std::collections::HashMap::new();
+
+        // Parse a reference definition without title
+        let consumed = parse_reference("[label]: https://example.com", &mut refmap);
+        assert!(consumed > 0);
+
+        let (url, title) = refmap.get("LABEL").expect("Reference should be in map");
+        assert_eq!(url, "https://example.com");
+        assert_eq!(title, "");
+    }
+
+    #[test]
+    fn test_reference_link() {
+        let mut refmap = std::collections::HashMap::new();
+        refmap.insert("LABEL".to_string(), ("https://example.com".to_string(), "title".to_string()));
+
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines_with_refmap(&parent, "[text][label]", 1, 0, refmap);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Link);
+
+        let link = first_child.as_ref().unwrap().borrow();
+        match &link.data {
+            NodeData::Link { url, title, .. } => {
+                assert_eq!(url, "https://example.com");
+                assert_eq!(title, "title");
+            }
+            _ => panic!("Expected Link node"),
         }
     }
 }
