@@ -293,7 +293,6 @@ const result = writer.render(parsed);
 | Code spans | 1 |
 | Paragraphs | 1 |
 | Thematic breaks | 1 |
-| HTML blocks | 0 |
 
 ### 下一步工作
 

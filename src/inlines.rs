@@ -567,47 +567,84 @@ impl Subject {
     /// This prevents nested links (no links in links)
     /// Based on commonmark.js: deactivate link openers before this one
     fn deactivate_previous_link_openers(&mut self) {
-        // We need to traverse the bracket stack and mark all link openers as inactive
-        // Since we can't easily modify the stack while iterating, we'll rebuild it
-        let mut new_stack: Option<Box<Bracket>> = None;
-        let mut current = self.brackets.take();
+        // Deactivate all previous link openers in the bracket stack
+        // This prevents nested links (no links in links)
+        // Based on commonmark.js: after a link is matched, deactivate all earlier link openers
+        let mut current = self.brackets.as_mut();
 
-        while let Some(mut bracket) = current {
-            let previous = bracket.previous.take();
-
+        while let Some(bracket) = current {
             if !bracket.image {
                 // Deactivate this link opener
                 bracket.active = false;
             }
-
-            // Add to new stack (reversing order)
-            bracket.previous = new_stack;
-            new_stack = Some(bracket);
-
-            current = previous;
+            current = bracket.previous.as_mut();
         }
+    }
 
-        // Reverse back to original order
-        let mut reversed: Option<Box<Bracket>> = None;
-        current = new_stack;
-        while let Some(mut bracket) = current {
-            let previous = bracket.previous.take();
-            bracket.previous = reversed;
-            reversed = Some(bracket);
-            current = previous;
+    /// Remove delimiters that were added after the link opener
+    /// These delimiters are inside the link text and should not be processed as emphasis
+    fn remove_delimiters_inside_link(&mut self, opener: &Bracket) {
+        // Remove all delimiters that were added after the opener's previous_delimiter
+        // These are delimiters inside the link text
+        let stack_bottom = opener.previous_delimiter.clone();
+
+        // The delimiter stack is organized with previous pointers (from top to bottom)
+        // We need to find delimiters that are NEWER than stack_bottom (i.e., have stack_bottom in their previous chain)
+        if let Some(ref bottom) = stack_bottom {
+            // Simply set the stack_bottom's next to None
+            // This effectively removes all delimiters newer than stack_bottom
+            bottom.borrow_mut().next = None;
+
+            // Now we need to rebuild the delimiter stack
+            // Collect all delimiters from stack_bottom down to the bottom
+            let mut delimiters_to_keep: Vec<Rc<RefCell<Delimiter>>> = Vec::new();
+            let mut current = Some(bottom.clone());
+
+            while let Some(delim) = current {
+                delimiters_to_keep.push(delim.clone());
+                current = delim.borrow().previous.clone();
+            }
+
+            // Rebuild the stack with proper next/previous links
+            // delimiters_to_keep is in order from stack_bottom to bottom
+            // We need to reverse it to get from bottom to stack_bottom
+            delimiters_to_keep.reverse();
+
+            // Clear and rebuild
+            self.delimiters = None;
+            let mut prev_delim: Option<Rc<RefCell<Delimiter>>> = None;
+
+            for delim in delimiters_to_keep {
+                delim.borrow_mut().previous = prev_delim.clone();
+                delim.borrow_mut().next = None;
+                if let Some(ref prev) = prev_delim {
+                    prev.borrow_mut().next = Some(delim.clone());
+                }
+                self.delimiters = Some(delim.clone());
+                prev_delim = Some(delim);
+            }
+        } else {
+            // No previous delimiter, remove all delimiters
+            self.delimiters = None;
         }
-
-        self.brackets = reversed;
     }
 
     /// Process emphasis delimiters
     /// Based on commonmark.js processEmphasis function
-    fn process_emphasis(&mut self, _stack_bottom: Option<*const Delimiter>) {
+    /// stack_bottom: if provided, only process delimiters after this one
+    fn process_emphasis(&mut self, stack_bottom: Option<Rc<RefCell<Delimiter>>>) {
         // Get all delimiters as a vector for easier processing
+        // Only include delimiters after stack_bottom
         let mut delims: Vec<Rc<RefCell<Delimiter>>> = Vec::new();
         let mut current = self.delimiters.clone();
 
         while let Some(d) = current {
+            // Check if we've reached stack_bottom
+            if let Some(ref bottom) = stack_bottom {
+                if Rc::ptr_eq(&d, bottom) {
+                    break;
+                }
+            }
             delims.push(d.clone());
             current = d.borrow().previous.clone();
         }
@@ -984,18 +1021,24 @@ impl Subject {
             // Unlink the opener text node
             crate::node::unlink(&opener_inl);
 
+            // Remove delimiters that are inside the link from the delimiter stack
+            // These delimiters should not be processed as emphasis
+            self.remove_delimiters_inside_link(&opener);
+
             // Process emphasis with opener's previous delimiter
-            // For now, pass None to process all delimiters
-            self.process_emphasis(None);
+            // This ensures that emphasis delimiters inside the link are not processed
+            // until the link is fully constructed
+            self.process_emphasis(opener.previous_delimiter.clone());
+
+            // Remove the matched opener from bracket stack BEFORE deactivating previous openers
+            // This ensures we don't deactivate the current opener itself
+            self.brackets = opener.previous;
 
             // For links (not images), deactivate previous link openers
             // This prevents nested links (no links in links)
             if !is_image {
                 self.deactivate_previous_link_openers();
             }
-
-            // Restore bracket stack (remove the matched opener)
-            self.brackets = opener.previous;
         } else {
             // No match - remove this opener from stack and add ] as text
             // Based on commonmark.js: this.removeBracket()
@@ -1153,36 +1196,35 @@ impl Subject {
         self.advance(); // skip [
 
         let label_start = self.pos;
-        let mut bracket_depth = 1;
 
         while let Some(c) = self.peek() {
             if c == '\\' {
+                // Escaped character - skip both backslash and next char
                 self.advance();
                 if self.peek().is_some() {
                     self.advance();
                 }
             } else if c == '[' {
-                bracket_depth += 1;
-                self.advance();
-            } else if c == ']' {
-                bracket_depth -= 1;
-                if bracket_depth == 0 {
-                    self.advance(); // skip ]
-                    let label_len = self.pos - start_pos;
-                    // Label max 999 characters (excluding brackets)
-                    // Empty label ([]) is allowed for collapsed reference links
-                    let content_len = self.pos - label_start - 1;
-                    if content_len > 999 {
-                        self.pos = start_pos;
-                        return 0;
-                    }
-                    return label_len;
-                }
-                self.advance();
-            } else if c == '\n' {
-                // Labels cannot contain newlines
+                // Unescaped [ is not allowed in link labels
+                // Rewind and return 0
                 self.pos = start_pos;
                 return 0;
+            } else if c == ']' {
+                // Found closing bracket
+                self.advance(); // skip ]
+                let label_len = self.pos - start_pos;
+                // Label max 999 characters (excluding brackets)
+                // Empty label ([]) is allowed for collapsed reference links
+                let content_len = self.pos - label_start - 1;
+                if content_len > 999 {
+                    self.pos = start_pos;
+                    return 0;
+                }
+                return label_len;
+            } else if c == '\n' {
+                // Labels can contain newlines, but they are normalized to spaces
+                // during reference normalization. We just need to continue parsing.
+                self.advance();
             } else {
                 self.advance();
             }
@@ -1468,12 +1510,18 @@ pub fn normalize_reference(label: &str) -> String {
         label
     };
 
-    label
+    // Normalize whitespace: collapse all whitespace sequences to a single space
+    // Note: We do NOT process escape sequences here - they are preserved in the label
+    // This matches commonmark.js behavior where [foo\!] does not match [foo!]
+    let normalized = label
         .trim()
         .split_whitespace()
         .collect::<Vec<_>>()
-        .join(" ")
-        .to_uppercase()
+        .join(" ");
+
+    // Unicode case folding: to_lowercase().to_uppercase() matches commonmark.js behavior
+    // This properly handles characters like ß which folds to SS
+    normalized.to_lowercase().to_uppercase()
 }
 
 /// Check if a character is punctuation
