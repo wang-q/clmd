@@ -197,93 +197,18 @@ const result = writer.render(parsed);
 
 基于对 CommonMark 参考项目的分析，我们制定以下 Rust 实现的开发计划：
 
-### 第一阶段：基础架构搭建 (已完成)
+### 开发阶段
 
-1. **项目初始化** (已完成)
-   - 创建 Rust 项目结构
-   - 配置依赖和构建系统
-   - 建立基本的模块结构
+#### 已完成
 
-2. **节点系统实现** (已完成)
-   - 定义节点类型（块级和内联）
-   - 实现节点数据结构
-   - 提供树操作方法（添加、删除、替换节点）
-   - 实现节点遍历器
+- **基础架构搭建**：项目结构、节点系统、核心 API
+- **解析器实现**：词法分析、块级解析、内联解析、引用处理
+- **渲染器实现**：HTML 渲染器、XML 渲染器
 
-3. **核心 API 设计** (已完成)
-   - 设计简单接口（类似 `cmark_markdown_to_html`）
-   - 设计完整接口（解析器、渲染器等）
-   - 定义配置选项
+#### 进行中
 
-### 第二阶段：解析器实现 (进行中)
-
-1. **词法分析器**
-   - 实现标记 (token) 生成
-   - 处理空白、换行等特殊字符
-
-2. **块级解析**
-   - 实现段落解析
-   - 实现标题解析
-   - 实现列表解析
-   - 实现代码块解析
-   - 实现引用块解析
-   - 实现其他块级元素解析
-
-3. **内联解析**
-   - 实现强调解析
-   - 实现链接解析
-   - 实现代码解析
-   - 实现其他内联元素解析
-
-4. **引用处理**
-   - 实现引用解析和处理
-   - 实现脚注处理
-
-### 第三阶段：渲染器实现 (部分完成)
-
-1. **HTML 渲染器** (已完成基础)
-   - 实现基本 HTML 渲染
-   - 支持安全模式
-   - 支持源代码位置信息
-
-2. **XML 渲染器** (已完成基础)
-   - 实现 XML 格式渲染
-
-3. **其他渲染器**（可选）
-   - 考虑实现 LaTeX 渲染器
-   - 考虑实现 CommonMark 渲染器
-
-### 第四阶段：测试和优化
-
-1. **测试策略**
-   - 实现单元测试
-   - 实现集成测试
-   - 使用 CommonMark 规范测试套件
-   - 实现性能测试
-
-2. **性能优化**
-   - 优化解析算法
-   - 优化内存使用
-   - 并行处理考虑
-
-3. **安全性**
-   - 实现 HTML 清理
-   - 实现危险链接检测
-   - 进行安全测试
-
-### 第五阶段：文档和发布
-
-1. **API 文档**
-   - 编写详细的 API 文档
-   - 提供使用示例
-
-2. **用户文档**
-   - 编写安装指南
-   - 编写使用教程
-
-3. **发布准备**
-   - 准备发布版本
-   - 发布到 crates.io
+- **测试和优化**：修复剩余的 131 个 CommonMark 规范测试失败用例
+- **文档完善**：API 文档、使用示例
 
 ### 技术选型
 
@@ -337,28 +262,11 @@ const result = writer.render(parsed);
 3. 鲁棒性强：能正确处理各种病态输入
 4. 我们的项目还有很大改进空间（目前 43.3% vs 参考项目 100%）
 
-### 最近完成的工作
-
-1. **链接解析修复**（重大进展）：
-   - 修复了 `add_line_to_node` 未添加换行符的问题，使链接引用定义能被正确解析
-   - 修复了 shortcut reference link 的标签提取问题（`opener.position` 指向 `[`，需要 +1 获取实际标签内容）
-   - 链接引用定义解析现在正常工作：`[foo]` + `[foo]: /bar` → `<a href="/bar">foo</a>`
-   - 实现了 `unescape_string` 函数处理转义字符（如 `\(` → `(`）
-   - 实现了 `parse_entity` 函数处理 HTML 实体
-   - 更新了 `parse_link_destination` 和 `parse_link_title` 使用新的转义处理
-   - 修复了空链接目标问题 `[link]()`
-   - 修复了 URL 编码问题（空格转为 %20）
-   - 修复了嵌套方括号处理 `[link [foo [bar]]](/uri)`
-   - 修复了链接解析失败时未正确移除 opener 的问题
-   - 修复了 `parse_open_bracket` 错误合并文本节点的问题
-   - 实现了 `parse_newline` 处理软换行
-   - 通过率从 43.3% 提升到 62.9%，Links 失败测试从 82 个减少到 38 个
-
 ### 当前状态
 
 - **单元测试**：77 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：410/652 通过（62.9%）
+- **CommonMark 规范测试**：521/652 通过（79.9%）
 - **参考项目验证**：697/697 通过（100%）
 
 ### 失败测试分析
@@ -367,58 +275,52 @@ const result = writer.render(parsed);
 
 | Section | 失败数量 |
 |---------|---------|
-| Links | 38 |
-| HTML blocks | 44 |
-| Images | 20 |
-| Link reference definitions | 20 |
-| Lists | 12 |
-| Fenced code blocks | 12 |
-| Entity and numeric character references | 12 |
-| List items | 19 |
-| Hard line breaks | 8 |
+| Links | 27 |
+| Images | 15 |
+| Link reference definitions | 9 |
+| Lists | 10 |
+| List items | 18 |
+| Emphasis and strong emphasis | 9 |
+| Raw HTML | 10 |
 | Autolinks | 8 |
-| Backslash escapes | 6 |
-| Setext headings | 6 |
-| Block quotes | 2 |
-| Code spans | 2 |
+| Hard line breaks | 5 |
+| Entity and numeric character references | 4 |
+| Fenced code blocks | 2 |
+| Backslash escapes | 2 |
 | ATX headings | 3 |
-| Indented code blocks | 1 |
+| Setext headings | 5 |
+| Block quotes | 1 |
+| Code spans | 1 |
 | Paragraphs | 1 |
-| Raw HTML | 20 |
-| Thematic breaks | 2 |
-| Emphasis and strong emphasis | ~10（部分复杂情况仍需修复）|
-
-**注意**：
-- 强调解析已从 90 个失败减少到约 10 个
-- **链接解析从 82 个失败减少到 38 个**（修复了 44 个）
-- **通过率从 43.3% 提升到 62.9%**
-- 实现了 `unescape_string` 和 `normalize_uri` 函数处理转义字符和 URL 编码
-- 修复了嵌套方括号处理、空链接目标、URL 编码等多个链接相关问题
+| Thematic breaks | 1 |
+| HTML blocks | 0 |
 
 ### 下一步工作
 
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的约 279 个失败的 CommonMark 规范测试用例
+   - 修复剩余的 131 个失败的 CommonMark 规范测试用例
    - 主要问题类别（按优先级）：
-     - 链接解析（58 个失败）- 仍需改进
-     - HTML 块解析（44 个失败）
-     - 图片解析（20 个失败）
-     - 链接引用定义（20 个失败）
-     - 列表项（19 个失败）
-     - 原始 HTML（20 个失败）
-     - 强调解析剩余问题（约 10 个复杂边界情况）
+     - Links（27 个失败）
+     - Images（15 个失败）
+     - Link reference definitions（9 个失败）
+     - Lists（10 个失败）
+     - List items（18 个失败）
+     - Emphasis and strong emphasis（9 个失败）
+     - Raw HTML（10 个失败）
    - 性能基准测试
 
 2. **链接解析改进**（部分完成）：
    - ✅ 修复了 shortcut reference link 的标签提取问题
+   - ✅ 修复了 collapsed reference links `[foo][]` 的解析问题
    - ✅ 链接引用定义解析正常工作
    - 仍需处理：嵌套链接、复杂 URL、转义字符等
 
 3. **渲染器增强**（已完成基础改进）：
    - ✅ HTML 渲染器改进 URL 安全检查（支持 data:image/*）
    - ✅ Image alt 文本正确处理（使用 disable_tags 机制）
+   - ✅ HTML blocks 和 HtmlInline 直接输出原始 HTML
    - XML 渲染器支持 `HtmlInline` 节点（可选）
 
 4. **文档完善**：

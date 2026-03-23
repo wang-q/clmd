@@ -1099,8 +1099,13 @@ impl BlockParser {
             if container_type == NodeType::CodeBlock {
                 self.add_line_to_node(container);
             } else if container_type == NodeType::HtmlBlock {
+                // For HTML blocks type 1-5, check if this line ends the block
+                // If so, add the line first, then finalize
+                let should_end = self.check_html_block_end(container);
                 self.add_line_to_node(container);
-                self.check_html_block_end(container);
+                if should_end {
+                    self.finalize_block(container);
+                }
             } else if self.blank {
                 // Do nothing for blank lines
             } else if self.accepts_lines(container) {
@@ -1164,11 +1169,12 @@ impl BlockParser {
     }
 
     /// Check for HTML block end condition
-    fn check_html_block_end(&mut self, container: &Rc<RefCell<Node>>) {
+    /// Returns true if the block should end after this line
+    fn check_html_block_end(&self, container: &Rc<RefCell<Node>>) -> bool {
         let html_block_type = self.get_html_block_type(container);
         let line = &self.current_line[self.offset..];
 
-        let should_end = match html_block_type {
+        match html_block_type {
             1 => line.to_lowercase().contains("</script>")
                 || line.to_lowercase().contains("</pre>")
                 || line.to_lowercase().contains("</textarea>")
@@ -1178,10 +1184,6 @@ impl BlockParser {
             4 => line.contains(">"),
             5 => line.contains("]]>"),
             _ => false,
-        };
-
-        if should_end {
-            self.finalize_block(container);
         }
     }
 

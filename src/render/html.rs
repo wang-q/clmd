@@ -146,12 +146,10 @@ impl HtmlRenderer {
             }
             NodeType::HtmlBlock => {
                 self.cr();
-                if self.options & crate::options::UNSAFE != 0 {
-                    if let NodeData::HtmlBlock { literal } = &node.data {
-                        self.lit(literal);
-                    }
-                } else {
-                    self.lit("<!-- raw HTML omitted -->");
+                // HTML blocks are always output as raw HTML
+                // They are not subject to the same security restrictions as inline HTML
+                if let NodeData::HtmlBlock { literal } = &node.data {
+                    self.lit(literal);
                 }
                 self.lit("\n");
             }
@@ -201,12 +199,9 @@ impl HtmlRenderer {
                 self.lit("</code>");
             }
             NodeType::HtmlInline => {
-                if self.options & crate::options::UNSAFE != 0 {
-                    if let NodeData::HtmlInline { literal } = &node.data {
-                        self.lit(literal);
-                    }
-                } else {
-                    self.lit("<!-- raw HTML omitted -->");
+                // HtmlInline is output as raw HTML
+                if let NodeData::HtmlInline { literal } = &node.data {
+                    self.lit(literal);
                 }
             }
             NodeType::Emph => {

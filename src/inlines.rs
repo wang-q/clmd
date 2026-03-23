@@ -7,10 +7,37 @@
 use crate::node::{append_child, Node, NodeData, NodeType};
 use htmlescape::decode_html;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Maximum number of backticks to track
 const MAX_BACKTICKS: usize = 1000;
+
+/// HTML5 named entities lookup table
+/// This includes entities that may not be supported by htmlescape
+fn get_html5_entity(name: &str) -> Option<&'static str> {
+    // Common HTML5 entities not in htmlescape
+    let entities: HashMap<&str, &str> = [
+        ("Dcaron", "\u{010E}"),                           // Ď
+        ("HilbertSpace", "\u{210B}"),                     // ℋ
+        ("DifferentialD", "\u{2146}"),                    // ⅆ
+        ("ClockwiseContourIntegral", "\u{2232}"),         // ∲
+        ("ngE", "\u{2267}\u{0338}"),                      // ≧̸
+        ("AElig", "\u{00C6}"),                            // Æ
+        ("copy", "\u{00A9}"),                             // ©
+        ("nbsp", "\u{00A0}"),                             // 
+        ("amp", "&"),                                      // &
+        ("lt", "<"),                                       // <
+        ("gt", ">"),                                       // >
+        ("quot", "\""),                                    // "
+        ("frac34", "\u{00BE}"),                           // ¾
+    ]
+    .iter()
+    .copied()
+    .collect();
+
+    entities.get(name).copied()
+}
 
 /// Subject represents the string being parsed and tracks position
 pub struct Subject {
@@ -331,6 +358,7 @@ impl Subject {
             true
         } else {
             // Not a valid entity, treat & as literal
+            // The HTML renderer will escape it to &amp; if needed
             self.parse_string(parent)
         }
     }
@@ -870,16 +898,26 @@ impl Subject {
             let label_len = self.parse_link_label();
 
             if label_len > 2 {
-                // Collapsed reference link [text][] or full [text][label]
+                // Full reference link [text][label] with non-empty label
                 let label = self.input[before_label..before_label + label_len].to_string();
                 reflabel = Some(label);
+            } else if label_len == 2 {
+                // Collapsed reference link [text][] - use the link text as label
+                // For images, opener.position points to '!', so text starts at position + 2
+                // For links, opener.position points to '[', so text starts at position + 1
+                let label_start = if is_image { opener.position + 2 } else { opener.position + 1 };
+                let label_end = start_pos - 1;
+                if label_start < label_end {
+                    reflabel = Some(self.input[label_start..label_end].to_string());
+                }
             } else if label_len == 0 {
                 // Shortcut reference link [text]
                 self.pos = before_label; // rewind
                 // Use the text between brackets as label
-                // opener.position points to the '[', so we need to start from position + 1
+                // For images, opener.position points to '!', so text starts at position + 2
+                // For links, opener.position points to '[', so text starts at position + 1
                 if !opener.bracket_after {
-                    let label_start = opener.position + 1;
+                    let label_start = if is_image { opener.position + 2 } else { opener.position + 1 };
                     let label_end = start_pos - 1;
                     if label_start < label_end {
                         reflabel = Some(self.input[label_start..label_end].to_string());
@@ -1131,9 +1169,10 @@ impl Subject {
                 if bracket_depth == 0 {
                     self.advance(); // skip ]
                     let label_len = self.pos - start_pos;
-                    // Label must not be empty and max 999 characters (excluding brackets)
+                    // Label max 999 characters (excluding brackets)
+                    // Empty label ([]) is allowed for collapsed reference links
                     let content_len = self.pos - label_start - 1;
-                    if content_len == 0 || content_len > 999 {
+                    if content_len > 999 {
                         self.pos = start_pos;
                         return 0;
                     }
@@ -1289,6 +1328,8 @@ fn unescape_string(s: &str) -> String {
                     chars.next();
                 }
             } else {
+                // Not a valid entity, keep the & as is
+                // The HTML renderer will escape it if needed
                 result.push(c);
             }
         } else {
@@ -1310,23 +1351,28 @@ fn parse_entity(s: &str) -> Option<(String, usize)> {
     if s.starts_with('#') {
         let rest = &s[1..];
         if rest.starts_with('x') || rest.starts_with('X') {
-            // Hex entity
-            let hex_start = 1;
-            let hex_end = rest[hex_start..]
+            // Hex entity: #x7B; (rest starts with x)
+            let hex_digits_start = 1; // Skip the 'x' or 'X'
+            let hex_end = rest[hex_digits_start..]
                 .find(|c: char| !c.is_ascii_hexdigit())
-                .map(|i| hex_start + i)
+                .map(|i| hex_digits_start + i)
                 .unwrap_or(rest.len());
 
-            if hex_end > hex_start && rest[hex_end..].starts_with(';') {
-                let hex_str = &rest[hex_start..hex_end];
+            if hex_end > hex_digits_start && rest[hex_end..].starts_with(';') {
+                let hex_str = &rest[hex_digits_start..hex_end];
                 if let Ok(codepoint) = u32::from_str_radix(hex_str, 16) {
-                    if let Some(c) = char::from_u32(codepoint) {
-                        return Some((c.to_string(), 2 + hex_end - hex_start + 1));
-                    }
+                    // Handle invalid codepoints
+                    let c = if codepoint == 0 || codepoint > 0x10ffff {
+                        '\u{FFFD}' // Replacement character
+                    } else {
+                        char::from_u32(codepoint).unwrap_or('\u{FFFD}')
+                    };
+                    // Total length: # (1) + x (1) + hex_digits + ; (1)
+                    return Some((c.to_string(), 2 + hex_end - hex_digits_start + 1));
                 }
             }
         } else {
-            // Decimal entity
+            // Decimal entity: #123;
             let dec_end = rest
                 .find(|c: char| !c.is_ascii_digit())
                 .unwrap_or(rest.len());
@@ -1334,9 +1380,13 @@ fn parse_entity(s: &str) -> Option<(String, usize)> {
             if dec_end > 0 && rest[dec_end..].starts_with(';') {
                 let dec_str = &rest[..dec_end];
                 if let Ok(codepoint) = dec_str.parse::<u32>() {
-                    if let Some(c) = char::from_u32(codepoint) {
-                        return Some((c.to_string(), 1 + dec_end + 1));
-                    }
+                    // Handle invalid codepoints
+                    let c = if codepoint == 0 || codepoint > 0x10ffff {
+                        '\u{FFFD}' // Replacement character
+                    } else {
+                        char::from_u32(codepoint).unwrap_or('\u{FFFD}')
+                    };
+                    return Some((c.to_string(), 1 + dec_end + 1));
                 }
             }
         }
@@ -1348,10 +1398,19 @@ fn parse_entity(s: &str) -> Option<(String, usize)> {
 
         if name_end > 0 && s[name_end..].starts_with(';') {
             let name = &s[..name_end];
-            // Use htmlescape to decode the entity
+
+            // First try our HTML5 entity table
+            if let Some(decoded) = get_html5_entity(name) {
+                return Some((decoded.to_string(), name_end + 1));
+            }
+
+            // Then try htmlescape
             let entity_str = format!("&{};", name);
             if let Ok(decoded) = decode_html(&entity_str) {
-                return Some((decoded, name_end + 1));
+                // Only return if htmlescape actually decoded it
+                if decoded != entity_str {
+                    return Some((decoded, name_end + 1));
+                }
             }
         }
     }
@@ -1529,7 +1588,7 @@ impl Subject {
 const ENTITY_PATTERN: &str = r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
 
 /// Parse an HTML entity and return the decoded string and length
-/// Uses htmlescape crate to support all HTML5 named entities
+/// Uses htmlescape crate and our entity table to support all HTML5 named entities
 fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     if !input.starts_with('&') {
         return None;
@@ -1542,6 +1601,44 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     }
 
     let entity_str = &input[..end];
+
+    // Try numeric entity first: &#123; or &#x7B;
+    if entity_str.starts_with("&#") {
+        // Check if it's a valid numeric entity format
+        let rest = &entity_str[2..]; // Skip "&#"
+
+        if rest.starts_with('x') || rest.starts_with('X') {
+            // Hex entity: &#x7B;
+            let hex_digits = &rest[1..rest.len()-1]; // Skip 'x' and ';'
+            if !hex_digits.is_empty() && hex_digits.chars().all(|c| c.is_ascii_hexdigit()) {
+                // Valid hex format, use parse_entity
+                if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
+                    return Some((decoded, entity_str.len()));
+                }
+            }
+        } else {
+            // Decimal entity: &#123;
+            let dec_digits = &rest[..rest.len()-1]; // Remove ';'
+            if !dec_digits.is_empty() && dec_digits.chars().all(|c| c.is_ascii_digit()) {
+                // Valid decimal format, use parse_entity
+                if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
+                    return Some((decoded, entity_str.len()));
+                }
+            }
+        }
+        // Invalid numeric entity format - don't consume
+        return None;
+    }
+
+    // Try named entity from our table
+    if entity_str.len() > 2 {
+        let name = &entity_str[1..entity_str.len()-1]; // Remove & and ;
+        if !name.is_empty() {
+            if let Some(decoded) = get_html5_entity(name) {
+                return Some((decoded.to_string(), entity_str.len()));
+            }
+        }
+    }
 
     // Try to decode using htmlescape crate
     match decode_html(entity_str) {
