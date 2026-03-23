@@ -348,8 +348,23 @@ impl Subject {
     }
 
     /// Parse raw HTML tag
-    fn parse_html_tag(&mut self, _parent: &Rc<RefCell<Node>>) -> bool {
-        // Simplified HTML tag detection
+    fn parse_html_tag(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
+        let remaining = &self.input[self.pos..];
+
+        // Try to match HTML tag
+        if let Some((tag_content, len)) = match_html_tag(remaining) {
+            let html_node = Rc::new(RefCell::new(Node::new(NodeType::HtmlInline)));
+            {
+                let mut html_mut = html_node.borrow_mut();
+                if let NodeData::HtmlInline { ref mut literal } = html_mut.data {
+                    *literal = tag_content;
+                }
+            }
+            append_child(parent, html_node);
+            self.pos += len;
+            return true;
+        }
+
         false
     }
 
@@ -1322,6 +1337,208 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
     None
 }
 
+/// Match HTML tag and return the tag content and length
+fn match_html_tag(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with('<') {
+        return None;
+    }
+
+    // Try different HTML tag types in order
+
+    // 1. HTML Comment: <!-- ... -->
+    if let Some(result) = match_html_comment(input) {
+        return Some(result);
+    }
+
+    // 2. Processing Instruction: <? ... ?>
+    if let Some(result) = match_processing_instruction(input) {
+        return Some(result);
+    }
+
+    // 3. Declaration: <! ... >
+    if let Some(result) = match_declaration(input) {
+        return Some(result);
+    }
+
+    // 4. CDATA: <![CDATA[ ... ]]>
+    if let Some(result) = match_cdata(input) {
+        return Some(result);
+    }
+
+    // 5. Regular HTML tag (open, close, or self-closing)
+    if let Some(result) = match_regular_html_tag(input) {
+        return Some(result);
+    }
+
+    None
+}
+
+/// Match HTML comment: <!-- ... -->
+fn match_html_comment(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with("<!--") {
+        return None;
+    }
+
+    // Find -->
+    if let Some(end) = input.find("-->") {
+        return Some((input[..end + 3].to_string(), end + 3));
+    }
+
+    None
+}
+
+/// Match processing instruction: <? ... ?>
+fn match_processing_instruction(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with("<?") {
+        return None;
+    }
+
+    // Find ?>
+    if let Some(end) = input.find("?>") {
+        return Some((input[..end + 2].to_string(), end + 2));
+    }
+
+    None
+}
+
+/// Match declaration: <! ... >
+fn match_declaration(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with("<!") || input.starts_with("<![") {
+        return None;
+    }
+
+    // Find >
+    if let Some(end) = input.find('>') {
+        // Must not contain < or > inside
+        let content = &input[2..end];
+        if content.contains('<') || content.contains('>') {
+            return None;
+        }
+        return Some((input[..end + 1].to_string(), end + 1));
+    }
+
+    None
+}
+
+/// Match CDATA: <![CDATA[ ... ]]>
+fn match_cdata(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with("<![CDATA[") {
+        return None;
+    }
+
+    // Find ]]>
+    if let Some(end) = input.find("]]>") {
+        return Some((input[..end + 3].to_string(), end + 3));
+    }
+
+    None
+}
+
+/// Match regular HTML tag: open, close, or self-closing
+fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with('<') {
+        return None;
+    }
+
+    let rest = &input[1..];
+
+    // Check for close tag: </tag>
+    if rest.starts_with('/') {
+        return match_close_tag(input);
+    }
+
+    // Must start with a letter for tag name
+    let first_char = rest.chars().next()?;
+    if !first_char.is_ascii_alphabetic() {
+        return None;
+    }
+
+    // Parse tag name
+    let mut i = 1; // Skip the '<'
+    for c in rest.chars() {
+        if c.is_ascii_alphanumeric() || c == '-' {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+
+    // Parse attributes
+    let mut in_quotes = false;
+    let mut quote_char = '\0';
+
+    while i < input.len() {
+        let c = input.chars().nth(i)?;
+
+        if in_quotes {
+            if c == quote_char {
+                in_quotes = false;
+            }
+            i += 1;
+        } else {
+            match c {
+                '"' | '\'' => {
+                    in_quotes = true;
+                    quote_char = c;
+                    i += 1;
+                }
+                '>' => {
+                    // End of tag
+                    return Some((input[..i + 1].to_string(), i + 1));
+                }
+                '/' => {
+                    // Check for self-closing tag />
+                    if i + 1 < input.len() && input.chars().nth(i + 1)? == '>' {
+                        return Some((input[..i + 2].to_string(), i + 2));
+                    }
+                    i += 1;
+                }
+                '\n' | '<' => {
+                    // Invalid in tag
+                    return None;
+                }
+                _ => {
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Match close tag: </tag>
+fn match_close_tag(input: &str) -> Option<(String, usize)> {
+    if !input.starts_with("</") {
+        return None;
+    }
+
+    let rest = &input[2..];
+
+    // Must start with a letter
+    let first_char = rest.chars().next()?;
+    if !first_char.is_ascii_alphabetic() {
+        return None;
+    }
+
+    // Parse tag name
+    let mut i = 2; // Skip the '</'
+    for c in rest.chars() {
+        if c.is_ascii_alphanumeric() || c == '-' {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+
+    // Expect >
+    if i < input.len() && input.chars().nth(i)? == '>' {
+        return Some((input[..i + 1].to_string(), i + 1));
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1541,6 +1758,158 @@ mod tests {
                 assert_eq!(title, "title");
             }
             _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_open_tag() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<span>text</span>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<span>");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_close_tag() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "</span>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "</span>");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_self_closing_tag() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<br />", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<br />");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_tag_with_attributes() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<a href=\"https://example.com\" class=\"link\">", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<a href=\"https://example.com\" class=\"link\">");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_comment() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<!-- comment -->", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<!-- comment -->");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_processing_instruction() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<?xml version=\"1.0\"?>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<?xml version=\"1.0\"?>");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_declaration() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<!DOCTYPE html>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<!DOCTYPE html>");
+            }
+            _ => panic!("Expected HtmlInline node"),
+        }
+    }
+
+    #[test]
+    fn test_parse_html_cdata() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        parse_inlines(&parent, "<![CDATA[<html>]]>", 1, 0);
+
+        let parent_ref = parent.borrow();
+        let first_child = parent_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlInline);
+
+        let html = first_child.as_ref().unwrap().borrow();
+        match &html.data {
+            NodeData::HtmlInline { literal } => {
+                assert_eq!(literal, "<![CDATA[<html>]]>");
+            }
+            _ => panic!("Expected HtmlInline node"),
         }
     }
 }
