@@ -1,4 +1,7 @@
+pub mod blocks;
+pub mod inlines;
 pub mod iterator;
+pub mod lexer;
 pub mod node;
 pub mod parser;
 pub mod render;

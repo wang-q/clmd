@@ -1,0 +1,1434 @@
+/// Block-level parsing for CommonMark documents
+///
+/// This module implements the block parsing algorithm based on the CommonMark spec.
+/// It processes input line by line, building the AST structure.
+
+use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
+use crate::node::{append_child, DelimType, ListType, Node, NodeData, NodeType, SourcePos};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+/// Block parser state
+pub struct BlockParser {
+    /// Root document node
+    pub doc: Rc<RefCell<Node>>,
+    /// Current tip (last open block)
+    pub tip: Rc<RefCell<Node>>,
+    /// Old tip for tracking unmatched blocks
+    pub old_tip: Rc<RefCell<Node>>,
+    /// Last matched container
+    pub last_matched_container: Rc<RefCell<Node>>,
+    /// Current line being processed
+    pub current_line: String,
+    /// Current line number
+    pub line_number: usize,
+    /// Current offset in line
+    pub offset: usize,
+    /// Current column
+    pub column: usize,
+    /// Next non-space position
+    pub next_nonspace: usize,
+    /// Next non-space column
+    pub next_nonspace_column: usize,
+    /// Current indent level
+    pub indent: usize,
+    /// Whether current line is indented
+    pub indented: bool,
+    /// Whether current line is blank
+    pub blank: bool,
+    /// Whether we partially consumed a tab
+    pub partially_consumed_tab: bool,
+    /// Whether all containers are closed
+    pub all_closed: bool,
+    /// Last line length
+    pub last_line_length: usize,
+    /// Content buffer for accumulating text (used during parsing)
+    pub content: String,
+    /// Reference map for link references
+    pub refmap: std::collections::HashMap<String, String>,
+    /// Block info for each node (fence info, list data, etc.)
+    pub block_info: std::collections::HashMap<*const (), BlockInfo>,
+}
+
+/// Block info for tracking fenced code blocks and list items
+#[derive(Debug, Clone)]
+struct BlockInfo {
+    /// Block is open
+    pub is_open: bool,
+    /// For fenced code blocks: fence character
+    pub fence_char: char,
+    /// For fenced code blocks: fence length
+    pub fence_length: usize,
+    /// For fenced code blocks: fence offset
+    pub fence_offset: usize,
+    /// For list items: marker offset
+    pub marker_offset: usize,
+    /// For list items: padding
+    pub padding: usize,
+    /// For HTML blocks: block type (1-7)
+    pub html_block_type: u8,
+    /// For headings: setext flag
+    pub is_setext: bool,
+    /// Last line blank flag
+    pub last_line_blank: bool,
+    /// String content accumulator
+    pub string_content: String,
+}
+
+impl BlockInfo {
+    fn new() -> Self {
+        BlockInfo {
+            is_open: true,
+            fence_char: '\0',
+            fence_length: 0,
+            fence_offset: 0,
+            marker_offset: 0,
+            padding: 0,
+            html_block_type: 0,
+            is_setext: false,
+            last_line_blank: false,
+            string_content: String::new(),
+        }
+    }
+}
+
+impl BlockParser {
+    /// Create a new block parser
+    pub fn new() -> Self {
+        let doc = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let tip = doc.clone();
+        let old_tip = doc.clone();
+        let last_matched_container = doc.clone();
+
+        let mut parser = BlockParser {
+            doc: doc.clone(),
+            tip,
+            old_tip,
+            last_matched_container,
+            current_line: String::new(),
+            line_number: 0,
+            offset: 0,
+            column: 0,
+            next_nonspace: 0,
+            next_nonspace_column: 0,
+            indent: 0,
+            indented: false,
+            blank: false,
+            partially_consumed_tab: false,
+            all_closed: true,
+            last_line_length: 0,
+            content: String::new(),
+            refmap: std::collections::HashMap::new(),
+            block_info: std::collections::HashMap::new(),
+        };
+
+        // Initialize block info for document
+        parser.set_block_info(&doc, BlockInfo::new());
+
+        parser
+    }
+
+    /// Parse a complete document
+    pub fn parse(input: &str) -> Rc<RefCell<Node>> {
+        let mut parser = Self::new();
+
+        // Handle CRLF line endings
+        let normalized_input = input.replace("\r\n", "\n").replace('\r', "\n");
+
+        // Split input into lines
+        let lines: Vec<&str> = normalized_input.lines().collect();
+
+        for line in &lines {
+            parser.process_line(line);
+        }
+
+        // Process any remaining content
+        parser.process_line("");
+
+        // Finalize all blocks
+        parser.finalize_document();
+
+        parser.doc.clone()
+    }
+
+    /// Process a single line
+    pub fn process_line(&mut self, line: &str) {
+        self.current_line = line.to_string();
+        self.line_number += 1;
+        self.offset = 0;
+        self.column = 0;
+        self.blank = false;
+        self.partially_consumed_tab = false;
+
+        // Replace NUL characters for security
+        if self.current_line.contains('\u{0000}') {
+            self.current_line = self.current_line.replace('\u{0000}', "\u{FFFD}");
+        }
+
+        // Ensure line ends with newline
+        if !self.current_line.ends_with('\n') {
+            self.current_line.push('\n');
+        }
+
+        self.incorporate_line();
+        self.last_line_length = line.len();
+    }
+
+    /// Incorporate a line into the document
+    fn incorporate_line(&mut self) {
+        let mut all_matched = true;
+
+        self.old_tip = self.tip.clone();
+        self.all_closed = true;
+
+        // Try to match existing containers
+        let last_matched_container = self.check_open_blocks(&mut all_matched);
+
+        if last_matched_container.is_none() {
+            return;
+        }
+
+        let mut container = last_matched_container.unwrap();
+        self.last_matched_container = container.clone();
+
+        // Check if container is a leaf that accepts lines
+        let container_type = container.borrow().node_type;
+        let accepts_lines = self.accepts_lines(&container);
+        let is_leaf = matches!(container_type, NodeType::Heading | NodeType::ThematicBreak);
+
+        // Try new block starts if not a leaf block
+        if !is_leaf {
+            self.find_next_nonspace();
+
+            // Try each block start function
+            container = self.open_new_blocks(&container, all_matched);
+        }
+
+        // Add line content to appropriate container
+        self.add_text_to_container(&container);
+    }
+
+    /// Check which open blocks can continue on this line
+    fn check_open_blocks(&mut self, all_matched: &mut bool) -> Option<Rc<RefCell<Node>>> {
+        *all_matched = true;
+        let mut container = self.doc.clone();
+
+        loop {
+            let last_child_opt = container.borrow().last_child.borrow().clone();
+            if let Some(last_child) = last_child_opt {
+                if !self.is_open(&last_child) {
+                    break;
+                }
+                container = last_child;
+            } else {
+                break;
+            }
+
+            self.find_next_nonspace();
+
+            let result = self.check_container_continuation(&container);
+            match result {
+                0 => {} // Matched, continue
+                1 => {
+                    // Failed to match
+                    *all_matched = false;
+                    // Get parent before modifying container
+                    let parent_opt = container.borrow().parent.borrow().clone();
+                    container = parent_opt
+                        .and_then(|w| w.upgrade())
+                        .unwrap_or_else(|| self.doc.clone());
+                    break;
+                }
+                2 => return None, // End of line for fenced code
+                _ => panic!("Invalid continuation result"),
+            }
+        }
+
+        self.all_closed = Rc::ptr_eq(&container, &self.old_tip);
+
+        Some(container)
+    }
+
+    /// Check if a container can continue on this line
+    fn check_container_continuation(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+        let node_type = container.borrow().node_type;
+
+        match node_type {
+            NodeType::BlockQuote => self.continue_block_quote(),
+            NodeType::List => self.continue_list(container),
+            NodeType::Item => self.continue_item(container),
+            NodeType::CodeBlock => self.continue_code_block(container),
+            NodeType::HtmlBlock => self.continue_html_block(container),
+            NodeType::Heading => {
+                // Headings can only contain one line
+                1
+            }
+            NodeType::ThematicBreak => {
+                // Thematic breaks can only contain one line
+                1
+            }
+            NodeType::Paragraph => {
+                if self.blank {
+                    1
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        }
+    }
+
+    /// Continue block quote
+    fn continue_block_quote(&mut self) -> i32 {
+        if !self.indented && self.peek_next_nonspace() == Some('>') {
+            // Advance past the >
+            self.advance_next_nonspace();
+            self.advance_offset(1, false);
+            // Optional following space
+            if self.peek_current().map_or(false, is_space_or_tab) {
+                self.advance_offset(1, true);
+            }
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Continue list
+    fn continue_list(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+        // Lists continue if their last child (an item) continues
+        if let Some(last_child) = container.borrow().last_child.borrow().clone() {
+            if self.is_open(&last_child) {
+                return self.continue_item(&last_child);
+            }
+        }
+        0
+    }
+
+    /// Continue list item
+    fn continue_item(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+        if self.blank {
+            if container.borrow().first_child.borrow().is_none() {
+                // Blank line after empty list item
+                1
+            } else {
+                // Blank line in list item - advance to next non-space
+                self.advance_next_nonspace();
+                0
+            }
+        } else {
+            // Check indent
+            let (marker_offset, padding) = self.get_list_data(container);
+            if self.indent >= marker_offset + padding {
+                // Advance past the list marker padding
+                self.advance_offset(marker_offset + padding, true);
+                0
+            } else {
+                1
+            }
+        }
+    }
+
+    /// Continue code block
+    fn continue_code_block(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+        let is_fenced = self.is_fenced_code_block(container);
+
+        if is_fenced {
+            let (fence_char, fence_length, fence_offset) = self.get_fence_info(container);
+            // Fenced code block
+            if self.indent <= 3 {
+                let line = &self.current_line[self.next_nonspace..];
+                if line.starts_with(fence_char) {
+                    // Check for closing fence
+                    let fence_chars: String = line.chars().take_while(|&c| c == fence_char).collect();
+                    if fence_chars.len() >= fence_length {
+                        // Closing fence found
+                        self.finalize_block(container);
+                        return 2;
+                    }
+                }
+            }
+            // Continue with the code block - skip optional spaces of fence offset
+            let mut i = fence_offset;
+            while i > 0 && self.peek_current().map_or(false, is_space_or_tab) {
+                self.advance_offset(1, true);
+                i -= 1;
+            }
+            0
+        } else {
+            // Indented code block
+            if self.indent >= CODE_INDENT {
+                self.advance_offset(CODE_INDENT, true);
+                0
+            } else if self.blank {
+                self.advance_next_nonspace();
+                0
+            } else {
+                1
+            }
+        }
+    }
+
+    /// Continue HTML block
+    fn continue_html_block(&self, container: &Rc<RefCell<Node>>) -> i32 {
+        let html_block_type = self.get_html_block_type(container);
+
+        // HTML blocks 6 and 7 can be interrupted by blank lines
+        if self.blank && (html_block_type == 6 || html_block_type == 7) {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Try to open new blocks
+    fn open_new_blocks(&mut self, container: &Rc<RefCell<Node>>, all_matched: bool) -> Rc<RefCell<Node>> {
+        let mut current_container = container.clone();
+        let mut maybe_lazy = self.tip.borrow().node_type == NodeType::Paragraph;
+
+        loop {
+            self.find_next_nonspace();
+            let indented = self.indent >= CODE_INDENT;
+
+            // Check if we can start a new block
+            if indented && !maybe_lazy && !self.blank {
+                // Indented code block
+                self.close_unmatched_blocks();
+                let code_block = self.add_child(NodeType::CodeBlock, self.offset);
+                self.set_fence_info(&code_block, '\0', 0, 0);
+                self.advance_offset(CODE_INDENT, true);
+                return code_block;
+            }
+
+            // Try block quote
+            if !indented && self.peek_next_nonspace() == Some('>') {
+                self.close_unmatched_blocks();
+                self.advance_next_nonspace();
+                self.advance_offset(1, false);
+                if self.peek_current().map_or(false, is_space_or_tab) {
+                    self.advance_offset(1, true);
+                }
+                let block_quote = self.add_child(NodeType::BlockQuote, self.next_nonspace);
+                current_container = block_quote;
+                maybe_lazy = false;
+                continue;
+            }
+
+            // Try ATX heading
+            if !indented {
+                let line = &self.current_line[self.next_nonspace..];
+                let mut level = 0;
+                for c in line.chars() {
+                    if c == '#' && level < 6 {
+                        level += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                if level > 0 {
+                    let after_hashes = &line[level..];
+                    if after_hashes.is_empty() || after_hashes.starts_with(' ') || after_hashes.starts_with('\t') {
+                        self.close_unmatched_blocks();
+                        self.advance_next_nonspace();
+                        self.advance_offset(level, false);
+                        let heading = self.add_child(NodeType::Heading, self.next_nonspace);
+                        {
+                            let mut heading_mut = heading.borrow_mut();
+                            if let NodeData::Heading { level: ref mut l } = heading_mut.data {
+                                *l = level as u32;
+                            }
+                        }
+                        // Extract heading content
+                        let content = self.current_line[self.offset..].to_string();
+                        let content = content.trim_end();
+                        let content = content.trim_end_matches('#').trim_end();
+                        let content = content.trim_start();
+                        self.set_string_content(&heading, content.to_string());
+                        return heading;
+                    }
+                }
+            }
+
+            // Try fenced code block
+            if !indented {
+                let line = self.current_line[self.next_nonspace..].to_string();
+                if let Some(first_char) = line.chars().next() {
+                    if first_char == '`' || first_char == '~' {
+                        let mut fence_length = 0;
+                        for c in line.chars() {
+                            if c == first_char {
+                                fence_length += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        if fence_length >= 3 {
+                            let rest = &line[fence_length..];
+                            if first_char != '`' || !rest.contains('`') {
+                                self.close_unmatched_blocks();
+                                let info = rest.trim().to_string();
+                                let code_block = self.add_child(NodeType::CodeBlock, self.next_nonspace);
+                                {
+                                    let mut code_mut = code_block.borrow_mut();
+                                    if let NodeData::CodeBlock { info: ref mut i, .. } = code_mut.data {
+                                        *i = info;
+                                    }
+                                }
+                                self.set_fence_info(&code_block, first_char, fence_length, self.indent);
+                                self.advance_next_nonspace();
+                                self.advance_offset(fence_length, false);
+                                return code_block;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Try HTML block
+            if !indented && self.peek_next_nonspace() == Some('<') {
+                let line = &self.current_line[self.next_nonspace..];
+                if let Some(block_type) = self.scan_html_block_start(line, &current_container, maybe_lazy) {
+                    self.close_unmatched_blocks();
+                    let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
+                    self.set_html_block_type(&html_block, block_type);
+                    return html_block;
+                }
+            }
+
+            // Try setext heading
+            if !indented && current_container.borrow().node_type == NodeType::Paragraph {
+                let line = &self.current_line[self.next_nonspace..];
+                if let Some(level) = self.scan_setext_heading_line(line) {
+                    self.close_unmatched_blocks();
+                    // Convert paragraph to heading
+                    {
+                        let mut container_mut = current_container.borrow_mut();
+                        container_mut.node_type = NodeType::Heading;
+                        container_mut.data = NodeData::Heading { level };
+                    }
+                    self.set_setext(&current_container, true);
+                    self.advance_offset(self.current_line.len() - self.offset, false);
+                    return current_container;
+                }
+            }
+
+            // Try thematic break
+            if !indented && !(current_container.borrow().node_type == NodeType::Paragraph && !all_matched) {
+                let line = &self.current_line[self.next_nonspace..];
+                if self.scan_thematic_break(line) {
+                    self.close_unmatched_blocks();
+                    let thematic_break = self.add_child(NodeType::ThematicBreak, self.next_nonspace);
+                    self.advance_offset(self.current_line.len() - self.offset, false);
+                    return thematic_break;
+                }
+            }
+
+            // Try list item
+            if (!indented || current_container.borrow().node_type == NodeType::List) && self.indent < 4 {
+                if let Some((list_type, delim, start, marker_offset, padding)) = self.parse_list_marker(&current_container) {
+                    self.close_unmatched_blocks();
+
+                    // Check if we can continue an existing list
+                    let can_continue_list = current_container.borrow().node_type == NodeType::List
+                        && self.lists_match(&current_container, list_type, delim, start);
+
+                    if !can_continue_list {
+                        let list = self.add_child(NodeType::List, self.next_nonspace);
+                        {
+                            let mut list_mut = list.borrow_mut();
+                            if let NodeData::List { list_type: ref mut lt, delim: ref mut d, start: ref mut s, tight: ref mut t } = list_mut.data {
+                                *lt = list_type;
+                                *d = delim;
+                                *s = start;
+                                *t = true;
+                            }
+                        }
+                        current_container = list;
+                    }
+
+                    // Add list item
+                    let item = self.add_child(NodeType::Item, self.next_nonspace);
+                    self.set_list_data(&item, marker_offset, padding);
+                    current_container = item;
+                    maybe_lazy = false;
+                    continue;
+                }
+            }
+
+            // No new block started
+            break;
+        }
+
+        current_container
+    }
+
+    /// Scan for HTML block start
+    fn scan_html_block_start(&self, line: &str, container: &Rc<RefCell<Node>>, maybe_lazy: bool) -> Option<u8> {
+        if line.starts_with("<script") || line.starts_with("<pre") ||
+           line.starts_with("<textarea") || line.starts_with("<style") {
+            return Some(1);
+        }
+        if line.starts_with("<!--") {
+            return Some(2);
+        }
+        if line.starts_with("<?") {
+            return Some(3);
+        }
+        if line.starts_with("<!") && line.len() > 2 && line.chars().nth(2).map_or(false, |c| c.is_ascii_alphabetic()) {
+            return Some(4);
+        }
+        if line.starts_with("<![CDATA[") {
+            return Some(5);
+        }
+        if line.starts_with("</") {
+            let tags = ["address", "article", "aside", "base", "basefont", "blockquote", "body",
+                       "caption", "center", "col", "colgroup", "dd", "details", "dialog",
+                       "dir", "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer",
+                       "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6",
+                       "head", "header", "hr", "html", "iframe", "legend", "li", "link",
+                       "main", "menu", "menuitem", "nav", "noframes", "ol", "optgroup",
+                       "option", "p", "param", "section", "search", "summary", "table",
+                       "tbody", "td", "tfoot", "th", "thead", "title", "tr", "track", "ul"];
+            let rest = &line[2..].to_lowercase();
+            if tags.iter().any(|tag| rest.starts_with(tag)) {
+                return Some(6);
+            }
+        }
+        if line.starts_with('<') && !maybe_lazy {
+            // Type 7: any other tag (cannot interrupt paragraph)
+            if container.borrow().node_type != NodeType::Paragraph {
+                return Some(7);
+            }
+        }
+        None
+    }
+
+    /// Scan for setext heading line
+    fn scan_setext_heading_line(&self, line: &str) -> Option<u32> {
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let first_char = trimmed.chars().next()?;
+        if first_char != '=' && first_char != '-' {
+            return None;
+        }
+
+        // Check all characters are the same
+        for c in trimmed.chars() {
+            if c != first_char && !c.is_whitespace() {
+                return None;
+            }
+        }
+
+        // Must have at least one non-whitespace
+        if !trimmed.chars().any(|c| c == first_char) {
+            return None;
+        }
+
+        Some(if first_char == '=' { 1 } else { 2 })
+    }
+
+    /// Scan for thematic break
+    fn scan_thematic_break(&self, line: &str) -> bool {
+        let mut chars = line.chars().peekable();
+        let mut c_opt: Option<char> = None;
+        let mut count = 0;
+
+        while let Some(&c) = chars.peek() {
+            if c == ' ' || c == '\t' {
+                chars.next();
+                continue;
+            }
+            // Allow line ending characters
+            if c == '\n' || c == '\r' {
+                break;
+            }
+            if c != '*' && c != '-' && c != '_' {
+                return false;
+            }
+            if let Some(prev_c) = c_opt {
+                if c != prev_c {
+                    return false;
+                }
+            } else {
+                c_opt = Some(c);
+            }
+            count += 1;
+            chars.next();
+        }
+
+        count >= 3
+    }
+
+    /// Parse list marker
+    fn parse_list_marker(&mut self, container: &Rc<RefCell<Node>>) -> Option<(ListType, DelimType, u32, usize, usize)> {
+        let rest = &self.current_line[self.next_nonspace..];
+
+        // Try bullet list marker
+        if let Some(first_char) = rest.chars().next() {
+            if "*+-".contains(first_char) {
+                let after_marker = &rest[1..];
+                if after_marker.is_empty() || after_marker.starts_with(' ') || after_marker.starts_with('\t') {
+                    // Check for non-blank content if interrupting paragraph
+                    if container.borrow().node_type == NodeType::Paragraph {
+                        let content_after = after_marker.trim_start();
+                        if content_after.is_empty() || content_after.starts_with('\n') {
+                            return None;
+                        }
+                    }
+
+                    self.advance_next_nonspace();
+                    self.advance_offset(1, true);
+
+                    let spaces_start_col = self.column;
+                    let spaces_start_offset = self.offset;
+
+                    // Skip up to 5 spaces
+                    while self.column - spaces_start_col < 5 && self.peek_current().map_or(false, is_space_or_tab) {
+                        self.advance_offset(1, true);
+                    }
+
+                    let blank_item = self.peek_current().is_none() || self.peek_current() == Some('\n');
+                    let spaces_after_marker = self.column - spaces_start_col;
+
+                    let padding;
+                    if spaces_after_marker >= 5 || spaces_after_marker < 1 || blank_item {
+                        padding = 2; // marker length (1) + 1 space
+                        self.column = spaces_start_col;
+                        self.offset = spaces_start_offset;
+                        if self.peek_current().map_or(false, is_space_or_tab) {
+                            self.advance_offset(1, true);
+                        }
+                    } else {
+                        padding = 1 + spaces_after_marker;
+                    }
+
+                    return Some((ListType::Bullet, DelimType::None, 0, self.indent, padding));
+                }
+            }
+        }
+
+        // Try ordered list marker
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if !digits.is_empty() && digits.len() <= 9 {
+            let start: u32 = digits.parse().ok()?;
+            let after_digits = &rest[digits.len()..];
+
+            if let Some(delim_char) = after_digits.chars().next() {
+                if delim_char == '.' || delim_char == ')' {
+                    let after_delim = &after_digits[1..];
+                    if after_delim.is_empty() || after_delim.starts_with(' ') || after_delim.starts_with('\t') {
+                        // If interrupting paragraph, start must be 1
+                        if container.borrow().node_type == NodeType::Paragraph && start != 1 {
+                            return None;
+                        }
+
+                        // Check for non-blank content if interrupting paragraph
+                        if container.borrow().node_type == NodeType::Paragraph {
+                            let content_after = after_delim.trim_start();
+                            if content_after.is_empty() || content_after.starts_with('\n') {
+                                return None;
+                            }
+                        }
+
+                        let delim = if delim_char == '.' { DelimType::Period } else { DelimType::Paren };
+
+                        self.advance_next_nonspace();
+                        self.advance_offset(digits.len() + 1, true);
+
+                        let spaces_start_col = self.column;
+                        let spaces_start_offset = self.offset;
+
+                        // Skip up to 5 spaces
+                        while self.column - spaces_start_col < 5 && self.peek_current().map_or(false, is_space_or_tab) {
+                            self.advance_offset(1, true);
+                        }
+
+                        let blank_item = self.peek_current().is_none() || self.peek_current() == Some('\n');
+                        let spaces_after_marker = self.column - spaces_start_col;
+
+                        let padding;
+                        if spaces_after_marker >= 5 || spaces_after_marker < 1 || blank_item {
+                            padding = digits.len() + 2; // marker length + 1 space
+                            self.column = spaces_start_col;
+                            self.offset = spaces_start_offset;
+                            if self.peek_current().map_or(false, is_space_or_tab) {
+                                self.advance_offset(1, true);
+                            }
+                        } else {
+                            padding = digits.len() + 1 + spaces_after_marker;
+                        }
+
+                        return Some((ListType::Ordered, delim, start, self.indent, padding));
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Add text to container
+    fn add_text_to_container(&mut self, container: &Rc<RefCell<Node>>) {
+        self.find_next_nonspace();
+
+        // Set last_line_blank for appropriate nodes
+        if self.blank {
+            if let Some(last_child) = container.borrow().last_child.borrow().clone() {
+                self.set_last_line_blank(&last_child, true);
+            }
+        }
+
+        // Determine if this line makes the container last_line_blank
+        let container_type = container.borrow().node_type;
+        let last_line_blank = self.blank
+            && container_type != NodeType::BlockQuote
+            && container_type != NodeType::Heading
+            && container_type != NodeType::ThematicBreak
+            && !(container_type == NodeType::CodeBlock && self.is_fenced_code_block(container))
+            && !(container_type == NodeType::Item
+                 && container.borrow().first_child.borrow().is_none()
+                 && self.get_start_line(container) == self.line_number);
+
+        self.set_last_line_blank(container, last_line_blank);
+
+        // Propagate last_line_blank up the tree
+        let mut tmp = container.clone();
+        loop {
+            let parent_opt = tmp.borrow().parent.borrow().clone();
+            if let Some(parent_weak) = parent_opt {
+                if let Some(parent) = parent_weak.upgrade() {
+                    self.set_last_line_blank(&parent, false);
+                    tmp = parent;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Check for lazy continuation
+        let is_lazy = !Rc::ptr_eq(&self.tip, &self.last_matched_container)
+            && Rc::ptr_eq(container, &self.last_matched_container)
+            && !self.blank
+            && self.tip.borrow().node_type == NodeType::Paragraph;
+
+        if is_lazy {
+            self.add_line();
+        } else {
+            // Not a lazy continuation
+            self.close_unmatched_blocks();
+
+            let container_type = container.borrow().node_type;
+
+            if container_type == NodeType::CodeBlock {
+                self.add_line();
+            } else if container_type == NodeType::HtmlBlock {
+                self.add_line();
+                self.check_html_block_end(container);
+            } else if self.blank {
+                // Do nothing for blank lines
+            } else if self.accepts_lines(container) {
+                if container_type == NodeType::Heading && !self.is_setext(container) {
+                    self.chop_trailing_hashtags();
+                }
+                self.advance_next_nonspace();
+                self.add_line();
+            } else {
+                // Create paragraph container for line
+                let new_para = self.add_child(NodeType::Paragraph, self.next_nonspace);
+                self.advance_next_nonspace();
+                self.add_line();
+                // Update tip to the new paragraph
+                self.tip = new_para;
+            }
+        }
+    }
+
+    /// Chop trailing hashtags from ATX heading
+    fn chop_trailing_hashtags(&mut self) {
+        // This is handled in the ATX heading creation
+    }
+
+    /// Check for HTML block end condition
+    fn check_html_block_end(&mut self, container: &Rc<RefCell<Node>>) {
+        let html_block_type = self.get_html_block_type(container);
+        let line = &self.current_line[self.offset..];
+
+        let should_end = match html_block_type {
+            1 => line.to_lowercase().contains("</script>")
+                || line.to_lowercase().contains("</pre>")
+                || line.to_lowercase().contains("</textarea>")
+                || line.to_lowercase().contains("</style>"),
+            2 => line.contains("-->"),
+            3 => line.contains("?>"),
+            4 => line.contains(">"),
+            5 => line.contains("]]>"),
+            _ => false,
+        };
+
+        if should_end {
+            self.finalize_block(container);
+        }
+    }
+
+    /// Add current line to tip's content
+    fn add_line(&mut self) {
+        let mut line_content = String::new();
+
+        // Handle partially consumed tab
+        if self.partially_consumed_tab {
+            self.offset += 1; // skip over tab
+            // Add space characters
+            let chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
+            for _ in 0..chars_to_tab {
+                line_content.push(' ');
+            }
+        }
+
+        // Add remaining line content
+        if self.offset < self.current_line.len() {
+            line_content.push_str(&self.current_line[self.offset..]);
+        }
+
+        // Append to tip's string content
+        self.append_string_content(&self.tip.clone(), &line_content);
+    }
+
+    /// Close unmatched blocks
+    fn close_unmatched_blocks(&mut self) {
+        if !self.all_closed {
+            while !Rc::ptr_eq(&self.old_tip, &self.last_matched_container) {
+                let parent = self.old_tip.borrow().parent.borrow()
+                    .as_ref()
+                    .and_then(|w| w.upgrade())
+                    .unwrap_or_else(|| self.doc.clone());
+                self.finalize_block(&self.old_tip.clone());
+                self.old_tip = parent;
+            }
+            self.all_closed = true;
+        }
+    }
+
+    /// Add a child to the tip
+    fn add_child(&mut self, block_type: NodeType, start_column: usize) -> Rc<RefCell<Node>> {
+        // If tip can't accept this child, finalize it and try its parent
+        while !self.can_contain(&self.tip, block_type) {
+            let parent = self.tip.borrow().parent.borrow()
+                .as_ref()
+                .and_then(|w| w.upgrade())
+                .unwrap_or_else(|| self.doc.clone());
+            self.finalize_block(&self.tip.clone());
+            self.tip = parent;
+        }
+
+        let mut new_block = Node::new(block_type);
+        new_block.source_pos.start_line = self.line_number as u32;
+        new_block.source_pos.start_column = start_column as u32;
+
+        let new_block_rc = Rc::new(RefCell::new(new_block));
+        append_child(&self.tip, new_block_rc.clone());
+
+        // Initialize block info
+        self.set_block_info(&new_block_rc, BlockInfo::new());
+
+        self.tip = new_block_rc.clone();
+        new_block_rc
+    }
+
+    /// Finalize a block
+    fn finalize_block(&mut self, block: &Rc<RefCell<Node>>) {
+        // Set end position
+        {
+            let mut block_mut = block.borrow_mut();
+            block_mut.source_pos.end_line = (self.line_number - 1) as u32;
+            block_mut.source_pos.end_column = self.last_line_length as u32;
+        }
+
+        // Mark as closed
+        self.set_open(block, false);
+
+        // Finalize based on block type
+        let node_type = block.borrow().node_type;
+        match node_type {
+            NodeType::CodeBlock => {
+                let is_fenced = self.is_fenced_code_block(block);
+                if is_fenced {
+                    // Extract info string from first line
+                    let content = self.get_string_content(block);
+                    if let Some(newline_pos) = content.find('\n') {
+                        let first_line = &content[..newline_pos];
+                        let rest = &content[newline_pos + 1..];
+
+                        // Update info
+                        let info = first_line.trim().to_string();
+                        {
+                            let mut block_mut = block.borrow_mut();
+                            if let NodeData::CodeBlock { info: ref mut i, .. } = block_mut.data {
+                                *i = info;
+                            }
+                        }
+                        self.set_string_content(block, rest.to_string());
+                    }
+                } else {
+                    // Indented code block - remove trailing blank lines
+                    let mut content = self.get_string_content(block);
+                    while content.ends_with("\n\n") {
+                        content.pop();
+                    }
+                    if !content.ends_with('\n') {
+                        content.push('\n');
+                    }
+                    self.set_string_content(block, content);
+                }
+
+                // Move string content to literal
+                let content = self.get_string_content(block);
+                {
+                    let mut block_mut = block.borrow_mut();
+                    if let NodeData::CodeBlock { literal: ref mut l, .. } = block_mut.data {
+                        *l = content;
+                    }
+                }
+            }
+            NodeType::HtmlBlock => {
+                let content = self.get_string_content(block);
+                // Remove trailing newline
+                let content = content.trim_end_matches('\n');
+                {
+                    let mut block_mut = block.borrow_mut();
+                    if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {
+                        *l = content.to_string();
+                    }
+                }
+            }
+            NodeType::Paragraph => {
+                let content = self.get_string_content(block);
+                // Remove trailing newline
+                let content = content.trim_end_matches('\n');
+                {
+                    let mut block_mut = block.borrow_mut();
+                    if let NodeData::Text { literal: ref mut l } = block_mut.data {
+                        *l = content.to_string();
+                    } else {
+                        block_mut.data = NodeData::Text { literal: content.to_string() };
+                    }
+                }
+            }
+            NodeType::List => {
+                // Determine tight/loose status
+                let mut tight = true;
+                let block_ref = block.borrow();
+                let mut item_opt = block_ref.first_child.borrow().clone();
+
+                while let Some(item) = item_opt {
+                    // Check for non-final list item ending with blank line
+                    if self.get_last_line_blank(&item) && item.borrow().next.borrow().is_some() {
+                        tight = false;
+                        break;
+                    }
+
+                    // Check children of list item
+                    let mut subitem_opt = item.borrow().first_child.borrow().clone();
+                    while let Some(subitem) = subitem_opt {
+                        let has_next = subitem.borrow().next.borrow().is_some();
+                        let item_has_next = item.borrow().next.borrow().is_some();
+                        if (item_has_next || has_next) && self.ends_with_blank_line(&subitem) {
+                            tight = false;
+                            break;
+                        }
+                        subitem_opt = subitem.borrow().next.borrow().clone();
+                    }
+
+                    if !tight {
+                        break;
+                    }
+                    item_opt = item.borrow().next.borrow().clone();
+                }
+
+                drop(block_ref);
+                {
+                    let mut block_mut = block.borrow_mut();
+                    if let NodeData::List { tight: ref mut t, .. } = block_mut.data {
+                        *t = tight;
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        // Move tip to parent
+        let parent = block.borrow().parent.borrow().clone();
+        if let Some(parent_weak) = parent {
+            if let Some(parent) = parent_weak.upgrade() {
+                self.tip = parent;
+            }
+        }
+    }
+
+    /// Finalize the entire document
+    fn finalize_document(&mut self) {
+        // Finalize all remaining open blocks
+        while !Rc::ptr_eq(&self.tip, &self.doc) {
+            let tip = self.tip.clone();
+            self.finalize_block(&tip);
+        }
+        self.finalize_block(&self.doc.clone());
+    }
+
+    /// Check if a node ends with a blank line
+    fn ends_with_blank_line(&self, node: &Rc<RefCell<Node>>) -> bool {
+        if self.get_last_line_blank(node) {
+            return true;
+        }
+
+        let node_type = node.borrow().node_type;
+        if (node_type == NodeType::List || node_type == NodeType::Item)
+            && node.borrow().last_child.borrow().is_some() {
+            if let Some(last_child) = node.borrow().last_child.borrow().clone() {
+                return self.ends_with_blank_line(&last_child);
+            }
+        }
+
+        false
+    }
+
+    /// Check if parent can contain child
+    fn can_contain(&self, parent: &Rc<RefCell<Node>>, child_type: NodeType) -> bool {
+        let parent_type = parent.borrow().node_type;
+
+        match parent_type {
+            NodeType::Document | NodeType::BlockQuote => child_type != NodeType::Item,
+            NodeType::List => child_type == NodeType::Item,
+            NodeType::Item => child_type != NodeType::Item,
+            _ => false,
+        }
+    }
+
+    /// Check if block accepts lines
+    fn accepts_lines(&self, block: &Rc<RefCell<Node>>) -> bool {
+        let block_type = block.borrow().node_type;
+        matches!(block_type, NodeType::Paragraph | NodeType::Heading | NodeType::CodeBlock | NodeType::HtmlBlock)
+    }
+
+    /// Lists match check
+    fn lists_match(&self, list: &Rc<RefCell<Node>>, list_type: ListType, delim: DelimType, start: u32) -> bool {
+        let node = list.borrow();
+        if let NodeData::List { list_type: lt, delim: d, start: s, .. } = &node.data {
+            *lt == list_type && *d == delim && *s == start
+        } else {
+            false
+        }
+    }
+
+    // Block info accessors
+
+    fn get_block_info(&self, node: &Rc<RefCell<Node>>) -> Option<&BlockInfo> {
+        let ptr: *const () = Rc::as_ptr(node) as *const ();
+        self.block_info.get(&ptr)
+    }
+
+    fn get_block_info_mut(&mut self, node: &Rc<RefCell<Node>>) -> Option<&mut BlockInfo> {
+        let ptr: *const () = Rc::as_ptr(node) as *const ();
+        self.block_info.get_mut(&ptr)
+    }
+
+    fn set_block_info(&mut self, node: &Rc<RefCell<Node>>, info: BlockInfo) {
+        let ptr: *const () = Rc::as_ptr(node) as *const ();
+        self.block_info.insert(ptr, info);
+    }
+
+    fn is_open(&self, node: &Rc<RefCell<Node>>) -> bool {
+        self.get_block_info(node).map_or(false, |info| info.is_open)
+    }
+
+    fn set_open(&mut self, node: &Rc<RefCell<Node>>, open: bool) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.is_open = open;
+        }
+    }
+
+    fn get_string_content(&self, node: &Rc<RefCell<Node>>) -> String {
+        self.get_block_info(node).map_or(String::new(), |info| info.string_content.clone())
+    }
+
+    fn set_string_content(&mut self, node: &Rc<RefCell<Node>>, content: String) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.string_content = content;
+        }
+    }
+
+    fn append_string_content(&mut self, node: &Rc<RefCell<Node>>, value: &str) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.string_content.push_str(value);
+        }
+    }
+
+    fn is_fenced_code_block(&self, node: &Rc<RefCell<Node>>) -> bool {
+        self.get_block_info(node).map_or(false, |info| info.fence_length > 0)
+    }
+
+    fn get_fence_info(&self, node: &Rc<RefCell<Node>>) -> (char, usize, usize) {
+        self.get_block_info(node).map_or(('\0', 0, 0), |info| {
+            (info.fence_char, info.fence_length, info.fence_offset)
+        })
+    }
+
+    fn set_fence_info(&mut self, node: &Rc<RefCell<Node>>, fence_char: char, fence_length: usize, fence_offset: usize) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.fence_char = fence_char;
+            info.fence_length = fence_length;
+            info.fence_offset = fence_offset;
+        }
+    }
+
+    fn get_list_data(&self, item: &Rc<RefCell<Node>>) -> (usize, usize) {
+        self.get_block_info(item).map_or((0, 2), |info| {
+            (info.marker_offset, info.padding)
+        })
+    }
+
+    fn set_list_data(&mut self, item: &Rc<RefCell<Node>>, marker_offset: usize, padding: usize) {
+        if let Some(info) = self.get_block_info_mut(item) {
+            info.marker_offset = marker_offset;
+            info.padding = padding;
+        }
+    }
+
+    fn get_html_block_type(&self, node: &Rc<RefCell<Node>>) -> u8 {
+        self.get_block_info(node).map_or(0, |info| info.html_block_type)
+    }
+
+    fn set_html_block_type(&mut self, node: &Rc<RefCell<Node>>, block_type: u8) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.html_block_type = block_type;
+        }
+    }
+
+    fn is_setext(&self, node: &Rc<RefCell<Node>>) -> bool {
+        self.get_block_info(node).map_or(false, |info| info.is_setext)
+    }
+
+    fn set_setext(&mut self, node: &Rc<RefCell<Node>>, setext: bool) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.is_setext = setext;
+        }
+    }
+
+    fn get_last_line_blank(&self, node: &Rc<RefCell<Node>>) -> bool {
+        self.get_block_info(node).map_or(false, |info| info.last_line_blank)
+    }
+
+    fn set_last_line_blank(&mut self, node: &Rc<RefCell<Node>>, blank: bool) {
+        if let Some(info) = self.get_block_info_mut(node) {
+            info.last_line_blank = blank;
+        }
+    }
+
+    fn get_start_line(&self, node: &Rc<RefCell<Node>>) -> usize {
+        node.borrow().source_pos.start_line as usize
+    }
+
+    // Position and parsing helpers
+
+    /// Find next non-space character
+    fn find_next_nonspace(&mut self) {
+        let mut chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
+
+        self.next_nonspace = self.offset;
+        self.next_nonspace_column = self.column;
+
+        while self.next_nonspace < self.current_line.len() {
+            let c = self.current_line.chars().nth(self.next_nonspace).unwrap_or('\0');
+            if c == ' ' {
+                self.next_nonspace += 1;
+                self.next_nonspace_column += 1;
+                chars_to_tab -= 1;
+                if chars_to_tab == 0 {
+                    chars_to_tab = TAB_STOP;
+                }
+            } else if c == '\t' {
+                self.next_nonspace += 1;
+                self.next_nonspace_column += chars_to_tab;
+                chars_to_tab = TAB_STOP;
+            } else {
+                break;
+            }
+        }
+
+        self.indent = self.next_nonspace_column - self.column;
+        self.blank = self.next_nonspace >= self.current_line.len()
+            || self.current_line.chars().nth(self.next_nonspace) == Some('\n')
+            || self.current_line.chars().nth(self.next_nonspace) == Some('\r');
+    }
+
+    /// Advance offset
+    fn advance_offset(&mut self, count: usize, columns: bool) {
+        let mut count = count;
+        while count > 0 && self.offset < self.current_line.len() {
+            let c = self.current_line.chars().nth(self.offset).unwrap_or('\0');
+            if c == '\t' {
+                let chars_to_tab = TAB_STOP - (self.column % TAB_STOP);
+                if columns {
+                    self.partially_consumed_tab = chars_to_tab > count;
+                    let chars_to_advance = count.min(chars_to_tab);
+                    self.column += chars_to_advance;
+                    if !self.partially_consumed_tab {
+                        self.offset += 1;
+                    }
+                    count -= chars_to_advance;
+                } else {
+                    self.partially_consumed_tab = false;
+                    self.column += chars_to_tab;
+                    self.offset += 1;
+                    count -= 1;
+                }
+            } else {
+                self.partially_consumed_tab = false;
+                self.offset += 1;
+                self.column += 1;
+                count -= 1;
+            }
+        }
+    }
+
+    /// Advance to next non-space
+    fn advance_next_nonspace(&mut self) {
+        self.offset = self.next_nonspace;
+        self.column = self.next_nonspace_column;
+        self.partially_consumed_tab = false;
+    }
+
+    /// Peek at next non-space
+    fn peek_next_nonspace(&self) -> Option<char> {
+        if self.next_nonspace < self.current_line.len() {
+            self.current_line.chars().nth(self.next_nonspace)
+        } else {
+            None
+        }
+    }
+
+    /// Peek at current position
+    fn peek_current(&self) -> Option<char> {
+        if self.offset < self.current_line.len() {
+            self.current_line.chars().nth(self.offset)
+        } else {
+            None
+        }
+    }
+
+    /// Check if line might start a special block
+    fn maybe_special(&self) -> bool {
+        if let Some(c) = self.peek_next_nonspace() {
+            matches!(c, '#' | '`' | '~' | '*' | '_' | '+' | '=' | '<' | '-' | '0'..='9')
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parser_creation() {
+        let parser = BlockParser::new();
+        assert_eq!(parser.doc.borrow().node_type, NodeType::Document);
+        assert_eq!(parser.tip.borrow().node_type, NodeType::Document);
+    }
+
+    #[test]
+    fn test_process_empty_line() {
+        let mut parser = BlockParser::new();
+        parser.process_line("");
+        // Should not panic
+    }
+
+    #[test]
+    fn test_parse_simple_paragraph() {
+        let doc = BlockParser::parse("Hello world");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_parse_block_quote() {
+        let doc = BlockParser::parse("> Quote line");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+    }
+
+    #[test]
+    fn test_parse_heading() {
+        let doc = BlockParser::parse("## Heading");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Heading);
+    }
+
+    #[test]
+    fn test_parse_fenced_code_block() {
+        let input = "```\ncode\n```";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::CodeBlock);
+    }
+
+    #[test]
+    fn test_parse_thematic_break() {
+        let doc = BlockParser::parse("---");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::ThematicBreak);
+    }
+
+    #[test]
+    fn test_parse_bullet_list() {
+        let doc = BlockParser::parse("* Item 1\n* Item 2");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+    }
+
+    #[test]
+    fn test_parse_ordered_list() {
+        let doc = BlockParser::parse("1. Item 1\n2. Item 2");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+    }
+
+    #[test]
+    fn test_parse_nested_block_quote() {
+        let doc = BlockParser::parse("> Outer\n> > Inner");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+    }
+
+    #[test]
+    fn test_parse_setext_heading() {
+        let doc = BlockParser::parse("Heading\n===");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Heading);
+    }
+}
