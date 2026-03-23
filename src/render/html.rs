@@ -13,6 +13,8 @@ pub fn render(root: &Rc<RefCell<Node>>, options: u32) -> String {
 struct HtmlRenderer {
     options: u32,
     output: String,
+    /// Stack tracking whether we're inside a tight list
+    tight_list_stack: Vec<bool>,
 }
 
 impl HtmlRenderer {
@@ -20,7 +22,13 @@ impl HtmlRenderer {
         HtmlRenderer {
             options,
             output: String::new(),
+            tight_list_stack: Vec::new(),
         }
+    }
+
+    /// Check if we're currently inside a tight list
+    fn in_tight_list(&self) -> bool {
+        self.tight_list_stack.last().copied().unwrap_or(false)
     }
 
     fn render(&mut self, root: &Rc<RefCell<Node>>) -> String {
@@ -53,7 +61,9 @@ impl HtmlRenderer {
                 self.output.push_str(">\n");
             }
             NodeType::List => {
-                if let NodeData::List { list_type, .. } = &node.data {
+                if let NodeData::List { list_type, tight, .. } = &node.data {
+                    // Push tight status to stack
+                    self.tight_list_stack.push(*tight);
                     match list_type {
                         crate::node::ListType::Bullet => {
                             self.output.push_str("<ul");
@@ -72,7 +82,11 @@ impl HtmlRenderer {
             NodeType::Item => {
                 self.output.push_str("<li");
                 self.add_sourcepos(&node.source_pos);
-                self.output.push_str(">\n");
+                self.output.push_str(">");
+                // In tight lists, don't add newline after <li>
+                if !self.in_tight_list() {
+                    self.output.push('\n');
+                }
             }
             NodeType::CodeBlock => {
                 self.output.push_str("<pre");
@@ -105,9 +119,12 @@ impl HtmlRenderer {
                 self.output.push('\n');
             }
             NodeType::Paragraph => {
-                self.output.push_str("<p");
-                self.add_sourcepos(&node.source_pos);
-                self.output.push_str(">");
+                // In tight lists, paragraphs are not wrapped in <p> tags
+                if !self.in_tight_list() {
+                    self.output.push_str("<p");
+                    self.add_sourcepos(&node.source_pos);
+                    self.output.push_str(">");
+                }
             }
             NodeType::Heading => {
                 if let NodeData::Heading { level } = &node.data {
@@ -222,12 +239,19 @@ impl HtmlRenderer {
                 }
             }
             NodeType::Item => {
-                self.output.push_str("</li>\n");
+                self.output.push_str("</li>");
+                // In tight lists, don't add newline before </li>
+                if !self.in_tight_list() {
+                    self.output.push('\n');
+                }
             }
             NodeType::CodeBlock => {}
             NodeType::HtmlBlock => {}
             NodeType::Paragraph => {
-                self.output.push_str("</p>\n");
+                // In tight lists, paragraphs are not wrapped in <p> tags
+                if !self.in_tight_list() {
+                    self.output.push_str("</p>\n");
+                }
             }
             NodeType::Heading => {
                 if let NodeData::Heading { level } = &node.data {

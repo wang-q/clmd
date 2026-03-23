@@ -296,13 +296,9 @@ impl BlockParser {
     }
 
     /// Continue list
-    fn continue_list(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
-        // Lists continue if their last child (an item) continues
-        if let Some(last_child) = container.borrow().last_child.borrow().clone() {
-            if self.is_open(&last_child) {
-                return self.continue_item(&last_child);
-            }
-        }
+    fn continue_list(&mut self, _container: &Rc<RefCell<Node>>) -> i32 {
+        // Lists always continue - new list items are handled in open_new_blocks
+        // This matches commonmark.js behavior where list.continue returns 0
         0
     }
 
@@ -1244,11 +1240,24 @@ impl BlockParser {
     }
 
     /// Check if a node ends with a blank line
+    /// Based on commonmark.js: returns true if block ends with a blank line
     fn ends_with_blank_line(&self, node: &Rc<RefCell<Node>>) -> bool {
+        // Check if this node has a next sibling and there's a gap between them
+        if let Some(next) = node.borrow().next.borrow().clone() {
+            let node_end_line = node.borrow().source_pos.end_line;
+            let next_start_line = next.borrow().source_pos.start_line;
+            // If there's a gap between this node and the next, there's a blank line
+            if node_end_line + 1 < next_start_line {
+                return true;
+            }
+        }
+
+        // Also check last_line_blank flag for leaf nodes
         if self.get_last_line_blank(node) {
             return true;
         }
 
+        // Recursively check last child for list/item containers
         let node_type = node.borrow().node_type;
         if (node_type == NodeType::List || node_type == NodeType::Item)
             && node.borrow().last_child.borrow().is_some() {
