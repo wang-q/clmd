@@ -787,8 +787,13 @@ impl Subject {
                 // Shortcut reference link [text]
                 self.pos = before_label; // rewind
                 // Use the text between brackets as label
+                // opener.position points to the '[', so we need to start from position + 1
                 if !opener.bracket_after {
-                    reflabel = Some(self.input[opener.position..start_pos - 1].to_string());
+                    let label_start = opener.position + 1;
+                    let label_end = start_pos - 1;
+                    if label_start < label_end {
+                        reflabel = Some(self.input[label_start..label_end].to_string());
+                    }
                 }
             }
 

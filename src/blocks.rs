@@ -1027,7 +1027,8 @@ impl BlockParser {
             line_content.push_str(&self.current_line[self.offset..]);
         }
 
-        // Append to node's string content
+        // Append to node's string content (with newline like commonmark.js)
+        line_content.push('\n');
         self.append_string_content(node, &line_content);
     }
 
