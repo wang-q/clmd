@@ -236,7 +236,7 @@ impl Subject {
 
     /// Parse backtick-delimited code span
     fn parse_backticks(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
-        let start_pos = self.pos;
+        let _start_pos = self.pos;
         let mut ticks = String::new();
 
         // Count opening backticks
@@ -745,7 +745,8 @@ impl Subject {
     }
 
     /// Remove a delimiter from the stack
-    fn remove_delimiter(&mut self, delim: &Delimiter) {
+    #[allow(dead_code)]
+    fn remove_delimiter(&mut self, _delim: &Delimiter) {
         // This is a simplified removal - in full implementation we'd update links
         // For now, we just leave it in place but mark it as processed
     }
@@ -1524,6 +1525,7 @@ impl Subject {
 }
 
 /// HTML entity patterns
+#[allow(dead_code)]
 const ENTITY_PATTERN: &str = r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
 
 /// Parse an HTML entity and return the decoded string and length

@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 /// Parser for CommonMark documents
 pub struct Parser {
+    #[allow(dead_code)]
     options: u32,
 }
 

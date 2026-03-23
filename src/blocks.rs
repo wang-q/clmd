@@ -53,7 +53,7 @@ pub struct BlockParser {
 
 /// Block info for tracking fenced code blocks and list items
 #[derive(Debug, Clone)]
-struct BlockInfo {
+pub struct BlockInfo {
     /// Block is open
     pub is_open: bool,
     /// For fenced code blocks: fence character
@@ -194,7 +194,7 @@ impl BlockParser {
 
         // Check if container is a leaf that accepts lines
         let container_type = container.borrow().node_type;
-        let accepts_lines = self.accepts_lines(&container);
+        let _accepts_lines = self.accepts_lines(&container);
         let is_leaf = matches!(container_type, NodeType::Heading | NodeType::ThematicBreak);
 
         // Try new block starts if not a leaf block
@@ -544,9 +544,9 @@ impl BlockParser {
                         && self.lists_match(&current_container, list_type, delim, start);
 
                     if !can_continue_list {
-                        let list = self.add_child(NodeType::List, self.next_nonspace);
+                        current_container = self.add_child(NodeType::List, self.next_nonspace);
                         {
-                            let mut list_mut = list.borrow_mut();
+                            let mut list_mut = current_container.borrow_mut();
                             if let NodeData::List { list_type: ref mut lt, delim: ref mut d, start: ref mut s, tight: ref mut t } = list_mut.data {
                                 *lt = list_type;
                                 *d = delim;
@@ -554,7 +554,6 @@ impl BlockParser {
                                 *t = true;
                             }
                         }
-                        current_container = list;
                     }
 
                     // Add list item
@@ -726,7 +725,7 @@ impl BlockParser {
         }
 
         // Tag name must start with a letter
-        let first_char = match chars.next() {
+        let _first_char = match chars.next() {
             Some(c) if c.is_ascii_alphabetic() => c,
             _ => return false,
         };
@@ -756,7 +755,7 @@ impl BlockParser {
         }
 
         // Tag name must start with a letter
-        let first_char = match chars.next() {
+        let _first_char = match chars.next() {
             Some(c) if c.is_ascii_alphabetic() => c,
             _ => return false,
         };
@@ -1772,6 +1771,7 @@ impl BlockParser {
     }
 
     /// Check if line might start a special block
+    #[allow(dead_code)]
     fn maybe_special(&self) -> bool {
         if let Some(c) = self.peek_next_nonspace() {
             matches!(c, '#' | '`' | '~' | '*' | '_' | '+' | '=' | '<' | '-' | '0'..='9')

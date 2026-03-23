@@ -100,6 +100,7 @@ impl NodeIterator {
 
 /// A walker that can be used to iterate through the node tree
 pub struct NodeWalker {
+    #[allow(dead_code)]
     root: Rc<RefCell<Node>>,
     iterator: NodeIterator,
 }
