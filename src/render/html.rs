@@ -15,6 +15,8 @@ struct HtmlRenderer {
     output: String,
     /// Stack tracking whether we're inside a tight list
     tight_list_stack: Vec<bool>,
+    /// Track the last output character for cr() logic
+    last_out: char,
 }
 
 impl HtmlRenderer {
@@ -23,6 +25,23 @@ impl HtmlRenderer {
             options,
             output: String::new(),
             tight_list_stack: Vec::new(),
+            last_out: '\n', // Initialize to newline like commonmark.js
+        }
+    }
+
+    /// Output a newline if the last output wasn't already a newline
+    fn cr(&mut self) {
+        if self.last_out != '\n' {
+            self.output.push('\n');
+            self.last_out = '\n';
+        }
+    }
+
+    /// Output a literal string and track last character
+    fn lit(&mut self, s: &str) {
+        if !s.is_empty() {
+            self.output.push_str(s);
+            self.last_out = s.chars().last().unwrap_or('\n');
         }
     }
 
@@ -56,160 +75,163 @@ impl HtmlRenderer {
         match node.node_type {
             NodeType::Document => {}
             NodeType::BlockQuote => {
-                self.output.push_str("<blockquote");
+                self.lit("<blockquote");
                 self.add_sourcepos(&node.source_pos);
-                self.output.push_str(">\n");
+                self.lit(">\n");
             }
             NodeType::List => {
                 if let NodeData::List { list_type, tight, .. } = &node.data {
                     // Push tight status to stack
                     self.tight_list_stack.push(*tight);
+                    self.cr(); // Add newline before list if needed (for nested lists)
                     match list_type {
                         crate::node::ListType::Bullet => {
-                            self.output.push_str("<ul");
+                            self.lit("<ul");
                             self.add_sourcepos(&node.source_pos);
-                            self.output.push_str(">\n");
+                            self.lit(">\n");
                         }
                         crate::node::ListType::Ordered => {
-                            self.output.push_str("<ol");
+                            self.lit("<ol");
                             self.add_sourcepos(&node.source_pos);
-                            self.output.push_str(">\n");
+                            self.lit(">\n");
                         }
                         _ => {}
                     }
                 }
             }
             NodeType::Item => {
-                self.output.push_str("<li");
+                self.lit("<li");
                 self.add_sourcepos(&node.source_pos);
-                self.output.push_str(">");
-                // In tight lists, don't add newline after <li>
+                self.lit(">");
+                // In loose lists, add newline after <li>
                 if !self.in_tight_list() {
-                    self.output.push('\n');
+                    self.lit("\n");
                 }
             }
             NodeType::CodeBlock => {
-                self.output.push_str("<pre");
+                self.cr(); // Add newline before code block if needed
+                self.lit("<pre");
                 self.add_sourcepos(&node.source_pos);
-                self.output.push_str("><code");
+                self.lit("><code");
                 if let NodeData::CodeBlock { info, .. } = &node.data {
                     if !info.is_empty() {
                         let lang = info.split_whitespace().next().unwrap_or("");
                         if !lang.is_empty() {
-                            self.output.push_str(" class=\"language-");
-                            self.output.push_str(&escape_html(lang));
-                            self.output.push('"');
+                            self.lit(" class=\"language-");
+                            self.lit(&escape_html(lang));
+                            self.lit("\"");
                         }
                     }
                 }
-                self.output.push_str(">");
+                self.lit(">");
                 if let NodeData::CodeBlock { literal, .. } = &node.data {
-                    self.output.push_str(&escape_html(literal));
+                    self.lit(&escape_html(literal));
                 }
-                self.output.push_str("</code></pre>\n");
+                self.lit("</code></pre>\n");
             }
             NodeType::HtmlBlock => {
+                self.cr();
                 if self.options & crate::options::UNSAFE != 0 {
                     if let NodeData::HtmlBlock { literal } = &node.data {
-                        self.output.push_str(literal);
+                        self.lit(literal);
                     }
                 } else {
-                    self.output.push_str("<!-- raw HTML omitted -->");
+                    self.lit("<!-- raw HTML omitted -->");
                 }
-                self.output.push('\n');
+                self.lit("\n");
             }
             NodeType::Paragraph => {
                 // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
-                    self.output.push_str("<p");
+                    self.lit("<p");
                     self.add_sourcepos(&node.source_pos);
-                    self.output.push_str(">");
+                    self.lit(">");
                 }
             }
             NodeType::Heading => {
                 if let NodeData::Heading { level } = &node.data {
-                    self.output.push_str("<h");
-                    self.output.push_str(&level.to_string());
+                    self.lit("<h");
+                    self.lit(&level.to_string());
                     self.add_sourcepos(&node.source_pos);
-                    self.output.push_str(">");
+                    self.lit(">");
                 }
             }
             NodeType::ThematicBreak => {
-                self.output.push_str("<hr");
+                self.lit("<hr");
                 self.add_sourcepos(&node.source_pos);
-                self.output.push_str(" />\n");
+                self.lit(" />\n");
             }
             NodeType::Text => {
                 if let NodeData::Text { literal } = &node.data {
-                    self.output.push_str(&escape_html(literal));
+                    self.lit(&escape_html(literal));
                 }
             }
             NodeType::SoftBreak => {
                 if self.options & crate::options::HARDBREAKS != 0 {
-                    self.output.push_str("<br />\n");
+                    self.lit("<br />\n");
                 } else if self.options & crate::options::NOBREAKS != 0 {
-                    self.output.push(' ');
+                    self.lit(" ");
                 } else {
-                    self.output.push('\n');
+                    self.lit("\n");
                 }
             }
             NodeType::LineBreak => {
-                self.output.push_str("<br />\n");
+                self.lit("<br />\n");
             }
             NodeType::Code => {
-                self.output.push_str("<code>");
+                self.lit("<code>");
                 if let NodeData::Code { literal } = &node.data {
-                    self.output.push_str(&escape_html(literal));
+                    self.lit(&escape_html(literal));
                 }
-                self.output.push_str("</code>");
+                self.lit("</code>");
             }
             NodeType::HtmlInline => {
                 if self.options & crate::options::UNSAFE != 0 {
                     if let NodeData::HtmlInline { literal } = &node.data {
-                        self.output.push_str(literal);
+                        self.lit(literal);
                     }
                 } else {
-                    self.output.push_str("<!-- raw HTML omitted -->");
+                    self.lit("<!-- raw HTML omitted -->");
                 }
             }
             NodeType::Emph => {
-                self.output.push_str("<em>");
+                self.lit("<em>");
             }
             NodeType::Strong => {
-                self.output.push_str("<strong>");
+                self.lit("<strong>");
             }
             NodeType::Link => {
                 if let NodeData::Link { url, title } = &node.data {
                     if self.options & crate::options::UNSAFE != 0 || is_safe_url(url) {
-                        self.output.push_str("<a href=\"");
-                        self.output.push_str(&escape_html(url));
-                        self.output.push('"');
+                        self.lit("<a href=\"");
+                        self.lit(&escape_html(url));
+                        self.lit("\"");
                         if !title.is_empty() {
-                            self.output.push_str(" title=\"");
-                            self.output.push_str(&escape_html(title));
-                            self.output.push('"');
+                            self.lit(" title=\"");
+                            self.lit(&escape_html(title));
+                            self.lit("\"");
                         }
-                        self.output.push('>');
+                        self.lit(">");
                     } else {
-                        self.output.push_str("<a href=\"\">");
+                        self.lit("<a href=\"\">");
                     }
                 }
             }
             NodeType::Image => {
                 if let NodeData::Image { url, title } = &node.data {
                     if self.options & crate::options::UNSAFE != 0 || is_safe_url(url) {
-                        self.output.push_str("<img src=\"");
-                        self.output.push_str(&escape_html(url));
-                        self.output.push('"');
+                        self.lit("<img src=\"");
+                        self.lit(&escape_html(url));
+                        self.lit("\"");
                         if !title.is_empty() {
-                            self.output.push_str(" title=\"");
-                            self.output.push_str(&escape_html(title));
-                            self.output.push('"');
+                            self.lit(" title=\"");
+                            self.lit(&escape_html(title));
+                            self.lit("\"");
                         }
-                        self.output.push_str(" alt=\"");
+                        self.lit(" alt=\"");
                         // alt text will be filled by children
                     } else {
-                        self.output.push_str("<img src=\"\" alt=\"");
+                        self.lit("<img src=\"\" alt=\"");
                     }
                 }
             }
@@ -223,41 +245,37 @@ impl HtmlRenderer {
         match node.node_type {
             NodeType::Document => {}
             NodeType::BlockQuote => {
-                self.output.push_str("</blockquote>\n");
+                self.lit("</blockquote>\n");
             }
             NodeType::List => {
                 if let NodeData::List { list_type, .. } = &node.data {
                     match list_type {
                         crate::node::ListType::Bullet => {
-                            self.output.push_str("</ul>\n");
+                            self.lit("</ul>\n");
                         }
                         crate::node::ListType::Ordered => {
-                            self.output.push_str("</ol>\n");
+                            self.lit("</ol>\n");
                         }
                         _ => {}
                     }
                 }
             }
             NodeType::Item => {
-                self.output.push_str("</li>");
-                // In tight lists, don't add newline before </li>
-                if !self.in_tight_list() {
-                    self.output.push('\n');
-                }
+                self.lit("</li>\n");
             }
             NodeType::CodeBlock => {}
             NodeType::HtmlBlock => {}
             NodeType::Paragraph => {
                 // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
-                    self.output.push_str("</p>\n");
+                    self.lit("</p>\n");
                 }
             }
             NodeType::Heading => {
                 if let NodeData::Heading { level } = &node.data {
-                    self.output.push_str("</h");
-                    self.output.push_str(&level.to_string());
-                    self.output.push_str(">\n");
+                    self.lit("</h");
+                    self.lit(&level.to_string());
+                    self.lit(">\n");
                 }
             }
             NodeType::ThematicBreak => {}
@@ -267,16 +285,16 @@ impl HtmlRenderer {
             NodeType::Code => {}
             NodeType::HtmlInline => {}
             NodeType::Emph => {
-                self.output.push_str("</em>");
+                self.lit("</em>");
             }
             NodeType::Strong => {
-                self.output.push_str("</strong>");
+                self.lit("</strong>");
             }
             NodeType::Link => {
-                self.output.push_str("</a>");
+                self.lit("</a>");
             }
             NodeType::Image => {
-                self.output.push_str("\" />");
+                self.lit("\" />");
             }
             _ => {}
         }
@@ -284,7 +302,7 @@ impl HtmlRenderer {
 
     fn add_sourcepos(&mut self, source_pos: &SourcePos) {
         if self.options & crate::options::SOURCEPOS != 0 {
-            self.output.push_str(&format!(
+            self.lit(&format!(
                 " data-sourcepos=\"{}:{}-{}:{}\"",
                 source_pos.start_line,
                 source_pos.start_column,

@@ -5,6 +5,7 @@
 /// inline elements like emphasis, links, code, etc.
 
 use crate::node::{append_child, Node, NodeData, NodeType};
+use htmlescape::decode_html;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -262,8 +263,8 @@ impl Subject {
 
     /// Parse entity or numeric character reference
     fn parse_entity(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
-        if let Some((c, len)) = parse_entity_char(&self.input[self.pos..]) {
-            self.append_text(parent, &c.to_string());
+        if let Some((decoded, len)) = parse_entity_char(&self.input[self.pos..]) {
+            self.append_text(parent, &decoded);
             self.pos += len;
             true
         } else {
@@ -1179,75 +1180,32 @@ impl Subject {
 /// HTML entity patterns
 const ENTITY_PATTERN: &str = r"&#x[a-fA-F0-9]{1,6};|&#[0-9]{1,7};|&[a-zA-Z][a-zA-Z0-9]{1,31};";
 
-/// Parse an HTML entity and return the character it represents
-fn parse_entity_char(input: &str) -> Option<(char, usize)> {
+/// Parse an HTML entity and return the decoded string and length
+/// Uses htmlescape crate to support all HTML5 named entities
+fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     if !input.starts_with('&') {
         return None;
     }
 
-    // Try numeric entity: &#123; or &#x7B;
-    if input.len() >= 3 && input.as_bytes()[1] == b'#' {
-        let hex = input.as_bytes().get(2).copied() == Some(b'x') || input.as_bytes().get(2).copied() == Some(b'X');
-
-        if hex {
-            // Hex entity: &#x7B;
-            let end = input.find(';').unwrap_or(input.len());
-            if end > 3 && end <= 9 {
-                let hex_str = &input[3..end];
-                if let Ok(code) = u32::from_str_radix(hex_str, 16) {
-                    if let Some(c) = char::from_u32(code) {
-                        return Some((c, end + 1));
-                    }
-                }
-            }
-        } else {
-            // Decimal entity: &#123;
-            let end = input.find(';').unwrap_or(input.len());
-            if end > 2 && end <= 8 {
-                let num_str = &input[2..end];
-                if let Ok(code) = num_str.parse::<u32>() {
-                    if let Some(c) = char::from_u32(code) {
-                        return Some((c, end + 1));
-                    }
-                }
-            }
-        }
+    // Find the end of the entity (semicolon or end of string)
+    let end = input.find(';').map(|i| i + 1).unwrap_or(input.len());
+    if end <= 1 {
+        return None;
     }
 
-    // Try named entity
-    let end = input.find(';').unwrap_or(input.len());
-    if end > 1 && end <= 33 {
-        let name = &input[1..end];
-        if let Some(c) = lookup_named_entity(name) {
-            return Some((c, end + 1));
+    let entity_str = &input[..end];
+
+    // Try to decode using htmlescape crate
+    match decode_html(entity_str) {
+        Ok(decoded) => {
+            // If decoding produced a different result, it's a valid entity
+            if decoded != entity_str {
+                Some((decoded, end))
+            } else {
+                None
+            }
         }
-    }
-
-    None
-}
-
-/// Look up a named HTML entity
-fn lookup_named_entity(name: &str) -> Option<char> {
-    match name {
-        "amp" => Some('&'),
-        "lt" => Some('<'),
-        "gt" => Some('>'),
-        "quot" => Some('"'),
-        "apos" => Some('\''),
-        "nbsp" => Some('\u{00A0}'),
-        "copy" => Some('\u{00A9}'),
-        "reg" => Some('\u{00AE}'),
-        "trade" => Some('\u{2122}'),
-        "mdash" => Some('\u{2014}'),
-        "ndash" => Some('\u{2013}'),
-        "hellip" => Some('\u{2026}'),
-        "laquo" => Some('\u{00AB}'),
-        "raquo" => Some('\u{00BB}'),
-        "ldquo" => Some('\u{201C}'),
-        "rdquo" => Some('\u{201D}'),
-        "lsquo" => Some('\u{2018}'),
-        "rsquo" => Some('\u{2019}'),
-        _ => None,
+        Err(_) => None,
     }
 }
 

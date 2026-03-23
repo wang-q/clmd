@@ -483,7 +483,9 @@ impl BlockParser {
             // Try HTML block
             if !indented && self.peek_next_nonspace() == Some('<') {
                 let line = &self.current_line[self.next_nonspace..];
+                eprintln!("DEBUG: Checking HTML block for line: {:?}", line);
                 if let Some(block_type) = self.scan_html_block_start(line, &current_container, maybe_lazy) {
+                    eprintln!("DEBUG: Matched HTML block type: {}", block_type);
                     self.close_unmatched_blocks();
                     let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
                     self.set_html_block_type(&html_block, block_type);
@@ -570,8 +572,14 @@ impl BlockParser {
         if line.starts_with("<?") {
             return Some(3);
         }
-        if line.starts_with("<!") && line.len() > 2 && line.chars().nth(2).map_or(false, |c| c.is_ascii_alphabetic()) {
-            return Some(4);
+        // Type 4: Declaration <!DOCTYPE ...> or similar
+        // Must start with <! followed by an uppercase ASCII letter
+        if line.starts_with("<!") && line.len() > 2 {
+            let third_char = line.chars().nth(2).unwrap();
+            // Declaration must be uppercase letter (like DOCTYPE)
+            if third_char.is_ascii_uppercase() {
+                return Some(4);
+            }
         }
         if line.starts_with("<![CDATA[") {
             return Some(5);
@@ -592,11 +600,97 @@ impl BlockParser {
         }
         if line.starts_with('<') && !maybe_lazy {
             // Type 7: any other tag (cannot interrupt paragraph)
+            // Must match valid HTML tag pattern: <tagname> or </tagname>
             if container.borrow().node_type != NodeType::Paragraph {
-                return Some(7);
+                if self.is_valid_html_tag(line) {
+                    return Some(7);
+                }
             }
         }
         None
+    }
+
+    /// Check if a line starts with a valid HTML tag (for type 7 HTML blocks)
+    /// Type 7: A line that starts with a complete HTML tag (open or close)
+    /// The tag must end on the same line for type 7
+    fn is_valid_html_tag(&self, line: &str) -> bool {
+        if !line.starts_with('<') {
+            return false;
+        }
+
+        let rest = &line[1..];
+        if rest.is_empty() {
+            return false;
+        }
+
+        // Check for closing tag: </tagname>
+        let is_closing = rest.starts_with('/');
+        let tag_start = if is_closing { 1 } else { 0 };
+        let rest = &rest[tag_start..];
+
+        if rest.is_empty() {
+            return false;
+        }
+
+        // Tag name must start with a letter
+        let first_char = rest.chars().next().unwrap();
+        if !first_char.is_ascii_alphabetic() {
+            return false;
+        }
+
+        // Tag name can contain letters, digits, hyphens
+        let mut end_pos = 1;
+        for (i, c) in rest.chars().enumerate().skip(1) {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                end_pos = i + 1;
+            } else {
+                break;
+            }
+        }
+
+        let after_tag = &rest[end_pos..];
+
+        // For type 7 HTML block, the tag must be complete on this line
+        // Valid patterns after tag name:
+        // - > (end of open tag)
+        // - /> (self-closing)
+        // - whitespace + attributes + > or />
+        // - whitespace + >
+
+        // Skip whitespace
+        let mut chars = after_tag.chars().peekable();
+        while let Some(&c) = chars.peek() {
+            if c.is_whitespace() {
+                chars.next();
+            } else {
+                break;
+            }
+        }
+
+        // Check what comes next
+        match chars.peek() {
+            Some(&'>') => true,  // <tag> or </tag> or <tag >
+            Some(&'/') => {
+                // Check for self-closing: <tag/>
+                chars.next();
+                matches!(chars.peek(), Some(&'>'))
+            }
+            Some(&c) if c.is_ascii_alphabetic() || c == '_' => {
+                // Has attributes - must end with > on this line
+                // But we need to be careful not to match URLs like <https://...>
+                // A URL will have :// after the "tagname", while an HTML attribute won't
+                // Let's check if this looks like a URL scheme
+                let remaining: String = chars.collect();
+                if remaining.contains("://") {
+                    // This is likely a URL, not an HTML tag
+                    false
+                } else {
+                    // Check if there's a > somewhere to close the tag
+                    remaining.contains('>')
+                }
+            }
+            _ => false,
+        }
     }
 
     /// Scan for setext heading line
