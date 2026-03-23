@@ -337,11 +337,28 @@ const result = writer.render(parsed);
 3. 鲁棒性强：能正确处理各种病态输入
 4. 我们的项目还有很大改进空间（目前 43.3% vs 参考项目 100%）
 
+### 最近完成的工作
+
+1. **链接解析修复**（重大进展）：
+   - 修复了 `add_line_to_node` 未添加换行符的问题，使链接引用定义能被正确解析
+   - 修复了 shortcut reference link 的标签提取问题（`opener.position` 指向 `[`，需要 +1 获取实际标签内容）
+   - 链接引用定义解析现在正常工作：`[foo]` + `[foo]: /bar` → `<a href="/bar">foo</a>`
+   - 实现了 `unescape_string` 函数处理转义字符（如 `\(` → `(`）
+   - 实现了 `parse_entity` 函数处理 HTML 实体
+   - 更新了 `parse_link_destination` 和 `parse_link_title` 使用新的转义处理
+   - 修复了空链接目标问题 `[link]()`
+   - 修复了 URL 编码问题（空格转为 %20）
+   - 修复了嵌套方括号处理 `[link [foo [bar]]](/uri)`
+   - 修复了链接解析失败时未正确移除 opener 的问题
+   - 修复了 `parse_open_bracket` 错误合并文本节点的问题
+   - 实现了 `parse_newline` 处理软换行
+   - 通过率从 43.3% 提升到 62.9%，Links 失败测试从 82 个减少到 38 个
+
 ### 当前状态
 
 - **单元测试**：77 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：373/652 通过（57.2%）
+- **CommonMark 规范测试**：410/652 通过（62.9%）
 - **参考项目验证**：697/697 通过（100%）
 
 ### 失败测试分析
@@ -350,7 +367,7 @@ const result = writer.render(parsed);
 
 | Section | 失败数量 |
 |---------|---------|
-| Links | 58 |
+| Links | 38 |
 | HTML blocks | 44 |
 | Images | 20 |
 | Link reference definitions | 20 |
@@ -373,8 +390,10 @@ const result = writer.render(parsed);
 
 **注意**：
 - 强调解析已从 90 个失败减少到约 10 个
-- **链接解析从 82 个失败减少到 58 个**（修复了 24 个）
-- **通过率从 43.3% 提升到 57.2%**
+- **链接解析从 82 个失败减少到 38 个**（修复了 44 个）
+- **通过率从 43.3% 提升到 62.9%**
+- 实现了 `unescape_string` 和 `normalize_uri` 函数处理转义字符和 URL 编码
+- 修复了嵌套方括号处理、空链接目标、URL 编码等多个链接相关问题
 
 ### 下一步工作
 

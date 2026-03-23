@@ -217,8 +217,21 @@ impl Subject {
             '[' => self.parse_open_bracket(parent),
             ']' => self.parse_close_bracket(parent),
             '!' => self.parse_bang(parent),
+            '\n' => self.parse_newline(parent),
             _ => self.parse_string(parent),
         }
+    }
+
+    /// Parse a newline. Returns a softbreak node.
+    /// Based on commonmark.js parseNewline
+    fn parse_newline(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
+        self.advance(); // skip \n
+
+        // Create softbreak node
+        let soft_break = Rc::new(RefCell::new(Node::new(NodeType::SoftBreak)));
+        append_child(parent, soft_break);
+
+        true
     }
 
     /// Parse backtick-delimited code span
@@ -522,6 +535,43 @@ impl Subject {
         }
     }
 
+    /// Deactivate previous link openers when a link is matched
+    /// This prevents nested links (no links in links)
+    /// Based on commonmark.js: deactivate link openers before this one
+    fn deactivate_previous_link_openers(&mut self) {
+        // We need to traverse the bracket stack and mark all link openers as inactive
+        // Since we can't easily modify the stack while iterating, we'll rebuild it
+        let mut new_stack: Option<Box<Bracket>> = None;
+        let mut current = self.brackets.take();
+
+        while let Some(mut bracket) = current {
+            let previous = bracket.previous.take();
+
+            if !bracket.image {
+                // Deactivate this link opener
+                bracket.active = false;
+            }
+
+            // Add to new stack (reversing order)
+            bracket.previous = new_stack;
+            new_stack = Some(bracket);
+
+            current = previous;
+        }
+
+        // Reverse back to original order
+        let mut reversed: Option<Box<Bracket>> = None;
+        current = new_stack;
+        while let Some(mut bracket) = current {
+            let previous = bracket.previous.take();
+            bracket.previous = reversed;
+            reversed = Some(bracket);
+            current = previous;
+        }
+
+        self.brackets = reversed;
+    }
+
     /// Process emphasis delimiters
     /// Based on commonmark.js processEmphasis function
     fn process_emphasis(&mut self, _stack_bottom: Option<*const Delimiter>) {
@@ -704,7 +754,16 @@ impl Subject {
     fn parse_open_bracket(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
         self.advance(); // skip [
 
-        let text_node = self.append_text(parent, "[");
+        // Create a new text node for the bracket (don't merge with previous)
+        // This is important to keep the bracket as a separate node for proper link parsing
+        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+        {
+            let mut text_mut = text_node.borrow_mut();
+            if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                *literal = "[".to_string();
+            }
+        }
+        append_child(parent, text_node.clone());
 
         // Add to bracket stack
         let bracket = Box::new(Bracket {
@@ -753,24 +812,54 @@ impl Subject {
 
         // Try inline link: [text](url "title")
         if self.peek() == Some('(') {
+            let after_open_paren = self.pos + 1;
             self.advance(); // skip (
             self.skip_spaces_and_newlines();
 
             // Parse link destination
-            if let Some(d) = self.parse_link_destination() {
-                dest = Some(d);
-                self.skip_spaces_and_newlines();
-
-                // Try to parse title
-                if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
-                    title = self.parse_link_title();
+            if let Some((d, ended_with_space)) = self.parse_link_destination() {
+                // For unbracketed URLs, if we ended with a space (not close paren),
+                // the link is invalid unless there's a title
+                if ended_with_space {
+                    // Check if there's a title following the space
                     self.skip_spaces_and_newlines();
-                }
+                    if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
+                        // There's a title, this is valid
+                        dest = Some(d);
+                        title = self.parse_link_title();
+                        self.skip_spaces_and_newlines();
 
-                if self.peek() == Some(')') {
-                    self.advance(); // skip )
-                    matched = true;
+                        if self.peek() == Some(')') {
+                            self.advance(); // skip )
+                            matched = true;
+                        }
+                    }
+                    // If no title, the link is invalid - need to rewind
+                    if !matched {
+                        self.pos = after_open_paren - 1; // rewind to before '('
+                    }
+                } else {
+                    // Normal case - ended with close paren or is bracketed URL
+                    dest = Some(d);
+                    self.skip_spaces_and_newlines();
+
+                    // Try to parse title
+                    if self.peek() == Some('"') || self.peek() == Some('\'') || self.peek() == Some('(') {
+                        title = self.parse_link_title();
+                        self.skip_spaces_and_newlines();
+                    }
+
+                    if self.peek() == Some(')') {
+                        self.advance(); // skip )
+                        matched = true;
+                    } else {
+                        // Missing close paren - rewind
+                        self.pos = after_open_paren - 1; // rewind to before '('
+                    }
                 }
+            } else {
+                // Failed to parse destination - rewind
+                self.pos = after_open_paren - 1; // rewind to before '('
             }
         }
 
@@ -861,22 +950,17 @@ impl Subject {
             self.process_emphasis(None);
 
             // For links (not images), deactivate previous link openers
+            // This prevents nested links (no links in links)
             if !is_image {
-                let mut current = self.brackets.clone();
-                while let Some(ref b) = current {
-                    if !b.image {
-                        // Mark as inactive - we'd need to modify Bracket to have a way to do this
-                        // For now, we'll just leave it
-                    }
-                    current = b.previous.clone();
-                }
+                self.deactivate_previous_link_openers();
             }
 
-            // Restore bracket stack
+            // Restore bracket stack (remove the matched opener)
             self.brackets = opener.previous;
         } else {
-            // No match, restore bracket and add ]
-            self.brackets = Some(opener);
+            // No match - remove this opener from stack and add ] as text
+            // Based on commonmark.js: this.removeBracket()
+            self.brackets = opener.previous;
             self.append_text(parent, "]");
         }
 
@@ -899,7 +983,10 @@ impl Subject {
     }
 
     /// Parse link destination (URL)
-    fn parse_link_destination(&mut self) -> Option<String> {
+    /// Based on commonmark.js parseLinkDestination
+    /// Returns Some((destination, ended_with_space)) on success, None on failure
+    /// ended_with_space is true if the destination ended due to a space (not close paren)
+    fn parse_link_destination(&mut self) -> Option<(String, bool)> {
         // Try angle-bracketed destination: <url>
         if self.peek() == Some('<') {
             self.advance(); // skip <
@@ -909,7 +996,9 @@ impl Subject {
                 if c == '>' {
                     let dest = self.input[start..self.pos].to_string();
                     self.advance(); // skip >
-                    return Some(dest);
+                    // Unescape and normalize the destination
+                    let unescaped = unescape_string(&dest);
+                    return Some((normalize_uri(&unescaped), false));
                 } else if c == '\n' || c == '<' {
                     return None;
                 } else if c == '\\' {
@@ -929,6 +1018,7 @@ impl Subject {
         // Try unbracketed destination
         let start = self.pos;
         let mut paren_depth = 0;
+        let mut ended_with_space = false;
 
         while let Some(c) = self.peek() {
             if c == '\\' {
@@ -948,20 +1038,34 @@ impl Subject {
                 paren_depth -= 1;
                 self.advance();
             } else if c.is_ascii_whitespace() {
+                ended_with_space = true;
                 break;
             } else {
                 self.advance();
             }
         }
 
-        if self.pos > start {
-            Some(self.input[start..self.pos].to_string())
-        } else {
-            None
+        // Allow empty destination if we're at a close paren (like [link]())
+        if self.pos == start {
+            // Check if we're at a close paren (empty destination case)
+            if self.peek() == Some(')') {
+                return Some((String::new(), false));
+            }
+            return None;
         }
+
+        if paren_depth != 0 {
+            return None;
+        }
+
+        let dest = self.input[start..self.pos].to_string();
+        // Unescape and normalize the destination
+        let unescaped = unescape_string(&dest);
+        Some((normalize_uri(&unescaped), ended_with_space))
     }
 
     /// Parse link title
+    /// Based on commonmark.js parseLinkTitle
     fn parse_link_title(&mut self) -> Option<String> {
         let quote = match self.peek() {
             Some('"') => '"',
@@ -979,7 +1083,8 @@ impl Subject {
             if c == close_quote {
                 let title = self.input[start..self.pos].to_string();
                 self.advance(); // skip closing quote
-                return Some(title);
+                // Unescape the title
+                return Some(unescape_string(&title));
             } else if c == '\n' {
                 return None;
             } else if c == '\\' {
@@ -1155,6 +1260,142 @@ fn is_escapable(c: char) -> bool {
     matches!(c, '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~')
 }
 
+/// Unescape a string by processing backslash escapes and entities
+/// Based on commonmark.js unescapeString
+fn unescape_string(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(&next_c) = chars.peek() {
+                if is_escapable(next_c) {
+                    chars.next();
+                    result.push(next_c);
+                } else {
+                    result.push(c);
+                }
+            } else {
+                result.push(c);
+            }
+        } else if c == '&' {
+            // Try to parse an entity
+            let remaining: String = chars.clone().collect();
+            if let Some((entity, consumed)) = parse_entity(&remaining) {
+                result.push_str(&entity);
+                // Skip consumed characters
+                for _ in 0..consumed {
+                    chars.next();
+                }
+            } else {
+                result.push(c);
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
+/// Parse an HTML entity at the start of a string
+/// Returns (decoded_char, chars_consumed) or None
+fn parse_entity(s: &str) -> Option<(String, usize)> {
+    if !s.starts_with('#') && !s.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        return None;
+    }
+
+    // Numeric entity: &#123; or &#x7B;
+    if s.starts_with('#') {
+        let rest = &s[1..];
+        if rest.starts_with('x') || rest.starts_with('X') {
+            // Hex entity
+            let hex_start = 1;
+            let hex_end = rest[hex_start..]
+                .find(|c: char| !c.is_ascii_hexdigit())
+                .map(|i| hex_start + i)
+                .unwrap_or(rest.len());
+
+            if hex_end > hex_start && rest[hex_end..].starts_with(';') {
+                let hex_str = &rest[hex_start..hex_end];
+                if let Ok(codepoint) = u32::from_str_radix(hex_str, 16) {
+                    if let Some(c) = char::from_u32(codepoint) {
+                        return Some((c.to_string(), 2 + hex_end - hex_start + 1));
+                    }
+                }
+            }
+        } else {
+            // Decimal entity
+            let dec_end = rest
+                .find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(rest.len());
+
+            if dec_end > 0 && rest[dec_end..].starts_with(';') {
+                let dec_str = &rest[..dec_end];
+                if let Ok(codepoint) = dec_str.parse::<u32>() {
+                    if let Some(c) = char::from_u32(codepoint) {
+                        return Some((c.to_string(), 1 + dec_end + 1));
+                    }
+                }
+            }
+        }
+    } else {
+        // Named entity
+        let name_end = s
+            .find(|c: char| !c.is_ascii_alphanumeric())
+            .unwrap_or(s.len());
+
+        if name_end > 0 && s[name_end..].starts_with(';') {
+            let name = &s[..name_end];
+            // Use htmlescape to decode the entity
+            let entity_str = format!("&{};", name);
+            if let Ok(decoded) = decode_html(&entity_str) {
+                return Some((decoded, name_end + 1));
+            }
+        }
+    }
+
+    None
+}
+
+/// Normalize a URI by percent-encoding special characters
+/// Based on commonmark.js normalizeURI
+/// Percent-encode characters that are not allowed in URIs
+fn normalize_uri(uri: &str) -> String {
+    let mut result = String::new();
+
+    for c in uri.chars() {
+        match c {
+            // Unreserved characters (no encoding needed)
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
+                result.push(c);
+            }
+            // Reserved characters that are commonly used in URIs
+            ':' | '/' | '?' | '#' | '[' | ']' | '@' | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | ';' | '=' => {
+                result.push(c);
+            }
+            // Percent sign (already encoded)
+            '%' => {
+                result.push(c);
+            }
+            // Space should be encoded as %20 (not +)
+            ' ' => {
+                result.push_str("%20");
+            }
+            // Other characters: percent-encode
+            _ => {
+                let mut buf = [0; 4];
+                let s = c.encode_utf8(&mut buf);
+                for b in s.bytes() {
+                    result.push_str(&format!("%{:02X}", b));
+                }
+            }
+        }
+    }
+
+    result
+}
+
 /// Normalize a reference label for lookup
 /// - Collapses internal whitespace to a single space
 /// - Removes leading/trailing whitespace
@@ -1239,7 +1480,7 @@ impl Subject {
 
         // Parse link destination
         let dest = match self.parse_link_destination() {
-            Some(d) => d,
+            Some((d, _)) => d,
             None => return 0,
         };
 
