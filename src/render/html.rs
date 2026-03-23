@@ -17,6 +17,8 @@ struct HtmlRenderer {
     tight_list_stack: Vec<bool>,
     /// Track the last output character for cr() logic
     last_out: char,
+    /// Counter to disable tag rendering (for image alt text)
+    disable_tags: i32,
 }
 
 impl HtmlRenderer {
@@ -26,6 +28,7 @@ impl HtmlRenderer {
             output: String::new(),
             tight_list_stack: Vec::new(),
             last_out: '\n', // Initialize to newline like commonmark.js
+            disable_tags: 0,
         }
     }
 
@@ -38,10 +41,22 @@ impl HtmlRenderer {
     }
 
     /// Output a literal string and track last character
+    /// If disable_tags > 0, HTML tags are stripped
     fn lit(&mut self, s: &str) {
-        if !s.is_empty() {
-            self.output.push_str(s);
-            self.last_out = s.chars().last().unwrap_or('\n');
+        if s.is_empty() {
+            return;
+        }
+
+        let output_str = if self.disable_tags > 0 {
+            // Strip HTML tags when disable_tags is active
+            strip_html_tags(s)
+        } else {
+            s.to_string()
+        };
+
+        if !output_str.is_empty() {
+            self.output.push_str(&output_str);
+            self.last_out = output_str.chars().last().unwrap_or('\n');
         }
     }
 
@@ -229,10 +244,11 @@ impl HtmlRenderer {
                             self.lit("\"");
                         }
                         self.lit(" alt=\"");
-                        // alt text will be filled by children
                     } else {
                         self.lit("<img src=\"\" alt=\"");
                     }
+                    // Disable tag rendering for alt text
+                    self.disable_tags += 1;
                 }
             }
             _ => {}
@@ -294,6 +310,8 @@ impl HtmlRenderer {
                 self.lit("</a>");
             }
             NodeType::Image => {
+                // Re-enable tag rendering after alt text
+                self.disable_tags -= 1;
                 self.lit("\" />");
             }
             _ => {}
@@ -311,6 +329,25 @@ impl HtmlRenderer {
             ));
         }
     }
+}
+
+/// Strip HTML tags from a string
+/// Used when disable_tags is active (e.g., for image alt text)
+fn strip_html_tags(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut in_tag = false;
+
+    for c in s.chars() {
+        if c == '<' {
+            in_tag = true;
+        } else if c == '>' && in_tag {
+            in_tag = false;
+        } else if !in_tag {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ pub trait Renderer {
 }
 
 /// Escape HTML special characters
-fn escape_html(text: &str) -> String {
+pub fn escape_html(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
@@ -26,10 +26,24 @@ fn escape_html(text: &str) -> String {
 }
 
 /// Check if a URL is safe
-fn is_safe_url(url: &str) -> bool {
-    let url = url.to_lowercase();
-    !url.starts_with("javascript:")
-        && !url.starts_with("vbscript:")
-        && !url.starts_with("file:")
-        && !url.starts_with("data:")
+/// Based on commonmark.js reUnsafeProtocol and reSafeDataProtocol
+pub fn is_safe_url(url: &str) -> bool {
+    let url_lower = url.to_lowercase();
+
+    // Check for unsafe protocols
+    let is_unsafe = url_lower.starts_with("javascript:")
+        || url_lower.starts_with("vbscript:")
+        || url_lower.starts_with("file:")
+        || (url_lower.starts_with("data:") && !is_safe_data_url(&url_lower));
+
+    !is_unsafe
+}
+
+/// Check if a data URL is safe (only allows image types)
+fn is_safe_data_url(url: &str) -> bool {
+    // Allow data:image/* URLs
+    url.starts_with("data:image/png")
+        || url.starts_with("data:image/gif")
+        || url.starts_with("data:image/jpeg")
+        || url.starts_with("data:image/webp")
 }

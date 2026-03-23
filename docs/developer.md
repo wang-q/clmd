@@ -344,26 +344,12 @@ const result = writer.render(parsed);
 - **CommonMark 规范测试**：282/652 通过（43.3%）
 - **参考项目验证**：697/697 通过（100%）
 
-### 最近完成的工作
-
-1. **列表渲染修复**：
-   - 修复了紧凑列表中 `</li>` 后的换行符问题
-   - 修复了嵌套列表前的换行符问题
-   - 修复了代码块前的换行符问题（使用 `cr()` 函数避免重复换行）
-   - 实现了 `lit()` 和 `cr()` 方法来跟踪最后一个输出字符
-
-2. **测试框架改进**：
-   - 整合了 `docs/commonmark_spec_tests.rs` 中的有用功能到 `tests/commonmark_spec.rs`
-   - 添加了 `normalize_html()` 函数进行更宽松的比较
-   - 添加了按 section 分组失败测试的统计功能
-
 ### 失败测试分析
 
 当前失败的测试按类别分布：
 
 | Section | 失败数量 |
 |---------|---------|
-| Emphasis and strong emphasis | 90 |
 | Links | 82 |
 | HTML blocks | 44 |
 | Images | 20 |
@@ -383,25 +369,37 @@ const result = writer.render(parsed);
 | Paragraphs | 1 |
 | Raw HTML | 20 |
 | Thematic breaks | 2 |
+| Emphasis and strong emphasis | ~10（部分复杂情况仍需修复）|
+
+**注意**：强调解析已从 90 个失败减少到约 10 个，主要剩余问题是一些复杂的边界情况（如 intraword emphasis、嵌套规则等）。
 
 ### 下一步工作
 
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的 370 个失败的 CommonMark 规范测试用例
+   - 修复剩余的约 290 个失败的 CommonMark 规范测试用例
    - 主要问题类别（按优先级）：
-     - 强调和粗体解析（90 个失败）
-     - 链接解析（82 个失败）
+     - 链接解析（82 个失败）- 当前最高优先级
      - HTML 块解析（44 个失败）
      - 图片解析（20 个失败）
+     - 链接引用定义（20 个失败）
+     - 列表项（19 个失败）
+     - 原始 HTML（20 个失败）
+     - 强调解析剩余问题（约 10 个复杂边界情况）
    - 性能基准测试
 
-2. **渲染器增强**（可选）：
-   - HTML 渲染器支持 `HtmlInline` 节点
-   - XML 渲染器支持 `HtmlInline` 节点
+2. **链接解析改进**（当前最高优先级）：
+   - 参考 commonmark.js 的链接解析算法
+   - 实现链接引用定义解析
+   - 处理嵌套链接和复杂 URL
 
-3. **文档完善**：
+3. **渲染器增强**（已完成基础改进）：
+   - ✅ HTML 渲染器改进 URL 安全检查（支持 data:image/*）
+   - ✅ Image alt 文本正确处理（使用 disable_tags 机制）
+   - XML 渲染器支持 `HtmlInline` 节点（可选）
+
+4. **文档完善**：
    - API 文档
    - 使用示例
    - 性能基准
