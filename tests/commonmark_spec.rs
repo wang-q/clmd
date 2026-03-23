@@ -83,15 +83,19 @@ fn test_commonmark_spec() {
     let mut passed = 0;
     let mut failed = 0;
     let mut failures: Vec<(usize, String, String, String, String)> = Vec::new();
+    let mut first_passed: Option<(usize, String)> = None;
 
     for test in &tests {
         let result = markdown_to_html(&test.markdown, options::DEFAULT);
 
         if result == test.html {
             passed += 1;
+            if first_passed.is_none() {
+                first_passed = Some((test.number, test.section.clone()));
+            }
         } else {
             failed += 1;
-            if failures.len() < 5 {
+            if failures.len() < 10 {
                 failures.push((
                     test.number,
                     test.section.clone(),
@@ -109,11 +113,17 @@ fn test_commonmark_spec() {
     println!("Failed: {}/{} ({:.1}%)", failed, tests.len(),
         (failed as f64 / tests.len() as f64) * 100.0);
 
+    if let Some((num, section)) = first_passed {
+        println!("\nFirst passed test: #{} ({})", num, section);
+    }
+
     if !failures.is_empty() {
         println!("\n=== First {} Failures ===", failures.len());
         for (num, section, markdown, expected, got) in &failures {
             println!("\nTest #{} ({})", num, section);
             println!("Input markdown (escaped): {:?}", markdown);
+            println!("Expected (escaped): {:?}", expected);
+            println!("Got (escaped): {:?}", got);
             println!("Expected:\n{}", expected);
             println!("Got:\n{}", got);
             println!("---");

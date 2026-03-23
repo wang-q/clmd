@@ -34,6 +34,11 @@ impl HtmlRenderer {
             }
         }
 
+        // Remove trailing newline to match CommonMark spec test format
+        while self.output.ends_with('\n') {
+            self.output.pop();
+        }
+
         self.output.clone()
     }
 
@@ -300,7 +305,7 @@ mod tests {
         append_child(&para, text.clone());
 
         let html = render(&root, 0);
-        assert_eq!(html, "<p>Hello world</p>\n");
+        assert_eq!(html, "<p>Hello world</p>");
     }
 
     #[test]
@@ -320,6 +325,6 @@ mod tests {
         append_child(&emph, text.clone());
 
         let html = render(&root, 0);
-        assert_eq!(html, "<p><em>emphasized</em></p>\n");
+        assert_eq!(html, "<p><em>emphasized</em></p>");
     }
 }

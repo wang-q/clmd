@@ -53,7 +53,7 @@ pub mod options {
 /// use md::options;
 ///
 /// let html = markdown_to_html("Hello *world*", options::DEFAULT);
-/// assert_eq!(html, "<p>Hello *world*</p>\n");
+/// assert_eq!(html, "<p>Hello *world*</p>");
 /// ```
 pub fn markdown_to_html(text: &str, options: u32) -> String {
     let parser = parser::Parser::new(options);
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_basic() {
         let html = markdown_to_html("Hello world", options::DEFAULT);
-        assert_eq!(html, "<p>Hello world</p>\n");
+        assert_eq!(html, "<p>Hello world</p>");
     }
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_thematic_break() {
         let html = markdown_to_html("---", options::DEFAULT);
-        assert_eq!(html, "<hr />\n");
+        assert_eq!(html, "<hr />");
     }
 
     #[test]
