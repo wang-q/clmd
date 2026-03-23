@@ -3,7 +3,7 @@ use md::inlines::Subject;
 
 #[test]
 fn test_scan_delims() {
-    let mut subject = Subject::new("*foo bar*", 1, 0);
+    let subject = Subject::new("*foo bar*", 1, 0);
     
     // First character should be *
     let c = subject.peek().unwrap();

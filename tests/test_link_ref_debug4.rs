@@ -1,5 +1,5 @@
-use md::inlines::{parse_inlines_with_refmap, Subject};
-use md::node::{Node, NodeData, NodeType};
+use md::inlines::parse_inlines_with_refmap;
+use md::node::{Node, NodeType};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
