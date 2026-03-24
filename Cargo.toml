@@ -8,6 +8,7 @@ thiserror = "1.0"
 regex = "1.10"
 htmlescape = "0.3"
 bumpalo = { version = "3.14", features = ["collections"] }
+arrayvec = "0.7"
 
 [dev-dependencies]
 criterion = "0.5"

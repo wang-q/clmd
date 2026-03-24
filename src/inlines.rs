@@ -9,9 +9,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Maximum number of backticks to track
-const MAX_BACKTICKS: usize = 1000;
-
 /// HTML5 named entities lookup table
 /// This includes entities that may not be supported by htmlescape
 fn get_html5_entity(name: &str) -> Option<&'static str> {
@@ -54,10 +51,6 @@ pub struct Subject<'a> {
     pub delimiters: Option<Rc<RefCell<Delimiter>>>,
     /// Stack of brackets for links/images
     pub brackets: Option<Box<Bracket>>,
-    /// Position of backtick sequences
-    pub backticks: Vec<usize>,
-    /// Whether we've scanned for backticks
-    pub scanned_for_backticks: bool,
     /// Whether there are no link openers
     pub no_link_openers: bool,
     /// Reference map for link references
@@ -120,8 +113,6 @@ impl<'a> Subject<'a> {
             block_offset,
             delimiters: None,
             brackets: None,
-            backticks: vec![0; MAX_BACKTICKS + 1],
-            scanned_for_backticks: false,
             no_link_openers: false,
             refmap: std::collections::HashMap::new(),
             smart: false,
@@ -143,8 +134,6 @@ impl<'a> Subject<'a> {
             block_offset,
             delimiters: None,
             brackets: None,
-            backticks: vec![0; MAX_BACKTICKS + 1],
-            scanned_for_backticks: false,
             no_link_openers: false,
             refmap,
             smart: false,
@@ -167,8 +156,6 @@ impl<'a> Subject<'a> {
             block_offset,
             delimiters: None,
             brackets: None,
-            backticks: vec![0; MAX_BACKTICKS + 1],
-            scanned_for_backticks: false,
             no_link_openers: false,
             refmap,
             smart,
