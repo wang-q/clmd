@@ -1,8 +1,57 @@
 use crate::iterator::{NodeWalker, WalkerEvent};
 use crate::node::{Node, NodeData, NodeType, SourcePos};
 use crate::render::{escape_html, is_safe_url};
+use htmlescape::decode_html;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+/// Decode HTML entities in a string
+fn decode_entities(input: &str) -> String {
+    // Simple entity decoding for common cases
+    // This is a simplified version - for full support, we'd need to use the same
+    // logic as the inline parser
+    let mut result = String::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '&' {
+            // Try to find a semicolon to complete the entity
+            let mut entity = String::new();
+            entity.push(c);
+
+            while let Some(&next_c) = chars.peek() {
+                if next_c == ';' {
+                    entity.push(next_c);
+                    chars.next();
+                    break;
+                }
+                if next_c.is_ascii_alphanumeric() || next_c == '#' {
+                    entity.push(next_c);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+
+            // Try to decode the entity
+            if entity.ends_with(';') {
+                if let Ok(decoded) = decode_html(&entity) {
+                    if decoded != entity {
+                        result.push_str(&decoded);
+                        continue;
+                    }
+                }
+            }
+
+            // If decoding failed, keep the original
+            result.push_str(&entity);
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
 
 /// Render a node tree as HTML
 pub fn render(root: &Rc<RefCell<Node>>, options: u32) -> String {
@@ -133,7 +182,9 @@ impl HtmlRenderer {
                 self.lit("><code");
                 if let NodeData::CodeBlock { info, .. } = &node.data {
                     if !info.is_empty() {
-                        let lang = info.split_whitespace().next().unwrap_or("");
+                        // Decode entities in info string per CommonMark spec
+                        let decoded_info = decode_entities(info);
+                        let lang = decoded_info.split_whitespace().next().unwrap_or("");
                         if !lang.is_empty() {
                             self.lit(" class=\"language-");
                             self.lit(&escape_html(lang));
@@ -165,7 +216,7 @@ impl HtmlRenderer {
                 }
             }
             NodeType::Heading => {
-                if let NodeData::Heading { level } = &node.data {
+                if let NodeData::Heading { level, .. } = &node.data {
                     self.lit("<h");
                     self.lit(&level.to_string());
                     self.add_sourcepos(&node.source_pos);
@@ -287,7 +338,7 @@ impl HtmlRenderer {
                 }
             }
             NodeType::Heading => {
-                if let NodeData::Heading { level } = &node.data {
+                if let NodeData::Heading { level, .. } = &node.data {
                     self.lit("</h");
                     self.lit(&level.to_string());
                     self.lit(">\n");

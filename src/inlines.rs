@@ -443,8 +443,10 @@ impl Subject {
             true
         } else {
             // Not a valid entity, treat & as literal
-            // The HTML renderer will escape it to &amp; if needed
-            self.parse_string(parent)
+            // Append just "&" - the HTML renderer will escape it to &amp;
+            self.append_text(parent, "&");
+            self.advance(); // skip the &
+            true
         }
     }
 
@@ -1565,6 +1567,7 @@ fn unescape_string(s: &str) -> String {
 
 /// Parse an HTML entity at the start of a string
 /// Returns (decoded_char, chars_consumed) or None
+/// Returns None for invalid entities (like out-of-range numeric entities)
 fn parse_entity(s: &str) -> Option<(String, usize)> {
     if !s.starts_with('#') && !s.starts_with(|c: char| c.is_ascii_alphabetic()) {
         return None;
@@ -1585,11 +1588,18 @@ fn parse_entity(s: &str) -> Option<(String, usize)> {
                 let hex_str = &rest[hex_digits_start..hex_end];
                 if let Ok(codepoint) = u32::from_str_radix(hex_str, 16) {
                     // Handle invalid codepoints
-                    let c = if codepoint == 0 || codepoint > 0x10ffff {
-                        '\u{FFFD}' // Replacement character
-                    } else {
-                        char::from_u32(codepoint).unwrap_or('\u{FFFD}')
-                    };
+                    // codepoint == 0 (NUL): replacement character
+                    // codepoint > 0x10ffff: preserve original entity
+                    if codepoint == 0 {
+                        return Some((
+                            '\u{FFFD}'.to_string(),
+                            2 + hex_end - hex_digits_start + 1,
+                        ));
+                    }
+                    if codepoint > 0x10ffff {
+                        return None; // Preserve original entity
+                    }
+                    let c = char::from_u32(codepoint).unwrap_or('\u{FFFD}');
                     // Total length: # (1) + x (1) + hex_digits + ; (1)
                     return Some((c.to_string(), 2 + hex_end - hex_digits_start + 1));
                 }
@@ -1604,11 +1614,15 @@ fn parse_entity(s: &str) -> Option<(String, usize)> {
                 let dec_str = &rest[..dec_end];
                 if let Ok(codepoint) = dec_str.parse::<u32>() {
                     // Handle invalid codepoints
-                    let c = if codepoint == 0 || codepoint > 0x10ffff {
-                        '\u{FFFD}' // Replacement character
-                    } else {
-                        char::from_u32(codepoint).unwrap_or('\u{FFFD}')
-                    };
+                    // codepoint == 0 (NUL): replacement character
+                    // codepoint > 0x10ffff: preserve original entity
+                    if codepoint == 0 {
+                        return Some(('\u{FFFD}'.to_string(), 1 + dec_end + 1));
+                    }
+                    if codepoint > 0x10ffff {
+                        return None; // Preserve original entity
+                    }
+                    let c = char::from_u32(codepoint).unwrap_or('\u{FFFD}');
                     return Some((c.to_string(), 1 + dec_end + 1));
                 }
             }
@@ -1768,6 +1782,8 @@ pub fn parse_inlines_with_refmap(
 
     // Clear the parent's literal content since it's now represented as child nodes
     // This prevents the renderer from using the literal instead of children
+    // Note: For heading nodes, we don't clear the literal because heading nodes
+    // should have NodeData::Heading type, not NodeData::Text type
     let mut parent_mut = parent.borrow_mut();
     if let NodeData::Text { ref mut literal } = parent_mut.data {
         literal.clear();
@@ -1866,6 +1882,9 @@ const ENTITY_PATTERN: &str =
 
 /// Parse an HTML entity and return the decoded string and length
 /// Uses htmlescape crate and our entity table to support all HTML5 named entities
+/// Returns None if this is not an entity pattern at all
+/// Returns Some((decoded, len)) for valid entities
+/// For invalid entities (like &#87654321;), returns Some((original, len)) to preserve them
 fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     if !input.starts_with('&') {
         return None;
@@ -1894,6 +1913,8 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
                 if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
                     return Some((decoded, entity_str.len()));
                 }
+                // Invalid hex entity (e.g., out of range) - preserve as-is
+                return Some((entity_str.to_string(), entity_str.len()));
             }
         } else {
             // Decimal entity: &#123;
@@ -1903,6 +1924,8 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
                 if let Some((decoded, _)) = parse_entity(&entity_str[1..]) {
                     return Some((decoded, entity_str.len()));
                 }
+                // Invalid decimal entity (e.g., out of range) - preserve as-is
+                return Some((entity_str.to_string(), entity_str.len()));
             }
         }
         // Invalid numeric entity format - don't consume

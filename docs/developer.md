@@ -266,7 +266,7 @@ const result = writer.render(parsed);
 
 - **单元测试**：77 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：521/652 通过（79.9%）
+- **CommonMark 规范测试**：545/652 通过（83.6%）
 - **参考项目验证**：697/697 通过（100%）
 
 ### 失败测试分析
@@ -275,51 +275,33 @@ const result = writer.render(parsed);
 
 | Section | 失败数量 |
 |---------|---------|
-| Links | 27 |
-| Images | 15 |
-| Link reference definitions | 9 |
-| Lists | 10 |
+| Links | 22 |
+| Images | 14 |
 | List items | 18 |
+| Lists | 10 |
+| Link reference definitions | 8 |
 | Emphasis and strong emphasis | 9 |
 | Raw HTML | 10 |
 | Autolinks | 8 |
-| Hard line breaks | 5 |
-| Entity and numeric character references | 4 |
+| Setext headings | 1 |
+| ATX headings | 1 |
 | Fenced code blocks | 2 |
 | Backslash escapes | 2 |
-| ATX headings | 3 |
-| Setext headings | 5 |
 | Block quotes | 1 |
 | Code spans | 1 |
-| Paragraphs | 1 |
-| Thematic breaks | 1 |
 
 ### 下一步工作
 
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的 131 个失败的 CommonMark 规范测试用例
-   - 主要问题类别（按优先级）：
-     - Links（27 个失败）
-     - Images（15 个失败）
-     - Link reference definitions（9 个失败）
-     - Lists（10 个失败）
-     - List items（18 个失败）
-     - Emphasis and strong emphasis（9 个失败）
-     - Raw HTML（10 个失败）
+   - 修复剩余的 107 个失败的 CommonMark 规范测试用例
    - 性能基准测试
 
-2. **链接解析改进**（部分完成）：
-   - ✅ 修复了 shortcut reference link 的标签提取问题
-   - ✅ 修复了 collapsed reference links `[foo][]` 的解析问题
-   - ✅ 链接引用定义解析正常工作
+3. **链接解析改进**（部分完成）：
    - 仍需处理：嵌套链接、复杂 URL、转义字符等
 
-3. **渲染器增强**（已完成基础改进）：
-   - ✅ HTML 渲染器改进 URL 安全检查（支持 data:image/*）
-   - ✅ Image alt 文本正确处理（使用 disable_tags 机制）
-   - ✅ HTML blocks 和 HtmlInline 直接输出原始 HTML
+4. **渲染器增强**（已完成基础改进）：
    - XML 渲染器支持 `HtmlInline` 节点（可选）
 
 4. **文档完善**：

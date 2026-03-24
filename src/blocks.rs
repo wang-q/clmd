@@ -440,35 +440,99 @@ impl BlockParser {
                 let line = &self.current_line[self.next_nonspace..];
                 let mut level = 0;
                 for c in line.chars() {
-                    if c == '#' && level < 6 {
+                    if c == '#' {
                         level += 1;
                     } else {
                         break;
                     }
                 }
 
-                if level > 0 {
+                // ATX heading must have 1-6 # characters
+                if level > 0 && level <= 6 {
                     let after_hashes = &line[level..];
+                    // Check if this is a valid ATX heading:
+                    // - Empty after hashes (e.g., "#")
+                    // - Starts with space or tab
+                    // - Starts with # (for closing sequence)
                     if after_hashes.is_empty()
                         || after_hashes.starts_with(' ')
                         || after_hashes.starts_with('\t')
+                        || after_hashes.starts_with('#')
                     {
                         self.close_unmatched_blocks();
                         self.advance_next_nonspace();
                         self.advance_offset(level, false);
+
+                        // Extract content from the rest of the line
+                        let content_start = self.offset;
+                        let mut content = self.current_line[content_start..].to_string();
+
+                        // Remove trailing newlines
+                        content = content.trim_end_matches('\n').to_string();
+                        content = content.trim_end_matches('\r').to_string();
+
+                        // Remove closing sequence using regex-like logic
+                        // Pattern 1: ^[ \t]*#+[ \t]*$ - content is only whitespace + #s
+                        let trimmed_start = content.trim_start_matches(|c: char| c == ' ' || c == '\t');
+                        let trimmed_end = trimmed_start.trim_end_matches(|c: char| c == ' ' || c == '\t');
+                        if trimmed_end.chars().all(|c| c == '#') && !trimmed_end.is_empty() {
+                            content = String::new();
+                        } else {
+                            // Pattern 2: [ \t]+#+[ \t]*$ - closing sequence at end
+                            // Find the last sequence of #s (must be preceded by whitespace)
+                            // Scan from end to find the hash sequence
+                            let mut hash_start = None;
+                            let mut in_hashes = false;
+                            for (i, c) in content.char_indices().rev() {
+                                if c == '#' {
+                                    if !in_hashes {
+                                        in_hashes = true;
+                                    }
+                                } else if c == ' ' || c == '\t' {
+                                    if in_hashes {
+                                        // Found whitespace before hashes - this is the closing sequence
+                                        hash_start = Some(i + 1);
+                                        break;
+                                    }
+                                } else {
+                                    // Non-space, non-hash - stop scanning
+                                    break;
+                                }
+                            }
+                            
+                            // Also check if we reached the start while in_hashes
+                            if in_hashes && hash_start.is_none() {
+                                // The entire content is hashes (should have been caught by pattern 1)
+                                hash_start = Some(0);
+                            }
+                            
+                            if let Some(start) = hash_start {
+                                // Check if there's whitespace before the hash sequence
+                                if start > 0 {
+                                    let before_hash = &content[..start];
+                                    if before_hash.ends_with(' ') || before_hash.ends_with('\t') {
+                                        content = before_hash.trim_end_matches(|c: char| c == ' ' || c == '\t').to_string();
+                                    }
+                                }
+                            }
+                        }
+
+                        // Trim leading whitespace from content
+                        content = content.trim_start_matches(|c: char| c == ' ' || c == '\t').to_string();
+
                         let heading =
                             self.add_child(NodeType::Heading, self.next_nonspace);
                         {
                             let mut heading_mut = heading.borrow_mut();
-                            if let NodeData::Heading { level: ref mut l } =
+                            if let NodeData::Heading { level: ref mut l, content: ref mut c } =
                                 heading_mut.data
                             {
                                 *l = level as u32;
+                                *c = content;
                             }
                         }
-                        // ATX heading content will be added by add_text_to_container
-                        // which calls add_line_to_node and then finalize_block
-                        // creates the text child node
+                        // Skip the rest of the line
+                        self.advance_offset(self.current_line.len() - self.offset, false);
                         return heading;
                     }
                 }
@@ -543,10 +607,12 @@ impl BlockParser {
                 if let Some(level) = self.scan_setext_heading_line(line) {
                     self.close_unmatched_blocks();
                     // Convert paragraph to heading
+                    // Get the content before converting
+                    let content = self.get_string_content(&current_container);
                     {
                         let mut container_mut = current_container.borrow_mut();
                         container_mut.node_type = NodeType::Heading;
-                        container_mut.data = NodeData::Heading { level };
+                        container_mut.data = NodeData::Heading { level, content: content.trim_end().to_string() };
                     }
                     self.set_setext(&current_container, true);
                     self.advance_offset(self.current_line.len() - self.offset, false);
@@ -999,6 +1065,8 @@ impl BlockParser {
     }
 
     /// Scan for setext heading line
+    /// Setext heading underline must be a sequence of = or - characters only
+    /// No spaces or other characters allowed between them
     fn scan_setext_heading_line(&self, line: &str) -> Option<u32> {
         let trimmed = line.trim_end();
         if trimmed.is_empty() {
@@ -1010,16 +1078,12 @@ impl BlockParser {
             return None;
         }
 
-        // Check all characters are the same
+        // Check that all characters are the same marker character
+        // Spaces are NOT allowed between markers (per CommonMark spec)
         for c in trimmed.chars() {
-            if c != first_char && !c.is_whitespace() {
+            if c != first_char {
                 return None;
             }
-        }
-
-        // Must have at least one non-whitespace
-        if !trimmed.chars().any(|c| c == first_char) {
-            return None;
         }
 
         Some(if first_char == '=' { 1 } else { 2 })
@@ -1301,9 +1365,10 @@ impl BlockParser {
         let trimmed = line
             .trim_end_matches(|c: char| c == ' ' || c == '\t' || c == '\n' || c == '\r');
 
-        // Remove trailing hashtags (must be preceded by space/tab)
+        // Remove trailing hashtags (must be preceded by space/tab or start of content)
         let mut end = trimmed.len();
         let mut hash_count = 0;
+        let mut found_space = false;
 
         for (i, c) in trimmed.char_indices().rev() {
             if c == '#' {
@@ -1311,6 +1376,7 @@ impl BlockParser {
             } else if c == ' ' || c == '\t' {
                 // Space/tab before hashes - this is a valid closing sequence
                 end = i;
+                found_space = true;
                 break;
             } else {
                 // Non-space, non-hash character - not a closing sequence
@@ -1319,7 +1385,10 @@ impl BlockParser {
             }
         }
 
-        if hash_count > 0 {
+        // If we found hashes and either:
+        // 1. Found a space before them (normal case), or
+        // 2. The hashes go all the way to the start (content is only whitespace)
+        if hash_count > 0 && (found_space || end == trimmed.len()) {
             // Truncate the line to remove closing hashes and trailing spaces
             // Calculate position: offset + (original line len - trimmed len) + end
             let leading_ws_len = self.current_line[self.offset..].len() - line.len();
@@ -1508,19 +1577,17 @@ impl BlockParser {
                 }
             }
             NodeType::Heading => {
-                // For ATX headings, content was set during creation
-                // For Setext headings, content was accumulated in string_content
-                let content = self.get_string_content(block);
-                if !content.is_empty() {
-                    // Create a text node as child for inline processing
-                    let text_node = Node::new_with_data(
-                        NodeType::Text,
-                        NodeData::Text {
-                            literal: content.trim_end().to_string(),
-                        },
-                    );
-                    let text_rc = Rc::new(RefCell::new(text_node));
-                    append_child(block, text_rc);
+                // For ATX headings, content was already set during creation
+                // For Setext headings, content was also set during creation
+                // Only update from string_content if content is empty (fallback)
+                let string_content = self.get_string_content(block);
+                {
+                    let mut block_mut = block.borrow_mut();
+                    if let NodeData::Heading { content: ref mut c, .. } = block_mut.data {
+                        if c.is_empty() && !string_content.is_empty() {
+                            *c = string_content.trim_end().to_string();
+                        }
+                    }
                 }
             }
             NodeType::Paragraph => {
@@ -1766,7 +1833,6 @@ impl BlockParser {
         matches!(
             block_type,
             NodeType::Paragraph
-                | NodeType::Heading
                 | NodeType::CodeBlock
                 | NodeType::HtmlBlock
         )

@@ -61,13 +61,21 @@ impl Parser {
                     let node = event.node.borrow();
 
                     // Process container blocks that contain inline text
-                    // Paragraph and Heading store text content in their data field
                     match node.node_type {
-                        NodeType::Paragraph | NodeType::Heading => {
+                        NodeType::Paragraph => {
                             if let NodeData::Text { literal } = &node.data {
                                 if !literal.is_empty() {
                                     nodes_to_process
                                         .push((event.node.clone(), literal.clone()));
+                                }
+                            }
+                        }
+                        NodeType::Heading => {
+                            // For headings, get content from the content field
+                            if let NodeData::Heading { content, .. } = &node.data {
+                                if !content.is_empty() {
+                                    nodes_to_process
+                                        .push((event.node.clone(), content.clone()));
                                 }
                             }
                         }

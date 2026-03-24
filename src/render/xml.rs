@@ -92,7 +92,7 @@ impl XmlRenderer {
                     self.output.push_str(" tight=\"true\"");
                 }
             }
-            NodeData::Heading { level } => {
+            NodeData::Heading { level, .. } => {
                 self.output.push_str(&format!(" level=\"{}\"", level));
             }
             NodeData::CodeBlock { info, .. } => {

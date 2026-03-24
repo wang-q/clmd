@@ -130,6 +130,7 @@ pub enum NodeData {
     Paragraph,
     Heading {
         level: u32,
+        content: String,
     },
     ThematicBreak,
     Text {
@@ -209,7 +210,7 @@ impl Node {
                 on_exit: String::new(),
             },
             NodeType::Paragraph => NodeData::Paragraph,
-            NodeType::Heading => NodeData::Heading { level: 0 },
+            NodeType::Heading => NodeData::Heading { level: 0, content: String::new() },
             NodeType::ThematicBreak => NodeData::ThematicBreak,
             NodeType::Text => NodeData::Text {
                 literal: String::new(),
