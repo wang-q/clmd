@@ -19,6 +19,10 @@ pub enum NodeType {
     TableRow,
     TableCell,
 
+    // Footnote types
+    FootnoteRef,
+    FootnoteDef,
+
     // Inline types
     Text,
     SoftBreak,
@@ -213,6 +217,20 @@ pub enum NodeData {
         /// Whether the task is checked
         checked: bool,
     },
+    FootnoteRef {
+        /// The footnote label
+        label: String,
+        /// The ordinal number
+        ordinal: usize,
+    },
+    FootnoteDef {
+        /// The footnote label
+        label: String,
+        /// The ordinal number
+        ordinal: usize,
+        /// Number of references
+        ref_count: usize,
+    },
     None,
 }
 
@@ -309,6 +327,15 @@ impl Node {
             },
             NodeType::Strikethrough => NodeData::Strikethrough,
             NodeType::TaskItem => NodeData::TaskItem { checked: false },
+            NodeType::FootnoteRef => NodeData::FootnoteRef {
+                label: String::new(),
+                ordinal: 0,
+            },
+            NodeType::FootnoteDef => NodeData::FootnoteDef {
+                label: String::new(),
+                ordinal: 0,
+                ref_count: 0,
+            },
             NodeType::None => NodeData::None,
         };
 

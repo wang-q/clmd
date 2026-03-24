@@ -54,6 +54,8 @@ pub fn convert_node_type(old: OldNodeType) -> &'static str {
         OldNodeType::TableCell => "TableCell",
         OldNodeType::Strikethrough => "Strikethrough",
         OldNodeType::TaskItem => "TaskItem",
+        OldNodeType::FootnoteRef => "FootnoteRef",
+        OldNodeType::FootnoteDef => "FootnoteDef",
         OldNodeType::None => "None",
     }
 }

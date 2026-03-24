@@ -1,8 +1,12 @@
+pub mod abbreviation;
 pub mod ast;
 pub mod ast_nodes;
+pub mod attributes;
 pub mod blocks;
 pub mod compat;
 pub mod config;
+pub mod definition;
+pub mod footnotes;
 pub mod html_utils;
 pub mod inlines;
 pub mod iterator;
@@ -14,6 +18,7 @@ pub mod sequence;
 pub mod strikethrough;
 pub mod tables;
 pub mod tasklist;
+pub mod toc;
 
 pub use iterator::{NodeIterator, NodeWalker};
 pub use node::{

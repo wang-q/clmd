@@ -185,6 +185,8 @@ impl XmlRenderer {
             NodeType::Image => "image",
             NodeType::Strikethrough => "strikethrough",
             NodeType::TaskItem => "task_item",
+            NodeType::FootnoteRef => "footnote_ref",
+            NodeType::FootnoteDef => "footnote_def",
             NodeType::None => "none",
         }
     }
