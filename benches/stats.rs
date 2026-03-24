@@ -15,10 +15,10 @@ pub fn median(values: &[f64]) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
-    
+
     let mut sorted = values.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    
+
     let len = sorted.len();
     if len % 2 == 0 {
         (sorted[len / 2 - 1] + sorted[len / 2]) / 2.0
@@ -32,12 +32,11 @@ pub fn stdev(values: &[f64]) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
-    
+
     let mean_val = mean(values);
-    let variance = values.iter()
-        .map(|&x| (x - mean_val).powi(2))
-        .sum::<f64>() / values.len() as f64;
-    
+    let variance = values.iter().map(|&x| (x - mean_val).powi(2)).sum::<f64>()
+        / values.len() as f64;
+
     variance.sqrt()
 }
 
@@ -46,12 +45,11 @@ pub fn sample_stdev(values: &[f64]) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
-    
+
     let mean_val = mean(values);
-    let variance = values.iter()
-        .map(|&x| (x - mean_val).powi(2))
-        .sum::<f64>() / (values.len() - 1) as f64;
-    
+    let variance = values.iter().map(|&x| (x - mean_val).powi(2)).sum::<f64>()
+        / (values.len() - 1) as f64;
+
     variance.sqrt()
 }
 
@@ -60,10 +58,10 @@ pub fn min_max(values: &[f64]) -> (f64, f64) {
     if values.is_empty() {
         return (0.0, 0.0);
     }
-    
+
     let min = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     let max = values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-    
+
     (min, max)
 }
 
@@ -86,12 +84,12 @@ pub fn print_summary(name: &str, values: &[f64]) {
         println!("{}: No data", name);
         return;
     }
-    
+
     let mean_val = mean(values);
     let median_val = median(values);
     let stdev_val = stdev(values);
     let (min_val, max_val) = min_max(values);
-    
+
     println!("\n=== {} ===", name);
     println!("  Count:    {}", values.len());
     println!("  Mean:     {}", format_duration(mean_val));

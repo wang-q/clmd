@@ -378,24 +378,41 @@ impl Node {
 }
 
 /// Append a child to a parent node
+#[inline(always)]
 pub fn append_child(parent: &Rc<RefCell<Node>>, child: Rc<RefCell<Node>>) {
     // Set child's parent first
-    *child.borrow_mut().parent.borrow_mut() = Some(Rc::downgrade(parent));
+    {
+        let child_mut = child.borrow_mut();
+        child_mut.parent.borrow_mut().replace(Rc::downgrade(parent));
+    }
 
     // Get the last child of parent (if any)
     let last_child_opt = parent.borrow().last_child.borrow().clone();
 
     if let Some(last_child) = last_child_opt {
         // Link child to previous last child
-        *child.borrow_mut().prev.borrow_mut() = Some(Rc::downgrade(&last_child));
-        *last_child.borrow_mut().next.borrow_mut() = Some(child.clone());
+        {
+            let child_mut = child.borrow_mut();
+            child_mut
+                .prev
+                .borrow_mut()
+                .replace(Rc::downgrade(&last_child));
+        }
+        {
+            let last_mut = last_child.borrow_mut();
+            last_mut.next.borrow_mut().replace(child.clone());
+        }
     } else {
         // No children yet, set as first child
-        *parent.borrow_mut().first_child.borrow_mut() = Some(child.clone());
+        parent
+            .borrow_mut()
+            .first_child
+            .borrow_mut()
+            .replace(child.clone());
     }
 
     // Always update last_child
-    *parent.borrow_mut().last_child.borrow_mut() = Some(child);
+    parent.borrow_mut().last_child.borrow_mut().replace(child);
 }
 
 /// Prepend a child to a parent node

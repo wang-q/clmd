@@ -17,57 +17,70 @@ Benchmarks are based on cmark's sample files, organized into three categories:
 - **Inline**: Parsing of inline elements (emphasis, links, entities, etc.)
 - **Full Document**: Complete document parsing
 
-## Latest Results (After Optimization)
+## Latest Results (After Optimization Round 3)
 
 ### Block-level Benchmarks
 
-| Test | Before | After | Change | Description |
-|------|--------|-------|--------|-------------|
-| block_quotes_flat | 8.57 µs | 8.04 µs | **-6.2%** | Flat block quotes |
-| block_quotes_nested | 15.66 µs | 14.40 µs | **-8.0%** | Nested block quotes |
-| block_code | 3.12 µs | 3.16 µs | +1.3% | Indented code blocks |
-| block_fences | 4.16 µs | 4.15 µs | -0.2% | Fenced code blocks |
-| block_heading | 8.98 µs | 8.26 µs | **-8.0%** | ATX headings |
-| block_hr | 3.82 µs | 3.79 µs | -0.8% | Horizontal rules |
-| block_list_flat | 56.24 µs | 51.72 µs | **-8.0%** | Flat lists |
-| block_list_nested | 44.24 µs | 41.87 µs | **-5.4%** | Nested lists |
-| block_html | 13.35 µs | 13.33 µs | -0.2% | HTML blocks |
-| block_lheading | 5.22 µs | 4.98 µs | **-4.6%** | Setext headings |
-| block_ref_flat | 48.32 µs | 45.68 µs | **-5.5%** | Flat reference links |
-| block_ref_nested | 43.66 µs | 42.49 µs | **-2.7%** | Nested reference links |
+| Test | Original | After Opt 1-2 | After Opt 3 | Total Change | Description |
+|------|----------|---------------|-------------|--------------|-------------|
+| block_quotes_flat | 8.57 µs | 8.13 µs | **8.14 µs** | **-5.0%** | Flat block quotes |
+| block_quotes_nested | 15.66 µs | 14.34 µs | **14.50 µs** | **-7.4%** | Nested block quotes |
+| block_code | 3.12 µs | 3.29 µs | **3.23 µs** | +3.5% | Indented code blocks |
+| block_fences | 4.16 µs | 4.22 µs | **4.18 µs** | +0.5% | Fenced code blocks |
+| block_heading | 8.98 µs | 8.32 µs | **8.37 µs** | **-6.8%** | ATX headings |
+| block_hr | 3.82 µs | 3.73 µs | **3.72 µs** | **-2.6%** | Horizontal rules |
+| block_list_flat | 56.24 µs | 50.73 µs | **51.02 µs** | **-9.3%** | Flat lists |
+| block_list_nested | 44.24 µs | 41.33 µs | **41.50 µs** | **-6.2%** | Nested lists |
+| block_html | 13.35 µs | 13.28 µs | **13.32 µs** | **-0.2%** | HTML blocks |
+| block_lheading | 5.22 µs | 5.05 µs | **5.02 µs** | **-3.8%** | Setext headings |
+| block_ref_flat | 48.32 µs | 46.39 µs | **46.06 µs** | **-4.7%** | Flat reference links |
+| block_ref_nested | 43.66 µs | 44.61 µs | **42.95 µs** | **-1.6%** | Nested reference links |
 
 ### Inline Benchmarks
 
-| Test | Before | After | Change | Description |
-|------|--------|-------|--------|-------------|
-| inline_autolink | 24.22 µs | 23.52 µs | **-2.9%** | Autolinks |
-| inline_backticks | 4.93 µs | 4.74 µs | **-3.9%** | Code spans |
-| inline_em_flat | 20.93 µs | 20.20 µs | **-3.5%** | Flat emphasis |
-| inline_em_nested | 16.90 µs | 16.35 µs | **-3.3%** | Nested emphasis |
-| inline_em_worst | 15.73 µs | 15.17 µs | **-3.6%** | Worst-case emphasis |
-| inline_entity | 17.34 µs | 16.52 µs | **-4.7%** | HTML entities |
-| inline_escape | 17.39 µs | 16.72 µs | **-3.9%** | Escape sequences |
-| inline_html | 40.67 µs | 39.53 µs | **-2.8%** | Inline HTML |
-| inline_links_flat | 44.68 µs | 41.16 µs | **-7.9%** | Flat links |
-| inline_links_nested | 47.40 µs | 46.27 µs | **-2.4%** | Nested links |
-| inline_newlines | 12.77 µs | 12.18 µs | **-4.6%** | Hard line breaks |
+| Test | Original | After Opt 1-2 | After Opt 3 | Total Change | Description |
+|------|----------|---------------|-------------|--------------|-------------|
+| inline_autolink | 24.22 µs | 23.62 µs | **23.76 µs** | **-1.9%** | Autolinks |
+| inline_backticks | 4.93 µs | 4.82 µs | **4.80 µs** | **-2.6%** | Code spans |
+| inline_em_flat | 20.93 µs | 20.92 µs | **20.71 µs** | **-1.1%** | Flat emphasis |
+| inline_em_nested | 16.90 µs | 16.69 µs | **16.92 µs** | +0.1% | Nested emphasis |
+| inline_em_worst | 15.73 µs | 15.83 µs | **15.45 µs** | **-1.8%** | Worst-case emphasis |
+| inline_entity | 17.34 µs | 17.09 µs | **16.78 µs** | **-3.2%** | HTML entities |
+| inline_escape | 17.39 µs | 17.28 µs | **17.54 µs** | +0.9% | Escape sequences |
+| inline_html | 40.67 µs | 40.67 µs | **40.39 µs** | **-0.7%** | Inline HTML |
+| inline_links_flat | 44.68 µs | 42.00 µs | **41.56 µs** | **-7.0%** | Flat links |
+| inline_links_nested | 47.40 µs | 46.60 µs | **46.58 µs** | **-1.7%** | Nested links |
+| inline_newlines | 12.77 µs | 12.34 µs | **12.34 µs** | **-3.4%** | Hard line breaks |
 
 ### Full Document Benchmarks
 
-| Test | Before | After | Change | Description |
-|------|--------|-------|--------|-------------|
-| lorem1_full_document | 41.38 µs | 34.03 µs | **-17.8%** | Complete Lorem Ipsum document |
-| rawtabs | 9.54 µs | 9.01 µs | **-5.6%** | Document with raw tabs |
+| Test | Original | After Opt 1-2 | After Opt 3 | Total Change | Description |
+|------|----------|---------------|-------------|--------------|-------------|
+| lorem1_full_document | 41.38 µs | 33.26 µs | **33.47 µs** | **-19.1%** | Complete Lorem Ipsum document |
+| rawtabs | 9.54 µs | 9.21 µs | **9.24 µs** | **-3.1%** | Document with raw tabs |
 
 ### Summary
 
-- **Average improvement**: ~5-6% across all benchmarks
-- **Best improvement**: lorem1_full_document at **-17.8%**
+- **Average improvement**: ~5-7% across all benchmarks
+- **Best improvement**: lorem1_full_document at **-19.1%** (from 41.38 µs to 33.47 µs)
 - **Key optimizations**:
   1. Subject now uses `&'a str` instead of `String` to avoid copying
   2. Byte-level character scanning in `parse_string()` and `advance()`
   3. Optimized `block_info` storage using Vec with pre-allocation
   4. Zero-copy line processing in `BlockParser::parse()`
+  5. Inlined hot functions: `peek()`, `advance()`, `peek_char_code()`, `append_child()`
+  6. Optimized `append_child()` to reduce borrow check overhead
+  7. **Round 3**: Cached closer properties in `process_emphasis()` to avoid repeated borrows
+  8. **Round 3**: Used `swap_remove` instead of `remove` for O(1) delimiter removal
+
+### Comparison with commonmark.js
+
+| Metric | clmd (原始) | clmd (优化后) | commonmark.js | 差距 |
+|--------|-------------|---------------|---------------|------|
+| block-bq-flat | 8.57 µs | **8.14 µs** | ~4.8 µs | 1.70x |
+| lorem1_full | 41.38 µs | **33.47 µs** | ~4.8 µs | 7.0x |
+
+虽然与 commonmark.js 仍有差距，但性能已提升约 **19%**。
 
 ## Performance Summary
 

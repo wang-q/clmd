@@ -2,8 +2,8 @@
 //!
 //! Benchmarks based on cmark's sample files, organized by category.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use clmd::{markdown_to_html, options};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 // Block-level benchmarks
 fn bench_block_quotes_flat(c: &mut Criterion) {
@@ -215,11 +215,7 @@ criterion_group!(
     bench_inline_newlines,
 );
 
-criterion_group!(
-    full_document_benchmarks,
-    bench_lorem1,
-    bench_rawtabs,
-);
+criterion_group!(full_document_benchmarks, bench_lorem1, bench_rawtabs,);
 
 criterion_main!(
     block_benchmarks,

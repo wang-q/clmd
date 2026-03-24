@@ -176,6 +176,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Peek at the current character without advancing (optimized)
+    #[inline(always)]
     pub fn peek(&self) -> Option<char> {
         if self.pos >= self.input.len() {
             return None;
@@ -191,6 +192,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Peek at the next character code
+    #[inline(always)]
     pub fn peek_char_code(&self) -> i32 {
         if self.pos < self.input.len() {
             self.input.as_bytes()[self.pos] as i32
@@ -200,6 +202,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Advance position by one character (optimized byte-level)
+    #[inline(always)]
     pub fn advance(&mut self) {
         if self.pos < self.input.len() {
             let b = self.input.as_bytes()[self.pos];
@@ -1016,6 +1019,10 @@ impl<'a> Subject<'a> {
             let mut opener_idx = None;
             let bottom_idx = openers_bottom[openers_bottom_index];
 
+            // Cache closer properties to avoid repeated borrows
+            let closer_can_open_cached = closer.borrow().can_open;
+            let closer_orig_delims_cached = closer.borrow().orig_delims;
+
             for j in (0..i).rev() {
                 // Check if we've reached the bottom for this delimiter type
                 if let Some(bottom) = bottom_idx {
@@ -1031,12 +1038,10 @@ impl<'a> Subject<'a> {
                     continue;
                 }
 
-                // Check odd match rule
-                let closer_borrow = closer.borrow();
-                let odd_match = (closer_borrow.can_open || opener_borrow.can_close)
-                    && closer_borrow.orig_delims % 3 != 0
-                    && (opener_borrow.orig_delims + closer_borrow.orig_delims) % 3 == 0;
-                drop(closer_borrow);
+                // Check odd match rule using cached values
+                let odd_match = (closer_can_open_cached || opener_borrow.can_close)
+                    && closer_orig_delims_cached % 3 != 0
+                    && (opener_borrow.orig_delims + closer_orig_delims_cached) % 3 == 0;
 
                 if !odd_match {
                     opener_idx = Some(j);
@@ -1135,9 +1140,20 @@ impl<'a> Subject<'a> {
                         delim_mut.can_close = false;
                     }
 
-                    // Remove processed delimiters from vector
-                    delims.remove(i);
-                    delims.remove(j);
+                    // Remove processed delimiters from vector using swap_remove for O(1)
+                    // Remove higher index first to avoid index shifting issues
+                    if i == delims.len() - 1 {
+                        delims.pop();
+                    } else {
+                        delims.swap_remove(i);
+                    }
+                    if j == delims.len() - 1 {
+                        delims.pop();
+                    } else {
+                        delims.swap_remove(j);
+                    }
+                    // Adjust index since we removed two elements
+                    i = i.saturating_sub(2);
                     continue;
                 }
 
@@ -1247,16 +1263,27 @@ impl<'a> Subject<'a> {
                     delim_mut.can_close = false;
                 }
 
-                // Remove processed delimiters from vector
+                // Remove processed delimiters from vector using swap_remove for O(1)
+                let mut removed_count = 0;
                 if closer.borrow().num_delims == 0 {
-                    delims.remove(i);
+                    if i == delims.len() - 1 {
+                        delims.pop();
+                    } else {
+                        delims.swap_remove(i);
+                    }
+                    removed_count += 1;
                 }
                 if opener.borrow().num_delims == 0 {
-                    delims.remove(j);
-                    if j < i {
-                        i -= 1;
+                    let opener_idx = if removed_count > 0 && j < i { j } else { j };
+                    if opener_idx == delims.len() - 1 {
+                        delims.pop();
+                    } else {
+                        delims.swap_remove(opener_idx);
                     }
+                    removed_count += 1;
                 }
+                // Adjust index
+                i = i.saturating_sub(removed_count);
             } else {
                 // No matching opener found - update openers_bottom
                 if old_closer_idx > 0 {
@@ -2036,9 +2063,25 @@ fn is_special_char(c: char, smart: bool) -> bool {
 #[inline(always)]
 fn is_special_byte(b: u8, smart: bool) -> bool {
     if smart {
-        matches!(b, b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n' | b'\'' | b'"')
+        matches!(
+            b,
+            b'`' | b'\\'
+                | b'&'
+                | b'<'
+                | b'*'
+                | b'_'
+                | b'['
+                | b']'
+                | b'!'
+                | b'\n'
+                | b'\''
+                | b'"'
+        )
     } else {
-        matches!(b, b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n')
+        matches!(
+            b,
+            b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n'
+        )
     }
 }
 
