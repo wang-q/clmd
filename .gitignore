@@ -136,7 +136,9 @@ Cargo.lock
 **/*.rs.bk
 
 *.tmp
+
 *.pdb
+*.exe
 
 *.sqlite
 *.dmp

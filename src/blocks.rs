@@ -575,11 +575,13 @@ impl BlockParser {
                                         *i = info;
                                     }
                                 }
+                                // fence_offset should be the position of the fence character
+                                // For fenced code blocks inside block quotes, this is self.next_nonspace
                                 self.set_fence_info(
                                     &code_block,
                                     first_char,
                                     fence_length,
-                                    self.indent,
+                                    self.next_nonspace,
                                 );
                                 self.advance_next_nonspace();
                                 self.advance_offset(fence_length, false);
@@ -1170,13 +1172,26 @@ impl BlockParser {
         if let Some(first_char) = rest.chars().next() {
             if "*+-".contains(first_char) {
                 let after_marker = &rest[1..];
+                // A list marker must be followed by whitespace or end of line
+                // For bullet lists, the marker can be followed by:
+                // - nothing (end of line)
+                // - space
+                // - tab
+                // - newline (empty list item)
                 if after_marker.is_empty()
                     || after_marker.starts_with(' ')
                     || after_marker.starts_with('\t')
+                    || after_marker.starts_with('\n')
                 {
                     // Check for non-blank content if interrupting paragraph
+                    // According to CommonMark spec 0.31.2:
+                    // A list marker can interrupt a paragraph only if the list marker
+                    // is not empty (i.e., it has content after it on the same line).
+                    // However, when not interrupting a paragraph (i.e., at document start
+                    // or after a blank line), an empty list item is allowed.
                     if container.borrow().node_type == NodeType::Paragraph {
                         let content_after = after_marker.trim_start();
+                        // Empty list item cannot interrupt paragraph
                         if content_after.is_empty() || content_after.starts_with('\n') {
                             return None;
                         }
@@ -1387,9 +1402,15 @@ impl BlockParser {
                     };
                     
                     // Check if this is the opening fence line
-                    // The opening fence line is when the line at fence_offset starts with the fence character
-                    // and only contains the fence and optional info string
-                    let is_opening_fence = fence_offset < self.current_line.len()
+                    // The opening fence line is only the first line of the fenced code block
+                    // We can detect this by checking if this is the first time we're adding content
+                    // to this code block. We track this by checking if the current line is the
+                    // same line where the block was created.
+                    let block_start_line = container.borrow().source_pos.start_line;
+                    let is_first_line = self.line_number == block_start_line as usize;
+                    
+                    // Also check if this line matches the opening fence pattern
+                    let matches_fence_pattern = fence_offset < self.current_line.len()
                         && self.current_line[fence_offset..].starts_with(fence_char)
                         && self.current_line[fence_offset..].chars()
                             .take_while(|&c| c == fence_char).count() >= fence_length
@@ -1398,6 +1419,9 @@ impl BlockParser {
                                 .skip_while(|&c| c == fence_char).collect();
                             after_fence.trim().is_empty() || !after_fence.starts_with('`')
                         };
+                    
+                    // It's an opening fence only if it's the first line AND it matches the pattern
+                    let is_opening_fence = is_first_line && matches_fence_pattern;
                     
                     // Only add line if it's not a fence line
                     if !is_fence_line && !is_opening_fence {
