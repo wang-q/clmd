@@ -17,47 +17,57 @@ Benchmarks are based on cmark's sample files, organized into three categories:
 - **Inline**: Parsing of inline elements (emphasis, links, entities, etc.)
 - **Full Document**: Complete document parsing
 
-## Latest Results
+## Latest Results (After Optimization)
 
 ### Block-level Benchmarks
 
-| Test | Time | Description |
-|------|------|-------------|
-| block_quotes_flat | 8.57 µs | Flat block quotes |
-| block_quotes_nested | 15.66 µs | Nested block quotes |
-| block_code | 3.12 µs | Indented code blocks |
-| block_fences | 4.16 µs | Fenced code blocks |
-| block_heading | 8.98 µs | ATX headings |
-| block_hr | 3.82 µs | Horizontal rules |
-| block_list_flat | 56.24 µs | Flat lists |
-| block_list_nested | 44.24 µs | Nested lists |
-| block_html | 13.35 µs | HTML blocks |
-| block_lheading | 5.22 µs | Setext headings |
-| block_ref_flat | 48.32 µs | Flat reference links |
-| block_ref_nested | 43.66 µs | Nested reference links |
+| Test | Before | After | Change | Description |
+|------|--------|-------|--------|-------------|
+| block_quotes_flat | 8.57 µs | 8.04 µs | **-6.2%** | Flat block quotes |
+| block_quotes_nested | 15.66 µs | 14.40 µs | **-8.0%** | Nested block quotes |
+| block_code | 3.12 µs | 3.16 µs | +1.3% | Indented code blocks |
+| block_fences | 4.16 µs | 4.15 µs | -0.2% | Fenced code blocks |
+| block_heading | 8.98 µs | 8.26 µs | **-8.0%** | ATX headings |
+| block_hr | 3.82 µs | 3.79 µs | -0.8% | Horizontal rules |
+| block_list_flat | 56.24 µs | 51.72 µs | **-8.0%** | Flat lists |
+| block_list_nested | 44.24 µs | 41.87 µs | **-5.4%** | Nested lists |
+| block_html | 13.35 µs | 13.33 µs | -0.2% | HTML blocks |
+| block_lheading | 5.22 µs | 4.98 µs | **-4.6%** | Setext headings |
+| block_ref_flat | 48.32 µs | 45.68 µs | **-5.5%** | Flat reference links |
+| block_ref_nested | 43.66 µs | 42.49 µs | **-2.7%** | Nested reference links |
 
 ### Inline Benchmarks
 
-| Test | Time | Description |
-|------|------|-------------|
-| inline_autolink | 24.22 µs | Autolinks |
-| inline_backticks | 4.93 µs | Code spans |
-| inline_em_flat | 20.93 µs | Flat emphasis |
-| inline_em_nested | 16.90 µs | Nested emphasis |
-| inline_em_worst | 15.73 µs | Worst-case emphasis |
-| inline_entity | 17.34 µs | HTML entities |
-| inline_escape | 17.39 µs | Escape sequences |
-| inline_html | 40.67 µs | Inline HTML |
-| inline_links_flat | 44.68 µs | Flat links |
-| inline_links_nested | 47.40 µs | Nested links |
-| inline_newlines | 12.77 µs | Hard line breaks |
+| Test | Before | After | Change | Description |
+|------|--------|-------|--------|-------------|
+| inline_autolink | 24.22 µs | 23.52 µs | **-2.9%** | Autolinks |
+| inline_backticks | 4.93 µs | 4.74 µs | **-3.9%** | Code spans |
+| inline_em_flat | 20.93 µs | 20.20 µs | **-3.5%** | Flat emphasis |
+| inline_em_nested | 16.90 µs | 16.35 µs | **-3.3%** | Nested emphasis |
+| inline_em_worst | 15.73 µs | 15.17 µs | **-3.6%** | Worst-case emphasis |
+| inline_entity | 17.34 µs | 16.52 µs | **-4.7%** | HTML entities |
+| inline_escape | 17.39 µs | 16.72 µs | **-3.9%** | Escape sequences |
+| inline_html | 40.67 µs | 39.53 µs | **-2.8%** | Inline HTML |
+| inline_links_flat | 44.68 µs | 41.16 µs | **-7.9%** | Flat links |
+| inline_links_nested | 47.40 µs | 46.27 µs | **-2.4%** | Nested links |
+| inline_newlines | 12.77 µs | 12.18 µs | **-4.6%** | Hard line breaks |
 
 ### Full Document Benchmarks
 
-| Test | Time | Description |
-|------|------|-------------|
-| lorem1_full_document | 41.38 µs | Complete Lorem Ipsum document |
-| rawtabs | 9.54 µs | Document with raw tabs |
+| Test | Before | After | Change | Description |
+|------|--------|-------|--------|-------------|
+| lorem1_full_document | 41.38 µs | 34.03 µs | **-17.8%** | Complete Lorem Ipsum document |
+| rawtabs | 9.54 µs | 9.01 µs | **-5.6%** | Document with raw tabs |
+
+### Summary
+
+- **Average improvement**: ~5-6% across all benchmarks
+- **Best improvement**: lorem1_full_document at **-17.8%**
+- **Key optimizations**:
+  1. Subject now uses `&'a str` instead of `String` to avoid copying
+  2. Byte-level character scanning in `parse_string()` and `advance()`
+  3. Optimized `block_info` storage using Vec with pre-allocation
+  4. Zero-copy line processing in `BlockParser::parse()`
 
 ## Performance Summary
 

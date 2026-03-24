@@ -39,9 +39,9 @@ fn get_html5_entity(name: &str) -> Option<&'static str> {
 }
 
 /// Subject represents the string being parsed and tracks position
-pub struct Subject {
-    /// The input string
-    pub input: String,
+pub struct Subject<'a> {
+    /// The input string (borrowed reference to avoid copying)
+    pub input: &'a str,
     /// Current position in the input
     pub pos: usize,
     /// Line number (for source positions)
@@ -109,11 +109,11 @@ pub struct Bracket {
     pub previous_delimiter: Option<Rc<RefCell<Delimiter>>>,
 }
 
-impl Subject {
+impl<'a> Subject<'a> {
     /// Create a new subject from a string
-    pub fn new(input: &str, line: usize, block_offset: usize) -> Self {
+    pub fn new(input: &'a str, line: usize, block_offset: usize) -> Self {
         Subject {
-            input: input.to_string(),
+            input,
             pos: 0,
             line,
             column_offset: 0,
@@ -130,13 +130,13 @@ impl Subject {
 
     /// Create a new subject with a reference map
     pub fn with_refmap(
-        input: &str,
+        input: &'a str,
         line: usize,
         block_offset: usize,
         refmap: std::collections::HashMap<String, (String, String)>,
     ) -> Self {
         Subject {
-            input: input.to_string(),
+            input,
             pos: 0,
             line,
             column_offset: 0,
@@ -153,14 +153,14 @@ impl Subject {
 
     /// Create a new subject with a reference map and smart punctuation option
     pub fn with_refmap_and_smart(
-        input: &str,
+        input: &'a str,
         line: usize,
         block_offset: usize,
         refmap: std::collections::HashMap<String, (String, String)>,
         smart: bool,
     ) -> Self {
         Subject {
-            input: input.to_string(),
+            input,
             pos: 0,
             line,
             column_offset: 0,
@@ -175,8 +175,18 @@ impl Subject {
         }
     }
 
-    /// Peek at the current character without advancing
+    /// Peek at the current character without advancing (optimized)
     pub fn peek(&self) -> Option<char> {
+        if self.pos >= self.input.len() {
+            return None;
+        }
+        let bytes = self.input.as_bytes();
+        let b = bytes[self.pos];
+        // Fast path for ASCII
+        if b < 0x80 {
+            return Some(b as char);
+        }
+        // Slow path for UTF-8
         self.input[self.pos..].chars().next()
     }
 
@@ -189,10 +199,25 @@ impl Subject {
         }
     }
 
-    /// Advance position by one character
+    /// Advance position by one character (optimized byte-level)
     pub fn advance(&mut self) {
-        if let Some(c) = self.peek() {
-            self.pos += c.len_utf8();
+        if self.pos < self.input.len() {
+            let b = self.input.as_bytes()[self.pos];
+            // For ASCII characters (0-127), advance by 1
+            // For UTF-8 multi-byte sequences, calculate the length
+            self.pos += if b < 0x80 {
+                1
+            } else if b < 0xE0 {
+                2
+            } else if b < 0xF0 {
+                3
+            } else {
+                4
+            };
+            // Ensure we don't go past the end
+            if self.pos > self.input.len() {
+                self.pos = self.input.len();
+            }
         }
     }
 
@@ -1803,15 +1828,31 @@ impl Subject {
         }
     }
 
-    /// Parse a string of non-special characters
+    /// Parse a string of non-special characters (optimized with byte-level scanning)
     fn parse_string(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
         let start = self.pos;
+        let bytes = self.input.as_bytes();
 
-        while let Some(c) = self.peek() {
-            if is_special_char(c, self.smart) {
+        // Fast path: scan bytes until we hit a special character or non-ASCII
+        while self.pos < bytes.len() {
+            let b = bytes[self.pos];
+            // If it's ASCII and not special, advance
+            if b < 0x80 && !is_special_byte(b, self.smart) {
+                self.pos += 1;
+            } else if b >= 0x80 {
+                // Non-ASCII: use character-based check
+                if let Some(c) = self.peek() {
+                    if is_special_char(c, self.smart) {
+                        break;
+                    }
+                    self.pos += c.len_utf8();
+                } else {
+                    break;
+                }
+            } else {
+                // Special ASCII character
                 break;
             }
-            self.advance();
         }
 
         if self.pos > start {
@@ -1976,6 +2017,7 @@ struct DelimScanResult {
 }
 
 /// Check if a character is special (has special meaning in inline parsing)
+#[inline(always)]
 fn is_special_char(c: char, smart: bool) -> bool {
     if smart {
         matches!(
@@ -1987,6 +2029,16 @@ fn is_special_char(c: char, smart: bool) -> bool {
             c,
             '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n'
         )
+    }
+}
+
+/// Fast byte-level check if a byte is a special ASCII character
+#[inline(always)]
+fn is_special_byte(b: u8, smart: bool) -> bool {
+    if smart {
+        matches!(b, b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n' | b'\'' | b'"')
+    } else {
+        matches!(b, b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n')
     }
 }
 
@@ -2331,7 +2383,7 @@ pub fn parse_reference(
     }
 }
 
-impl Subject {
+impl<'a> Subject<'a> {
     /// Parse a reference definition: [label]: url "title"
     /// Returns the number of characters consumed, or 0 if no reference was found
     fn parse_reference_definition(

@@ -10,6 +10,10 @@ use crate::node::{
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// Unique identifier for a node in the arena
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeId(usize);
+
 /// Block parser state
 pub struct BlockParser {
     /// Root document node
@@ -49,7 +53,12 @@ pub struct BlockParser {
     /// Reference map for link references: label -> (url, title)
     pub refmap: std::collections::HashMap<String, (String, String)>,
     /// Block info for each node (fence info, list data, etc.)
-    pub block_info: std::collections::HashMap<*const (), BlockInfo>,
+    /// Using Vec with pointer-based indexing for O(1) access
+    block_info: Vec<Option<BlockInfo>>,
+    /// Map from node pointer to block_info index
+    node_to_index: std::collections::HashMap<*const (), usize>,
+    /// Next available index in block_info
+    next_index: usize,
 }
 
 /// Block info for tracking fenced code blocks and list items
@@ -121,7 +130,9 @@ impl BlockParser {
             last_line_length: 0,
             content: String::new(),
             refmap: std::collections::HashMap::new(),
-            block_info: std::collections::HashMap::new(),
+            block_info: Vec::with_capacity(64), // Pre-allocate for typical document size
+            node_to_index: std::collections::HashMap::with_capacity(64),
+            next_index: 0,
         };
 
         // Initialize block info for document
@@ -134,13 +145,15 @@ impl BlockParser {
     pub fn parse(input: &str) -> Rc<RefCell<Node>> {
         let mut parser = Self::new();
 
-        // Handle CRLF line endings
-        let normalized_input = input.replace("\r\n", "\n").replace('\r', "\n");
-
-        // Split input into lines
-        let lines: Vec<&str> = normalized_input.lines().collect();
-
-        for line in &lines {
+        // Process lines directly without creating intermediate String
+        // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
+        for line in input.split('\n') {
+            // Remove trailing '\r' if present (CRLF handling)
+            let line = if line.ends_with('\r') {
+                &line[..line.len() - 1]
+            } else {
+                line
+            };
             parser.process_line(line);
         }
 
@@ -2097,24 +2110,52 @@ impl BlockParser {
         }
     }
 
-    // Block info accessors
+    // Block info accessors (optimized with Vec-based storage)
+
+    /// Get the index for a node, creating a new slot if needed
+    #[inline]
+    fn get_or_create_index(&mut self, node: &Rc<RefCell<Node>>) -> usize {
+        let ptr: *const () = Rc::as_ptr(node) as *const ();
+        if let Some(&index) = self.node_to_index.get(&ptr) {
+            index
+        } else {
+            let index = self.next_index;
+            self.node_to_index.insert(ptr, index);
+            self.block_info.push(None);
+            self.next_index += 1;
+            index
+        }
+    }
+
+    #[inline]
+    fn get_index(&self, node: &Rc<RefCell<Node>>) -> Option<usize> {
+        let ptr: *const () = Rc::as_ptr(node) as *const ();
+        self.node_to_index.get(&ptr).copied()
+    }
 
     fn get_block_info(&self, node: &Rc<RefCell<Node>>) -> Option<&BlockInfo> {
-        let ptr: *const () = Rc::as_ptr(node) as *const ();
-        self.block_info.get(&ptr)
+        self.get_index(node)
+            .and_then(|idx| self.block_info.get(idx))
+            .and_then(|opt| opt.as_ref())
     }
 
     fn get_block_info_mut(
         &mut self,
         node: &Rc<RefCell<Node>>,
     ) -> Option<&mut BlockInfo> {
-        let ptr: *const () = Rc::as_ptr(node) as *const ();
-        self.block_info.get_mut(&ptr)
+        if let Some(idx) = self.get_index(node) {
+            if let Some(Some(ref mut info)) = self.block_info.get_mut(idx) {
+                return Some(info);
+            }
+        }
+        None
     }
 
     fn set_block_info(&mut self, node: &Rc<RefCell<Node>>, info: BlockInfo) {
-        let ptr: *const () = Rc::as_ptr(node) as *const ();
-        self.block_info.insert(ptr, info);
+        let idx = self.get_or_create_index(node);
+        if idx < self.block_info.len() {
+            self.block_info[idx] = Some(info);
+        }
     }
 
     fn is_open(&self, node: &Rc<RefCell<Node>>) -> bool {
