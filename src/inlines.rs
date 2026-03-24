@@ -274,6 +274,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Merge adjacent text nodes in the given parent
+    /// Optimized to reduce borrow overhead
     fn merge_adjacent_text_nodes(parent: &Rc<RefCell<Node>>) {
         let mut current_opt = parent.borrow().first_child.borrow().clone();
 
@@ -281,39 +282,19 @@ impl<'a> Subject<'a> {
             let next_opt = current.borrow().next.borrow().clone();
 
             if let Some(ref next) = next_opt {
+                // Check node types first
                 let current_is_text = current.borrow().node_type == NodeType::Text;
                 let next_is_text = next.borrow().node_type == NodeType::Text;
 
                 if current_is_text && next_is_text {
-                    // Check if current or next is a smart quote (single character smart punctuation)
-                    // Smart quotes should not be merged with adjacent text
-                    let current_literal = {
-                        let current_ref = current.borrow();
-                        match &current_ref.data {
-                            NodeData::Text { literal } => literal.clone(),
-                            _ => String::new(),
-                        }
-                    };
-                    let next_literal = {
-                        let next_ref = next.borrow();
-                        match &next_ref.data {
-                            NodeData::Text { literal } => literal.clone(),
-                            _ => String::new(),
-                        }
-                    };
+                    // Get literals with minimal borrow scope
+                    let current_literal = Self::get_text_literal(&current);
+                    let next_literal = Self::get_text_literal(&next);
 
                     // Don't merge if current or next is a smart quote
-                    let is_smart_quote = |s: &str| {
-                        s == "\u{2018}"
-                            || s == "\u{2019}"
-                            || s == "\u{201C}"
-                            || s == "\u{201D}"
-                    };
-
-                    if is_smart_quote(&current_literal) || is_smart_quote(&next_literal)
+                    if !Self::is_smart_quote(&current_literal)
+                        && !Self::is_smart_quote(&next_literal)
                     {
-                        // Skip merging for smart quotes
-                    } else {
                         // Merge next into current
                         {
                             let mut current_mut = current.borrow_mut();
@@ -337,6 +318,22 @@ impl<'a> Subject<'a> {
 
             current_opt = next_opt;
         }
+    }
+
+    /// Helper to get text literal from a node
+    #[inline(always)]
+    fn get_text_literal(node: &Rc<RefCell<Node>>) -> String {
+        let node_ref = node.borrow();
+        match &node_ref.data {
+            NodeData::Text { literal } => literal.clone(),
+            _ => String::new(),
+        }
+    }
+
+    /// Check if string is a smart quote
+    #[inline(always)]
+    fn is_smart_quote(s: &str) -> bool {
+        matches!(s, "\u{2018}" | "\u{2019}" | "\u{201C}" | "\u{201D}")
     }
 
     /// Parse a single inline element
