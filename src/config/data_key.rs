@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// # Example
 ///
 /// ```
-/// use clmd::options::DataKey;
+/// use clmd::config::DataKey;
 ///
 /// const SOURCEPOS: DataKey<bool> = DataKey::new("sourcepos");
 /// const SMART: DataKey<bool> = DataKey::with_default("smart", false);
@@ -173,7 +173,7 @@ fn clone_box(value: &Box<dyn Any>) -> Box<dyn Any> {
 /// Immutable data set (for sharing)
 ///
 /// This is similar to flexmark-java's DataSet.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DataSet {
     data: Arc<HashMap<&'static str, Box<dyn Any>>>,
 }
@@ -185,18 +185,19 @@ impl DataSet {
             data: Arc::new(HashMap::new()),
         }
     }
-
-    /// Create a data set from a mutable data set
-    pub fn from_mutable(data_set: &MutableDataSet) -> Self {
-        Self {
-            data: Arc::new(data_set.data.clone()),
-        }
-    }
 }
 
 impl Default for DataSet {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Clone for DataSet {
+    fn clone(&self) -> Self {
+        Self {
+            data: Arc::clone(&self.data),
+        }
     }
 }
 

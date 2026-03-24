@@ -5,7 +5,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::options::{DataKey, MutableDataSet, DataHolder};
+//! use clmd::config::{DataKey, MutableDataSet, DataHolder};
 //!
 //! const SOURCEPOS: DataKey<bool> = DataKey::with_default("sourcepos", false);
 //! const SMART: DataKey<bool> = DataKey::with_default("smart", false);

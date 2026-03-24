@@ -4,7 +4,12 @@
 //! Design inspired by flexmark-java's AST architecture.
 
 pub mod node;
+pub mod util;
 pub mod visitor;
 
 pub use node::{ChildrenIterator, DescendantIterator, Node, SourcePos};
+pub use util::{
+    collect_nodes, find_node, get_siblings, get_text_content, is_ancestor, make_source_pos,
+    merge_source_pos, node_depth, node_path_depths, replace_node,
+};
 pub use visitor::{CollectingVisitor, FindVisitor, NodeVisitor, TransformVisitor, Visitor};

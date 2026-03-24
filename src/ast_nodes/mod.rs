@@ -24,6 +24,7 @@
 //! assert!(text.is_inline());
 //! ```
 
+pub mod extensions;
 pub mod traits;
 pub mod block;
 pub mod inline;
@@ -36,3 +37,6 @@ pub use block::*;
 
 // Re-export inline nodes
 pub use inline::*;
+
+// Re-export extensions
+pub use extensions::{BlockNodeExt, InlineNodeExt, ListExt, factory};

@@ -1,6 +1,8 @@
 pub mod ast;
 pub mod ast_nodes;
 pub mod blocks;
+pub mod compat;
+pub mod config;
 pub mod inlines;
 pub mod iterator;
 pub mod lexer;
