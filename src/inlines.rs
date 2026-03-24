@@ -1196,13 +1196,9 @@ impl Subject {
 
     /// Skip spaces and at most one newline
     fn skip_spaces_and_newlines(&mut self) {
-        let mut saw_newline = false;
         while let Some(c) = self.peek() {
-            if c == ' ' || c == '\t' {
+            if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
                 self.advance();
-            } else if c == '\n' && !saw_newline {
-                self.advance();
-                saw_newline = true;
             } else {
                 break;
             }
@@ -1226,7 +1222,7 @@ impl Subject {
                                     // Unescape and normalize the destination
                     let unescaped = unescape_string(&dest);
                     return Some((normalize_uri(&unescaped), false));
-                } else if c == '\n' || c == '<' {
+                } else if c == '<' {
                     return None;
                 } else if c == '\\' {
                     self.advance();
@@ -1235,6 +1231,9 @@ impl Subject {
                             self.advance();
                         }
                     }
+                } else if c == '\n' || c == '\r' {
+                    // Newlines not allowed in angle-bracketed destinations
+                    return None;
                 } else {
                     self.advance();
                 }
@@ -1246,6 +1245,7 @@ impl Subject {
         let start = self.pos;
         let mut paren_depth = 0;
         let mut ended_with_space = false;
+        let mut has_newline = false;
 
         while let Some(c) = self.peek() {
             if c == '\\' {
@@ -1264,8 +1264,11 @@ impl Subject {
                 }
                 paren_depth -= 1;
                 self.advance();
-            } else if c.is_ascii_whitespace() {
+            } else if c == ' ' || c == '\t' {
                 ended_with_space = true;
+                break;
+            } else if c == '\n' || c == '\r' {
+                // Newlines not allowed in link destinations (even for reference definitions)
                 break;
             } else {
                 self.advance();
@@ -1286,6 +1289,12 @@ impl Subject {
         }
 
         let dest = self.input[start..self.pos].to_string();
+        // Normalize newlines to single spaces for multi-line destinations
+        let dest = if has_newline {
+            dest.lines().map(|s| s.trim_start()).collect::<Vec<_>>().join(" ")
+        } else {
+            dest
+        };
         // Unescape and normalize the destination
         let unescaped = unescape_string(&dest);
         Some((normalize_uri(&unescaped), ended_with_space))
@@ -1310,10 +1319,8 @@ impl Subject {
             if c == close_quote {
                 let title = self.input[start..self.pos].to_string();
                 self.advance(); // skip closing quote
-                                // Unescape the title
+                // Unescape the title
                 return Some(unescape_string(&title));
-            } else if c == '\n' {
-                return None;
             } else if c == '\\' {
                 self.advance();
                 if let Some(next_c) = self.peek() {
@@ -1321,6 +1328,9 @@ impl Subject {
                         self.advance();
                     }
                 }
+            } else if c == '\n' || c == '\r' {
+                // For reference definitions, newlines are allowed in titles
+                self.advance();
             } else {
                 self.advance();
             }
@@ -1807,8 +1817,18 @@ pub fn parse_reference(
     s: &str,
     refmap: &mut std::collections::HashMap<String, (String, String)>,
 ) -> usize {
-    let mut subject = Subject::new(s, 1, 0);
-    subject.parse_reference_definition(refmap)
+    // Skip leading whitespace and newlines
+    let trimmed = s.trim_start_matches(|c: char| c.is_ascii_whitespace());
+    let skipped = s.len() - trimmed.len();
+    
+    let mut subject = Subject::new(trimmed, 1, 0);
+    let consumed = subject.parse_reference_definition(refmap);
+    
+    if consumed > 0 {
+        skipped + consumed
+    } else {
+        0
+    }
 }
 
 impl Subject {
@@ -1857,17 +1877,29 @@ impl Subject {
             self.pos = before_title;
         }
 
-        // Must be at end of line
-        let at_line_end = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
-            || self.pos == self.input.len();
+        // Must be at end of line or only whitespace/newlines remain
+        // For reference definitions, we allow the definition to end at a newline
+        // or at the end of input
+        // Also allow if the next line starts with '[' (new reference definition)
+        let remaining = &self.input[self.pos..];
+        let at_line_end = remaining.is_empty() 
+            || remaining.starts_with('\n') 
+            || remaining.starts_with('\r')
+            || remaining.chars().all(|c| c.is_ascii_whitespace());
+        
+        // Check if next non-empty line starts with '[' (new reference definition)
+        let next_is_ref_def = remaining.trim_start().starts_with('[');
 
-        if !at_line_end {
+        if !at_line_end && !next_is_ref_def {
             // Check if we can still match without title
             self.pos = before_title;
-            let at_line_end_without_title =
-                self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
-                    || self.pos == self.input.len();
-            if !at_line_end_without_title {
+            let remaining = &self.input[self.pos..];
+            let at_line_end_without_title = remaining.is_empty()
+                || remaining.starts_with('\n')
+                || remaining.starts_with('\r')
+                || remaining.chars().all(|c| c.is_ascii_whitespace());
+            let next_is_ref_def_without_title = remaining.trim_start().starts_with('[');
+            if !at_line_end_without_title && !next_is_ref_def_without_title {
                 return 0;
             }
         }

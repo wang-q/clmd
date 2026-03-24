@@ -160,6 +160,12 @@ impl HtmlRenderer {
                         crate::node::ListType::Ordered => {
                             self.lit("<ol");
                             self.add_sourcepos(&node.source_pos);
+                            // Add start attribute if not 1
+                            if let NodeData::List { start, .. } = &node.data {
+                                if *start != 1 {
+                                    self.lit(&format!(" start=\"{}\"", start));
+                                }
+                            }
                             self.lit(">\n");
                         }
                         _ => {}
@@ -325,6 +331,8 @@ impl HtmlRenderer {
                         _ => {}
                     }
                 }
+                // Pop tight status from stack
+                self.tight_list_stack.pop();
             }
             NodeType::Item => {
                 self.lit("</li>\n");

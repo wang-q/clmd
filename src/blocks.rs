@@ -144,10 +144,9 @@ impl BlockParser {
             parser.process_line(line);
         }
 
-        // Process any remaining content
-        parser.process_line("");
-
-        // Finalize all blocks
+        // Finalize all blocks before processing the empty line
+        // This ensures that fenced code blocks are closed properly
+        // and don't get an extra newline added to their content
         parser.finalize_document();
 
         parser.doc.clone()
@@ -314,7 +313,8 @@ impl BlockParser {
                 // Blank line after empty list item
                 1
             } else {
-                // Blank line in list item - advance to next non-space
+                // Blank line in list item - mark as loose but continue
+                // The list item ends when we encounter a non-blank line that doesn't match
                 self.advance_next_nonspace();
                 0
             }
@@ -612,18 +612,49 @@ impl BlockParser {
             if !indented && current_container.borrow().node_type == NodeType::Paragraph {
                 let line = &self.current_line[self.next_nonspace..];
                 if let Some(level) = self.scan_setext_heading_line(line) {
-                    self.close_unmatched_blocks();
-                    // Convert paragraph to heading
                     // Get the content before converting
                     let content = self.get_string_content(&current_container);
-                    {
-                        let mut container_mut = current_container.borrow_mut();
-                        container_mut.node_type = NodeType::Heading;
-                        container_mut.data = NodeData::Heading { level, content: content.trim_end().to_string() };
+                    
+                    // Process link reference definitions at the beginning of the paragraph
+                    let mut processed_content = content.clone();
+                    
+                    while !processed_content.is_empty() {
+                        // Skip leading whitespace
+                        let trimmed = processed_content.trim_start();
+                        if !trimmed.starts_with('[') {
+                            break;
+                        }
+                        
+                        // Try to parse a reference definition
+                        let consumed = parse_reference(&processed_content, &mut self.refmap);
+                        
+                        if consumed == 0 {
+                            break;
+                        }
+                        
+                        // Remove the consumed reference definition from content
+                        processed_content = processed_content[consumed..].to_string();
+                        
+                        // Skip leading whitespace for next iteration
+                        processed_content = processed_content.trim_start().to_string();
                     }
-                    self.set_setext(&current_container, true);
-                    self.advance_offset(self.current_line.len() - self.offset, false);
-                    return current_container;
+                    
+                    // Only convert to heading if there's remaining content after processing
+                    // reference definitions
+                    let remaining_content = processed_content.trim();
+                    if !remaining_content.is_empty() {
+                        self.close_unmatched_blocks();
+                        {
+                            let mut container_mut = current_container.borrow_mut();
+                            container_mut.node_type = NodeType::Heading;
+                            container_mut.data = NodeData::Heading { level, content: remaining_content.to_string() };
+                        }
+                        self.set_setext(&current_container, true);
+                        self.advance_offset(self.current_line.len() - self.offset, false);
+                        return current_container;
+                    }
+                    // If no remaining content, don't convert to heading
+                    // The Setext line will be processed as normal text
                 }
             }
 
@@ -1331,10 +1362,11 @@ impl BlockParser {
             let container_type = container.borrow().node_type;
 
             if container_type == NodeType::CodeBlock {
-                // For fenced code blocks, check if this is the opening or closing fence line
+                // For fenced code blocks, check if this is a fence line (opening or closing)
                 // These lines should not be added to content
                 if self.is_fenced_code_block(container) {
                     let (fence_char, fence_length, fence_offset) = self.get_fence_info(container);
+                    
                     // Check if this line is a fence line (could be opening or closing)
                     let is_fence_line = if self.indent <= 3 {
                         // Check from the first non-space character
@@ -1353,15 +1385,21 @@ impl BlockParser {
                     } else {
                         false
                     };
+                    
                     // Check if this is the opening fence line
-                    // The opening fence line is when:
-                    // 1. We're at the position right after the fence (self.offset == fence_offset + fence_length)
-                    // 2. The line at fence_offset starts with the fence character
-                    // 3. The line only contains the fence and optional info string (no content yet)
-                    let is_opening_fence = self.offset == fence_offset + fence_length
+                    // The opening fence line is when the line at fence_offset starts with the fence character
+                    // and only contains the fence and optional info string
+                    let is_opening_fence = fence_offset < self.current_line.len()
                         && self.current_line[fence_offset..].starts_with(fence_char)
-                        && !is_fence_line;
-                    // Skip fence lines (both opening and closing)
+                        && self.current_line[fence_offset..].chars()
+                            .take_while(|&c| c == fence_char).count() >= fence_length
+                        && {
+                            let after_fence: String = self.current_line[fence_offset..].chars()
+                                .skip_while(|&c| c == fence_char).collect();
+                            after_fence.trim().is_empty() || !after_fence.starts_with('`')
+                        };
+                    
+                    // Only add line if it's not a fence line
                     if !is_fence_line && !is_opening_fence {
                         self.add_line_to_node(container);
                     }
@@ -1566,8 +1604,8 @@ impl BlockParser {
             NodeType::CodeBlock => {
                 let is_fenced = self.is_fenced_code_block(block);
                 if is_fenced {
-                    // Get the current info string
-                    let current_info = {
+                    // Get the current info string (set during block creation from fence line)
+                    let _current_info = {
                         let block_ref = block.borrow();
                         match &block_ref.data {
                             NodeData::CodeBlock { info, .. } => info.clone(),
@@ -1575,74 +1613,20 @@ impl BlockParser {
                         }
                     };
                     
-                    // Extract info string from first line only if not already set
+                    // For fenced code blocks, the info string was already set from the opening fence line
+                    // We just need to process the content
                     let content = self.get_string_content(block);
-                    if let Some(newline_pos) = content.find('\n') {
-                        let first_line = &content[..newline_pos];
-                        let rest = &content[newline_pos + 1..];
-
-                        // Only update info if it wasn't set during block creation
-                        // and the first line is not empty (empty first line means no info string)
-                        if current_info.is_empty() && !first_line.trim().is_empty() {
-                            let info = unescape_string(first_line.trim());
-                            {
-                                let mut block_mut = block.borrow_mut();
-                                if let NodeData::CodeBlock {
-                                    info: ref mut i, ..
-                                } = block_mut.data
-                                {
-                                    *i = info;
-                                }
-                            }
-                            // First line was info string, use rest as content
-                            // For fenced code blocks, the content should end with a newline
-                            // unless the block is empty
-                            let rest = if rest.is_empty() {
-                                // Truly empty block - clear content
-                                ""
-                            } else if !rest.ends_with('\n') {
-                                // Non-empty block without trailing newline - add one
-                                &format!("{}\n", rest)
-                            } else {
-                                rest
-                            };
-                            self.set_string_content(block, rest.to_string());
-                        } else {
-                            // First line is not info string (it's content)
-                            // But if the first line is empty AND rest is also empty,
-                            // it means there's no real content (just the trailing empty line from process_line(""))
-                            if first_line.is_empty() && rest.is_empty() {
-                                // Truly empty block - clear content
-                                self.set_string_content(block, String::new());
-                            } else {
-                                // Keep the entire content including the first line
-                                // For fenced code blocks, the content should end with a newline
-                                // unless the block is empty
-                                let content = if content.ends_with('\n') {
-                                    content.to_string()
-                                } else {
-                                    format!("{}\n", content)
-                                };
-                                self.set_string_content(block, content);
-                            }
-                        }
+                    
+                    // The content should end with a newline unless the block is empty
+                    let processed_content = if content.is_empty() {
+                        String::new()
+                    } else if !content.ends_with('\n') {
+                        format!("{}\n", content)
                     } else {
-                        // No newline found - content is just the info string
-                        // Only update info if it wasn't set during block creation
-                        if current_info.is_empty() {
-                            let info = unescape_string(content.trim());
-                            {
-                                let mut block_mut = block.borrow_mut();
-                                if let NodeData::CodeBlock {
-                                    info: ref mut i, ..
-                                } = block_mut.data
-                                {
-                                    *i = info;
-                                }
-                            }
-                        }
-                        self.set_string_content(block, String::new());
-                    }
+                        content.to_string()
+                    };
+                    
+                    self.set_string_content(block, processed_content);
                 } else {
                     // Indented code block - remove trailing blank lines
                     let mut content = self.get_string_content(block);
@@ -1669,8 +1653,8 @@ impl BlockParser {
             }
             NodeType::HtmlBlock => {
                 let content = self.get_string_content(block);
-                // Remove trailing newline
-                let content = content.trim_end_matches('\n');
+                // Remove leading and trailing whitespace/newlines
+                let content = content.trim();
                 {
                     let mut block_mut = block.borrow_mut();
                     if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {
@@ -1683,7 +1667,43 @@ impl BlockParser {
                 // For Setext headings, content was also set during creation
                 // Only update from string_content if content is empty (fallback)
                 let string_content = self.get_string_content(block);
-                {
+                
+                // For Setext headings, process link reference definitions
+                if self.is_setext(block) {
+                    let mut content = string_content.clone();
+                    let mut has_reference_defs = false;
+                    
+                    while !content.is_empty() {
+                        // Skip leading whitespace
+                        let trimmed = content.trim_start();
+                        if !trimmed.starts_with('[') {
+                            break;
+                        }
+                        
+                        // Try to parse a reference definition
+                        let consumed = parse_reference(&content, &mut self.refmap);
+                        
+                        if consumed == 0 {
+                            break;
+                        }
+                        
+                        has_reference_defs = true;
+                        
+                        // Remove the consumed reference definition from content
+                        content = content[consumed..].to_string();
+                        
+                        // Skip leading whitespace for next iteration
+                        content = content.trim_start().to_string();
+                    }
+                    
+                    // Update heading content if reference definitions were found
+                    if has_reference_defs {
+                        let mut block_mut = block.borrow_mut();
+                        if let NodeData::Heading { content: ref mut c, .. } = block_mut.data {
+                            *c = content.trim().to_string();
+                        }
+                    }
+                } else {
                     let mut block_mut = block.borrow_mut();
                     if let NodeData::Heading { content: ref mut c, .. } = block_mut.data {
                         if c.is_empty() && !string_content.is_empty() {
@@ -1699,7 +1719,13 @@ impl BlockParser {
                 let mut has_reference_defs = false;
                 let mut total_lines_removed: usize = 0;
 
-                while !content.is_empty() && content.starts_with('[') {
+                while !content.is_empty() {
+                    // Skip leading whitespace
+                    let trimmed = content.trim_start();
+                    if !trimmed.starts_with('[') {
+                        break;
+                    }
+                    
                     // Try to parse a reference definition
                     let consumed = parse_reference(&content, &mut self.refmap);
 
@@ -1735,11 +1761,11 @@ impl BlockParser {
                     };
                 }
 
-                // Remove trailing newline
-                let content = content.trim_end_matches('\n');
+                // Remove leading and trailing whitespace/newlines
+                let content = content.trim();
 
                 // If paragraph is empty after removing reference definitions, mark it for deletion
-                if has_reference_defs && content.trim().is_empty() {
+                if has_reference_defs && content.is_empty() {
                     // Store empty content marker
                     self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
                 } else {
