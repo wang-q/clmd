@@ -13,6 +13,12 @@ pub enum NodeType {
     Heading,
     ThematicBreak,
 
+    // Table types (GitHub Flavored Markdown)
+    Table,
+    TableHead,
+    TableRow,
+    TableCell,
+
     // Inline types
     Text,
     SoftBreak,
@@ -24,6 +30,10 @@ pub enum NodeType {
     Strong,
     Link,
     Image,
+    Strikethrough,
+
+    // Task list item
+    TaskItem,
 
     None,
 }
@@ -43,6 +53,10 @@ impl NodeType {
                 | NodeType::Paragraph
                 | NodeType::Heading
                 | NodeType::ThematicBreak
+                | NodeType::Table
+                | NodeType::TableHead
+                | NodeType::TableRow
+                | NodeType::TableCell
         )
     }
 
@@ -60,6 +74,7 @@ impl NodeType {
                 | NodeType::Strong
                 | NodeType::Link
                 | NodeType::Image
+                | NodeType::Strikethrough
         )
     }
 
@@ -104,6 +119,21 @@ pub struct SourcePos {
     pub end_column: u32,
 }
 
+/// Table cell alignment
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableAlignment {
+    None,
+    Left,
+    Center,
+    Right,
+}
+
+impl Default for TableAlignment {
+    fn default() -> Self {
+        TableAlignment::None
+    }
+}
+
 /// Node data variants
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeData {
@@ -136,6 +166,23 @@ pub enum NodeData {
         content: String,
     },
     ThematicBreak,
+    // Table data
+    Table {
+        /// Number of columns in the table
+        num_columns: usize,
+        /// Alignment for each column
+        alignments: Vec<TableAlignment>,
+    },
+    TableHead,
+    TableRow,
+    TableCell {
+        /// Column index (0-based)
+        column_index: usize,
+        /// Cell alignment
+        alignment: TableAlignment,
+        /// Whether this is a header cell
+        is_header: bool,
+    },
     Text {
         literal: String,
     },
@@ -153,6 +200,7 @@ pub enum NodeData {
     },
     Emph,
     Strong,
+    Strikethrough,
     Link {
         url: String,
         title: String,
@@ -160,6 +208,10 @@ pub enum NodeData {
     Image {
         url: String,
         title: String,
+    },
+    TaskItem {
+        /// Whether the task is checked
+        checked: bool,
     },
     None,
 }
@@ -244,6 +296,19 @@ impl Node {
                 url: String::new(),
                 title: String::new(),
             },
+            NodeType::Table => NodeData::Table {
+                num_columns: 0,
+                alignments: Vec::new(),
+            },
+            NodeType::TableHead => NodeData::TableHead,
+            NodeType::TableRow => NodeData::TableRow,
+            NodeType::TableCell => NodeData::TableCell {
+                column_index: 0,
+                alignment: TableAlignment::None,
+                is_header: false,
+            },
+            NodeType::Strikethrough => NodeData::Strikethrough,
+            NodeType::TaskItem => NodeData::TaskItem { checked: false },
             NodeType::None => NodeData::None,
         };
 

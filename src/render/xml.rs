@@ -169,6 +169,10 @@ impl XmlRenderer {
             NodeType::Paragraph => "paragraph",
             NodeType::Heading => "heading",
             NodeType::ThematicBreak => "thematic_break",
+            NodeType::Table => "table",
+            NodeType::TableHead => "table_head",
+            NodeType::TableRow => "table_row",
+            NodeType::TableCell => "table_cell",
             NodeType::Text => "text",
             NodeType::SoftBreak => "softbreak",
             NodeType::LineBreak => "linebreak",
@@ -179,6 +183,8 @@ impl XmlRenderer {
             NodeType::Strong => "strong",
             NodeType::Link => "link",
             NodeType::Image => "image",
+            NodeType::Strikethrough => "strikethrough",
+            NodeType::TaskItem => "task_item",
             NodeType::None => "none",
         }
     }

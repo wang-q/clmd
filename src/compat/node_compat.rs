@@ -48,6 +48,12 @@ pub fn convert_node_type(old: OldNodeType) -> &'static str {
         OldNodeType::Image => "Image",
         OldNodeType::CustomBlock => "CustomBlock",
         OldNodeType::CustomInline => "CustomInline",
+        OldNodeType::Table => "Table",
+        OldNodeType::TableHead => "TableHead",
+        OldNodeType::TableRow => "TableRow",
+        OldNodeType::TableCell => "TableCell",
+        OldNodeType::Strikethrough => "Strikethrough",
+        OldNodeType::TaskItem => "TaskItem",
         OldNodeType::None => "None",
     }
 }

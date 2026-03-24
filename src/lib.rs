@@ -3,12 +3,17 @@ pub mod ast_nodes;
 pub mod blocks;
 pub mod compat;
 pub mod config;
+pub mod html_utils;
 pub mod inlines;
 pub mod iterator;
 pub mod lexer;
 pub mod node;
 pub mod parser;
 pub mod render;
+pub mod sequence;
+pub mod strikethrough;
+pub mod tables;
+pub mod tasklist;
 
 pub use iterator::{NodeIterator, NodeWalker};
 pub use node::{
