@@ -2,6 +2,39 @@
 
 本文档为 clmd 项目开发者提供内部指南，包含项目概述、架构设计、开发计划和当前状态。
 
+## Changelog
+
+```bash
+git log v0.3.0..HEAD > gitlog.txt
+git diff v0.3.0 HEAD -- "*.rs" "*.md" > gitdiff.txt
+```
+
+## Code coverage
+
+```bash
+rustup component add llvm-tools
+cargo install cargo-llvm-cov
+
+# 生成覆盖率报告
+cargo llvm-cov
+```
+
+使用 `cargo llvm-cov` 生成覆盖率报告，找出需要提升测试覆盖率的代码路径，供我分析。
+
+XXX 的测试覆盖度不高，使用 `cargo llvm-cov` 生成覆盖率报告，找出需要提升的地方.
+
+为这些地方，添加单元测试与整合测试
+
+为刚才的修改，添加单元测试与整合测试
+
+## WSL
+
+```bash
+mkdir -p /tmp/cargo
+export CARGO_TARGET_DIR=/tmp/cargo
+cargo build
+```
+
 ## 项目概述
 
 clmd 是一个用 Rust 实现的 CommonMark 规范解析器，参考了 cmark (C 实现) 和 commonmark.js (JavaScript 实现) 的设计。

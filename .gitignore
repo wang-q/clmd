@@ -140,6 +140,9 @@ Cargo.lock
 *.pdb
 *.exe
 
-*.sqlite
-*.dmp
-*.tsv
+# Coverage directory
+/coverage-*/
+/coverage_*/
+coverge-*
+coverge_*
+coverage.*
