@@ -14,3 +14,7 @@ criterion = "0.5"
 [[bench]]
 name = "parser_bench"
 harness = false
+
+[[bench]]
+name = "categorized_benchmark"
+harness = false
