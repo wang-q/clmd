@@ -68,6 +68,8 @@ struct HtmlRenderer {
     last_out: char,
     /// Counter to disable tag rendering (for image alt text)
     disable_tags: i32,
+    /// Track if we're at the first child of a list item (for tight lists)
+    item_child_count: Vec<usize>,
 }
 
 impl HtmlRenderer {
@@ -78,6 +80,7 @@ impl HtmlRenderer {
             tight_list_stack: Vec::new(),
             last_out: '\n', // Initialize to newline like commonmark.js
             disable_tags: 0,
+            item_child_count: Vec::new(),
         }
     }
 
@@ -114,6 +117,20 @@ impl HtmlRenderer {
         self.tight_list_stack.last().copied().unwrap_or(false)
     }
 
+    /// Check if we're inside a list item and track block-level children
+    /// Returns true if we should add a newline before this block element
+    fn track_item_child(&mut self) -> bool {
+        let in_tight_list = self.in_tight_list();
+        if let Some(count) = self.item_child_count.last_mut() {
+            *count += 1;
+            // In tight lists, add newline before block elements after the first one
+            if in_tight_list && *count > 1 {
+                return true;
+            }
+        }
+        false
+    }
+
     fn render(&mut self, root: &Rc<RefCell<Node>>) -> String {
         let mut walker = NodeWalker::new(root.clone());
 
@@ -139,9 +156,18 @@ impl HtmlRenderer {
         match node.node_type {
             NodeType::Document => {}
             NodeType::BlockQuote => {
+                // In tight list items, add newline before blockquote if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr(); // Add newline before code block if needed
+                }
                 self.lit("<blockquote");
                 self.add_sourcepos(&node.source_pos);
                 self.lit(">\n");
+                // Push false to tight_list_stack to disable tight mode for blockquote contents
+                // Blockquotes inside tight lists should still render <p> tags for their content
+                self.tight_list_stack.push(false);
             }
             NodeType::List => {
                 if let NodeData::List {
@@ -176,13 +202,22 @@ impl HtmlRenderer {
                 self.lit("<li");
                 self.add_sourcepos(&node.source_pos);
                 self.lit(">");
-                // In loose lists, add newline after <li>
-                if !self.in_tight_list() {
+                // In loose lists, add newline after <li>, but not for empty items
+                // Empty items have no children
+                let has_children = node.first_child.borrow().is_some();
+                if !self.in_tight_list() && has_children {
                     self.lit("\n");
                 }
+                // Initialize child counter for this item
+                self.item_child_count.push(0);
             }
             NodeType::CodeBlock => {
-                self.cr(); // Add newline before code block if needed
+                // In tight list items, add newline before code block if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr(); // Add newline before code block if needed
+                }
                 self.lit("<pre");
                 self.add_sourcepos(&node.source_pos);
                 self.lit("><code");
@@ -205,7 +240,12 @@ impl HtmlRenderer {
                 self.lit("</code></pre>\n");
             }
             NodeType::HtmlBlock => {
-                self.cr();
+                // In tight list items, add newline before HTML block if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
                 // HTML blocks are always output as raw HTML
                 // They are not subject to the same security restrictions as inline HTML
                 if let NodeData::HtmlBlock { literal } = &node.data {
@@ -216,12 +256,20 @@ impl HtmlRenderer {
             NodeType::Paragraph => {
                 // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
+                    // Track as item child in loose lists too
+                    self.track_item_child();
                     self.lit("<p");
                     self.add_sourcepos(&node.source_pos);
                     self.lit(">");
                 }
             }
             NodeType::Heading => {
+                // In tight list items, add newline before heading
+                // The first heading in a list item should also have a newline
+                if !self.item_child_count.is_empty() {
+                    self.track_item_child();
+                    self.lit("\n");
+                }
                 if let NodeData::Heading { level, .. } = &node.data {
                     self.lit("<h");
                     self.lit(&level.to_string());
@@ -230,12 +278,22 @@ impl HtmlRenderer {
                 }
             }
             NodeType::ThematicBreak => {
-                self.cr();
+                // In tight list items, add newline before thematic break if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
                 self.lit("<hr");
                 self.add_sourcepos(&node.source_pos);
                 self.lit(" />\n");
             }
             NodeType::Text => {
+                // Track text nodes as item children in tight lists
+                // This ensures proper newline handling for subsequent block elements
+                if self.in_tight_list() && !self.item_child_count.is_empty() {
+                    self.track_item_child();
+                }
                 if let NodeData::Text { literal } = &node.data {
                     self.lit(&escape_html(literal));
                 }
@@ -321,6 +379,8 @@ impl HtmlRenderer {
             NodeType::Document => {}
             NodeType::BlockQuote => {
                 self.lit("</blockquote>\n");
+                // Pop the false we pushed when entering blockquote
+                self.tight_list_stack.pop();
             }
             NodeType::List => {
                 if let NodeData::List { list_type, .. } = &node.data {
@@ -339,6 +399,8 @@ impl HtmlRenderer {
             }
             NodeType::Item => {
                 self.lit("</li>\n");
+                // Pop child counter for this item
+                self.item_child_count.pop();
             }
             NodeType::CodeBlock => {}
             NodeType::HtmlBlock => {}

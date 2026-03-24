@@ -114,6 +114,9 @@ pub enum NodeData {
         delim: DelimType,
         start: u32,
         tight: bool,
+        /// For bullet lists, stores the bullet character (-, +, or *)
+        /// This is needed to distinguish between different bullet list markers
+        bullet_char: char,
     },
     Item,
     CodeBlock {
@@ -196,6 +199,7 @@ impl Node {
                 delim: DelimType::None,
                 start: 0,
                 tight: false,
+                bullet_char: '\0',
             },
             NodeType::Item => NodeData::Item,
             NodeType::CodeBlock => NodeData::CodeBlock {

@@ -679,7 +679,7 @@ impl BlockParser {
             if (!indented || current_container.borrow().node_type == NodeType::List)
                 && self.indent < 4
             {
-                if let Some((list_type, delim, start, marker_offset, padding)) =
+                if let Some((list_type, delim, start, marker_offset, padding, bullet_char)) =
                     self.parse_list_marker(&current_container)
                 {
                     self.close_unmatched_blocks();
@@ -687,7 +687,7 @@ impl BlockParser {
                     // Check if we can continue an existing list
                     let can_continue_list = current_container.borrow().node_type
                         == NodeType::List
-                        && self.lists_match(&current_container, list_type, delim, start);
+                        && self.lists_match(&current_container, list_type, delim, start, bullet_char);
 
                     if !can_continue_list {
                         current_container =
@@ -699,12 +699,14 @@ impl BlockParser {
                                 delim: ref mut d,
                                 start: ref mut s,
                                 tight: ref mut t,
+                                bullet_char: ref mut bc,
                             } = list_mut.data
                             {
                                 *lt = list_type;
                                 *d = delim;
                                 *s = start;
                                 *t = true;
+                                *bc = bullet_char;
                             }
                         }
                     }
@@ -1010,14 +1012,22 @@ impl BlockParser {
         &self,
         chars: &mut std::iter::Peekable<std::str::Chars>,
     ) -> bool {
+        // Track if we've seen whitespace before an attribute (required between attributes)
+        let mut seen_whitespace = true; // Start true to allow first attribute
+        
         loop {
             // Skip whitespace
+            let mut found_whitespace = false;
             while let Some(&c) = chars.peek() {
                 if c.is_whitespace() {
                     chars.next();
+                    found_whitespace = true;
                 } else {
                     break;
                 }
+            }
+            if found_whitespace {
+                seen_whitespace = true;
             }
 
             match chars.peek() {
@@ -1038,7 +1048,12 @@ impl BlockParser {
                     }
                 }
                 Some(&c) if c.is_ascii_alphabetic() || c == '_' => {
-                    // Attribute name
+                    // Attribute name - must be preceded by whitespace (except for first attribute)
+                    if !seen_whitespace {
+                        return false;
+                    }
+                    seen_whitespace = false; // Reset for next attribute
+                    
                     chars.next();
                     loop {
                         match chars.peek() {
@@ -1165,7 +1180,7 @@ impl BlockParser {
     fn parse_list_marker(
         &mut self,
         container: &Rc<RefCell<Node>>,
-    ) -> Option<(ListType, DelimType, u32, usize, usize)> {
+    ) -> Option<(ListType, DelimType, u32, usize, usize, char)> {
         let rest = &self.current_line[self.next_nonspace..];
 
         // Try bullet list marker
@@ -1233,6 +1248,7 @@ impl BlockParser {
                         0,
                         self.indent,
                         padding,
+                        first_char, // Return the bullet character
                     ));
                 }
             }
@@ -1319,6 +1335,7 @@ impl BlockParser {
                             start,
                             self.indent,
                             padding,
+                            '\0', // No bullet character for ordered lists
                         ));
                     }
                 }
@@ -2006,15 +2023,23 @@ impl BlockParser {
         list_type: ListType,
         delim: DelimType,
         _start: u32,
+        bullet_char: char,
     ) -> bool {
         let node = list.borrow();
         if let NodeData::List {
             list_type: lt,
             delim: d,
+            bullet_char: bc,
             ..
         } = &node.data
         {
-            *lt == list_type && *d == delim
+            // For bullet lists, also check the bullet character
+            // Different bullet characters (-, +, *) should create new lists
+            if list_type == ListType::Bullet && *lt == ListType::Bullet {
+                *bc == bullet_char
+            } else {
+                *lt == list_type && *d == delim
+            }
         } else {
             false
         }

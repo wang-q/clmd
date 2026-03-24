@@ -66,6 +66,7 @@ impl XmlRenderer {
                 delim,
                 start,
                 tight,
+                ..
             } => {
                 match list_type {
                     crate::node::ListType::Bullet => {
