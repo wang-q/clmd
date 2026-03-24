@@ -12,6 +12,9 @@ bumpalo = { version = "3.14", features = ["collections"] }
 [dev-dependencies]
 criterion = "0.5"
 
+[profile.release]
+debug = true
+
 [[bench]]
 name = "parser_bench"
 harness = false

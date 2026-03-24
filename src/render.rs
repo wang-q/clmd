@@ -14,15 +14,31 @@ pub trait Renderer {
 }
 
 /// Escape HTML special characters
+/// Optimized with byte-level scanning and pre-allocated capacity
 pub fn escape_html(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            _ => result.push(c),
+    // Fast path: check if any escaping is needed
+    let bytes = text.as_bytes();
+    let mut needs_escape = false;
+    for &b in bytes {
+        if matches!(b, b'&' | b'<' | b'>' | b'"') {
+            needs_escape = true;
+            break;
+        }
+    }
+
+    if !needs_escape {
+        return text.to_string();
+    }
+
+    // Slow path: escape needed - pre-allocate with extra capacity for entities
+    let mut result = String::with_capacity(text.len() * 2);
+    for &b in bytes {
+        match b {
+            b'&' => result.push_str("&amp;"),
+            b'<' => result.push_str("&lt;"),
+            b'>' => result.push_str("&gt;"),
+            b'"' => result.push_str("&quot;"),
+            _ => result.push(b as char),
         }
     }
     result

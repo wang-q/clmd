@@ -14,15 +14,30 @@
 /// - `"` → `&quot;`
 /// - `'` → `&#x27;`
 pub fn escape_html(input: &str) -> String {
-    let mut result = String::with_capacity(input.len());
-    for c in input.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            '\'' => result.push_str("&#x27;"),
-            _ => result.push(c),
+    // Fast path: check if any escaping is needed
+    let bytes = input.as_bytes();
+    let mut needs_escape = false;
+    for &b in bytes {
+        if matches!(b, b'&' | b'<' | b'>' | b'"' | b'\'') {
+            needs_escape = true;
+            break;
+        }
+    }
+
+    if !needs_escape {
+        return input.to_string();
+    }
+
+    // Slow path: escape needed
+    let mut result = String::with_capacity(input.len() * 2);
+    for &b in bytes {
+        match b {
+            b'&' => result.push_str("&amp;"),
+            b'<' => result.push_str("&lt;"),
+            b'>' => result.push_str("&gt;"),
+            b'"' => result.push_str("&quot;"),
+            b'\'' => result.push_str("&#x27;"),
+            _ => result.push(b as char),
         }
     }
     result
