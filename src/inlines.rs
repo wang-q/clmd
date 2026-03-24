@@ -1427,7 +1427,7 @@ impl Subject {
         let start = self.pos;
         let mut paren_depth = 0;
         let mut ended_with_space = false;
-        let mut has_newline = false;
+        let has_newline = false;
 
         while let Some(c) = self.peek() {
             if c == '\\' {
