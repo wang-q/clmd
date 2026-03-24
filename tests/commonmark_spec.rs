@@ -181,16 +181,45 @@ fn test_commonmark_spec() {
         }
     }
 
-    if !failures.is_empty() {
-        println!("\n=== First {} Failures ===", failures.len());
-        for (num, section, markdown, expected, got) in &failures {
-            println!("\nTest #{} ({})", num, section);
-            println!("Input markdown (escaped): {:?}", markdown);
-            println!("Expected (escaped): {:?}", expected);
-            println!("Got (escaped): {:?}", got);
-            println!("Expected:\n{}", expected);
-            println!("Got:\n{}", got);
-            println!("---");
+    // Print all failed tests by section
+    let mut failed_by_section: HashMap<String, Vec<(usize, String, String, String)>> = HashMap::new();
+    for (num, section, markdown, expected, got) in &failures {
+        failed_by_section
+            .entry(section.clone())
+            .or_default()
+            .push((*num, markdown.clone(), expected.clone(), got.clone()));
+    }
+    
+    // Also collect all failures, not just first 10
+    for test in &tests {
+        let result = markdown_to_html(&test.markdown, options::DEFAULT);
+        if result != test.html {
+            let expected_normalized = normalize_html(&test.html);
+            let result_normalized = normalize_html(&result);
+            if expected_normalized != result_normalized {
+                failed_by_section
+                    .entry(test.section.clone())
+                    .or_default()
+                    .push((test.number, test.markdown.clone(), test.html.clone(), result));
+            }
+        }
+    }
+    
+    if !failed_by_section.is_empty() {
+        println!("\n=== All Failures by Section ===");
+        let mut sections: Vec<_> = failed_by_section.iter().collect();
+        sections.sort_by_key(|(s, _)| s.as_str());
+        for (section, tests) in sections {
+            println!("\n=== {} ===", section);
+            for (num, markdown, expected, got) in tests.iter().take(5) {
+                println!("\nTest #{}", num);
+                println!("Input: {:?}", markdown);
+                println!("Expected: {:?}", expected);
+                println!("Got: {:?}", got);
+            }
+            if tests.len() > 5 {
+                println!("... and {} more", tests.len() - 5);
+            }
         }
     }
 

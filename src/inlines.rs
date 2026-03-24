@@ -194,22 +194,24 @@ impl Subject {
 
     /// Remove trailing spaces from the last text node
     fn remove_trailing_spaces(parent: &Rc<RefCell<Node>>) {
-        let last_child_opt = parent.borrow().last_child.borrow().clone();
-
-        if let Some(last_child) = last_child_opt {
-            if last_child.borrow().node_type == NodeType::Text {
-                let mut last_mut = last_child.borrow_mut();
-                if let NodeData::Text {
-                    ref mut literal, ..
-                } = last_mut.data
-                {
-                    // Remove trailing spaces
-                    while literal.ends_with(' ') {
-                        literal.pop();
+        let parent_type = parent.borrow().node_type.clone();
+        
+        // For headings, always remove trailing spaces
+        if parent_type == NodeType::Heading {
+            let last_child_opt = parent.borrow().last_child.borrow().clone();
+            if let Some(last_child) = last_child_opt {
+                if last_child.borrow().node_type == NodeType::Text {
+                    let mut last_mut = last_child.borrow_mut();
+                    if let NodeData::Text { ref mut literal, .. } = last_mut.data {
+                        while literal.ends_with(' ') {
+                            literal.pop();
+                        }
                     }
                 }
             }
         }
+        // For paragraphs and other containers, preserve trailing spaces
+        // as they may be significant before inline elements
     }
 
     /// Merge adjacent text nodes in the given parent
@@ -452,7 +454,34 @@ impl Subject {
 
     /// Parse less-than sign (could be autolink or HTML tag)
     fn parse_lt(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
-        // Try autolink first
+        // Check if this looks like it could have been an autolink
+        // We need to check this first to avoid matching invalid autolinks as HTML tags
+        let remaining = &self.input[self.pos..];
+        if remaining.starts_with('<') && remaining.len() > 1 {
+            let after_lt = &remaining[1..];
+            // Check if it looks like a potential URL (scheme:...) or email
+            if Self::looks_like_potential_autolink(after_lt) {
+                // Try autolink first
+                if self.parse_autolink(parent) {
+                    return true;
+                }
+                
+                // This looks like it could be an autolink but failed validation
+                // Output the < as a literal character (it will be escaped during rendering)
+                let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+                {
+                    let mut text_mut = text_node.borrow_mut();
+                    if let NodeData::Text { ref mut literal } = text_mut.data {
+                        *literal = "<".to_string();
+                    }
+                }
+                append_child(parent, text_node);
+                self.pos += 1;
+                return true;
+            }
+        }
+
+        // Try autolink first (for cases not caught by looks_like_potential_autolink)
         if self.parse_autolink(parent) {
             return true;
         }
@@ -473,6 +502,60 @@ impl Subject {
         append_child(parent, text_node);
         self.pos += 1;
         true
+    }
+
+    /// Check if the string looks like it could be a potential autolink
+    /// This helps distinguish between "<not-a-tag>" and "<https://example.com>"
+    fn looks_like_potential_autolink(s: &str) -> bool {
+        // Check for URL pattern: scheme:...
+        // Based on commonmark.js: scheme must be at least 2 characters
+        let mut chars = s.chars().peekable();
+        let mut i = 0;
+        
+        // Must start with a letter
+        if let Some(&c) = chars.peek() {
+            if !c.is_ascii_alphabetic() {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        
+        // Look for scheme followed by colon, or @ for email
+        while let Some(&c) = chars.peek() {
+            if c == ':' {
+                // Found scheme:, check if scheme is at least 2 chars
+                if i >= 1 {
+                    return true;
+                }
+                // Scheme too short (like "m:"), but still looks like potential autolink
+                return true;
+            } else if c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '+' || c == '-' || c == '.' {
+                chars.next();
+                i += 1;
+                if i > 32 {
+                    return false; // Scheme too long
+                }
+            } else if c == '@' {
+                // Contains @ before :, looks like email
+                return true;
+            } else if c == '/' {
+                // If we see / before :, this might be something like "<https://...>"
+                // where the : is after the scheme. Check if it looks like a URL pattern.
+                let rest: String = chars.clone().collect();
+                if rest.starts_with("//") {
+                    // Looks like a URL with scheme:// pattern
+                    return true;
+                }
+                return false;
+            } else {
+                // Hit something else (like . in foo.bar.baz or space)
+                // This is NOT a potential autolink, just a regular word
+                return false;
+            }
+        }
+        
+        false
     }
 
     /// Parse autolink (URL or email in angle brackets)
@@ -1082,7 +1165,7 @@ impl Subject {
                 // Use the text between brackets as label
                 // For images, opener.position points to '!', so text starts at position + 2
                 // For links, opener.position points to '[', so text starts at position + 1
-                let at_line_end = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
+                let at_line_end = self.peek().map(|c| c == '\n' || c == '\r' || c == ' ').unwrap_or(true)
                     || self.pos >= self.input.len();
                 // Allow shortcut reference links followed by punctuation
                 let followed_by_punct = self.peek().map(|c| is_punctuation(c)).unwrap_or(false);
@@ -1214,32 +1297,45 @@ impl Subject {
     fn parse_link_destination(&mut self) -> Option<(String, bool)> {
         // Try angle-bracketed destination: <url>
         if self.peek() == Some('<') {
+            let start_pos = self.pos;
             self.advance(); // skip <
-            let start = self.pos;
+            let content_start = self.pos;
 
             while let Some(c) = self.peek() {
                 if c == '>' {
-                    let dest = self.input[start..self.pos].to_string();
+                    let dest = self.input[content_start..self.pos].to_string();
                     self.advance(); // skip >
-                                    // Unescape and normalize the destination
+                    // Unescape and normalize the destination
                     let unescaped = unescape_string(&dest);
                     return Some((normalize_uri(&unescaped), false));
-                } else if c == '<' {
+                } else if c == '<' || c == '\n' || c == '\r' {
+                    // Newlines and < not allowed in angle-bracketed destinations
+                    // Rewind to start
+                    self.pos = start_pos;
                     return None;
                 } else if c == '\\' {
+                    // Backslash escape - check if there's a character after it
                     self.advance();
                     if let Some(next_c) = self.peek() {
                         if is_escapable(next_c) {
                             self.advance();
+                        } else {
+                            // Backslash followed by non-escapable char is just a backslash
+                            // But we need to include it in the destination
                         }
+                    } else {
+                        // Backslash at end of input - invalid
+                        // Rewind to start
+                        self.pos = start_pos;
+                        return None;
                     }
-                } else if c == '\n' || c == '\r' {
-                    // Newlines not allowed in angle-bracketed destinations
-                    return None;
                 } else {
                     self.advance();
                 }
             }
+            // Reached end of input without finding >
+            // Rewind to start
+            self.pos = start_pos;
             return None;
         }
 
@@ -1403,7 +1499,16 @@ impl Subject {
 
         if self.peek() == Some('[') {
             self.advance(); // skip [
-            let text_node = self.append_text(parent, "![");
+            // Create a separate text node for "![" to avoid merging with previous text
+            // This is important because the opener node will be unlinked when the image is processed
+            let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+            {
+                let mut text_mut = text_node.borrow_mut();
+                if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                    *literal = "![".to_string();
+                }
+            }
+            append_child(parent, text_node.clone());
 
             // Add to bracket stack as image
             let bracket = Box::new(Bracket {
@@ -1691,7 +1796,7 @@ fn normalize_uri(uri: &str) -> String {
                 result.push(c);
             }
             // Reserved characters that are commonly used in URIs
-            ':' | '/' | '?' | '#' | '[' | ']' | '@' | '!' | '$' | '&' | '\'' | '('
+            ':' | '/' | '?' | '#' | '@' | '!' | '$' | '&' | '\'' | '('
             | ')' | '*' | '+' | ',' | ';' | '=' => {
                 result.push(c);
             }
@@ -1702,6 +1807,17 @@ fn normalize_uri(uri: &str) -> String {
             // Space should be encoded as %20 (not +)
             ' ' => {
                 result.push_str("%20");
+            }
+            // Backslash should be encoded
+            '\\' => {
+                result.push_str("%5C");
+            }
+            // Square brackets should be encoded in URLs
+            '[' => {
+                result.push_str("%5B");
+            }
+            ']' => {
+                result.push_str("%5D");
             }
             // Other characters: percent-encode
             _ => {
@@ -1779,6 +1895,8 @@ fn is_punctuation(c: char) -> bool {
             | '~'
     ) || c.is_ascii_punctuation()
 }
+
+
 
 /// Parse inline content into the given parent node
 pub fn parse_inlines(
@@ -2001,43 +2119,85 @@ fn parse_entity_char(input: &str) -> Option<(String, usize)> {
 }
 
 /// Email autolink pattern
+/// Based on commonmark.js reEmailAutolink
 fn match_email_autolink(input: &str) -> Option<(String, usize)> {
     if !input.starts_with('<') {
         return None;
     }
 
-    // Simple email pattern: <local@domain.tld>
+    // Email pattern from commonmark.js:
+    // /^<([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*>/
     let rest = &input[1..];
-
-    let mut at_pos = None;
-    let mut end_pos = 0;
-
-    for (i, c) in rest.chars().enumerate() {
-        if c == '@' && at_pos.is_none() && i > 0 {
-            at_pos = Some(i);
-        } else if c == '>' {
-            end_pos = i;
+    
+    // Check for valid email characters in local part (before @)
+    let mut chars = rest.chars().peekable();
+    let mut i = 0;
+    let mut found_at = false;
+    
+    // Local part: [a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
+    while let Some(&c) = chars.peek() {
+        if c == '@' {
+            found_at = true;
+            chars.next();
+            i += 1;
             break;
-        } else if c == '\n' || c == '<' {
+        } else if c == '>' || c == '<' || c == '\n' || c == ' ' || c == '\t' {
+            return None;
+        } else if c == '\\' {
+            // Backslash escape is not allowed in email autolinks
+            return None;
+        } else if is_valid_email_local_char(c) {
+            chars.next();
+            i += 1;
+        } else {
             return None;
         }
     }
-
-    if let Some(at) = at_pos {
-        if at > 0 && end_pos > at + 1 {
-            let email = &rest[..end_pos];
-            // Basic validation: must have @ and at least one dot after @
-            let domain_part = &rest[at + 1..end_pos];
-            if domain_part.contains('.') {
-                return Some((email.to_string(), end_pos + 2)); // +2 for < and >
+    
+    if !found_at || i <= 1 {
+        return None;
+    }
+    
+    // Domain part: [a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*
+    let domain_start = i;
+    let mut label_start = i;
+    
+    while let Some(&c) = chars.peek() {
+        if c == '>' {
+            // End of email
+            if i > domain_start && i > label_start {
+                let email = &rest[..i];
+                return Some((email.to_string(), i + 2)); // +2 for < and >
             }
+            return None;
+        } else if c == '<' || c == '\n' || c == ' ' || c == '\t' {
+            return None;
+        } else if c == '.' {
+            chars.next();
+            i += 1;
+            label_start = i;
+        } else if c.is_ascii_alphanumeric() || c == '-' {
+            chars.next();
+            i += 1;
+        } else {
+            return None;
         }
     }
-
+    
     None
 }
 
+fn is_valid_email_local_char(c: char) -> bool {
+    c.is_ascii_alphanumeric()
+        || matches!(
+            c,
+            '.' | '!' | '#' | '$' | '%' | '&' | '\'' | '*' | '+' | '/' | '=' | '?' | '^' | '_'
+                | '`' | '{' | '|' | '}' | '~' | '-'
+        )
+}
+
 /// URL autolink pattern
+/// Based on commonmark.js reAutolink: /^<[A-Za-z][A-Za-z0-9.+-]{1,31}:[^<>\x00-\x20]*>/i
 fn match_url_autolink(input: &str) -> Option<(String, usize)> {
     if !input.starts_with('<') {
         return None;
@@ -2046,7 +2206,7 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
     // URL pattern: <scheme:...>
     let rest = &input[1..];
 
-    // Must start with a letter, then letters/digits/+-.
+    // Must start with a letter, then letters/digits/+/-/.
     let mut i = 0;
     let mut has_colon = false;
 
@@ -2073,11 +2233,13 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
         }
     }
 
-    if !has_colon || i < 2 {
+    if !has_colon || i < 3 {
+        // Scheme must be at least 2 characters (i includes the colon, so i >= 3 means scheme >= 2)
         return None;
     }
 
     // Now parse the rest of the URL
+    // [^<>\x00-\x20]* means: no <, >, or ASCII control characters/space
     let url_start = i;
     let mut end_pos = 0;
 
@@ -2085,7 +2247,8 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
         if c == '>' {
             end_pos = url_start + j;
             break;
-        } else if c == '\n' || c == '<' || c.is_ascii_control() {
+        } else if c == '\n' || c == '<' || c == ' ' || c == '\t' || c.is_ascii_control() {
+            // Space or control character - invalid URL
             return None;
         }
     }
@@ -2256,6 +2419,15 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
                 }
                 '\n' | '<' => {
                     // Invalid in tag
+                    return None;
+                }
+                '\\' => {
+                    // Backslash is not valid in HTML tags (unless in quotes, which is handled above)
+                    return None;
+                }
+                '.' => {
+                    // Dot is not valid in HTML tags outside of quotes
+                    // (it's not a valid attribute name start)
                     return None;
                 }
                 _ => {

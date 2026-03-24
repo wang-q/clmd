@@ -272,7 +272,11 @@ impl HtmlRenderer {
                 self.lit("<strong>");
             }
             NodeType::Link => {
-                if let NodeData::Link { url, title } = &node.data {
+                if self.disable_tags > 0 {
+                    // We're inside an image's alt text
+                    // Links in alt text are replaced by their link text (not rendered as <a>)
+                    // Just continue to render the children
+                } else if let NodeData::Link { url, title } = &node.data {
                     if self.options & crate::options::UNSAFE != 0 || is_safe_url(url) {
                         self.lit("<a href=\"");
                         self.lit(&escape_html(url));
@@ -289,17 +293,16 @@ impl HtmlRenderer {
                 }
             }
             NodeType::Image => {
-                if let NodeData::Image { url, title } = &node.data {
+                if self.disable_tags > 0 {
+                    // We're inside another image's alt text
+                    // Images in alt text are replaced by their alt text (not rendered as <img>)
+                    // Just disable tags for the nested alt text processing
+                    self.disable_tags += 1;
+                } else if let NodeData::Image { url, .. } = &node.data {
                     if self.options & crate::options::UNSAFE != 0 || is_safe_url(url) {
                         self.lit("<img src=\"");
                         self.lit(&escape_html(url));
-                        self.lit("\"");
-                        if !title.is_empty() {
-                            self.lit(" title=\"");
-                            self.lit(&escape_html(title));
-                            self.lit("\"");
-                        }
-                        self.lit(" alt=\"");
+                        self.lit("\" alt=\"");
                     } else {
                         self.lit("<img src=\"\" alt=\"");
                     }
@@ -365,12 +368,28 @@ impl HtmlRenderer {
                 self.lit("</strong>");
             }
             NodeType::Link => {
-                self.lit("</a>");
+                if self.disable_tags == 0 {
+                    self.lit("</a>");
+                }
             }
             NodeType::Image => {
                 // Re-enable tag rendering after alt text
                 self.disable_tags -= 1;
-                self.lit("\" />");
+                // Only output closing tag if we're not inside another image's alt text
+                if self.disable_tags == 0 {
+                    // Add title attribute after alt if present
+                    if let NodeData::Image { title, .. } = &node.data {
+                        if !title.is_empty() {
+                            self.lit("\" title=\"");
+                            self.lit(&escape_html(title));
+                            self.lit("\" />");
+                        } else {
+                            self.lit("\" />");
+                        }
+                    } else {
+                        self.lit("\" />");
+                    }
+                }
             }
             _ => {}
         }
