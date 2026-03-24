@@ -1,7 +1,10 @@
 //! Block-level AST nodes
 //!
-//! This module will contain all block-level node types.
-//! Currently a placeholder for future implementation.
+//! Block nodes are the top-level structural elements of a Markdown document.
+//! They can contain other block nodes or inline nodes.
 
-// Block nodes will be implemented here
-// Examples: Document, Paragraph, Heading, List, etc.
+// Re-export all block node types from traits module
+pub use crate::ast_nodes::traits::{
+    BlockQuote, BlockNode, CodeBlock, Document, Heading, HtmlBlock, Item, List, ListType,
+    DelimType, Paragraph, ThematicBreak,
+};

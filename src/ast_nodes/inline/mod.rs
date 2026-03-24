@@ -1,7 +1,9 @@
 //! Inline-level AST nodes
 //!
-//! This module will contain all inline-level node types.
-//! Currently a placeholder for future implementation.
+//! Inline nodes are the content elements within block-level nodes.
+//! They can contain other inline nodes but not block nodes.
 
-// Inline nodes will be implemented here
-// Examples: Text, Emph, Strong, Link, Code, etc.
+// Re-export all inline node types from traits module
+pub use crate::ast_nodes::traits::{
+    Code, Emph, HtmlInline, Image, InlineNode, LineBreak, Link, SoftBreak, Strong, Text,
+};
