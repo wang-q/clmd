@@ -1687,7 +1687,7 @@ impl BlockParser {
         // Set end position
         {
             let mut block_mut = block.borrow_mut();
-            block_mut.source_pos.end_line = (self.line_number - 1) as u32;
+            block_mut.source_pos.end_line = self.line_number.saturating_sub(1) as u32;
             block_mut.source_pos.end_column = self.last_line_length as u32;
         }
 
