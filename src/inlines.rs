@@ -1078,13 +1078,15 @@ impl Subject {
             } else if label_len == 0 && self.pos == before_label {
                 // Shortcut reference link [text] - only if:
                 // 1. We didn't consume any characters (no '[' found)
-                // 2. We're at end of line/string (not followed by other content)
+                // 2. We're at end of line/string or followed by punctuation
                 // Use the text between brackets as label
                 // For images, opener.position points to '!', so text starts at position + 2
                 // For links, opener.position points to '[', so text starts at position + 1
                 let at_line_end = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
                     || self.pos >= self.input.len();
-                if at_line_end && !opener.bracket_after {
+                // Allow shortcut reference links followed by punctuation
+                let followed_by_punct = self.peek().map(|c| is_punctuation(c)).unwrap_or(false);
+                if (at_line_end || followed_by_punct) && !opener.bracket_after {
                     let label_start = if is_image {
                         opener.position + 2
                     } else {

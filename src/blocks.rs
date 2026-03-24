@@ -1247,9 +1247,16 @@ impl BlockParser {
             if let Some(delim_char) = after_digits.chars().next() {
                 if delim_char == '.' || delim_char == ')' {
                     let after_delim = &after_digits[1..];
+                    // A list marker must be followed by whitespace or end of line
+                    // For ordered lists, the marker can be followed by:
+                    // - nothing (end of line)
+                    // - space
+                    // - tab
+                    // - newline (empty list item)
                     if after_delim.is_empty()
                         || after_delim.starts_with(' ')
                         || after_delim.starts_with('\t')
+                        || after_delim.starts_with('\n')
                     {
                         // If interrupting paragraph, start must be 1
                         if container.borrow().node_type == NodeType::Paragraph
@@ -1991,22 +1998,23 @@ impl BlockParser {
     }
 
     /// Lists match check
+    /// For ordered lists, we don't check the start number because subsequent list items
+    /// can have different numbers and still belong to the same list
     fn lists_match(
         &self,
         list: &Rc<RefCell<Node>>,
         list_type: ListType,
         delim: DelimType,
-        start: u32,
+        _start: u32,
     ) -> bool {
         let node = list.borrow();
         if let NodeData::List {
             list_type: lt,
             delim: d,
-            start: s,
             ..
         } = &node.data
         {
-            *lt == list_type && *d == delim && *s == start
+            *lt == list_type && *d == delim
         } else {
             false
         }
