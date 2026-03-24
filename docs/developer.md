@@ -266,7 +266,7 @@ const result = writer.render(parsed);
 
 - **单元测试**：77 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：545/652 通过（83.6%）
+- **CommonMark 规范测试**：557/652 通过（85.4%）
 - **参考项目验证**：697/697 通过（100%）
 
 ### 失败测试分析
@@ -275,16 +275,14 @@ const result = writer.render(parsed);
 
 | Section | 失败数量 |
 |---------|---------|
-| Links | 22 |
+| Links | 21 |
 | Images | 14 |
 | List items | 18 |
 | Lists | 10 |
 | Link reference definitions | 8 |
-| Emphasis and strong emphasis | 9 |
-| Raw HTML | 10 |
-| Autolinks | 8 |
-| Setext headings | 1 |
-| ATX headings | 1 |
+| Emphasis and strong emphasis | 7 |
+| Raw HTML | 6 |
+| Autolinks | 6 |
 | Fenced code blocks | 2 |
 | Backslash escapes | 2 |
 | Block quotes | 1 |
@@ -295,13 +293,13 @@ const result = writer.render(parsed);
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的 107 个失败的 CommonMark 规范测试用例
+   - 修复剩余的 95 个失败的 CommonMark 规范测试用例
    - 性能基准测试
 
-3. **链接解析改进**（部分完成）：
+2. **链接解析改进**（部分完成）：
    - 仍需处理：嵌套链接、复杂 URL、转义字符等
 
-4. **渲染器增强**（已完成基础改进）：
+3. **渲染器增强**（已完成基础改进）：
    - XML 渲染器支持 `HtmlInline` 节点（可选）
 
 4. **文档完善**：

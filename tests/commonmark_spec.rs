@@ -220,4 +220,42 @@ fn test_specific_examples() {
     // Example 3: ATX heading
     let result = markdown_to_html("# Heading\n", options::DEFAULT);
     assert!(result.contains("<h1>"), "Should produce h1 tag");
+
+    // Debug test for ATX heading issue #79
+    let result = markdown_to_html("## \n#\n### ###", options::DEFAULT);
+    println!("ATX heading test #79 result: {:?}", result);
+    println!("Expected: {:?}", "<h2></h2>\n<h1></h1>\n<h3></h3>");
+
+    // Debug test for Setext heading issue #91
+    let input = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>";
+    let result = markdown_to_html(input, options::DEFAULT);
+    println!("\nSetext heading test #91 result: {:?}", result);
+    println!("Expected: {:?}", "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=\"a lot</h2>\n<p>of dashes\"/&gt;</p>");
+
+    // Simpler test case
+    let input2 = "<a title=\"a lot\n---\nof dashes\"/>";
+    let result2 = markdown_to_html(input2, options::DEFAULT);
+    println!("\nSimpler test result: {:?}", result2);
+
+    // Even simpler test case - just the heading part
+    let input3 = "<a title=\"a lot\n---";
+    let result3 = markdown_to_html(input3, options::DEFAULT);
+    println!("\nEven simpler test result: {:?}", result3);
+
+    // Test without newline
+    let input4 = "<a title=\"a lot";
+    let result4 = markdown_to_html(input4, options::DEFAULT);
+    println!("\nWithout newline test result: {:?}", result4);
+
+    // Test fenced code block #126
+    let input5 = "```";
+    let result5 = markdown_to_html(input5, options::DEFAULT);
+    println!("\nFenced code block #126 result: {:?}", result5);
+    println!("Expected: {:?}", "<pre><code></code></pre>");
+
+    // Test fenced code block with content
+    let input6 = "```\nfoo\n```";
+    let result6 = markdown_to_html(input6, options::DEFAULT);
+    println!("\nFenced code block with content result: {:?}", result6);
+    println!("Expected: {:?}", "<pre><code>foo\n</code></pre>");
 }

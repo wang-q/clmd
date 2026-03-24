@@ -462,8 +462,17 @@ impl Subject {
             return true;
         }
 
-        // Just a literal <
-        self.parse_string(parent)
+        // Just a literal < - add it as text
+        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
+        {
+            let mut text_mut = text_node.borrow_mut();
+            if let NodeData::Text { ref mut literal } = text_mut.data {
+                *literal = "<".to_string();
+            }
+        }
+        append_child(parent, text_node);
+        self.pos += 1;
+        true
     }
 
     /// Parse autolink (URL or email in angle brackets)
@@ -1066,13 +1075,16 @@ impl Subject {
                 if label_start < label_end {
                     reflabel = Some(self.input[label_start..label_end].to_string());
                 }
-            } else if label_len == 0 {
-                // Shortcut reference link [text]
-                self.pos = before_label; // rewind
-                                         // Use the text between brackets as label
-                                         // For images, opener.position points to '!', so text starts at position + 2
-                                         // For links, opener.position points to '[', so text starts at position + 1
-                if !opener.bracket_after {
+            } else if label_len == 0 && self.pos == before_label {
+                // Shortcut reference link [text] - only if:
+                // 1. We didn't consume any characters (no '[' found)
+                // 2. We're at end of line/string (not followed by other content)
+                // Use the text between brackets as label
+                // For images, opener.position points to '!', so text starts at position + 2
+                // For links, opener.position points to '[', so text starts at position + 1
+                let at_line_end = self.peek().map(|c| c == '\n' || c == '\r').unwrap_or(true)
+                    || self.pos >= self.input.len();
+                if at_line_end && !opener.bracket_after {
                     let label_start = if is_image {
                         opener.position + 2
                     } else {
@@ -1155,14 +1167,13 @@ impl Subject {
             // Unlink the opener text node
             crate::node::unlink(&opener_inl);
 
-            // Remove delimiters that are inside the link from the delimiter stack
-            // These delimiters should not be processed as emphasis
-            self.remove_delimiters_inside_link(&opener);
-
-            // Process emphasis with opener's previous delimiter
-            // This ensures that emphasis delimiters inside the link are not processed
-            // until the link is fully constructed
+            // Process emphasis with opener's previous delimiter FIRST
+            // This processes emphasis delimiters inside the link text
             self.process_emphasis(opener.previous_delimiter.clone());
+
+            // Remove delimiters that are inside the link from the delimiter stack
+            // These delimiters have been processed and should be removed
+            self.remove_delimiters_inside_link(&opener);
 
             // Remove the matched opener from bracket stack BEFORE deactivating previous openers
             // This ensures we don't deactivate the current opener itself
@@ -1698,6 +1709,7 @@ fn normalize_uri(uri: &str) -> String {
 /// - Collapses internal whitespace to a single space
 /// - Removes leading/trailing whitespace
 /// - Converts to uppercase (for case-insensitive comparison)
+/// Note: Does NOT unescape backslash escapes - [foo\!] and [foo!] are different labels
 pub fn normalize_reference(label: &str) -> String {
     // Remove surrounding brackets if present
     let label = if label.starts_with('[') && label.ends_with(']') {
@@ -1707,8 +1719,6 @@ pub fn normalize_reference(label: &str) -> String {
     };
 
     // Normalize whitespace: collapse all whitespace sequences to a single space
-    // Note: We do NOT process escape sequences here - they are preserved in the label
-    // This matches commonmark.js behavior where [foo\!] does not match [foo!]
     let normalized = label
         .trim()
         .split_whitespace()

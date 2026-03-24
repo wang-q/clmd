@@ -346,9 +346,14 @@ impl BlockParser {
                     let fence_chars: String =
                         line.chars().take_while(|&c| c == fence_char).collect();
                     if fence_chars.len() >= fence_length {
-                        // Closing fence found
-                        self.finalize_block(container);
-                        return 2;
+                        // Check that only whitespace follows the fence
+                        let after_fence = &line[fence_chars.len()..];
+                        let is_closing = after_fence.trim().is_empty();
+                        if is_closing {
+                            // Closing fence found
+                            self.finalize_block(container);
+                            return 2;
+                        }
                     }
                 }
             }
@@ -452,11 +457,13 @@ impl BlockParser {
                     let after_hashes = &line[level..];
                     // Check if this is a valid ATX heading:
                     // - Empty after hashes (e.g., "#")
-                    // - Starts with space or tab
+                    // - Starts with space, tab, newline, or carriage return
                     // - Starts with # (for closing sequence)
                     if after_hashes.is_empty()
                         || after_hashes.starts_with(' ')
                         || after_hashes.starts_with('\t')
+                        || after_hashes.starts_with('\n')
+                        || after_hashes.starts_with('\r')
                         || after_hashes.starts_with('#')
                     {
                         self.close_unmatched_blocks();
@@ -1324,7 +1331,26 @@ impl BlockParser {
             let container_type = container.borrow().node_type;
 
             if container_type == NodeType::CodeBlock {
-                self.add_line_to_node(container);
+                // For fenced code blocks, check if this is the opening or closing fence line
+                // These lines should not be added to content
+                if self.is_fenced_code_block(container) {
+                    let (fence_char, fence_length, _) = self.get_fence_info(container);
+                    let line = &self.current_line[self.next_nonspace..];
+                    // Check if this line is a fence line (starts with fence chars followed by only whitespace)
+                    let fence_chars: String = line.chars().take_while(|&c| c == fence_char).collect();
+                    if fence_chars.len() >= fence_length {
+                        let after_fence = &line[fence_chars.len()..];
+                        let is_fence_line = after_fence.trim().is_empty();
+                        if !is_fence_line {
+                            self.add_line_to_node(container);
+                        }
+                    } else {
+                        self.add_line_to_node(container);
+                    }
+                } else {
+                    // Indented code block - always add line
+                    self.add_line_to_node(container);
+                }
             } else if container_type == NodeType::HtmlBlock {
                 // For HTML blocks type 1-5, check if this line ends the block
                 // If so, add the line first, then finalize
@@ -1539,7 +1565,32 @@ impl BlockParser {
                                 *i = info;
                             }
                         }
+                        // For fenced code blocks, the content should end with a newline
+                        // unless the block is empty
+                        let rest = if rest.trim().is_empty() {
+                            // Empty block - clear content
+                            ""
+                        } else if !rest.ends_with('\n') {
+                            // Non-empty block without trailing newline - add one
+                            &format!("{}\n", rest)
+                        } else {
+                            rest
+                        };
                         self.set_string_content(block, rest.to_string());
+                    } else {
+                        // No newline found - content is just the info string
+                        // Set info and clear content
+                        let info = content.trim().to_string();
+                        {
+                            let mut block_mut = block.borrow_mut();
+                            if let NodeData::CodeBlock {
+                                info: ref mut i, ..
+                            } = block_mut.data
+                            {
+                                *i = info;
+                            }
+                        }
+                        self.set_string_content(block, String::new());
                     }
                 } else {
                     // Indented code block - remove trailing blank lines
