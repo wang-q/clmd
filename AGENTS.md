@@ -13,6 +13,23 @@
 
 实现功能时，核心算法**一定**要多参考 cmark 与 commonmark.js。使用 TDD 开发策略。
 
+## 项目结构
+
+```
+src/
+├── lib.rs          # 公共 API 和选项定义
+├── node.rs         # AST 节点定义和操作
+├── parser.rs       # 解析器入口
+├── blocks.rs       # 块级元素解析
+├── inlines.rs      # 内联元素解析
+├── lexer.rs        # 词法分析器
+├── iterator.rs     # AST 遍历器
+├── render.rs       # 渲染器基类
+└── render/
+    ├── html.rs     # HTML 渲染器
+    └── xml.rs      # XML 渲染器
+```
+
 ## 构建命令
 
 ### 构建
@@ -30,6 +47,13 @@ cargo build --release
 ```bash
 # 运行所有测试
 cargo test
+
+# 运行特定测试
+cargo test test_commonmark_spec -- --nocapture
+
+# 检查代码格式和风格
+cargo fmt -- --check
+cargo clippy
 ```
 
 ## 代码规范
@@ -38,6 +62,19 @@ cargo test
 - 使用 `cargo clippy` 检查潜在问题。
 - 优先使用标准库和项目中已引入的 crate。
 - 保持代码简洁，注重性能。
+- 所有公共 API 必须包含文档注释（英文）。
+
+## 核心算法参考
+
+在实现或修复以下功能时，优先参考对应源码：
+
+| 功能 | cmark (C) | commonmark.js (JS) |
+|------|-----------|-------------------|
+| 块级解析 | `blocks.c` | `blocks.js` |
+| 内联解析 | `inlines.c` | `inlines.js` |
+| 强调处理 | `inlines.c` 中 `process_emphasis` | `inlines.js` 中 `processEmphasis` |
+| 链接处理 | `inlines.c` 中 `parse_link` | `inlines.js` 中 `parseLink` |
+| HTML 渲染 | `html.c` | `render/html.js` |
 
 ## 开发者文档规范
 
