@@ -1,4 +1,7 @@
+pub mod commonmark;
 pub mod html;
+pub mod latex;
+pub mod man;
 pub mod xml;
 
 use crate::node::Node;

@@ -111,6 +111,54 @@ pub fn render_xml(root: &std::rc::Rc<std::cell::RefCell<Node>>, options: u32) ->
     render::xml::render(root, options)
 }
 
+/// Render a node tree as CommonMark
+///
+/// # Arguments
+///
+/// * `root` - The root node of the AST
+/// * `options` - Options for rendering
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+pub fn render_commonmark(
+    root: &std::rc::Rc<std::cell::RefCell<Node>>,
+    options: u32,
+) -> String {
+    render::commonmark::render(root, options)
+}
+
+/// Render a node tree as LaTeX
+///
+/// # Arguments
+///
+/// * `root` - The root node of the AST
+/// * `options` - Options for rendering
+///
+/// # Returns
+///
+/// The LaTeX output as a String
+pub fn render_latex(
+    root: &std::rc::Rc<std::cell::RefCell<Node>>,
+    options: u32,
+) -> String {
+    render::latex::render(root, options)
+}
+
+/// Render a node tree as a Man page (groff format)
+///
+/// # Arguments
+///
+/// * `root` - The root node of the AST
+/// * `options` - Options for rendering
+///
+/// # Returns
+///
+/// The Man page output as a String
+pub fn render_man(root: &std::rc::Rc<std::cell::RefCell<Node>>, options: u32) -> String {
+    render::man::render(root, options)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
