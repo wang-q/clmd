@@ -2525,6 +2525,7 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
                     }
                 }
             }
+            // If no '=', this is a boolean attribute - continue to next attribute
         }
     }
 
@@ -3203,4 +3204,5 @@ mod tests {
             assert_eq!(output, expected, "Failed for input: {}", input);
         }
     }
+
 }
