@@ -8,7 +8,7 @@ fn test_unescape_plus() {
     let result = unescape_string(input);
     println!("Result: {:?}", result);
     println!("Result bytes: {:?}", result.as_bytes());
-    
+
     // The \+ should become +
     assert_eq!(result, "foo+bar");
 }

@@ -480,9 +480,13 @@ impl BlockParser {
 
                         // Remove closing sequence using regex-like logic
                         // Pattern 1: ^[ \t]*#+[ \t]*$ - content is only whitespace + #s
-                        let trimmed_start = content.trim_start_matches(|c: char| c == ' ' || c == '\t');
-                        let trimmed_end = trimmed_start.trim_end_matches(|c: char| c == ' ' || c == '\t');
-                        if trimmed_end.chars().all(|c| c == '#') && !trimmed_end.is_empty() {
+                        let trimmed_start =
+                            content.trim_start_matches(|c: char| c == ' ' || c == '\t');
+                        let trimmed_end = trimmed_start
+                            .trim_end_matches(|c: char| c == ' ' || c == '\t');
+                        if trimmed_end.chars().all(|c| c == '#')
+                            && !trimmed_end.is_empty()
+                        {
                             content = String::new();
                         } else {
                             // Pattern 2: [ \t]+#+[ \t]*$ - closing sequence at end
@@ -506,40 +510,53 @@ impl BlockParser {
                                     break;
                                 }
                             }
-                            
+
                             // Also check if we reached the start while in_hashes
                             if in_hashes && hash_start.is_none() {
                                 // The entire content is hashes (should have been caught by pattern 1)
                                 hash_start = Some(0);
                             }
-                            
+
                             if let Some(start) = hash_start {
                                 // Check if there's whitespace before the hash sequence
                                 if start > 0 {
                                     let before_hash = &content[..start];
-                                    if before_hash.ends_with(' ') || before_hash.ends_with('\t') {
-                                        content = before_hash.trim_end_matches(|c: char| c == ' ' || c == '\t').to_string();
+                                    if before_hash.ends_with(' ')
+                                        || before_hash.ends_with('\t')
+                                    {
+                                        content = before_hash
+                                            .trim_end_matches(|c: char| {
+                                                c == ' ' || c == '\t'
+                                            })
+                                            .to_string();
                                     }
                                 }
                             }
                         }
 
                         // Trim leading whitespace from content
-                        content = content.trim_start_matches(|c: char| c == ' ' || c == '\t').to_string();
+                        content = content
+                            .trim_start_matches(|c: char| c == ' ' || c == '\t')
+                            .to_string();
 
                         let heading =
                             self.add_child(NodeType::Heading, self.next_nonspace);
                         {
                             let mut heading_mut = heading.borrow_mut();
-                            if let NodeData::Heading { level: ref mut l, content: ref mut c } =
-                                heading_mut.data
+                            if let NodeData::Heading {
+                                level: ref mut l,
+                                content: ref mut c,
+                            } = heading_mut.data
                             {
                                 *l = level as u32;
                                 *c = content;
                             }
                         }
                         // Skip the rest of the line
-                        self.advance_offset(self.current_line.len() - self.offset, false);
+                        self.advance_offset(
+                            self.current_line.len() - self.offset,
+                            false,
+                        );
                         return heading;
                     }
                 }
@@ -616,31 +633,32 @@ impl BlockParser {
                 if let Some(level) = self.scan_setext_heading_line(line) {
                     // Get the content before converting
                     let content = self.get_string_content(&current_container);
-                    
+
                     // Process link reference definitions at the beginning of the paragraph
                     let mut processed_content = content.clone();
-                    
+
                     while !processed_content.is_empty() {
                         // Skip leading whitespace
                         let trimmed = processed_content.trim_start();
                         if !trimmed.starts_with('[') {
                             break;
                         }
-                        
+
                         // Try to parse a reference definition
-                        let consumed = parse_reference(&processed_content, &mut self.refmap);
-                        
+                        let consumed =
+                            parse_reference(&processed_content, &mut self.refmap);
+
                         if consumed == 0 {
                             break;
                         }
-                        
+
                         // Remove the consumed reference definition from content
                         processed_content = processed_content[consumed..].to_string();
-                        
+
                         // Skip leading whitespace for next iteration
                         processed_content = processed_content.trim_start().to_string();
                     }
-                    
+
                     // Only convert to heading if there's remaining content after processing
                     // reference definitions
                     let remaining_content = processed_content.trim();
@@ -649,10 +667,16 @@ impl BlockParser {
                         {
                             let mut container_mut = current_container.borrow_mut();
                             container_mut.node_type = NodeType::Heading;
-                            container_mut.data = NodeData::Heading { level, content: remaining_content.to_string() };
+                            container_mut.data = NodeData::Heading {
+                                level,
+                                content: remaining_content.to_string(),
+                            };
                         }
                         self.set_setext(&current_container, true);
-                        self.advance_offset(self.current_line.len() - self.offset, false);
+                        self.advance_offset(
+                            self.current_line.len() - self.offset,
+                            false,
+                        );
                         return current_container;
                     }
                     // If no remaining content, don't convert to heading
@@ -679,15 +703,27 @@ impl BlockParser {
             if (!indented || current_container.borrow().node_type == NodeType::List)
                 && self.indent < 4
             {
-                if let Some((list_type, delim, start, marker_offset, padding, bullet_char)) =
-                    self.parse_list_marker(&current_container)
+                if let Some((
+                    list_type,
+                    delim,
+                    start,
+                    marker_offset,
+                    padding,
+                    bullet_char,
+                )) = self.parse_list_marker(&current_container)
                 {
                     self.close_unmatched_blocks();
 
                     // Check if we can continue an existing list
                     let can_continue_list = current_container.borrow().node_type
                         == NodeType::List
-                        && self.lists_match(&current_container, list_type, delim, start, bullet_char);
+                        && self.lists_match(
+                            &current_container,
+                            list_type,
+                            delim,
+                            start,
+                            bullet_char,
+                        );
 
                     if !can_continue_list {
                         current_container =
@@ -1014,7 +1050,7 @@ impl BlockParser {
     ) -> bool {
         // Track if we've seen whitespace before an attribute (required between attributes)
         let mut seen_whitespace = true; // Start true to allow first attribute
-        
+
         loop {
             // Skip whitespace
             let mut found_whitespace = false;
@@ -1053,7 +1089,7 @@ impl BlockParser {
                         return false;
                     }
                     seen_whitespace = false; // Reset for next attribute
-                    
+
                     chars.next();
                     loop {
                         match chars.peek() {
@@ -1404,14 +1440,16 @@ impl BlockParser {
                 // For fenced code blocks, check if this is a fence line (opening or closing)
                 // These lines should not be added to content
                 if self.is_fenced_code_block(container) {
-                    let (fence_char, fence_length, fence_offset) = self.get_fence_info(container);
-                    
+                    let (fence_char, fence_length, fence_offset) =
+                        self.get_fence_info(container);
+
                     // Check if this line is a fence line (could be opening or closing)
                     let is_fence_line = if self.indent <= 3 {
                         // Check from the first non-space character
                         let line = &self.current_line[self.next_nonspace..];
                         if line.starts_with(fence_char) {
-                            let fence_chars: String = line.chars().take_while(|&c| c == fence_char).collect();
+                            let fence_chars: String =
+                                line.chars().take_while(|&c| c == fence_char).collect();
                             if fence_chars.len() >= fence_length {
                                 let after_fence = &line[fence_chars.len()..];
                                 after_fence.trim().is_empty()
@@ -1424,7 +1462,7 @@ impl BlockParser {
                     } else {
                         false
                     };
-                    
+
                     // Check if this is the opening fence line
                     // The opening fence line is only the first line of the fenced code block
                     // We can detect this by checking if this is the first time we're adding content
@@ -1432,21 +1470,27 @@ impl BlockParser {
                     // same line where the block was created.
                     let block_start_line = container.borrow().source_pos.start_line;
                     let is_first_line = self.line_number == block_start_line as usize;
-                    
+
                     // Also check if this line matches the opening fence pattern
                     let matches_fence_pattern = fence_offset < self.current_line.len()
                         && self.current_line[fence_offset..].starts_with(fence_char)
-                        && self.current_line[fence_offset..].chars()
-                            .take_while(|&c| c == fence_char).count() >= fence_length
+                        && self.current_line[fence_offset..]
+                            .chars()
+                            .take_while(|&c| c == fence_char)
+                            .count()
+                            >= fence_length
                         && {
-                            let after_fence: String = self.current_line[fence_offset..].chars()
-                                .skip_while(|&c| c == fence_char).collect();
-                            after_fence.trim().is_empty() || !after_fence.starts_with('`')
+                            let after_fence: String = self.current_line[fence_offset..]
+                                .chars()
+                                .skip_while(|&c| c == fence_char)
+                                .collect();
+                            after_fence.trim().is_empty()
+                                || !after_fence.starts_with('`')
                         };
-                    
+
                     // It's an opening fence only if it's the first line AND it matches the pattern
                     let is_opening_fence = is_first_line && matches_fence_pattern;
-                    
+
                     // Only add line if it's not a fence line
                     if !is_fence_line && !is_opening_fence {
                         self.add_line_to_node(container);
@@ -1660,11 +1704,11 @@ impl BlockParser {
                             _ => String::new(),
                         }
                     };
-                    
+
                     // For fenced code blocks, the info string was already set from the opening fence line
                     // We just need to process the content
                     let content = self.get_string_content(block);
-                    
+
                     // The content should end with a newline unless the block is empty
                     let processed_content = if content.is_empty() {
                         String::new()
@@ -1673,7 +1717,7 @@ impl BlockParser {
                     } else {
                         content.to_string()
                     };
-                    
+
                     self.set_string_content(block, processed_content);
                 } else {
                     // Indented code block - remove trailing blank lines
@@ -1715,45 +1759,51 @@ impl BlockParser {
                 // For Setext headings, content was also set during creation
                 // Only update from string_content if content is empty (fallback)
                 let string_content = self.get_string_content(block);
-                
+
                 // For Setext headings, process link reference definitions
                 if self.is_setext(block) {
                     let mut content = string_content.clone();
                     let mut has_reference_defs = false;
-                    
+
                     while !content.is_empty() {
                         // Skip leading whitespace
                         let trimmed = content.trim_start();
                         if !trimmed.starts_with('[') {
                             break;
                         }
-                        
+
                         // Try to parse a reference definition
                         let consumed = parse_reference(&content, &mut self.refmap);
-                        
+
                         if consumed == 0 {
                             break;
                         }
-                        
+
                         has_reference_defs = true;
-                        
+
                         // Remove the consumed reference definition from content
                         content = content[consumed..].to_string();
-                        
+
                         // Skip leading whitespace for next iteration
                         content = content.trim_start().to_string();
                     }
-                    
+
                     // Update heading content if reference definitions were found
                     if has_reference_defs {
                         let mut block_mut = block.borrow_mut();
-                        if let NodeData::Heading { content: ref mut c, .. } = block_mut.data {
+                        if let NodeData::Heading {
+                            content: ref mut c, ..
+                        } = block_mut.data
+                        {
                             *c = content.trim().to_string();
                         }
                     }
                 } else {
                     let mut block_mut = block.borrow_mut();
-                    if let NodeData::Heading { content: ref mut c, .. } = block_mut.data {
+                    if let NodeData::Heading {
+                        content: ref mut c, ..
+                    } = block_mut.data
+                    {
                         if c.is_empty() && !string_content.is_empty() {
                             *c = string_content.trim_end().to_string();
                         }
@@ -1773,7 +1823,7 @@ impl BlockParser {
                     if !trimmed.starts_with('[') {
                         break;
                     }
-                    
+
                     // Try to parse a reference definition
                     let consumed = parse_reference(&content, &mut self.refmap);
 
@@ -2008,9 +2058,7 @@ impl BlockParser {
         let block_type = block.borrow().node_type;
         matches!(
             block_type,
-            NodeType::Paragraph
-                | NodeType::CodeBlock
-                | NodeType::HtmlBlock
+            NodeType::Paragraph | NodeType::CodeBlock | NodeType::HtmlBlock
         )
     }
 

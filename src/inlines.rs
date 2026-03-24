@@ -195,14 +195,17 @@ impl Subject {
     /// Remove trailing spaces from the last text node
     fn remove_trailing_spaces(parent: &Rc<RefCell<Node>>) {
         let parent_type = parent.borrow().node_type.clone();
-        
+
         // For headings, always remove trailing spaces
         if parent_type == NodeType::Heading {
             let last_child_opt = parent.borrow().last_child.borrow().clone();
             if let Some(last_child) = last_child_opt {
                 if last_child.borrow().node_type == NodeType::Text {
                     let mut last_mut = last_child.borrow_mut();
-                    if let NodeData::Text { ref mut literal, .. } = last_mut.data {
+                    if let NodeData::Text {
+                        ref mut literal, ..
+                    } = last_mut.data
+                    {
                         while literal.ends_with(' ') {
                             literal.pop();
                         }
@@ -465,7 +468,7 @@ impl Subject {
                 if self.parse_autolink(parent) {
                     return true;
                 }
-                
+
                 // This looks like it could be an autolink but failed validation
                 // Output the < as a literal character (it will be escaped during rendering)
                 let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
@@ -511,7 +514,7 @@ impl Subject {
         // Based on commonmark.js: scheme must be at least 2 characters
         let mut chars = s.chars().peekable();
         let mut i = 0;
-        
+
         // Must start with a letter
         if let Some(&c) = chars.peek() {
             if !c.is_ascii_alphabetic() {
@@ -520,7 +523,7 @@ impl Subject {
         } else {
             return false;
         }
-        
+
         // Look for scheme followed by colon, or @ for email
         while let Some(&c) = chars.peek() {
             if c == ':' {
@@ -530,7 +533,12 @@ impl Subject {
                 }
                 // Scheme too short (like "m:"), but still looks like potential autolink
                 return true;
-            } else if c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '+' || c == '-' || c == '.' {
+            } else if c.is_ascii_alphabetic()
+                || c.is_ascii_digit()
+                || c == '+'
+                || c == '-'
+                || c == '.'
+            {
                 chars.next();
                 i += 1;
                 if i > 32 {
@@ -554,7 +562,7 @@ impl Subject {
                 return false;
             }
         }
-        
+
         false
     }
 
@@ -701,7 +709,10 @@ impl Subject {
             let barrier = Rc::new(RefCell::new(Node::new(NodeType::Text)));
             {
                 let mut barrier_mut = barrier.borrow_mut();
-                if let NodeData::Text { ref mut literal, .. } = barrier_mut.data {
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = barrier_mut.data
+                {
                     *literal = String::new(); // Empty string
                 }
             }
@@ -859,6 +870,14 @@ impl Subject {
         // Reverse to process from bottom to top
         delims.reverse();
 
+        // Initialize openers_bottom array
+        // Index mapping (based on commonmark.js):
+        // 0: single quote
+        // 1: double quote
+        // 2-7: underscore (can_open: 0/1, origdelims % 3: 0/1/2)
+        // 8-13: asterisk (can_open: 0/1, origdelims % 3: 0/1/2)
+        let mut openers_bottom: Vec<Option<usize>> = vec![None; 14];
+
         // Process each closer
         let mut i = 0;
         while i < delims.len() {
@@ -871,11 +890,38 @@ impl Subject {
             }
 
             let closer_char = closer_borrow.delim_char;
+            let closer_can_open = closer_borrow.can_open;
+            let closer_orig_delims = closer_borrow.orig_delims;
             drop(closer_borrow);
+
+            // Calculate openers_bottom_index based on closer type
+            let openers_bottom_index = match closer_char {
+                '\'' => 0,
+                '"' => 1,
+                '_' => {
+                    2 + (if closer_can_open { 3 } else { 0 }) + (closer_orig_delims % 3)
+                }
+                '*' => {
+                    8 + (if closer_can_open { 3 } else { 0 }) + (closer_orig_delims % 3)
+                }
+                _ => {
+                    i += 1;
+                    continue;
+                }
+            };
 
             // Look for matching opener
             let mut opener_idx = None;
+            let bottom_idx = openers_bottom[openers_bottom_index];
+
             for j in (0..i).rev() {
+                // Check if we've reached the bottom for this delimiter type
+                if let Some(bottom) = bottom_idx {
+                    if j <= bottom {
+                        break;
+                    }
+                }
+
                 let opener = delims[j].clone();
                 let opener_borrow = opener.borrow();
 
@@ -895,6 +941,8 @@ impl Subject {
                     break;
                 }
             }
+
+            let old_closer_idx = i;
 
             if let Some(j) = opener_idx {
                 let opener = delims[j].clone();
@@ -1007,6 +1055,19 @@ impl Subject {
                     }
                 }
 
+                // Mark delimiters between opener and closer as processed
+                // by setting can_open and can_close to false
+                // This prevents them from being matched in future iterations
+                for k in (j + 1)..old_closer_idx {
+                    let delim = delims[k].borrow();
+                    // Don't mark if it's a different delimiter type that might still be valid
+                    // Only mark if it's the same type or if it's between matched delimiters
+                    drop(delim);
+                    let mut delim_mut = delims[k].borrow_mut();
+                    delim_mut.can_open = false;
+                    delim_mut.can_close = false;
+                }
+
                 // Remove processed delimiters from vector
                 if closer.borrow().num_delims == 0 {
                     delims.remove(i);
@@ -1018,16 +1079,13 @@ impl Subject {
                     }
                 }
             } else {
+                // No matching opener found - update openers_bottom
+                if old_closer_idx > 0 {
+                    openers_bottom[openers_bottom_index] = Some(old_closer_idx - 1);
+                }
                 i += 1;
             }
         }
-    }
-
-    /// Remove a delimiter from the stack
-    #[allow(dead_code)]
-    fn remove_delimiter(&mut self, _delim: &Delimiter) {
-        // This is a simplified removal - in full implementation we'd update links
-        // For now, we just leave it in place but mark it as processed
     }
 
     /// Parse open bracket (start of link or image)
@@ -1182,10 +1240,14 @@ impl Subject {
                 // Use the text between brackets as label
                 // For images, opener.position points to '!', so text starts at position + 2
                 // For links, opener.position points to '[', so text starts at position + 1
-                let at_line_end = self.peek().map(|c| c == '\n' || c == '\r' || c == ' ').unwrap_or(true)
+                let at_line_end = self
+                    .peek()
+                    .map(|c| c == '\n' || c == '\r' || c == ' ')
+                    .unwrap_or(true)
                     || self.pos >= self.input.len();
                 // Allow shortcut reference links followed by punctuation
-                let followed_by_punct = self.peek().map(|c| is_punctuation(c)).unwrap_or(false);
+                let followed_by_punct =
+                    self.peek().map(|c| is_punctuation(c)).unwrap_or(false);
                 if (at_line_end || followed_by_punct) && !opener.bracket_after {
                     let label_start = if is_image {
                         opener.position + 2
@@ -1327,7 +1389,7 @@ impl Subject {
                 if c == '>' {
                     let dest = self.input[content_start..self.pos].to_string();
                     self.advance(); // skip >
-                    // Unescape and normalize the destination
+                                    // Unescape and normalize the destination
                     let unescaped = unescape_string(&dest);
                     return Some((normalize_uri(&unescaped), false));
                 } else if c == '<' || c == '\n' || c == '\r' {
@@ -1411,7 +1473,10 @@ impl Subject {
         let dest = self.input[start..self.pos].to_string();
         // Normalize newlines to single spaces for multi-line destinations
         let dest = if has_newline {
-            dest.lines().map(|s| s.trim_start()).collect::<Vec<_>>().join(" ")
+            dest.lines()
+                .map(|s| s.trim_start())
+                .collect::<Vec<_>>()
+                .join(" ")
         } else {
             dest
         };
@@ -1439,7 +1504,7 @@ impl Subject {
             if c == close_quote {
                 let title = self.input[start..self.pos].to_string();
                 self.advance(); // skip closing quote
-                // Unescape the title
+                                // Unescape the title
                 return Some(unescape_string(&title));
             } else if c == '\\' {
                 self.advance();
@@ -1522,12 +1587,15 @@ impl Subject {
 
         if self.peek() == Some('[') {
             self.advance(); // skip [
-            // Create a separate text node for "![" to avoid merging with previous text
-            // This is important because the opener node will be unlinked when the image is processed
+                            // Create a separate text node for "![" to avoid merging with previous text
+                            // This is important because the opener node will be unlinked when the image is processed
             let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
             {
                 let mut text_mut = text_node.borrow_mut();
-                if let NodeData::Text { ref mut literal, .. } = text_mut.data {
+                if let NodeData::Text {
+                    ref mut literal, ..
+                } = text_mut.data
+                {
                     *literal = "![".to_string();
                 }
             }
@@ -1819,8 +1887,8 @@ fn normalize_uri(uri: &str) -> String {
                 result.push(c);
             }
             // Reserved characters that are commonly used in URIs
-            ':' | '/' | '?' | '#' | '@' | '!' | '$' | '&' | '\'' | '('
-            | ')' | '*' | '+' | ',' | ';' | '=' => {
+            ':' | '/' | '?' | '#' | '@' | '!' | '$' | '&' | '\'' | '(' | ')' | '*'
+            | '+' | ',' | ';' | '=' => {
                 result.push(c);
             }
             // Percent sign (already encoded)
@@ -1913,8 +1981,6 @@ fn is_punctuation(c: char) -> bool {
     )
 }
 
-
-
 /// Parse inline content into the given parent node
 pub fn parse_inlines(
     parent: &Rc<RefCell<Node>>,
@@ -1957,10 +2023,10 @@ pub fn parse_reference(
     // Skip leading whitespace and newlines
     let trimmed = s.trim_start_matches(|c: char| c.is_ascii_whitespace());
     let skipped = s.len() - trimmed.len();
-    
+
     let mut subject = Subject::new(trimmed, 1, 0);
     let consumed = subject.parse_reference_definition(refmap);
-    
+
     if consumed > 0 {
         skipped + consumed
     } else {
@@ -1987,7 +2053,7 @@ impl Subject {
 
         // Empty label ([]) or label with only whitespace is not allowed for reference definitions
         // Only for collapsed reference links like [text][]
-        let label_content = &raw_label[1..raw_label.len()-1]; // Remove brackets
+        let label_content = &raw_label[1..raw_label.len() - 1]; // Remove brackets
         if label_content.trim().is_empty() {
             return 0;
         }
@@ -2026,11 +2092,11 @@ impl Subject {
         // or at the end of input
         // Also allow if the next line starts with '[' (new reference definition)
         let remaining = &self.input[self.pos..];
-        let at_line_end = remaining.is_empty() 
-            || remaining.starts_with('\n') 
+        let at_line_end = remaining.is_empty()
+            || remaining.starts_with('\n')
             || remaining.starts_with('\r')
             || remaining.chars().all(|c| c.is_ascii_whitespace());
-        
+
         // Check if next non-empty line starts with '[' (new reference definition)
         let next_is_ref_def = remaining.trim_start().starts_with('[');
 
@@ -2152,12 +2218,12 @@ fn match_email_autolink(input: &str) -> Option<(String, usize)> {
     // Email pattern from commonmark.js:
     // /^<([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*>/
     let rest = &input[1..];
-    
+
     // Check for valid email characters in local part (before @)
     let mut chars = rest.chars().peekable();
     let mut i = 0;
     let mut found_at = false;
-    
+
     // Local part: [a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+
     while let Some(&c) = chars.peek() {
         if c == '@' {
@@ -2177,15 +2243,15 @@ fn match_email_autolink(input: &str) -> Option<(String, usize)> {
             return None;
         }
     }
-    
+
     if !found_at || i <= 1 {
         return None;
     }
-    
+
     // Domain part: [a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*
     let domain_start = i;
     let mut label_start = i;
-    
+
     while let Some(&c) = chars.peek() {
         if c == '>' {
             // End of email
@@ -2207,7 +2273,7 @@ fn match_email_autolink(input: &str) -> Option<(String, usize)> {
             return None;
         }
     }
-    
+
     None
 }
 
@@ -2215,8 +2281,25 @@ fn is_valid_email_local_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(
             c,
-            '.' | '!' | '#' | '$' | '%' | '&' | '\'' | '*' | '+' | '/' | '=' | '?' | '^' | '_'
-                | '`' | '{' | '|' | '}' | '~' | '-'
+            '.' | '!'
+                | '#'
+                | '$'
+                | '%'
+                | '&'
+                | '\''
+                | '*'
+                | '+'
+                | '/'
+                | '='
+                | '?'
+                | '^'
+                | '_'
+                | '`'
+                | '{'
+                | '|'
+                | '}'
+                | '~'
+                | '-'
         )
 }
 
@@ -2271,7 +2354,8 @@ fn match_url_autolink(input: &str) -> Option<(String, usize)> {
         if c == '>' {
             end_pos = url_start + j;
             break;
-        } else if c == '\n' || c == '<' || c == ' ' || c == '\t' || c.is_ascii_control() {
+        } else if c == '\n' || c == '<' || c == ' ' || c == '\t' || c.is_ascii_control()
+        {
             // Space or control character - invalid URL
             return None;
         }
@@ -2418,19 +2502,21 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
 
     // Parse attributes: (whitespace+ attribute_name value?)*
     // ATTRIBUTENAME = "[a-zA-Z_:][a-zA-Z0-9:._-]*"
-    loop {
-        // Skip required whitespace before each attribute
-        let mut ws_count = 0;
-        while i < input.len() {
-            let c = input.chars().nth(i)?;
-            if c.is_ascii_whitespace() {
-                i += 1;
-                ws_count += 1;
-            } else {
-                break;
-            }
+    // First skip whitespace after tag name
+    while i < input.len() {
+        let c = input.chars().nth(i)?;
+        if c.is_ascii_whitespace() {
+            i += 1;
+        } else {
+            break;
         }
+    }
 
+    // Track if the previous attribute was a boolean attribute
+    // If so, we already skipped the whitespace after it
+    let mut after_boolean_attr = false;
+
+    loop {
         if i >= input.len() {
             break;
         }
@@ -2451,22 +2537,20 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
             return None;
         }
 
-        // If we didn't see whitespace and it's not the start (after tag name), invalid
-        if ws_count == 0 {
-            return None;
-        }
-
         // Parse attribute name: [a-zA-Z_:][a-zA-Z0-9:._-]*
-        let attr_start = i;
         let first_attr_char = input.chars().nth(i)?;
-        if !first_attr_char.is_ascii_alphabetic() && first_attr_char != '_' && first_attr_char != ':' {
+        if !first_attr_char.is_ascii_alphabetic()
+            && first_attr_char != '_'
+            && first_attr_char != ':'
+        {
             return None;
         }
         i += 1;
 
         while i < input.len() {
             let c = input.chars().nth(i)?;
-            if c.is_ascii_alphanumeric() || c == ':' || c == '_' || c == '.' || c == '-' {
+            if c.is_ascii_alphanumeric() || c == ':' || c == '_' || c == '.' || c == '-'
+            {
                 i += 1;
             } else {
                 break;
@@ -2475,15 +2559,19 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
 
         // Check for attribute value
         // Skip whitespace after attribute name (before =)
-        while i < input.len() {
-            let ws_char = input.chars().nth(i)?;
-            if ws_char.is_ascii_whitespace() {
-                i += 1;
-            } else {
-                break;
+        // But only if we didn't already skip it (i.e., not after a boolean attribute)
+        if !after_boolean_attr {
+            while i < input.len() {
+                let ws_char = input.chars().nth(i)?;
+                if ws_char.is_ascii_whitespace() {
+                    i += 1;
+                } else {
+                    break;
+                }
             }
         }
-        
+        after_boolean_attr = false;
+
         if i < input.len() {
             let c = input.chars().nth(i)?;
             if c == '=' {
@@ -2516,16 +2604,51 @@ fn match_regular_html_tag(input: &str) -> Option<(String, usize)> {
                     }
                 } else {
                     // Unquoted value: [^"'=<>`\x00-\x20]+
+                    // Note: CommonMark allows = in unquoted values (test #616)
                     while i < input.len() {
                         let c = input.chars().nth(i)?;
-                        if c == '"' || c == '\'' || c == '=' || c == '<' || c == '>' || c == '`' || c.is_ascii_whitespace() {
+                        if c == '"'
+                            || c == '\''
+                            || c == '<'
+                            || c == '>'
+                            || c == '`'
+                            || c.is_ascii_whitespace()
+                        {
                             break;
                         }
                         i += 1;
                     }
                 }
+            } else {
+                // If no '=', this is a boolean attribute
+                // The whitespace after the attribute name has already been skipped above
+                // Set flag so we don't skip it again on the next iteration
+                after_boolean_attr = true;
             }
-            // If no '=', this is a boolean attribute - continue to next attribute
+        }
+
+        // Skip whitespace before next attribute (or end of tag)
+        // But only if we didn't just parse a boolean attribute
+        if !after_boolean_attr {
+            let mut ws_count = 0;
+            while i < input.len() {
+                let c = input.chars().nth(i)?;
+                if c.is_ascii_whitespace() {
+                    i += 1;
+                    ws_count += 1;
+                } else {
+                    break;
+                }
+            }
+
+            // If we didn't see whitespace and we're not at the end of the tag, invalid
+            // (attributes must be separated by whitespace)
+            if ws_count == 0 && i < input.len() {
+                let c = input.chars().nth(i)?;
+                if c != '>' && c != '/' {
+                    return None;
+                }
+            }
         }
     }
 
@@ -3054,24 +3177,28 @@ mod tests {
     fn test_html_tag_no_space_between_attrs() {
         // Test #622: attributes without space should not be valid
         use crate::inlines::match_html_tag;
-        
+
         // First test match_html_tag directly
         let input = "<a href='bar'title=title>";
         let result = match_html_tag(input);
         println!("match_html_tag('{}') = {:?}", input, result);
-        
+
         // This should return None (not a valid HTML tag)
-        assert!(result.is_none(), "Should not match as valid HTML tag: {:?}", result);
+        assert!(
+            result.is_none(),
+            "Should not match as valid HTML tag: {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_emphasis_with_escaped_delim() {
         // Test #437: foo *\** should produce <p>foo <em>*</em></p>
         use crate::render_html;
-        
+
         let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
         parse_inlines(&parent, "foo *\\**", 1, 0);
-        
+
         // Print tree structure for debugging
         fn print_tree(node: &Rc<RefCell<Node>>, indent: usize) {
             let node_ref = node.borrow();
@@ -3099,7 +3226,7 @@ mod tests {
         }
         println!("Tree structure:");
         print_tree(&parent, 0);
-        
+
         // Also print all children of paragraph sequentially
         println!("\nSequential children:");
         let parent_ref = parent.borrow();
@@ -3130,7 +3257,7 @@ mod tests {
             }
             current = node_ref.next.borrow().clone();
         }
-        
+
         // Render to HTML and check
         let output = render_html(&parent, 0);
         println!("\nOutput: {}", output);
@@ -3163,36 +3290,42 @@ mod tests {
     fn test_reference_definition_label() {
         // Test that reference definition labels are correctly parsed
         use crate::inlines::parse_reference;
-        
+
         let mut refmap = std::collections::HashMap::new();
         let consumed = parse_reference("[foo!]: /url", &mut refmap);
         println!("Consumed: {}", consumed);
         println!("Refmap keys: {:?}", refmap.keys().collect::<Vec<_>>());
-        
+
         // The label should be "FOO!"
         assert!(refmap.contains_key("FOO!"), "Should have FOO! in refmap");
-        
+
         // Now test with escaped label
         let mut refmap2 = std::collections::HashMap::new();
         let consumed2 = parse_reference("[foo\\!]: /url", &mut refmap2);
         println!("Escaped - Consumed: {}", consumed2);
-        println!("Escaped - Refmap keys: {:?}", refmap2.keys().collect::<Vec<_>>());
-        
+        println!(
+            "Escaped - Refmap keys: {:?}",
+            refmap2.keys().collect::<Vec<_>>()
+        );
+
         // The label should be "FOO\!"
-        assert!(refmap2.contains_key("FOO\\!"), "Should have FOO\\! in refmap");
+        assert!(
+            refmap2.contains_key("FOO\\!"),
+            "Should have FOO\\! in refmap"
+        );
     }
 
     #[test]
     fn test_emphasis_with_currency() {
         // Test #354: emphasis with currency symbols
         use crate::render_html;
-        
+
         let test_cases = vec![
             ("*$*alpha.", "<p>*$*alpha.</p>"),
             ("*£*bravo.", "<p>*£*bravo.</p>"),
             ("*€*charlie.", "<p>*€*charlie.</p>"),
         ];
-        
+
         for (input, expected) in test_cases {
             let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
             parse_inlines(&parent, input, 1, 0);
@@ -3204,5 +3337,4 @@ mod tests {
             assert_eq!(output, expected, "Failed for input: {}", input);
         }
     }
-
 }

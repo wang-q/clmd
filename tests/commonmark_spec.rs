@@ -182,14 +182,17 @@ fn test_commonmark_spec() {
     }
 
     // Print all failed tests by section
-    let mut failed_by_section: HashMap<String, Vec<(usize, String, String, String)>> = HashMap::new();
+    let mut failed_by_section: HashMap<String, Vec<(usize, String, String, String)>> =
+        HashMap::new();
     for (num, section, markdown, expected, got) in &failures {
-        failed_by_section
-            .entry(section.clone())
-            .or_default()
-            .push((*num, markdown.clone(), expected.clone(), got.clone()));
+        failed_by_section.entry(section.clone()).or_default().push((
+            *num,
+            markdown.clone(),
+            expected.clone(),
+            got.clone(),
+        ));
     }
-    
+
     // Also collect all failures, not just first 10
     for test in &tests {
         let result = markdown_to_html(&test.markdown, options::DEFAULT);
@@ -200,11 +203,16 @@ fn test_commonmark_spec() {
                 failed_by_section
                     .entry(test.section.clone())
                     .or_default()
-                    .push((test.number, test.markdown.clone(), test.html.clone(), result));
+                    .push((
+                        test.number,
+                        test.markdown.clone(),
+                        test.html.clone(),
+                        result,
+                    ));
             }
         }
     }
-    
+
     if !failed_by_section.is_empty() {
         println!("\n=== All Failures by Section ===");
         let mut sections: Vec<_> = failed_by_section.iter().collect();
@@ -259,7 +267,10 @@ fn test_specific_examples() {
     let input = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>";
     let result = markdown_to_html(input, options::DEFAULT);
     println!("\nSetext heading test #91 result: {:?}", result);
-    println!("Expected: {:?}", "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=\"a lot</h2>\n<p>of dashes\"/&gt;</p>");
+    println!(
+        "Expected: {:?}",
+        "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=\"a lot</h2>\n<p>of dashes\"/&gt;</p>"
+    );
 
     // Simpler test case
     let input2 = "<a title=\"a lot\n---\nof dashes\"/>";

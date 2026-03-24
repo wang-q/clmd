@@ -214,7 +214,10 @@ impl Node {
                 on_exit: String::new(),
             },
             NodeType::Paragraph => NodeData::Paragraph,
-            NodeType::Heading => NodeData::Heading { level: 0, content: String::new() },
+            NodeType::Heading => NodeData::Heading {
+                level: 0,
+                content: String::new(),
+            },
             NodeType::ThematicBreak => NodeData::ThematicBreak,
             NodeType::Text => NodeData::Text {
                 literal: String::new(),
