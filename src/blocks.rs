@@ -2537,4 +2537,489 @@ mod tests {
             NodeType::Paragraph
         );
     }
+
+    #[test]
+    fn test_parse_indented_code_block() {
+        let input = "    code line 1\n    code line 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::CodeBlock
+        );
+    }
+
+    #[test]
+    fn test_parse_html_block_type1() {
+        let input = "<script>\nalert('hello');\n</script>";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
+    }
+
+    #[test]
+    fn test_parse_html_block_type2() {
+        let input = "<!-- comment -->";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
+    }
+
+    #[test]
+    fn test_parse_html_block_type6() {
+        let input = "<div>\ncontent\n</div>";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
+    }
+
+    #[test]
+    fn test_parse_tight_list() {
+        let input = "* Item 1\n* Item 2\n* Item 3";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let list = first_child.as_ref().unwrap().borrow();
+        assert_eq!(list.node_type, NodeType::List);
+        if let NodeData::List { tight, .. } = &list.data {
+            assert!(*tight, "List should be tight");
+        }
+    }
+
+    #[test]
+    fn test_parse_loose_list() {
+        let input = "* Item 1\n\n* Item 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let list = first_child.as_ref().unwrap().borrow();
+        assert_eq!(list.node_type, NodeType::List);
+        if let NodeData::List { tight, .. } = &list.data {
+            assert!(!*tight, "List should be loose");
+        }
+    }
+
+    #[test]
+    fn test_parse_atx_heading_with_content() {
+        let doc = BlockParser::parse("### Heading Content");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        assert_eq!(heading.node_type, NodeType::Heading);
+        if let NodeData::Heading { level, content } = &heading.data {
+            assert_eq!(*level, 3);
+            assert_eq!(content, "Heading Content");
+        }
+    }
+
+    #[test]
+    fn test_parse_atx_heading_with_closing_hashes() {
+        let doc = BlockParser::parse("## Heading ##");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        assert_eq!(heading.node_type, NodeType::Heading);
+        if let NodeData::Heading { level, content } = &heading.data {
+            assert_eq!(*level, 2);
+            assert_eq!(content, "Heading");
+        }
+    }
+
+    #[test]
+    fn test_parse_fenced_code_with_info() {
+        let input = "```rust\ncode\n```";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let code_block = first_child.as_ref().unwrap().borrow();
+        assert_eq!(code_block.node_type, NodeType::CodeBlock);
+        if let NodeData::CodeBlock { info, literal } = &code_block.data {
+            assert_eq!(info, "rust");
+            assert_eq!(literal, "code\n");
+        }
+    }
+
+    #[test]
+    fn test_parse_thematic_break_variations() {
+        // Test different thematic break characters
+        let breaks = vec!["---", "***", "___", " - - - ", "* * *"];
+        for br in breaks {
+            let doc = BlockParser::parse(br);
+            let doc_ref = doc.borrow();
+            let first_child = doc_ref.first_child.borrow();
+            assert!(
+                first_child.is_some(),
+                "Failed for input: {}",
+                br
+            );
+            assert_eq!(
+                first_child.as_ref().unwrap().borrow().node_type,
+                NodeType::ThematicBreak,
+                "Failed for input: {}",
+                br
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_ordered_list_with_paren() {
+        let input = "1) Item 1\n2) Item 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let list = first_child.as_ref().unwrap().borrow();
+        assert_eq!(list.node_type, NodeType::List);
+        if let NodeData::List { delim, .. } = &list.data {
+            assert_eq!(*delim, DelimType::Paren);
+        }
+    }
+
+    #[test]
+    fn test_parse_multiple_paragraphs() {
+        let input = "Para 1\n\nPara 2\n\nPara 3";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        let mut count = 0;
+        let mut current = doc_ref.first_child.borrow().clone();
+        while let Some(node) = current {
+            assert_eq!(node.borrow().node_type, NodeType::Paragraph);
+            count += 1;
+            current = node.borrow().next.borrow().clone();
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_parse_empty_document() {
+        // Empty document should create a valid document node
+        let doc = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let doc_ref = doc.borrow();
+        assert_eq!(doc_ref.node_type, NodeType::Document);
+        assert!(doc_ref.first_child.borrow().is_none());
+    }
+
+    #[test]
+    fn test_parse_blank_lines() {
+        let doc = BlockParser::parse("\n\n\n");
+        let doc_ref = doc.borrow();
+        assert_eq!(doc_ref.node_type, NodeType::Document);
+        // Blank lines should not create any blocks
+        assert!(doc_ref.first_child.borrow().is_none());
+    }
+
+    #[test]
+    fn test_parse_list_in_blockquote() {
+        let input = "> * Item 1\n> * Item 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+
+        let blockquote = first_child.as_ref().unwrap().borrow();
+        let list = blockquote.first_child.borrow();
+        assert!(list.is_some());
+        assert_eq!(list.as_ref().unwrap().borrow().node_type, NodeType::List);
+    }
+
+    #[test]
+    fn test_parse_code_block_with_backticks() {
+        let input = "```\nline 1\nline 2\nline 3\n```";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::CodeBlock);
+
+        let code_block = first_child.as_ref().unwrap().borrow();
+        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
+            assert!(literal.contains("line 1"));
+            assert!(literal.contains("line 2"));
+            assert!(literal.contains("line 3"));
+        }
+    }
+
+    #[test]
+    fn test_parse_setext_heading_level1() {
+        let input = "Heading\n========";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        assert_eq!(heading.node_type, NodeType::Heading);
+        if let NodeData::Heading { level, content } = &heading.data {
+            assert_eq!(*level, 1);
+            assert_eq!(content, "Heading");
+        }
+    }
+
+    #[test]
+    fn test_parse_setext_heading_level2() {
+        let input = "Heading\n--------";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        assert_eq!(heading.node_type, NodeType::Heading);
+        if let NodeData::Heading { level, content } = &heading.data {
+            assert_eq!(*level, 2);
+            assert_eq!(content, "Heading");
+        }
+    }
+
+    #[test]
+    fn test_parse_nested_list() {
+        let input = "* Item 1\n  * Nested 1\n  * Nested 2\n* Item 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+    }
+
+    #[test]
+    fn test_parse_heading_with_special_chars() {
+        let doc = BlockParser::parse("# Heading with <html> & \"quotes\"");
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        assert_eq!(heading.node_type, NodeType::Heading);
+        if let NodeData::Heading { content, .. } = &heading.data {
+            assert_eq!(content, "Heading with <html> & \"quotes\"");
+        }
+    }
+
+    #[test]
+    fn test_parse_list_with_different_bullets() {
+        // Different bullet chars should create separate lists
+        let input = "* Item 1\n+ Item 2\n- Item 3";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        // Should have 3 separate list nodes
+        let mut count = 0;
+        let mut current = doc_ref.first_child.borrow().clone();
+        while let Some(node) = current {
+            assert_eq!(node.borrow().node_type, NodeType::List);
+            count += 1;
+            current = node.borrow().next.borrow().clone();
+        }
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_parse_blockquote_with_multiple_lines() {
+        let input = "> Line 1\n> Line 2\n> Line 3";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+
+        // Should contain a paragraph with all lines
+        let blockquote = first_child.as_ref().unwrap().borrow();
+        let para = blockquote.first_child.borrow();
+        assert!(para.is_some());
+        assert_eq!(para.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_parse_paragraph_with_inline_markdown() {
+        let input = "This has **bold** and *italic* text";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_parse_code_block_with_tildes() {
+        let input = "~~~\ncode with ``` backticks\n~~~";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::CodeBlock);
+
+        let code_block = first_child.as_ref().unwrap().borrow();
+        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
+            assert!(literal.contains("```"));
+        }
+    }
+
+    #[test]
+    fn test_parse_html_block_type3() {
+        let input = "<?php\necho 'hello';\n?>";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+    }
+
+    #[test]
+    fn test_parse_html_block_type4() {
+        let input = "<!DOCTYPE html>";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+    }
+
+    #[test]
+    fn test_parse_html_block_type5() {
+        let input = "<![CDATA[\ncontent\n]]>";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+    }
+
+    #[test]
+    fn test_parse_ordered_list_starting_at_5() {
+        let input = "5. Item 1\n6. Item 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let list = first_child.as_ref().unwrap().borrow();
+        assert_eq!(list.node_type, NodeType::List);
+        if let NodeData::List { start, .. } = &list.data {
+            assert_eq!(*start, 5);
+        }
+    }
+
+    #[test]
+    fn test_parse_list_item_with_multiple_paragraphs() {
+        let input = "* Item 1\n\n  Continued paragraph";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let list = first_child.as_ref().unwrap().borrow();
+        assert_eq!(list.node_type, NodeType::List);
+        if let NodeData::List { tight, .. } = &list.data {
+            assert!(!*tight);
+        }
+    }
+
+    #[test]
+    fn test_parse_link_reference_in_paragraph() {
+        let input = "Some text [ref] more text\n\n[ref]: https://example.com";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        // Should have one paragraph (reference definition removed)
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_parse_empty_list_item() {
+        let input = "* ";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+    }
+
+    #[test]
+    fn test_parse_heading_level_6() {
+        let input = "###### Level 6";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let heading = first_child.as_ref().unwrap().borrow();
+        if let NodeData::Heading { level, .. } = &heading.data {
+            assert_eq!(*level, 6);
+        }
+    }
+
+    #[test]
+    fn test_parse_heading_level_7_not_valid() {
+        // 7 #s is not a valid heading
+        let input = "####### Not a heading";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        // Should be treated as paragraph
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_parse_blockquote_with_blank_line() {
+        let input = "> Line 1\n>\n> Line 2";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+    }
+
+    #[test]
+    fn test_parse_code_block_with_blank_lines() {
+        let input = "```\nline 1\n\nline 2\n```";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+        let first_child = doc_ref.first_child.borrow();
+        assert!(first_child.is_some());
+        let code_block = first_child.as_ref().unwrap().borrow();
+        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
+            assert!(literal.contains("line 1"));
+            assert!(literal.contains("line 2"));
+        }
+    }
+
+    #[test]
+    fn test_parse_mixed_content() {
+        let input = "# Heading\n\nParagraph\n\n* List item\n\n> Blockquote";
+        let doc = BlockParser::parse(input);
+        let doc_ref = doc.borrow();
+
+        let mut types = vec![];
+        let mut current = doc_ref.first_child.borrow().clone();
+        while let Some(node) = current {
+            types.push(node.borrow().node_type);
+            current = node.borrow().next.borrow().clone();
+        }
+
+        assert_eq!(types.len(), 4);
+        assert_eq!(types[0], NodeType::Heading);
+        assert_eq!(types[1], NodeType::Paragraph);
+        assert_eq!(types[2], NodeType::List);
+        assert_eq!(types[3], NodeType::BlockQuote);
+    }
 }

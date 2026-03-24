@@ -255,4 +255,309 @@ mod tests {
         assert_eq!(events[4], (NodeType::Paragraph, false));
         assert_eq!(events[5], (NodeType::Document, false));
     }
+
+    #[test]
+    fn test_iterator_empty_document() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let mut iter = NodeIterator::new(root.clone());
+
+        assert_eq!(iter.next(), EventType::Enter);
+        assert_eq!(iter.next(), EventType::Exit);
+        assert_eq!(iter.next(), EventType::Done);
+    }
+
+    #[test]
+    fn test_iterator_multiple_siblings() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let para2 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let para3 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+
+        append_child(&root, para1.clone());
+        append_child(&root, para2.clone());
+        append_child(&root, para3.clone());
+
+        let mut walker = NodeWalker::new(root.clone());
+        let mut events = Vec::new();
+
+        while let Some(event) = walker.next() {
+            events.push((event.node.borrow().node_type, event.entering));
+        }
+
+        // Document(Enter) -> Para1(Enter) -> Para1(Exit) -> Para2(Enter) -> Para2(Exit) -> Para3(Enter) -> Para3(Exit) -> Document(Exit)
+        assert_eq!(events.len(), 8);
+        assert_eq!(events[0], (NodeType::Document, true));
+        assert_eq!(events[1], (NodeType::Paragraph, true));
+        assert_eq!(events[2], (NodeType::Paragraph, false));
+        assert_eq!(events[3], (NodeType::Paragraph, true));
+        assert_eq!(events[4], (NodeType::Paragraph, false));
+        assert_eq!(events[5], (NodeType::Paragraph, true));
+        assert_eq!(events[6], (NodeType::Paragraph, false));
+        assert_eq!(events[7], (NodeType::Document, false));
+    }
+
+    #[test]
+    fn test_iterator_nested_structure() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let blockquote = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+        let list = Rc::new(RefCell::new(Node::new(NodeType::List)));
+        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Text".to_string(),
+            },
+        )));
+
+        append_child(&root, blockquote.clone());
+        append_child(&blockquote, list.clone());
+        append_child(&list, item.clone());
+        append_child(&item, para.clone());
+        append_child(&para, text.clone());
+
+        let mut walker = NodeWalker::new(root.clone());
+        let mut events = Vec::new();
+
+        while let Some(event) = walker.next() {
+            events.push((event.node.borrow().node_type, event.entering));
+        }
+
+        // Should visit all nodes in depth-first order
+        assert_eq!(events.len(), 12);
+        assert_eq!(events[0], (NodeType::Document, true));
+        assert_eq!(events[1], (NodeType::BlockQuote, true));
+        assert_eq!(events[2], (NodeType::List, true));
+        assert_eq!(events[3], (NodeType::Item, true));
+        assert_eq!(events[4], (NodeType::Paragraph, true));
+        assert_eq!(events[5], (NodeType::Text, true));
+        assert_eq!(events[6], (NodeType::Text, false));
+        assert_eq!(events[7], (NodeType::Paragraph, false));
+        assert_eq!(events[8], (NodeType::Item, false));
+        assert_eq!(events[9], (NodeType::List, false));
+        assert_eq!(events[10], (NodeType::BlockQuote, false));
+        assert_eq!(events[11], (NodeType::Document, false));
+    }
+
+    #[test]
+    fn test_walker_resume_at() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let para2 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+
+        append_child(&root, para1.clone());
+        append_child(&root, para2.clone());
+
+        let mut walker = NodeWalker::new(root.clone());
+
+        // Get first event (Document Enter)
+        let event1 = walker.next().unwrap();
+        assert_eq!(event1.node.borrow().node_type, NodeType::Document);
+        assert!(event1.entering);
+
+        // Get second event (Para1 Enter)
+        let event2 = walker.next().unwrap();
+        assert_eq!(event2.node.borrow().node_type, NodeType::Paragraph);
+        assert!(event2.entering);
+
+        // Resume at para2, entering - this resets the iterator to para2
+        walker.resume_at(para2.clone(), true);
+
+        // After resume_at, the iterator returns the current node first
+        let current = walker.iterator.get_node();
+        assert!(current.is_some());
+        assert_eq!(current.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert!(Rc::ptr_eq(&current.unwrap(), &para2));
+    }
+
+    #[test]
+    fn test_iterator_get_event_type() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let mut iter = NodeIterator::new(root.clone());
+
+        assert_eq!(iter.get_event_type(), EventType::None);
+        iter.next();
+        assert_eq!(iter.get_event_type(), EventType::Enter);
+        iter.next();
+        assert_eq!(iter.get_event_type(), EventType::Exit);
+        iter.next();
+        assert_eq!(iter.get_event_type(), EventType::Done);
+    }
+
+    #[test]
+    fn test_iterator_reset() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        append_child(&root, para.clone());
+
+        let mut iter = NodeIterator::new(root.clone());
+
+        // Move through the tree
+        iter.next(); // Enter Document
+        iter.next(); // Enter Paragraph
+
+        // Reset to root
+        iter.reset(root.clone(), EventType::Enter);
+        assert!(Rc::ptr_eq(&iter.get_node().unwrap(), &root));
+        assert_eq!(iter.get_event_type(), EventType::Enter);
+    }
+
+    #[test]
+    fn test_consolidate_text_nodes() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text1 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Hello ".to_string(),
+            },
+        )));
+        let text2 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "world".to_string(),
+            },
+        )));
+        let text3 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "!".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text1.clone());
+        append_child(&para, text2.clone());
+        append_child(&para, text3.clone());
+
+        consolidate_text_nodes(&root);
+
+        // text1 should now contain "Hello world!"
+        if let NodeData::Text { literal } = &text1.borrow().data {
+            assert_eq!(literal, "Hello world!");
+        }
+
+        // text2 and text3 should be unlinked
+        assert!(text2.borrow().parent.borrow().is_none());
+        assert!(text3.borrow().parent.borrow().is_none());
+    }
+
+    #[test]
+    fn test_consolidate_text_nodes_non_adjacent() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text1 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Hello".to_string(),
+            },
+        )));
+        let emph = Rc::new(RefCell::new(Node::new(NodeType::Emph)));
+        let text2 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "world".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text1.clone());
+        append_child(&para, emph.clone());
+        append_child(&para, text2.clone());
+
+        consolidate_text_nodes(&root);
+
+        // text1 and text2 should not be consolidated (separated by emph)
+        let text1_content = if let NodeData::Text { literal } = &text1.borrow().data {
+            literal.clone()
+        } else {
+            String::new()
+        };
+        assert_eq!(text1_content, "Hello");
+
+        let text2_content = if let NodeData::Text { literal } = &text2.borrow().data {
+            literal.clone()
+        } else {
+            String::new()
+        };
+        assert_eq!(text2_content, "world");
+    }
+
+    #[test]
+    fn test_walker_with_complex_tree() {
+        // Create a more complex tree structure
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+
+        // First child: Heading
+        let heading = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Heading,
+            NodeData::Heading {
+                level: 1,
+                content: "Title".to_string(),
+            },
+        )));
+        append_child(&root, heading.clone());
+
+        // Second child: List with items
+        let list = Rc::new(RefCell::new(Node::new(NodeType::List)));
+        append_child(&root, list.clone());
+
+        let item1 = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+        let item2 = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+        append_child(&list, item1.clone());
+        append_child(&list, item2.clone());
+
+        // Add text to items
+        let text1 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Item 1".to_string(),
+            },
+        )));
+        let text2 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Item 2".to_string(),
+            },
+        )));
+        append_child(&item1, text1.clone());
+        append_child(&item2, text2.clone());
+
+        let mut walker = NodeWalker::new(root.clone());
+        let mut event_count = 0;
+
+        while let Some(_event) = walker.next() {
+            event_count += 1;
+        }
+
+        // Document(Enter) -> Heading(Enter) -> Heading(Exit) -> List(Enter) -> Item1(Enter) -> Text1(Enter) -> Text1(Exit) -> Item1(Exit) -> Item2(Enter) -> Text2(Enter) -> Text2(Exit) -> Item2(Exit) -> List(Exit) -> Document(Exit)
+        assert_eq!(event_count, 14);
+    }
+
+    #[test]
+    fn test_iterator_single_node() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let mut iter = NodeIterator::new(root.clone());
+
+        assert_eq!(iter.next(), EventType::Enter);
+        assert!(Rc::ptr_eq(&iter.get_node().unwrap(), &root));
+
+        assert_eq!(iter.next(), EventType::Exit);
+        assert!(Rc::ptr_eq(&iter.get_node().unwrap(), &root));
+
+        assert_eq!(iter.next(), EventType::Done);
+    }
+
+    #[test]
+    fn test_walker_returns_none_when_done() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let mut walker = NodeWalker::new(root.clone());
+
+        // Walk through all events
+        while walker.next().is_some() {}
+
+        // Should return None after Done
+        assert!(walker.next().is_none());
+        assert!(walker.next().is_none());
+    }
 }

@@ -240,4 +240,341 @@ mod tests {
         assert!(xml.contains("<text>Hello world</text>"));
         assert!(xml.contains("</paragraph>"));
     }
+
+    #[test]
+    fn test_render_bullet_list() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let list = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::List,
+            NodeData::List {
+                list_type: crate::node::ListType::Bullet,
+                delim: crate::node::DelimType::None,
+                start: 0,
+                tight: true,
+                bullet_char: '-',
+            },
+        )));
+        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Item".to_string(),
+            },
+        )));
+
+        append_child(&root, list.clone());
+        append_child(&list, item.clone());
+        append_child(&item, para.clone());
+        append_child(&para, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<list type=\"bullet\" tight=\"true\">"));
+        assert!(xml.contains("<item>"));
+        assert!(xml.contains("<text>Item</text>"));
+    }
+
+    #[test]
+    fn test_render_ordered_list() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let list = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::List,
+            NodeData::List {
+                list_type: crate::node::ListType::Ordered,
+                delim: crate::node::DelimType::Period,
+                start: 1,
+                tight: false,
+                bullet_char: '\0',
+            },
+        )));
+        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+
+        append_child(&root, list.clone());
+        append_child(&list, item.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<list type=\"ordered\" delim=\"period\">"));
+    }
+
+    #[test]
+    fn test_render_ordered_list_with_start() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let list = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::List,
+            NodeData::List {
+                list_type: crate::node::ListType::Ordered,
+                delim: crate::node::DelimType::Paren,
+                start: 5,
+                tight: true,
+                bullet_char: '\0',
+            },
+        )));
+        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
+
+        append_child(&root, list.clone());
+        append_child(&list, item.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<list type=\"ordered\" start=\"5\" delim=\"paren\" tight=\"true\">"));
+    }
+
+    #[test]
+    fn test_render_heading() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let heading = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Heading,
+            NodeData::Heading {
+                level: 2,
+                content: "Title".to_string(),
+            },
+        )));
+
+        append_child(&root, heading.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<heading level=\"2\">"));
+    }
+
+    #[test]
+    fn test_render_code_block() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let code_block = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::CodeBlock,
+            NodeData::CodeBlock {
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+            },
+        )));
+
+        append_child(&root, code_block.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<code_block info=\"rust\">fn main() {}</code_block>"));
+    }
+
+    #[test]
+    fn test_render_link() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let link = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Link,
+            NodeData::Link {
+                url: "https://example.com".to_string(),
+                title: "Example".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "link".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, link.clone());
+        append_child(&link, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<link destination=\"https://example.com\" title=\"Example\">"));
+        assert!(xml.contains("<text>link</text>"));
+    }
+
+    #[test]
+    fn test_render_image() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let image = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Image,
+            NodeData::Image {
+                url: "image.png".to_string(),
+                title: "Alt text".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "alt".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, image.clone());
+        append_child(&image, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<image destination=\"image.png\" title=\"Alt text\">"));
+    }
+
+    #[test]
+    fn test_render_with_sourcepos() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        {
+            let mut para_mut = para.borrow_mut();
+            para_mut.source_pos.start_line = 1;
+            para_mut.source_pos.start_column = 1;
+            para_mut.source_pos.end_line = 1;
+            para_mut.source_pos.end_column = 10;
+        }
+
+        append_child(&root, para.clone());
+
+        let xml = render(&root, crate::options::SOURCEPOS);
+        assert!(xml.contains("sourcepos=\"1:1-1:10\""));
+    }
+
+    #[test]
+    fn test_render_blockquote() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let blockquote = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Quote".to_string(),
+            },
+        )));
+
+        append_child(&root, blockquote.clone());
+        append_child(&blockquote, para.clone());
+        append_child(&para, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<block_quote>"));
+        assert!(xml.contains("<text>Quote</text>"));
+        assert!(xml.contains("</block_quote>"));
+    }
+
+    #[test]
+    fn test_render_emph() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let emph = Rc::new(RefCell::new(Node::new(NodeType::Emph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "emphasized".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, emph.clone());
+        append_child(&emph, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<emph>"));
+        assert!(xml.contains("<text>emphasized</text>"));
+        assert!(xml.contains("</emph>"));
+    }
+
+    #[test]
+    fn test_render_strong() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let strong = Rc::new(RefCell::new(Node::new(NodeType::Strong)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "strong".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, strong.clone());
+        append_child(&strong, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<strong>"));
+        assert!(xml.contains("<text>strong</text>"));
+        assert!(xml.contains("</strong>"));
+    }
+
+    #[test]
+    fn test_render_code() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let code = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Code,
+            NodeData::Code {
+                literal: "code".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, code.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<code>code</code>"));
+    }
+
+    #[test]
+    fn test_render_thematic_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let hr = Rc::new(RefCell::new(Node::new(NodeType::ThematicBreak)));
+
+        append_child(&root, hr.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<thematic_break />"));
+    }
+
+    #[test]
+    fn test_render_html_block() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let html_block = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::HtmlBlock,
+            NodeData::HtmlBlock {
+                literal: "<div>content</div>".to_string(),
+            },
+        )));
+
+        append_child(&root, html_block.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<html_block>&lt;div&gt;content&lt;/div&gt;</html_block>"));
+    }
+
+    #[test]
+    fn test_render_soft_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let soft_break = Rc::new(RefCell::new(Node::new(NodeType::SoftBreak)));
+
+        append_child(&root, para.clone());
+        append_child(&para, soft_break.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<softbreak />"));
+    }
+
+    #[test]
+    fn test_render_line_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let line_break = Rc::new(RefCell::new(Node::new(NodeType::LineBreak)));
+
+        append_child(&root, para.clone());
+        append_child(&para, line_break.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<linebreak />"));
+    }
+
+    #[test]
+    fn test_render_empty_text() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text.clone());
+
+        let xml = render(&root, 0);
+        assert!(xml.contains("<text />"));
+    }
 }
