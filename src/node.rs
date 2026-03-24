@@ -464,4 +464,281 @@ mod tests {
         assert!(parent.borrow().first_child.borrow().is_none());
         assert!(child.borrow().parent.borrow().is_none());
     }
+
+    #[test]
+    fn test_prepend_child() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+
+        append_child(&parent, child1.clone());
+        prepend_child(&parent, child2.clone());
+
+        // child2 should be first, child1 should be last
+        assert!(Rc::ptr_eq(
+            parent.borrow().first_child.borrow().as_ref().unwrap(),
+            &child2
+        ));
+        assert!(Rc::ptr_eq(
+            parent.borrow().last_child.borrow().as_ref().unwrap(),
+            &child1
+        ));
+        assert!(child2.borrow().parent.borrow().is_some());
+    }
+
+    #[test]
+    fn test_prepend_child_to_empty() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+
+        prepend_child(&parent, child.clone());
+
+        assert!(parent.borrow().first_child.borrow().is_some());
+        assert!(parent.borrow().last_child.borrow().is_some());
+        assert!(Rc::ptr_eq(
+            parent.borrow().first_child.borrow().as_ref().unwrap(),
+            &child
+        ));
+        assert!(Rc::ptr_eq(
+            parent.borrow().last_child.borrow().as_ref().unwrap(),
+            &child
+        ));
+    }
+
+    #[test]
+    fn test_insert_after() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+        let child3 = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+
+        append_child(&parent, child1.clone());
+        append_child(&parent, child2.clone());
+        insert_after(&child1, child3.clone());
+
+        // Order should be: child1 -> child3 -> child2
+        assert!(Rc::ptr_eq(
+            child1.borrow().next.borrow().as_ref().unwrap(),
+            &child3
+        ));
+        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        assert!(Rc::ptr_eq(&child3_prev, &child1));
+        assert!(Rc::ptr_eq(
+            child3.borrow().next.borrow().as_ref().unwrap(),
+            &child2
+        ));
+        let child2_prev = child2.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        assert!(Rc::ptr_eq(&child2_prev, &child3));
+    }
+
+    #[test]
+    fn test_insert_after_last() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+
+        append_child(&parent, child1.clone());
+        insert_after(&child1, child2.clone());
+
+        // child2 should be last child
+        assert!(Rc::ptr_eq(
+            parent.borrow().last_child.borrow().as_ref().unwrap(),
+            &child2
+        ));
+        assert!(child1.borrow().next.borrow().is_some());
+        assert!(child2.borrow().prev.borrow().is_some());
+    }
+
+    #[test]
+    fn test_insert_before() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+        let child3 = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+
+        append_child(&parent, child1.clone());
+        append_child(&parent, child2.clone());
+        insert_before(&child2, child3.clone());
+
+        // Order should be: child1 -> child3 -> child2
+        assert!(Rc::ptr_eq(
+            child1.borrow().next.borrow().as_ref().unwrap(),
+            &child3
+        ));
+        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        assert!(Rc::ptr_eq(&child3_prev, &child1));
+        assert!(Rc::ptr_eq(
+            child3.borrow().next.borrow().as_ref().unwrap(),
+            &child2
+        ));
+    }
+
+    #[test]
+    fn test_insert_before_first() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+
+        append_child(&parent, child1.clone());
+        insert_before(&child1, child2.clone());
+
+        // child2 should be first child
+        assert!(Rc::ptr_eq(
+            parent.borrow().first_child.borrow().as_ref().unwrap(),
+            &child2
+        ));
+        assert!(child2.borrow().next.borrow().is_some());
+        assert!(child1.borrow().prev.borrow().is_some());
+    }
+
+    #[test]
+    fn test_unlink_middle() {
+        let parent = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let child1 = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let child2 = Rc::new(RefCell::new(Node::new(NodeType::Heading)));
+        let child3 = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+
+        append_child(&parent, child1.clone());
+        append_child(&parent, child2.clone());
+        append_child(&parent, child3.clone());
+
+        unlink(&child2);
+
+        // child1 and child3 should be linked
+        assert!(Rc::ptr_eq(
+            child1.borrow().next.borrow().as_ref().unwrap(),
+            &child3
+        ));
+        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        assert!(Rc::ptr_eq(&child3_prev, &child1));
+        assert!(child2.borrow().parent.borrow().is_none());
+        assert!(child2.borrow().next.borrow().is_none());
+        assert!(child2.borrow().prev.borrow().is_none());
+    }
+
+    #[test]
+    fn test_node_new_with_data() {
+        let data = NodeData::Heading {
+            level: 2,
+            content: "Test".to_string(),
+        };
+        let node = Node::new_with_data(NodeType::Heading, data.clone());
+
+        assert_eq!(node.node_type, NodeType::Heading);
+        assert_eq!(node.data, data);
+    }
+
+    #[test]
+    fn test_node_is_methods() {
+        let para = Node::new(NodeType::Paragraph);
+        assert!(para.is_block());
+        assert!(!para.is_inline());
+        assert!(!para.is_leaf());
+
+        let text = Node::new(NodeType::Text);
+        assert!(!text.is_block());
+        assert!(text.is_inline());
+        assert!(text.is_leaf());
+
+        let code_block = Node::new(NodeType::CodeBlock);
+        assert!(code_block.is_block());
+        assert!(!code_block.is_inline());
+        assert!(code_block.is_leaf());
+    }
+
+    #[test]
+    fn test_all_node_types() {
+        // Test that all node types can be created
+        let types = vec![
+            NodeType::Document,
+            NodeType::BlockQuote,
+            NodeType::List,
+            NodeType::Item,
+            NodeType::CodeBlock,
+            NodeType::HtmlBlock,
+            NodeType::CustomBlock,
+            NodeType::Paragraph,
+            NodeType::Heading,
+            NodeType::ThematicBreak,
+            NodeType::Text,
+            NodeType::SoftBreak,
+            NodeType::LineBreak,
+            NodeType::Code,
+            NodeType::HtmlInline,
+            NodeType::CustomInline,
+            NodeType::Emph,
+            NodeType::Strong,
+            NodeType::Link,
+            NodeType::Image,
+            NodeType::None,
+        ];
+
+        for node_type in types {
+            let node = Node::new(node_type);
+            assert_eq!(node.node_type, node_type);
+        }
+    }
+
+    #[test]
+    fn test_node_data_variants() {
+        // Test List data
+        let list_node = Node::new(NodeType::List);
+        if let NodeData::List { list_type, delim, start, tight, bullet_char } = &list_node.data {
+            assert_eq!(*list_type, ListType::None);
+            assert_eq!(*delim, DelimType::None);
+            assert_eq!(*start, 0);
+            assert!(!*tight);
+            assert_eq!(*bullet_char, '\0');
+        } else {
+            panic!("Expected List data");
+        }
+
+        // Test Heading data
+        let heading_node = Node::new(NodeType::Heading);
+        if let NodeData::Heading { level, content } = &heading_node.data {
+            assert_eq!(*level, 0);
+            assert_eq!(content, "");
+        } else {
+            panic!("Expected Heading data");
+        }
+
+        // Test CodeBlock data
+        let code_node = Node::new(NodeType::CodeBlock);
+        if let NodeData::CodeBlock { info, literal } = &code_node.data {
+            assert_eq!(info, "");
+            assert_eq!(literal, "");
+        } else {
+            panic!("Expected CodeBlock data");
+        }
+    }
+
+    #[test]
+    fn test_source_pos() {
+        let mut node = Node::new(NodeType::Paragraph);
+        node.source_pos = SourcePos {
+            start_line: 1,
+            start_column: 2,
+            end_line: 3,
+            end_column: 4,
+        };
+
+        assert_eq!(node.source_pos.start_line, 1);
+        assert_eq!(node.source_pos.start_column, 2);
+        assert_eq!(node.source_pos.end_line, 3);
+        assert_eq!(node.source_pos.end_column, 4);
+    }
+
+    #[test]
+    fn test_list_type_variants() {
+        assert_ne!(ListType::Bullet, ListType::Ordered);
+        assert_ne!(ListType::Bullet, ListType::None);
+        assert_ne!(ListType::Ordered, ListType::None);
+    }
+
+    #[test]
+    fn test_delim_type_variants() {
+        assert_ne!(DelimType::Period, DelimType::Paren);
+        assert_ne!(DelimType::Period, DelimType::None);
+        assert_ne!(DelimType::Paren, DelimType::None);
+    }
 }

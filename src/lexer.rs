@@ -295,4 +295,141 @@ mod tests {
         assert_eq!(offset, 5); // 2 spaces + 1 tab + 2 spaces = 5 characters
         assert_eq!(column, 6); // 2 spaces + 4 for tab = 6 columns (tab stops at 4)
     }
+
+    #[test]
+    fn test_line_lexer_peek_methods() {
+        let line = "Hello world";
+        let lexer = LineLexer::new(line, 1);
+
+        assert_eq!(lexer.peek(0), Some('H'));
+        assert_eq!(lexer.peek(6), Some('w'));
+        assert_eq!(lexer.peek(11), None); // At end of line
+
+        assert_eq!(lexer.peek_current(), Some('H'));
+        assert_eq!(lexer.peek_next_nonspace(), Some('H'));
+    }
+
+    #[test]
+    fn test_line_lexer_remaining() {
+        let line = "Hello world";
+        let mut lexer = LineLexer::new(line, 1);
+
+        assert_eq!(lexer.remaining(), "Hello world");
+
+        lexer.advance_offset(6, false);
+        assert_eq!(lexer.remaining(), "world");
+    }
+
+    #[test]
+    fn test_line_lexer_from_next_nonspace() {
+        let line = "  Hello world";
+        let lexer = LineLexer::new(line, 1);
+
+        assert_eq!(lexer.from_next_nonspace(), "Hello world");
+    }
+
+    #[test]
+    fn test_line_lexer_get_indent() {
+        let line = "    Hello";
+        let lexer = LineLexer::new(line, 1);
+
+        assert_eq!(lexer.get_indent(), 4);
+        assert!(lexer.indented);
+    }
+
+    #[test]
+    fn test_advance_offset_columns_mode() {
+        let line = "Hello\tworld";
+        let mut lexer = LineLexer::new(line, 1);
+
+        // Advance 6 columns (should stop in the middle of tab)
+        lexer.advance_offset(6, true);
+        assert_eq!(lexer.column, 6);
+        assert!(lexer.partially_consumed_tab);
+    }
+
+    #[test]
+    fn test_advance_next_nonspace() {
+        let line = "   Hello";
+        let mut lexer = LineLexer::new(line, 1);
+
+        lexer.advance_next_nonspace();
+        assert_eq!(lexer.offset, 3);
+        assert_eq!(lexer.column, 3);
+        assert_eq!(lexer.peek_current(), Some('H'));
+    }
+
+    #[test]
+    fn test_is_blank() {
+        assert!(is_blank(""));
+        assert!(is_blank("   "));
+        assert!(is_blank("\t\t"));
+        assert!(!is_blank("Hello"));
+        assert!(!is_blank("  Hello"));
+    }
+
+    #[test]
+    fn test_count_leading_spaces() {
+        assert_eq!(count_leading_spaces("Hello"), 0);
+        assert_eq!(count_leading_spaces("  Hello"), 2);
+        assert_eq!(count_leading_spaces("   "), 3);
+        assert_eq!(count_leading_spaces("\tHello"), 0); // Tabs don't count
+    }
+
+    #[test]
+    fn test_split_lines_empty() {
+        let text = "";
+        let lines = split_lines(text);
+        assert_eq!(lines.len(), 0);
+    }
+
+    #[test]
+    fn test_split_lines_single() {
+        let text = "single line";
+        let lines = split_lines(text);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0], "single line");
+    }
+
+    #[test]
+    fn test_split_lines_trailing_newline() {
+        let text = "line1\nline2\n";
+        let lines = split_lines(text);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], "line1");
+        assert_eq!(lines[1], "line2");
+    }
+
+    #[test]
+    fn test_line_lexer_blank_with_newline() {
+        let line = "\n";
+        let lexer = LineLexer::new(line, 1);
+        assert!(lexer.blank);
+    }
+
+    #[test]
+    fn test_line_lexer_code_indent() {
+        let line = "    Hello"; // 4 spaces = code indent
+        let lexer = LineLexer::new(line, 1);
+        assert_eq!(lexer.indent, 4);
+        assert!(lexer.indented);
+    }
+
+    #[test]
+    fn test_position_default() {
+        let pos = Position::default();
+        assert_eq!(pos.line, 0);
+        assert_eq!(pos.column, 0);
+        assert_eq!(pos.offset, 0);
+    }
+
+    #[test]
+    fn test_line_info() {
+        let info = LineInfo {
+            content: "Hello".to_string(),
+            line_number: 1,
+        };
+        assert_eq!(info.content, "Hello");
+        assert_eq!(info.line_number, 1);
+    }
 }
