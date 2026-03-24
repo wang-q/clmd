@@ -1,4 +1,4 @@
-use md::inlines::unescape_string;
+use clmd::inlines::unescape_string;
 
 #[test]
 fn test_unescape_plus() {

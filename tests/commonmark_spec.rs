@@ -1,4 +1,4 @@
-use md::{markdown_to_html, options};
+use clmd::{markdown_to_html, options};
 use std::collections::HashMap;
 use std::fs;
 

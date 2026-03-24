@@ -1,4 +1,4 @@
-use md::{markdown_to_html, options};
+use clmd::{markdown_to_html, options};
 
 #[test]
 fn test_basic_link_reference() {

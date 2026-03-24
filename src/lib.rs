@@ -50,8 +50,8 @@ pub mod options {
 /// # Example
 ///
 /// ```
-/// use md::markdown_to_html;
-/// use md::options;
+/// use clmd::markdown_to_html;
+/// use clmd::options;
 ///
 /// let html = markdown_to_html("Hello *world*", options::DEFAULT);
 /// assert_eq!(html, "<p>Hello <em>world</em></p>");

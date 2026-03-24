@@ -1,10 +1,10 @@
 # 开发者文档
 
-本文档为 CLMD 项目开发者提供内部指南，包含项目概述、架构设计、开发计划和当前状态。
+本文档为 clmd 项目开发者提供内部指南，包含项目概述、架构设计、开发计划和当前状态。
 
 ## 项目概述
 
-CLMD 是一个用 Rust 实现的 CommonMark 规范解析器，参考了 cmark (C 实现) 和 commonmark.js (JavaScript 实现) 的设计。
+clmd 是一个用 Rust 实现的 CommonMark 规范解析器，参考了 cmark (C 实现) 和 commonmark.js (JavaScript 实现) 的设计。
 
 ### 参考项目
 
