@@ -489,7 +489,7 @@ impl Subject {
                     ref mut title,
                 } = link_mut.data
                 {
-                    *url = format!("mailto:{}", email);
+                    *url = normalize_uri(&format!("mailto:{}", email));
                     *title = String::new();
                 }
             }
@@ -519,7 +519,7 @@ impl Subject {
                     title: ref mut link_title,
                 } = link_mut.data
                 {
-                    *link_url = url.clone();
+                    *link_url = normalize_uri(&url);
                     *link_title = String::new();
                 }
             }
@@ -1538,7 +1538,7 @@ fn is_escapable(c: char) -> bool {
 
 /// Unescape a string by processing backslash escapes and entities
 /// Based on commonmark.js unescapeString
-fn unescape_string(s: &str) -> String {
+pub fn unescape_string(s: &str) -> String {
     let mut result = String::new();
     let mut chars = s.chars().peekable();
 

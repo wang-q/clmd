@@ -2,7 +2,7 @@
 ///
 /// This module implements the block parsing algorithm based on the CommonMark spec.
 /// It processes input line by line, building the AST structure.
-use crate::inlines::parse_reference;
+use crate::inlines::{parse_reference, unescape_string};
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
 use crate::node::{
     append_child, unlink, DelimType, ListType, Node, NodeData, NodeType, SourcePos,
@@ -563,7 +563,7 @@ impl BlockParser {
                             let rest = &line[fence_length..];
                             if first_char != '`' || !rest.contains('`') {
                                 self.close_unmatched_blocks();
-                                let info = rest.trim().to_string();
+                                let info = unescape_string(rest.trim());
                                 let code_block = self
                                     .add_child(NodeType::CodeBlock, self.next_nonspace);
                                 {
@@ -1334,17 +1334,35 @@ impl BlockParser {
                 // For fenced code blocks, check if this is the opening or closing fence line
                 // These lines should not be added to content
                 if self.is_fenced_code_block(container) {
-                    let (fence_char, fence_length, _) = self.get_fence_info(container);
-                    let line = &self.current_line[self.next_nonspace..];
-                    // Check if this line is a fence line (starts with fence chars followed by only whitespace)
-                    let fence_chars: String = line.chars().take_while(|&c| c == fence_char).collect();
-                    if fence_chars.len() >= fence_length {
-                        let after_fence = &line[fence_chars.len()..];
-                        let is_fence_line = after_fence.trim().is_empty();
-                        if !is_fence_line {
-                            self.add_line_to_node(container);
+                    let (fence_char, fence_length, fence_offset) = self.get_fence_info(container);
+                    // Check if this line is a fence line (could be opening or closing)
+                    let is_fence_line = if self.indent <= 3 {
+                        // Check from the first non-space character
+                        let line = &self.current_line[self.next_nonspace..];
+                        if line.starts_with(fence_char) {
+                            let fence_chars: String = line.chars().take_while(|&c| c == fence_char).collect();
+                            if fence_chars.len() >= fence_length {
+                                let after_fence = &line[fence_chars.len()..];
+                                after_fence.trim().is_empty()
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
                         }
                     } else {
+                        false
+                    };
+                    // Check if this is the opening fence line
+                    // The opening fence line is when:
+                    // 1. We're at the position right after the fence (self.offset == fence_offset + fence_length)
+                    // 2. The line at fence_offset starts with the fence character
+                    // 3. The line only contains the fence and optional info string (no content yet)
+                    let is_opening_fence = self.offset == fence_offset + fence_length
+                        && self.current_line[fence_offset..].starts_with(fence_char)
+                        && !is_fence_line;
+                    // Skip fence lines (both opening and closing)
+                    if !is_fence_line && !is_opening_fence {
                         self.add_line_to_node(container);
                     }
                 } else {
@@ -1548,46 +1566,79 @@ impl BlockParser {
             NodeType::CodeBlock => {
                 let is_fenced = self.is_fenced_code_block(block);
                 if is_fenced {
-                    // Extract info string from first line
+                    // Get the current info string
+                    let current_info = {
+                        let block_ref = block.borrow();
+                        match &block_ref.data {
+                            NodeData::CodeBlock { info, .. } => info.clone(),
+                            _ => String::new(),
+                        }
+                    };
+                    
+                    // Extract info string from first line only if not already set
                     let content = self.get_string_content(block);
                     if let Some(newline_pos) = content.find('\n') {
                         let first_line = &content[..newline_pos];
                         let rest = &content[newline_pos + 1..];
 
-                        // Update info
-                        let info = first_line.trim().to_string();
-                        {
-                            let mut block_mut = block.borrow_mut();
-                            if let NodeData::CodeBlock {
-                                info: ref mut i, ..
-                            } = block_mut.data
+                        // Only update info if it wasn't set during block creation
+                        // and the first line is not empty (empty first line means no info string)
+                        if current_info.is_empty() && !first_line.trim().is_empty() {
+                            let info = unescape_string(first_line.trim());
                             {
-                                *i = info;
+                                let mut block_mut = block.borrow_mut();
+                                if let NodeData::CodeBlock {
+                                    info: ref mut i, ..
+                                } = block_mut.data
+                                {
+                                    *i = info;
+                                }
+                            }
+                            // First line was info string, use rest as content
+                            // For fenced code blocks, the content should end with a newline
+                            // unless the block is empty
+                            let rest = if rest.is_empty() {
+                                // Truly empty block - clear content
+                                ""
+                            } else if !rest.ends_with('\n') {
+                                // Non-empty block without trailing newline - add one
+                                &format!("{}\n", rest)
+                            } else {
+                                rest
+                            };
+                            self.set_string_content(block, rest.to_string());
+                        } else {
+                            // First line is not info string (it's content)
+                            // But if the first line is empty AND rest is also empty,
+                            // it means there's no real content (just the trailing empty line from process_line(""))
+                            if first_line.is_empty() && rest.is_empty() {
+                                // Truly empty block - clear content
+                                self.set_string_content(block, String::new());
+                            } else {
+                                // Keep the entire content including the first line
+                                // For fenced code blocks, the content should end with a newline
+                                // unless the block is empty
+                                let content = if content.ends_with('\n') {
+                                    content.to_string()
+                                } else {
+                                    format!("{}\n", content)
+                                };
+                                self.set_string_content(block, content);
                             }
                         }
-                        // For fenced code blocks, the content should end with a newline
-                        // unless the block is empty
-                        let rest = if rest.trim().is_empty() {
-                            // Empty block - clear content
-                            ""
-                        } else if !rest.ends_with('\n') {
-                            // Non-empty block without trailing newline - add one
-                            &format!("{}\n", rest)
-                        } else {
-                            rest
-                        };
-                        self.set_string_content(block, rest.to_string());
                     } else {
                         // No newline found - content is just the info string
-                        // Set info and clear content
-                        let info = content.trim().to_string();
-                        {
-                            let mut block_mut = block.borrow_mut();
-                            if let NodeData::CodeBlock {
-                                info: ref mut i, ..
-                            } = block_mut.data
+                        // Only update info if it wasn't set during block creation
+                        if current_info.is_empty() {
+                            let info = unescape_string(content.trim());
                             {
-                                *i = info;
+                                let mut block_mut = block.borrow_mut();
+                                if let NodeData::CodeBlock {
+                                    info: ref mut i, ..
+                                } = block_mut.data
+                                {
+                                    *i = info;
+                                }
                             }
                         }
                         self.set_string_content(block, String::new());

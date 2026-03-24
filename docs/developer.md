@@ -67,29 +67,6 @@
 - **块级节点**：document, block_quote, list, item, code_block, html_block, paragraph, heading, thematic_break
 - **内联节点**：text, softbreak, linebreak, code, html_inline, emph, strong, link, image
 
-#### 3. API 设计
-
-##### cmark (C API)
-
-提供两种使用方式：
-- **简单接口**：`cmark_markdown_to_html` 函数直接将 Markdown 转换为 HTML
-- **完整接口**：使用解析器、节点操作和渲染器的完整 API
-
-```c
-// 简单接口示例
-char *html = cmark_markdown_to_html("Hello *world*", 13, CMARK_OPT_DEFAULT);
-free(html);
-
-// 完整接口示例
-cmark_parser *parser = cmark_parser_new(CMARK_OPT_DEFAULT);
-cmark_parser_feed(parser, "Hello *world*", 13);
-cmark_node *root = cmark_parser_finish(parser);
-char *html = cmark_render_html(root, CMARK_OPT_DEFAULT);
-cmark_node_free(root);
-cmark_parser_free(parser);
-free(html);
-```
-
 ##### commonmark.js (JavaScript API)
 
 采用面向对象的设计：
@@ -264,9 +241,9 @@ const result = writer.render(parsed);
 
 ### 当前状态
 
-- **单元测试**：77 个全部通过
+- **单元测试**：71 个全部通过
 - **文档测试**：1 个通过
-- **CommonMark 规范测试**：557/652 通过（85.4%）
+- **CommonMark 规范测试**：540/652 通过（82.8%）
 - **参考项目验证**：697/697 通过（100%）
 
 ### 失败测试分析
@@ -276,24 +253,22 @@ const result = writer.render(parsed);
 | Section | 失败数量 |
 |---------|---------|
 | Links | 21 |
+| List items | 19 |
+| Lists | 12 |
 | Images | 14 |
-| List items | 18 |
-| Lists | 10 |
-| Link reference definitions | 8 |
+| Link reference definitions | 9 |
 | Emphasis and strong emphasis | 7 |
+| Fenced code blocks | 17 |
 | Raw HTML | 6 |
 | Autolinks | 6 |
-| Fenced code blocks | 2 |
-| Backslash escapes | 2 |
-| Block quotes | 1 |
-| Code spans | 1 |
+| Backslash escapes | 1 |
 
 ### 下一步工作
 
 根据开发计划，接下来需要实现：
 
 1. **完整集成测试**（当前重点）：
-   - 修复剩余的 95 个失败的 CommonMark 规范测试用例
+   - 修复剩余的 112 个失败的 CommonMark 规范测试用例
    - 性能基准测试
 
 2. **链接解析改进**（部分完成）：
