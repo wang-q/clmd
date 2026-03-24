@@ -63,7 +63,11 @@ pub fn parse_strikethrough_spans(text: &str) -> Vec<(usize, usize)> {
 }
 
 /// Create a strikethrough node containing the given text
-pub fn create_strikethrough_node(text: &str, start_line: u32, start_col: u32) -> Rc<RefCell<Node>> {
+pub fn create_strikethrough_node(
+    text: &str,
+    start_line: u32,
+    start_col: u32,
+) -> Rc<RefCell<Node>> {
     let node = Rc::new(RefCell::new(Node::new(NodeType::Strikethrough)));
     {
         let mut node_ref = node.borrow_mut();
@@ -119,7 +123,8 @@ pub fn process_strikethrough(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<
 
         // Add strikethrough node
         let strike_text = &text[start..end];
-        let strike_node = create_strikethrough_node(strike_text, line, col + start as u32);
+        let strike_node =
+            create_strikethrough_node(strike_text, line, col + start as u32);
         nodes.push(strike_node);
 
         last_end = end + STRIKETHROUGH_COUNT;
@@ -218,17 +223,11 @@ mod tests {
 
     #[test]
     fn test_render_strikethrough_html() {
-        assert_eq!(
-            render_strikethrough_html("deleted"),
-            "<del>deleted</del>"
-        );
+        assert_eq!(render_strikethrough_html("deleted"), "<del>deleted</del>");
     }
 
     #[test]
     fn test_render_strikethrough_commonmark() {
-        assert_eq!(
-            render_strikethrough_commonmark("deleted"),
-            "~~deleted~~"
-        );
+        assert_eq!(render_strikethrough_commonmark("deleted"), "~~deleted~~");
     }
 }

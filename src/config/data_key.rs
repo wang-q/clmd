@@ -3,7 +3,7 @@
 //! Design inspired by flexmark-java's DataKey system.
 //! Provides a type-safe way to manage configuration options.
 
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -145,8 +145,9 @@ impl DataHolder for MutableDataSet {
             }
         }
 
-        key.default_value()
-            .unwrap_or_else(|| panic!("No value for key: {} and no default provided", key.name()))
+        key.default_value().unwrap_or_else(|| {
+            panic!("No value for key: {} and no default provided", key.name())
+        })
     }
 
     fn set<T: Clone + 'static>(&mut self, key: &DataKey<T>, value: T) {
@@ -158,16 +159,20 @@ impl DataHolder for MutableDataSet {
     }
 
     fn remove<T: Clone + 'static>(&mut self, key: &DataKey<T>) -> Option<T> {
-        self.data.remove(key.name()).and_then(|v| v.downcast::<T>().ok().map(|b| *b))
+        self.data
+            .remove(key.name())
+            .and_then(|v| v.downcast::<T>().ok().map(|b| *b))
     }
 }
 
 /// Clone a boxed Any value
-fn clone_box(value: &Box<dyn Any>) -> Box<dyn Any> {
+fn clone_box(_value: &Box<dyn Any>) -> Box<dyn Any> {
     // This is a workaround for cloning Box<dyn Any>
     // In practice, we should use Arc for shared ownership
     // or require Clone trait bounds
-    unimplemented!("Cloning Box<dyn Any> is not supported. Use Arc for shared ownership.")
+    unimplemented!(
+        "Cloning Box<dyn Any> is not supported. Use Arc for shared ownership."
+    )
 }
 
 /// Immutable data set (for sharing)
@@ -209,8 +214,9 @@ impl DataHolder for DataSet {
             }
         }
 
-        key.default_value()
-            .unwrap_or_else(|| panic!("No value for key: {} and no default provided", key.name()))
+        key.default_value().unwrap_or_else(|| {
+            panic!("No value for key: {} and no default provided", key.name())
+        })
     }
 
     fn set<T: Clone + 'static>(&mut self, _key: &DataKey<T>, _value: T) {

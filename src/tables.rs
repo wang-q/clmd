@@ -147,7 +147,10 @@ fn parse_alignments(line: &str) -> Vec<TableAlignment> {
 
 /// Try to parse a table from the given lines
 /// Returns (table_node, lines_consumed) if successful
-pub fn try_parse_table(lines: &[&str], start_line: usize) -> Option<(Rc<RefCell<Node>>, usize)> {
+pub fn try_parse_table(
+    lines: &[&str],
+    start_line: usize,
+) -> Option<(Rc<RefCell<Node>>, usize)> {
     if lines.is_empty() || !is_table_row(lines[0]) {
         return None;
     }
@@ -307,8 +310,6 @@ pub fn try_parse_table(lines: &[&str], start_line: usize) -> Option<(Rc<RefCell<
     Some((table_node, lines_consumed))
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,7 +363,10 @@ mod tests {
 
         let table_ref = table.borrow();
         match &table_ref.data {
-            NodeData::Table { num_columns, alignments } => {
+            NodeData::Table {
+                num_columns,
+                alignments,
+            } => {
                 assert_eq!(*num_columns, 2);
                 assert_eq!(alignments.len(), 2);
                 assert_eq!(alignments[0], TableAlignment::None);

@@ -613,13 +613,27 @@ mod tests {
             child1.borrow().next.borrow().as_ref().unwrap(),
             &child3
         ));
-        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        let child3_prev = child3
+            .borrow()
+            .prev
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .unwrap();
         assert!(Rc::ptr_eq(&child3_prev, &child1));
         assert!(Rc::ptr_eq(
             child3.borrow().next.borrow().as_ref().unwrap(),
             &child2
         ));
-        let child2_prev = child2.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        let child2_prev = child2
+            .borrow()
+            .prev
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .unwrap();
         assert!(Rc::ptr_eq(&child2_prev, &child3));
     }
 
@@ -657,7 +671,14 @@ mod tests {
             child1.borrow().next.borrow().as_ref().unwrap(),
             &child3
         ));
-        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        let child3_prev = child3
+            .borrow()
+            .prev
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .unwrap();
         assert!(Rc::ptr_eq(&child3_prev, &child1));
         assert!(Rc::ptr_eq(
             child3.borrow().next.borrow().as_ref().unwrap(),
@@ -701,7 +722,14 @@ mod tests {
             child1.borrow().next.borrow().as_ref().unwrap(),
             &child3
         ));
-        let child3_prev = child3.borrow().prev.borrow().as_ref().unwrap().upgrade().unwrap();
+        let child3_prev = child3
+            .borrow()
+            .prev
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .unwrap();
         assert!(Rc::ptr_eq(&child3_prev, &child1));
         assert!(child2.borrow().parent.borrow().is_none());
         assert!(child2.borrow().next.borrow().is_none());
@@ -775,7 +803,14 @@ mod tests {
     fn test_node_data_variants() {
         // Test List data
         let list_node = Node::new(NodeType::List);
-        if let NodeData::List { list_type, delim, start, tight, bullet_char } = &list_node.data {
+        if let NodeData::List {
+            list_type,
+            delim,
+            start,
+            tight,
+            bullet_char,
+        } = &list_node.data
+        {
             assert_eq!(*list_type, ListType::None);
             assert_eq!(*delim, DelimType::None);
             assert_eq!(*start, 0);

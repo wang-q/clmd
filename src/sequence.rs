@@ -321,7 +321,11 @@ impl<'a> BasedSequence<'a> {
 
     /// Get the line number of the start position
     pub fn start_line(&self) -> usize {
-        self.base[..self.start].chars().filter(|&c| c == '\n').count() + 1
+        self.base[..self.start]
+            .chars()
+            .filter(|&c| c == '\n')
+            .count()
+            + 1
     }
 
     /// Get the line number of the end position
@@ -331,13 +335,19 @@ impl<'a> BasedSequence<'a> {
 
     /// Get the column of the start position
     pub fn start_column(&self) -> usize {
-        let line_start = self.base[..self.start].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_start = self.base[..self.start]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
         self.start - line_start + 1
     }
 
     /// Get the column of the end position
     pub fn end_column(&self) -> usize {
-        let line_start = self.base[..self.end].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_start = self.base[..self.end]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
         self.end - line_start + 1
     }
 }
@@ -483,7 +493,10 @@ pub mod utils {
     pub fn get_line_at<'a>(seq: BasedSequence<'a>, offset: usize) -> BasedSequence<'a> {
         let base = seq.base();
         let line_start = base[..offset].rfind('\n').map(|i| i + 1).unwrap_or(0);
-        let line_end = base[offset..].find('\n').map(|i| offset + i).unwrap_or(base.len());
+        let line_end = base[offset..]
+            .find('\n')
+            .map(|i| offset + i)
+            .unwrap_or(base.len());
         BasedSequence::with_offsets(base, line_start, line_end)
     }
 }

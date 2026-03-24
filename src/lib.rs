@@ -21,6 +21,7 @@ pub mod sequence;
 pub mod strikethrough;
 pub mod tables;
 pub mod tasklist;
+pub mod test_utils;
 pub mod toc;
 pub mod yaml_front_matter;
 

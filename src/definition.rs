@@ -44,12 +44,12 @@ pub fn parse_definition_line(line: &str) -> Option<String> {
     if !is_definition_line(line) {
         return None;
     }
-    
+
     let trimmed = line.trim_start();
     if trimmed.len() < 2 {
         return Some(String::new());
     }
-    
+
     // Skip ':' and optional whitespace
     let content = &trimmed[1..].trim_start();
     Some(content.to_string())
@@ -57,28 +57,31 @@ pub fn parse_definition_line(line: &str) -> Option<String> {
 
 /// Try to parse a definition list from lines
 /// Returns (entries, lines_consumed) if successful
-pub fn try_parse_definition_list(lines: &[&str], start_line: usize) -> Option<(Vec<DefinitionEntry>, usize)> {
+pub fn try_parse_definition_list(
+    lines: &[&str],
+    _start_line: usize,
+) -> Option<(Vec<DefinitionEntry>, usize)> {
     if lines.is_empty() {
         return None;
     }
-    
+
     let mut entries = Vec::new();
     let mut i = 0;
     let mut lines_consumed = 0;
-    
+
     while i < lines.len() {
         // Look for a term
         if !is_definition_term(lines[i]) {
             break;
         }
-        
+
         let term = lines[i].trim().to_string();
         i += 1;
         lines_consumed += 1;
-        
+
         // Collect definitions for this term
         let mut definitions = Vec::new();
-        
+
         while i < lines.len() && is_definition_line(lines[i]) {
             if let Some(def) = parse_definition_line(lines[i]) {
                 definitions.push(def);
@@ -86,18 +89,18 @@ pub fn try_parse_definition_list(lines: &[&str], start_line: usize) -> Option<(V
             i += 1;
             lines_consumed += 1;
         }
-        
+
         // Skip empty lines between entries
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
             lines_consumed += 1;
         }
-        
+
         if !term.is_empty() && !definitions.is_empty() {
             entries.push(DefinitionEntry { term, definitions });
         }
     }
-    
+
     if entries.is_empty() {
         None
     } else {
@@ -106,7 +109,11 @@ pub fn try_parse_definition_list(lines: &[&str], start_line: usize) -> Option<(V
 }
 
 /// Create a definition list node
-pub fn create_definition_list_node(entries: &[DefinitionEntry], start_line: u32, _start_col: u32) -> Rc<RefCell<Node>> {
+pub fn create_definition_list_node(
+    entries: &[DefinitionEntry],
+    start_line: u32,
+    _start_col: u32,
+) -> Rc<RefCell<Node>> {
     let list_node = Rc::new(RefCell::new(Node::new(NodeType::CustomBlock)));
     {
         let mut node_ref = list_node.borrow_mut();
@@ -121,7 +128,7 @@ pub fn create_definition_list_node(entries: &[DefinitionEntry], start_line: u32,
             end_column: 1,
         };
     }
-    
+
     for entry in entries {
         // Create term node (<dt>)
         let term_node = Rc::new(RefCell::new(Node::new(NodeType::CustomInline)));
@@ -129,16 +136,16 @@ pub fn create_definition_list_node(entries: &[DefinitionEntry], start_line: u32,
             on_enter: "<dt>".to_string(),
             on_exit: "</dt>".to_string(),
         };
-        
+
         // Create text node for term
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
         text_node.borrow_mut().data = NodeData::Text {
             literal: entry.term.clone(),
         };
-        
+
         append_child(&term_node, text_node);
         append_child(&list_node, term_node);
-        
+
         // Create definition nodes (<dd>)
         for def in &entry.definitions {
             let def_node = Rc::new(RefCell::new(Node::new(NodeType::CustomInline)));
@@ -146,18 +153,18 @@ pub fn create_definition_list_node(entries: &[DefinitionEntry], start_line: u32,
                 on_enter: "<dd>".to_string(),
                 on_exit: "</dd>".to_string(),
             };
-            
+
             // Create text node for definition
             let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
             text_node.borrow_mut().data = NodeData::Text {
                 literal: def.clone(),
             };
-            
+
             append_child(&def_node, text_node);
             append_child(&list_node, def_node);
         }
     }
-    
+
     list_node
 }
 
@@ -166,17 +173,23 @@ pub fn render_definition_list_html(entries: &[DefinitionEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
-    
+
     let mut html = String::from("<dl>\n");
-    
+
     for entry in entries {
-        html.push_str(&format!("<dt>{}</dt>\n", crate::html_utils::escape_html(&entry.term)));
-        
+        html.push_str(&format!(
+            "<dt>{}</dt>\n",
+            crate::html_utils::escape_html(&entry.term)
+        ));
+
         for def in &entry.definitions {
-            html.push_str(&format!("<dd>{}</dd>\n", crate::html_utils::escape_html(def)));
+            html.push_str(&format!(
+                "<dd>{}</dd>\n",
+                crate::html_utils::escape_html(def)
+            ));
         }
     }
-    
+
     html.push_str("</dl>");
     html
 }
@@ -186,19 +199,19 @@ pub fn render_definition_list_commonmark(entries: &[DefinitionEntry]) -> String 
     if entries.is_empty() {
         return String::new();
     }
-    
+
     let mut md = String::new();
-    
+
     for entry in entries {
         md.push_str(&format!("{}\n", entry.term));
-        
+
         for def in &entry.definitions {
             md.push_str(&format!(": {}\n", def));
         }
-        
+
         md.push('\n');
     }
-    
+
     md
 }
 
@@ -233,10 +246,7 @@ mod tests {
             parse_definition_line("  :  Indented definition  "),
             Some("Indented definition  ".to_string())
         );
-        assert_eq!(
-            parse_definition_line(":"),
-            Some(String::new())
-        );
+        assert_eq!(parse_definition_line(":"), Some(String::new()));
         assert_eq!(parse_definition_line("Not a definition"), None);
     }
 
@@ -250,11 +260,11 @@ mod tests {
             "Term 2",
             ": Definition 3",
         ];
-        
+
         let result = try_parse_definition_list(&lines, 1);
         assert!(result.is_some());
-        
-        let (entries, lines_consumed) = result.unwrap();
+
+        let (entries, _lines_consumed) = result.unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].term, "Term 1");
         assert_eq!(entries[0].definitions.len(), 2);
@@ -263,16 +273,14 @@ mod tests {
 
     #[test]
     fn test_render_definition_list_html() {
-        let entries = vec![
-            DefinitionEntry {
-                term: "HTML".to_string(),
-                definitions: vec![
-                    "Hyper Text Markup Language".to_string(),
-                    "A standard markup language".to_string(),
-                ],
-            },
-        ];
-        
+        let entries = vec![DefinitionEntry {
+            term: "HTML".to_string(),
+            definitions: vec![
+                "Hyper Text Markup Language".to_string(),
+                "A standard markup language".to_string(),
+            ],
+        }];
+
         let html = render_definition_list_html(&entries);
         assert!(html.contains("<dl>"));
         assert!(html.contains("<dt>HTML</dt>"));
@@ -282,13 +290,11 @@ mod tests {
 
     #[test]
     fn test_render_definition_list_commonmark() {
-        let entries = vec![
-            DefinitionEntry {
-                term: "Term".to_string(),
-                definitions: vec!["Definition".to_string()],
-            },
-        ];
-        
+        let entries = vec![DefinitionEntry {
+            term: "Term".to_string(),
+            definitions: vec!["Definition".to_string()],
+        }];
+
         let md = render_definition_list_commonmark(&entries);
         assert!(md.contains("Term"));
         assert!(md.contains(": Definition"));

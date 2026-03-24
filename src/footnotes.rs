@@ -49,18 +49,20 @@ pub fn contains_footnote_ref(text: &str) -> bool {
 /// Returns Some(label) if found at the beginning
 pub fn parse_footnote_ref(text: &str) -> Option<(String, usize)> {
     let trimmed = text.trim_start();
-    
+
     if let Some(start) = trimmed.find("[^") {
         let after_bracket = start + 2;
         if let Some(end) = trimmed[after_bracket..].find(']') {
-            let label = trimmed[after_bracket..after_bracket + end].trim().to_string();
+            let label = trimmed[after_bracket..after_bracket + end]
+                .trim()
+                .to_string();
             if !label.is_empty() {
                 let full_len = after_bracket + end + 1 - start;
                 return Some((label, full_len));
             }
         }
     }
-    
+
     None
 }
 
@@ -69,18 +71,18 @@ pub fn parse_footnote_ref(text: &str) -> Option<(String, usize)> {
 pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
     let mut refs = Vec::new();
     let mut chars = text.char_indices().peekable();
-    
+
     while let Some((pos, ch)) = chars.next() {
         if ch == '[' {
             if let Some(&(_, next_ch)) = chars.peek() {
                 if next_ch == '^' {
                     chars.next(); // consume '^'
                     let label_start = pos + 2;
-                    
+
                     // Find closing bracket
                     let mut label_end = label_start;
                     let mut found_close = false;
-                    
+
                     while let Some((end_pos, end_ch)) = chars.next() {
                         if end_ch == ']' {
                             label_end = end_pos;
@@ -88,7 +90,7 @@ pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
                             break;
                         }
                     }
-                    
+
                     if found_close && label_end > label_start {
                         let label = text[label_start..label_end].trim().to_string();
                         if !label.is_empty() {
@@ -99,7 +101,7 @@ pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
             }
         }
     }
-    
+
     refs
 }
 
@@ -107,12 +109,12 @@ pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
 /// Format: [^label]: content
 pub fn is_footnote_def(line: &str) -> bool {
     let trimmed = line.trim_start();
-    
+
     if let Some(start) = trimmed.find("[^") {
         if start > 0 {
             return false; // Must be at the start of the line
         }
-        
+
         let after_bracket = start + 2;
         if let Some(bracket_end) = trimmed[after_bracket..].find(']') {
             let label = trimmed[after_bracket..after_bracket + bracket_end].trim();
@@ -124,7 +126,7 @@ pub fn is_footnote_def(line: &str) -> bool {
             }
         }
     }
-    
+
     false
 }
 
@@ -134,19 +136,21 @@ pub fn parse_footnote_def(line: &str) -> Option<(String, String)> {
     if !is_footnote_def(line) {
         return None;
     }
-    
+
     let trimmed = line.trim_start();
     let start = trimmed.find("[^").unwrap();
     let after_bracket = start + 2;
     let bracket_end = trimmed[after_bracket..].find(']').unwrap();
-    
-    let label = trimmed[after_bracket..after_bracket + bracket_end].trim().to_string();
+
+    let label = trimmed[after_bracket..after_bracket + bracket_end]
+        .trim()
+        .to_string();
     let after_label = after_bracket + bracket_end + 1;
-    
+
     // Skip the colon and whitespace
     let content_start = after_label + 1;
     let content = trimmed[content_start..].trim().to_string();
-    
+
     Some((label, content))
 }
 
@@ -170,7 +174,12 @@ pub fn create_footnote_ref_node(label: &str, line: u32, col: u32) -> Rc<RefCell<
 }
 
 /// Create a footnote definition node
-pub fn create_footnote_def_node(label: &str, content: &str, line: u32, col: u32) -> Rc<RefCell<Node>> {
+pub fn create_footnote_def_node(
+    label: &str,
+    content: &str,
+    line: u32,
+    col: u32,
+) -> Rc<RefCell<Node>> {
     let node = Rc::new(RefCell::new(Node::new(NodeType::FootnoteDef)));
     {
         let mut node_ref = node.borrow_mut();
@@ -186,7 +195,7 @@ pub fn create_footnote_def_node(label: &str, content: &str, line: u32, col: u32)
             end_column: col + label.len() as u32 + content.len() as u32 + 5, // +5 for [^, ], :, and space
         };
     }
-    
+
     // Create text node for the content
     if !content.is_empty() {
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
@@ -195,7 +204,7 @@ pub fn create_footnote_def_node(label: &str, content: &str, line: u32, col: u32)
         };
         append_child(&node, text_node);
     }
-    
+
     node
 }
 
@@ -219,26 +228,29 @@ impl FootnoteRegistry {
             next_ordinal: 1,
         }
     }
-    
+
     /// Register a footnote definition
     pub fn register_def(&mut self, label: &str) -> usize {
         if let Some(def) = self.defs.get(label) {
             return def.ordinal;
         }
-        
+
         let ordinal = self.next_ordinal;
         self.next_ordinal += 1;
-        
-        self.defs.insert(label.to_string(), FootnoteDef {
-            label: label.to_string(),
-            ordinal,
-            ref_count: 0,
-        });
+
+        self.defs.insert(
+            label.to_string(),
+            FootnoteDef {
+                label: label.to_string(),
+                ordinal,
+                ref_count: 0,
+            },
+        );
         self.ordered_labels.push(label.to_string());
-        
+
         ordinal
     }
-    
+
     /// Increment reference count for a footnote
     pub fn add_ref(&mut self, label: &str) -> Option<usize> {
         if let Some(def) = self.defs.get_mut(label) {
@@ -248,17 +260,17 @@ impl FootnoteRegistry {
             None
         }
     }
-    
+
     /// Get the ordinal for a label
     pub fn get_ordinal(&self, label: &str) -> Option<usize> {
         self.defs.get(label).map(|d| d.ordinal)
     }
-    
+
     /// Check if a footnote is defined
     pub fn is_defined(&self, label: &str) -> bool {
         self.defs.contains_key(label)
     }
-    
+
     /// Get all referenced footnotes in order
     pub fn get_referenced_footnotes(&self) -> Vec<&FootnoteDef> {
         self.ordered_labels
@@ -290,7 +302,7 @@ pub fn render_footnote_list_html(items: &[String]) -> String {
     if items.is_empty() {
         return String::new();
     }
-    
+
     let items_html = items.join("\n");
     format!(
         r#"<section class="footnotes">
@@ -357,31 +369,37 @@ mod tests {
     #[test]
     fn test_parse_footnote_def() {
         let result = parse_footnote_def("[^1]: This is the content.");
-        assert_eq!(result, Some(("1".to_string(), "This is the content.".to_string())));
+        assert_eq!(
+            result,
+            Some(("1".to_string(), "This is the content.".to_string()))
+        );
 
         let result = parse_footnote_def("[^label]: Multi word content here.");
-        assert_eq!(result, Some(("label".to_string(), "Multi word content here.".to_string())));
+        assert_eq!(
+            result,
+            Some(("label".to_string(), "Multi word content here.".to_string()))
+        );
     }
 
     #[test]
     fn test_footnote_registry() {
         let mut registry = FootnoteRegistry::new();
-        
+
         // Register definitions
         let ord1 = registry.register_def("first");
         let ord2 = registry.register_def("second");
-        
+
         assert_eq!(ord1, 1);
         assert_eq!(ord2, 2);
-        
+
         // Add references
         registry.add_ref("first");
         registry.add_ref("first");
         registry.add_ref("second");
-        
+
         assert_eq!(registry.defs["first"].ref_count, 2);
         assert_eq!(registry.defs["second"].ref_count, 1);
-        
+
         // Get referenced footnotes
         let referenced = registry.get_referenced_footnotes();
         assert_eq!(referenced.len(), 2);
@@ -406,6 +424,9 @@ mod tests {
     #[test]
     fn test_render_footnote_commonmark() {
         assert_eq!(render_footnote_ref_commonmark("1"), "[^1]");
-        assert_eq!(render_footnote_def_commonmark("1", "content"), "[^1]: content");
+        assert_eq!(
+            render_footnote_def_commonmark("1", "content"),
+            "[^1]: content"
+        );
     }
 }

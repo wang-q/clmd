@@ -323,7 +323,9 @@ mod tests {
         append_child(&list, item.clone());
 
         let xml = render(&root, 0);
-        assert!(xml.contains("<list type=\"ordered\" start=\"5\" delim=\"paren\" tight=\"true\">"));
+        assert!(xml.contains(
+            "<list type=\"ordered\" start=\"5\" delim=\"paren\" tight=\"true\">"
+        ));
     }
 
     #[test]
@@ -383,7 +385,9 @@ mod tests {
         append_child(&link, text.clone());
 
         let xml = render(&root, 0);
-        assert!(xml.contains("<link destination=\"https://example.com\" title=\"Example\">"));
+        assert!(
+            xml.contains("<link destination=\"https://example.com\" title=\"Example\">")
+        );
         assert!(xml.contains("<text>link</text>"));
     }
 

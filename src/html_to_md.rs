@@ -11,8 +11,6 @@
 //! assert!(markdown.contains("# Title"));
 //! ```
 
-use std::collections::HashMap;
-
 /// HTML element conversion rules
 #[derive(Debug, Clone)]
 pub struct ConversionRules {
@@ -247,7 +245,7 @@ impl HtmlToMarkdown {
     fn handle_link(&mut self, tag: &str, is_closing: bool) {
         if !is_closing {
             // Extract href from tag
-            if let Some(href) = extract_attribute(tag, "href") {
+            if let Some(_href) = extract_attribute(tag, "href") {
                 self.output.push('[');
                 // Store href for later
                 // This is simplified - in a real implementation we'd need to track state

@@ -2669,11 +2669,7 @@ mod tests {
             let doc = BlockParser::parse(br);
             let doc_ref = doc.borrow();
             let first_child = doc_ref.first_child.borrow();
-            assert!(
-                first_child.is_some(),
-                "Failed for input: {}",
-                br
-            );
+            assert!(first_child.is_some(), "Failed for input: {}", br);
             assert_eq!(
                 first_child.as_ref().unwrap().borrow().node_type,
                 NodeType::ThematicBreak,
@@ -2738,7 +2734,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::BlockQuote
+        );
 
         let blockquote = first_child.as_ref().unwrap().borrow();
         let list = blockquote.first_child.borrow();
@@ -2753,7 +2752,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::CodeBlock);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::CodeBlock
+        );
 
         let code_block = first_child.as_ref().unwrap().borrow();
         if let NodeData::CodeBlock { literal, .. } = &code_block.data {
@@ -2800,7 +2802,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::List
+        );
     }
 
     #[test]
@@ -2841,13 +2846,19 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::BlockQuote
+        );
 
         // Should contain a paragraph with all lines
         let blockquote = first_child.as_ref().unwrap().borrow();
         let para = blockquote.first_child.borrow();
         assert!(para.is_some());
-        assert_eq!(para.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert_eq!(
+            para.as_ref().unwrap().borrow().node_type,
+            NodeType::Paragraph
+        );
     }
 
     #[test]
@@ -2857,7 +2868,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Paragraph
+        );
     }
 
     #[test]
@@ -2867,7 +2881,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::CodeBlock);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::CodeBlock
+        );
 
         let code_block = first_child.as_ref().unwrap().borrow();
         if let NodeData::CodeBlock { literal, .. } = &code_block.data {
@@ -2882,7 +2899,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
     }
 
     #[test]
@@ -2892,7 +2912,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
     }
 
     #[test]
@@ -2902,7 +2925,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::HtmlBlock);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::HtmlBlock
+        );
     }
 
     #[test]
@@ -2941,7 +2967,10 @@ mod tests {
         // Should have one paragraph (reference definition removed)
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Paragraph
+        );
     }
 
     #[test]
@@ -2951,7 +2980,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::List);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::List
+        );
     }
 
     #[test]
@@ -2976,7 +3008,10 @@ mod tests {
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
         // Should be treated as paragraph
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::Paragraph
+        );
     }
 
     #[test]
@@ -2986,7 +3021,10 @@ mod tests {
         let doc_ref = doc.borrow();
         let first_child = doc_ref.first_child.borrow();
         assert!(first_child.is_some());
-        assert_eq!(first_child.as_ref().unwrap().borrow().node_type, NodeType::BlockQuote);
+        assert_eq!(
+            first_child.as_ref().unwrap().borrow().node_type,
+            NodeType::BlockQuote
+        );
     }
 
     #[test]

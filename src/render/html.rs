@@ -949,9 +949,6 @@ mod tests {
         append_child(&link, text.clone());
 
         let html = render(&root, crate::options::UNSAFE);
-        assert_eq!(
-            html,
-            "<p><a href=\"javascript:alert('xss')\">click</a></p>"
-        );
+        assert_eq!(html, "<p><a href=\"javascript:alert('xss')\">click</a></p>");
     }
 }

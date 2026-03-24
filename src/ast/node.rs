@@ -210,7 +210,9 @@ pub fn append_child(parent: &Rc<RefCell<Node>>, child: Rc<RefCell<Node>>) {
 
     if let Some(last_child) = last_child_opt {
         // Link child to previous last child
-        child.borrow_mut().set_prev(Some(Rc::downgrade(&last_child)));
+        child
+            .borrow_mut()
+            .set_prev(Some(Rc::downgrade(&last_child)));
         last_child.borrow_mut().set_next(Some(child.clone()));
     } else {
         // No children yet, set as first child
@@ -231,7 +233,9 @@ pub fn prepend_child(parent: &Rc<RefCell<Node>>, child: Rc<RefCell<Node>>) {
     if let Some(first_child) = first_child_opt {
         // Link child to current first child
         child.borrow_mut().set_next(Some(first_child.clone()));
-        first_child.borrow_mut().set_prev(Some(Rc::downgrade(&child)));
+        first_child
+            .borrow_mut()
+            .set_prev(Some(Rc::downgrade(&child)));
     } else {
         // No children yet, set as last child too
         parent.borrow_mut().set_last_child(Some(child.clone()));
@@ -314,7 +318,10 @@ pub fn unlink(node: &Rc<RefCell<Node>>) {
 
     // Update next node's prev pointer
     if let Some(next) = &next_opt {
-        let prev_for_next = prev_weak_opt.clone().and_then(|w| w.upgrade()).map(|n| Rc::downgrade(&n));
+        let prev_for_next = prev_weak_opt
+            .clone()
+            .and_then(|w| w.upgrade())
+            .map(|n| Rc::downgrade(&n));
         next.borrow_mut().set_prev(prev_for_next);
     } else if let Some(parent_weak) = &parent_weak_opt {
         // Node is last child, update parent's last_child

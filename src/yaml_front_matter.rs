@@ -119,7 +119,10 @@ pub fn extract_front_matter(content: &str) -> (Option<YamlFrontMatter>, &str) {
 
     // Skip the ending --- and following newlines
     let body = &content[body_start..];
-    let body = body.trim_start_matches("---").trim_start_matches('\n').trim_start_matches("\r\n");
+    let body = body
+        .trim_start_matches("---")
+        .trim_start_matches('\n')
+        .trim_start_matches("\r\n");
 
     let front_matter = YamlFrontMatter::parse(front_matter_raw);
 
@@ -146,7 +149,8 @@ mod tests {
 
     #[test]
     fn test_extract_front_matter() {
-        let content = "---\ntitle: My Document\nauthor: John\n---\n# Heading\n\nBody text";
+        let content =
+            "---\ntitle: My Document\nauthor: John\n---\n# Heading\n\nBody text";
         let (front_matter, body) = extract_front_matter(content);
 
         assert!(front_matter.is_some());

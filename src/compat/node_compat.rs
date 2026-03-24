@@ -3,7 +3,7 @@
 //! Provides bridges between old and new AST node systems.
 
 use crate::ast::node::SourcePos as NewSourcePos;
-use crate::node::{Node as OldNode, NodeData as OldNodeData, NodeType as OldNodeType, SourcePos as OldSourcePos};
+use crate::node::{Node as OldNode, NodeType as OldNodeType, SourcePos as OldSourcePos};
 
 /// Convert old SourcePos to new SourcePos
 pub fn convert_source_pos(old: OldSourcePos) -> NewSourcePos {

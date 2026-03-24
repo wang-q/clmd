@@ -57,7 +57,12 @@ pub fn extract_task_marker(text: &str) -> Option<(bool, &str)> {
 }
 
 /// Create a task item node
-pub fn create_task_item(checked: bool, content: &str, line: u32, col: u32) -> Rc<RefCell<Node>> {
+pub fn create_task_item(
+    checked: bool,
+    content: &str,
+    line: u32,
+    col: u32,
+) -> Rc<RefCell<Node>> {
     let node = Rc::new(RefCell::new(Node::new(NodeType::TaskItem)));
     {
         let mut node_ref = node.borrow_mut();
@@ -87,7 +92,10 @@ pub fn is_task_list_item(line: &str) -> bool {
     let trimmed = line.trim_start();
 
     // Check for bullet list marker followed by task marker
-    if trimmed.starts_with("- [") || trimmed.starts_with("* [") || trimmed.starts_with("+ [") {
+    if trimmed.starts_with("- [")
+        || trimmed.starts_with("* [")
+        || trimmed.starts_with("+ [")
+    {
         return parse_task_marker(&trimmed[1..]).is_some();
     }
 

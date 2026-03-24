@@ -48,10 +48,7 @@ impl BlockNodeExt for ThematicBreak {}
 pub trait InlineNodeExt: InlineNode {
     /// Check if this inline can contain other inlines
     fn can_contain_inlines(&self) -> bool {
-        matches!(
-            self.node_type_name(),
-            "Emph" | "Strong" | "Link" | "Image"
-        )
+        matches!(self.node_type_name(), "Emph" | "Strong" | "Link" | "Image")
     }
 
     /// Get the literal content if this is a text-like node
@@ -230,8 +227,8 @@ pub mod factory {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::factory::*;
+    use super::*;
 
     #[test]
     fn test_block_node_ext() {

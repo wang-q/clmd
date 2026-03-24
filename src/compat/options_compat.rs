@@ -3,7 +3,6 @@
 //! Bridges the old u32-based options system with the new DataKey-based system.
 
 use crate::config::{DataHolder, DataKey, MutableDataSet};
-use crate::options;
 
 /// New-style parser options using DataKey
 ///
@@ -35,7 +34,8 @@ impl ParserOptions {
     /// DataKey for unsafe option
     pub const UNSAFE_KEY: DataKey<bool> = DataKey::with_default("unsafe", false);
     /// DataKey for validate_utf8 option
-    pub const VALIDATE_UTF8_KEY: DataKey<bool> = DataKey::with_default("validate_utf8", false);
+    pub const VALIDATE_UTF8_KEY: DataKey<bool> =
+        DataKey::with_default("validate_utf8", false);
 
     /// Create a new parser options with defaults
     pub fn new() -> Self {
@@ -222,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_parser_options_from_u32() {
-        let options = ParserOptions::from_u32(crate::options::SOURCEPOS | crate::options::SMART);
+        let options =
+            ParserOptions::from_u32(crate::options::SOURCEPOS | crate::options::SMART);
 
         assert!(options.get_sourcepos());
         assert!(options.get_smart());

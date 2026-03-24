@@ -30,16 +30,16 @@ pub struct TocEntry {
 /// Check if text is a TOC marker
 pub fn is_toc_marker(text: &str) -> bool {
     let trimmed = text.trim();
-    trimmed == "[TOC]" ||
-    trimmed == "[[TOC]]" ||
-    trimmed.eq_ignore_ascii_case("<!-- toc -->") ||
-    trimmed.eq_ignore_ascii_case("<!--toc-->")
+    trimmed == "[TOC]"
+        || trimmed == "[[TOC]]"
+        || trimmed.eq_ignore_ascii_case("<!-- toc -->")
+        || trimmed.eq_ignore_ascii_case("<!--toc-->")
 }
 
 /// Generate an anchor ID from heading text
 pub fn generate_anchor(text: &str) -> String {
     let mut anchor = String::new();
-    
+
     for ch in text.to_lowercase().chars() {
         match ch {
             'a'..='z' | '0'..='9' => anchor.push(ch),
@@ -51,47 +51,47 @@ pub fn generate_anchor(text: &str) -> String {
             _ => {} // Skip other characters
         }
     }
-    
+
     // Remove trailing dash
     while anchor.ends_with('-') {
         anchor.pop();
     }
-    
+
     // Ensure it starts with a letter
     if anchor.is_empty() {
         anchor = "heading".to_string();
     } else if anchor.chars().next().unwrap().is_ascii_digit() {
         anchor = format!("h-{}", anchor);
     }
-    
+
     anchor
 }
 
 /// Extract text content from a heading node
 pub fn extract_heading_text(node: &Rc<RefCell<Node>>) -> String {
     let mut text = String::new();
-    
+
     // Recursively collect text from children
     fn collect_text(node: &Rc<RefCell<Node>>, text: &mut String) {
         let node_ref = node.borrow();
-        
+
         match &node_ref.data {
             NodeData::Text { literal } => {
                 text.push_str(literal);
             }
             _ => {}
         }
-        
+
         // Process children
         let first_child_opt = {
             let node_ref = node.borrow();
             let child = node_ref.first_child.borrow().as_ref().cloned();
             child
         };
-        
+
         if let Some(first_child) = first_child_opt {
             collect_text(&first_child, text);
-            
+
             // Collect siblings
             let first_next = {
                 let child_ref = first_child.borrow();
@@ -110,7 +110,7 @@ pub fn extract_heading_text(node: &Rc<RefCell<Node>>) -> String {
             }
         }
     }
-    
+
     let first_child_opt = {
         let node_ref = node.borrow();
         let child = node_ref.first_child.borrow().as_ref().cloned();
@@ -119,21 +119,21 @@ pub fn extract_heading_text(node: &Rc<RefCell<Node>>) -> String {
     if let Some(first_child) = first_child_opt {
         collect_text(&first_child, &mut text);
     }
-    
+
     text
 }
 
 /// Build TOC entries from document headings
 pub fn build_toc(document: &Rc<RefCell<Node>>) -> Vec<TocEntry> {
     let mut entries = Vec::new();
-    
+
     fn collect_headings(node: &Rc<RefCell<Node>>, entries: &mut Vec<TocEntry>) {
         // Check if this is a heading
         let is_heading = {
             let node_ref = node.borrow();
             matches!(node_ref.data, NodeData::Heading { .. })
         };
-        
+
         if is_heading {
             let text = extract_heading_text(node);
             let anchor = generate_anchor(&text);
@@ -144,24 +144,24 @@ pub fn build_toc(document: &Rc<RefCell<Node>>) -> Vec<TocEntry> {
                     _ => 1,
                 }
             };
-            
+
             entries.push(TocEntry {
                 level,
                 text,
                 anchor,
             });
         }
-        
+
         // Process children
         let first_child_opt = {
             let node_ref = node.borrow();
             let child = node_ref.first_child.borrow().as_ref().cloned();
             child
         };
-        
+
         if let Some(first_child) = first_child_opt {
             collect_headings(&first_child, entries);
-            
+
             // Collect siblings
             let first_next = {
                 let child_ref = first_child.borrow();
@@ -180,7 +180,7 @@ pub fn build_toc(document: &Rc<RefCell<Node>>) -> Vec<TocEntry> {
             }
         }
     }
-    
+
     collect_headings(document, &mut entries);
     entries
 }
@@ -190,13 +190,13 @@ pub fn render_toc_html(entries: &[TocEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
-    
+
     let mut html = String::from("<nav class=\"toc\">\n<ul>\n");
     let mut prev_level = 1u32;
-    
+
     for entry in entries {
         let level = entry.level;
-        
+
         // Handle nesting
         if level > prev_level {
             for _ in prev_level..level {
@@ -207,21 +207,21 @@ pub fn render_toc_html(entries: &[TocEntry]) -> String {
                 html.push_str("</ul>\n");
             }
         }
-        
+
         html.push_str(&format!(
             "<li><a href=\"#{}\">{}</a></li>\n",
             entry.anchor,
             crate::html_utils::escape_html(&entry.text)
         ));
-        
+
         prev_level = level;
     }
-    
+
     // Close any remaining open lists
     for _ in 1..prev_level {
         html.push_str("</ul>\n");
     }
-    
+
     html.push_str("</ul>\n</nav>");
     html
 }
@@ -231,9 +231,9 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
-    
+
     let mut md = String::from("## Table of Contents\n\n");
-    
+
     for entry in entries {
         let indent = "  ".repeat((entry.level - 1) as usize);
         md.push_str(&format!(
@@ -241,7 +241,7 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
             indent, entry.text, entry.anchor
         ));
     }
-    
+
     md
 }
 

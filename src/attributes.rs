@@ -49,7 +49,11 @@ impl Attributes {
     }
 
     /// Add a custom attribute
-    pub fn with_attr(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn with_attr(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         self.attrs.insert(key.into(), value.into());
         self
     }
@@ -112,7 +116,10 @@ impl Attributes {
                     // ID
                     pos += 1;
                     let start = pos;
-                    while pos < chars.len() && !chars[pos].is_whitespace() && chars[pos] != '}' {
+                    while pos < chars.len()
+                        && !chars[pos].is_whitespace()
+                        && chars[pos] != '}'
+                    {
                         pos += 1;
                     }
                     if pos > start {
@@ -123,7 +130,10 @@ impl Attributes {
                     // Class
                     pos += 1;
                     let start = pos;
-                    while pos < chars.len() && !chars[pos].is_whitespace() && chars[pos] != '}' {
+                    while pos < chars.len()
+                        && !chars[pos].is_whitespace()
+                        && chars[pos] != '}'
+                    {
                         pos += 1;
                     }
                     if pos > start {
@@ -133,7 +143,11 @@ impl Attributes {
                 _ => {
                     // Key=value attribute
                     let start = pos;
-                    while pos < chars.len() && chars[pos] != '=' && chars[pos] != '}' && !chars[pos].is_whitespace() {
+                    while pos < chars.len()
+                        && chars[pos] != '='
+                        && chars[pos] != '}'
+                        && !chars[pos].is_whitespace()
+                    {
                         pos += 1;
                     }
 
@@ -169,7 +183,10 @@ impl Attributes {
                     } else {
                         // Unquoted value
                         let value_start = pos;
-                        while pos < chars.len() && !chars[pos].is_whitespace() && chars[pos] != '}' {
+                        while pos < chars.len()
+                            && !chars[pos].is_whitespace()
+                            && chars[pos] != '}'
+                        {
                             pos += 1;
                         }
                         trimmed[value_start..pos].to_string()

@@ -308,7 +308,10 @@ mod tests {
         append_child(&root, child2.clone());
         append_child(&child1, grandchild.clone());
 
-        let mut visitor = SkipAfterFirstLevelVisitor { enter_count: 0, depth: 0 };
+        let mut visitor = SkipAfterFirstLevelVisitor {
+            enter_count: 0,
+            depth: 0,
+        };
         NodeVisitor::visit(&root, &mut visitor);
 
         // Should visit root, child1, child2 (skip grandchild because depth > 2)

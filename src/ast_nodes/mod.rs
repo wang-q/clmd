@@ -24,19 +24,17 @@
 //! assert!(text.is_inline());
 //! ```
 
-pub mod extensions;
-pub mod traits;
 pub mod block;
+pub mod extensions;
 pub mod inline;
+pub mod traits;
 
 // Re-export all node types and traits from traits module
 pub use traits::*;
 
 // Re-export block nodes
-pub use block::*;
 
 // Re-export inline nodes
-pub use inline::*;
 
 // Re-export extensions
-pub use extensions::{BlockNodeExt, InlineNodeExt, ListExt, factory};
+pub use extensions::{factory, BlockNodeExt, InlineNodeExt, ListExt};

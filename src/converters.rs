@@ -81,6 +81,7 @@ impl From<std::io::Error> for ConverterError {
 
 /// DOCX converter (placeholder implementation)
 pub struct DocxConverter {
+    #[allow(dead_code)]
     options: ExportOptions,
 }
 
@@ -94,7 +95,10 @@ impl DocxConverter {
     pub fn convert(&self, root: &Rc<RefCell<Node>>) -> Result<Vec<u8>, ConverterError> {
         let mut output = Vec::new();
 
-        writeln!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")?;
+        writeln!(
+            output,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+        )?;
         writeln!(output, "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">")?;
         writeln!(output, "  <w:body>")?;
 
@@ -106,7 +110,11 @@ impl DocxConverter {
         Ok(output)
     }
 
-    fn convert_node_to_docx(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn convert_node_to_docx(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let node_type = node.borrow().node_type;
         let data = node.borrow().data.clone();
 
@@ -114,7 +122,11 @@ impl DocxConverter {
             NodeType::Heading => {
                 if let NodeData::Heading { level, .. } = data {
                     writeln!(output, "    <w:p>")?;
-                    writeln!(output, "      <w:pPr><w:pStyle w:val=\"Heading{}\"/></w:pPr>", level)?;
+                    writeln!(
+                        output,
+                        "      <w:pPr><w:pStyle w:val=\"Heading{}\"/></w:pPr>",
+                        level
+                    )?;
                     writeln!(output, "      <w:r><w:t>")?;
                     self.write_children_text(node, output)?;
                     writeln!(output, "</w:t></w:r>")?;
@@ -136,7 +148,11 @@ impl DocxConverter {
         Ok(())
     }
 
-    fn write_children(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_children(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let children = self.collect_children(node);
         for child in children {
             self.convert_node_to_docx(&child, output)?;
@@ -144,7 +160,11 @@ impl DocxConverter {
         Ok(())
     }
 
-    fn write_children_text(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_children_text(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let children = self.collect_children(node);
         for child in children {
             self.write_node_text(&child, output)?;
@@ -152,7 +172,11 @@ impl DocxConverter {
         Ok(())
     }
 
-    fn write_node_text(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_node_text(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let data = node.borrow().data.clone();
         match data {
             NodeData::Text { literal } => {
@@ -172,7 +196,7 @@ impl DocxConverter {
 
     fn collect_children(&self, node: &Rc<RefCell<Node>>) -> Vec<Rc<RefCell<Node>>> {
         let mut children = Vec::new();
-        
+
         let first_opt = node.borrow().first_child.borrow().clone();
         if let Some(first) = first_opt {
             children.push(first.clone());
@@ -187,13 +211,14 @@ impl DocxConverter {
                 }
             }
         }
-        
+
         children
     }
 }
 
 /// PDF converter (placeholder implementation)
 pub struct PdfConverter {
+    #[allow(dead_code)]
     options: ExportOptions,
 }
 
@@ -208,7 +233,10 @@ impl PdfConverter {
         let mut output = Vec::new();
 
         writeln!(output, "%PDF-1.4")?;
-        writeln!(output, "% Placeholder PDF - real implementation would use printpdf crate")?;
+        writeln!(
+            output,
+            "% Placeholder PDF - real implementation would use printpdf crate"
+        )?;
 
         self.convert_node_to_pdf(root, &mut output)?;
 
@@ -217,7 +245,11 @@ impl PdfConverter {
         Ok(output)
     }
 
-    fn convert_node_to_pdf(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn convert_node_to_pdf(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let node_type = node.borrow().node_type;
         let data = node.borrow().data.clone();
 
@@ -242,7 +274,11 @@ impl PdfConverter {
         Ok(())
     }
 
-    fn write_children(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_children(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let children = self.collect_children(node);
         for child in children {
             self.convert_node_to_pdf(&child, output)?;
@@ -250,7 +286,11 @@ impl PdfConverter {
         Ok(())
     }
 
-    fn write_children_text(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_children_text(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let children = self.collect_children(node);
         for child in children {
             self.write_node_text(&child, output)?;
@@ -258,7 +298,11 @@ impl PdfConverter {
         Ok(())
     }
 
-    fn write_node_text(&self, node: &Rc<RefCell<Node>>, output: &mut Vec<u8>) -> Result<(), ConverterError> {
+    fn write_node_text(
+        &self,
+        node: &Rc<RefCell<Node>>,
+        output: &mut Vec<u8>,
+    ) -> Result<(), ConverterError> {
         let data = node.borrow().data.clone();
         match data {
             NodeData::Text { literal } => {
@@ -273,7 +317,7 @@ impl PdfConverter {
 
     fn collect_children(&self, node: &Rc<RefCell<Node>>) -> Vec<Rc<RefCell<Node>>> {
         let mut children = Vec::new();
-        
+
         let first_opt = node.borrow().first_child.borrow().clone();
         if let Some(first) = first_opt {
             children.push(first.clone());
@@ -288,7 +332,7 @@ impl PdfConverter {
                 }
             }
         }
-        
+
         children
     }
 }

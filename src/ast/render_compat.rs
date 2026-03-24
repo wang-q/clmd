@@ -2,15 +2,15 @@
 //!
 //! Provides integration between the new AST system and the existing renderers.
 
-use crate::ast::node::{Node, SourcePos};
-use crate::node::{Node as OldNode, NodeData as OldNodeData, NodeType as OldNodeType, SourcePos as OldSourcePos};
+use crate::ast::node::Node;
+use crate::node::{Node as OldNode, SourcePos as OldSourcePos};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Convert a new-style AST node to an old-style node
 ///
 /// This is useful for integrating with existing renderers that expect the old node format.
-pub fn to_old_node(node: &Node) -> Option<OldNode> {
+pub fn to_old_node(_node: &Node) -> Option<OldNode> {
     // This is a placeholder implementation
     // In a full implementation, we would need type information to properly convert
     None
@@ -87,7 +87,6 @@ impl RenderExt for Node {
 
 /// Utility functions for rendering
 pub mod util {
-    use super::*;
 
     /// Escape HTML special characters
     pub fn escape_html(text: &str) -> String {
@@ -138,8 +137,8 @@ pub mod util {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::util::*;
+    use super::*;
 
     #[test]
     fn test_escape_html() {

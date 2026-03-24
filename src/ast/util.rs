@@ -68,13 +68,13 @@ pub fn node_depth(node: &Node) -> usize {
 }
 
 /// Get the path from root to a node (as a list of depths)
-/// 
+///
 /// Returns a vector of depths from root to the given node.
 /// Root has depth 0, its children have depth 1, etc.
 pub fn node_path_depths(node: &Node) -> Vec<usize> {
     let mut depths = Vec::new();
     let mut current_depth = node_depth(node);
-    
+
     // Collect depths from node to root
     while current_depth > 0 {
         depths.push(current_depth);
@@ -109,7 +109,7 @@ pub fn is_ancestor(parent: &Node, child: &Node) -> bool {
 }
 
 /// Get all siblings of a node (including itself)
-/// 
+///
 /// Note: This function requires a reference to the node's container (Rc<RefCell<Node>>)
 /// to properly traverse siblings. Use get_siblings_from_rc instead.
 pub fn get_siblings(_node: &Node) -> Vec<Rc<RefCell<Node>>> {

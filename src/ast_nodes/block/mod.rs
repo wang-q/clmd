@@ -5,6 +5,6 @@
 
 // Re-export all block node types from traits module
 pub use crate::ast_nodes::traits::{
-    BlockQuote, BlockNode, CodeBlock, Document, Heading, HtmlBlock, Item, List, ListType,
-    DelimType, Paragraph, ThematicBreak,
+    BlockNode, BlockQuote, CodeBlock, DelimType, Document, Heading, HtmlBlock, Item,
+    List, ListType, Paragraph, ThematicBreak,
 };

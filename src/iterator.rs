@@ -366,7 +366,10 @@ mod tests {
         // After resume_at, the iterator returns the current node first
         let current = walker.iterator.get_node();
         assert!(current.is_some());
-        assert_eq!(current.as_ref().unwrap().borrow().node_type, NodeType::Paragraph);
+        assert_eq!(
+            current.as_ref().unwrap().borrow().node_type,
+            NodeType::Paragraph
+        );
         assert!(Rc::ptr_eq(&current.unwrap(), &para2));
     }
 

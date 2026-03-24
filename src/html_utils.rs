@@ -84,7 +84,11 @@ impl HtmlBuilder {
     }
 
     /// Start an HTML tag with attributes
-    pub fn start_tag_with_attrs(&mut self, tag: &str, attrs: &[(&str, &str)]) -> &mut Self {
+    pub fn start_tag_with_attrs(
+        &mut self,
+        tag: &str,
+        attrs: &[(&str, &str)],
+    ) -> &mut Self {
         self.output.push('<');
         self.output.push_str(tag);
         for (name, value) in attrs {
@@ -116,7 +120,11 @@ impl HtmlBuilder {
     }
 
     /// Add a self-closing tag with attributes
-    pub fn self_closing_tag_with_attrs(&mut self, tag: &str, attrs: &[(&str, &str)]) -> &mut Self {
+    pub fn self_closing_tag_with_attrs(
+        &mut self,
+        tag: &str,
+        attrs: &[(&str, &str)],
+    ) -> &mut Self {
         self.output.push('<');
         self.output.push_str(tag);
         for (name, value) in attrs {
@@ -185,8 +193,8 @@ impl Default for HtmlBuilder {
 
 /// HTML5 void elements (self-closing tags)
 pub const VOID_ELEMENTS: &[&str] = &[
-    "area", "base", "br", "col", "embed", "hr", "img", "input",
-    "link", "meta", "param", "source", "track", "wbr",
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+    "source", "track", "wbr",
 ];
 
 /// Check if a tag is a void element
