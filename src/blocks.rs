@@ -167,16 +167,18 @@ impl BlockParser {
 
     /// Process a single line
     pub fn process_line(&mut self, line: &str) {
-        self.current_line = line.to_string();
         self.line_number += 1;
         self.offset = 0;
         self.column = 0;
         self.blank = false;
         self.partially_consumed_tab = false;
 
-        // Replace NUL characters for security
-        if self.current_line.contains('\u{0000}') {
-            self.current_line = self.current_line.replace('\u{0000}', "\u{FFFD}");
+        // Check if we need to modify the line (NUL replacement)
+        if line.contains('\u{0000}') {
+            self.current_line = line.replace('\u{0000}', "\u{FFFD}");
+        } else {
+            self.current_line.clear();
+            self.current_line.push_str(line);
         }
 
         // Ensure line ends with newline
