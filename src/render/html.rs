@@ -550,4 +550,408 @@ mod tests {
         let html = render(&root, 0);
         assert_eq!(html, "<p><em>emphasized</em></p>");
     }
+
+    #[test]
+    fn test_render_strong() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let strong = Rc::new(RefCell::new(Node::new(NodeType::Strong)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "strong".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, strong.clone());
+        append_child(&strong, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><strong>strong</strong></p>");
+    }
+
+    #[test]
+    fn test_render_code() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let code = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Code,
+            NodeData::Code {
+                literal: "code".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, code.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><code>code</code></p>");
+    }
+
+    #[test]
+    fn test_render_heading() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let heading = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Heading,
+            NodeData::Heading {
+                level: 1,
+                content: "Title".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Title".to_string(),
+            },
+        )));
+
+        append_child(&root, heading.clone());
+        append_child(&heading, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<h1>Title</h1>");
+    }
+
+    #[test]
+    fn test_render_heading_level_3() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let heading = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Heading,
+            NodeData::Heading {
+                level: 3,
+                content: "Section".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Section".to_string(),
+            },
+        )));
+
+        append_child(&root, heading.clone());
+        append_child(&heading, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<h3>Section</h3>");
+    }
+
+    #[test]
+    fn test_render_blockquote() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let blockquote = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Quote".to_string(),
+            },
+        )));
+
+        append_child(&root, blockquote.clone());
+        append_child(&blockquote, para.clone());
+        append_child(&para, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<blockquote>\n<p>Quote</p>\n</blockquote>");
+    }
+
+    #[test]
+    fn test_render_code_block() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let code_block = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::CodeBlock,
+            NodeData::CodeBlock {
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+            },
+        )));
+
+        append_child(&root, code_block.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(
+            html,
+            "<pre><code class=\"language-rust\">fn main() {}</code></pre>"
+        );
+    }
+
+    #[test]
+    fn test_render_code_block_no_lang() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let code_block = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::CodeBlock,
+            NodeData::CodeBlock {
+                info: "".to_string(),
+                literal: "code".to_string(),
+            },
+        )));
+
+        append_child(&root, code_block.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<pre><code>code</code></pre>");
+    }
+
+    #[test]
+    fn test_render_thematic_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let hr = Rc::new(RefCell::new(Node::new(NodeType::ThematicBreak)));
+
+        append_child(&root, hr.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<hr />");
+    }
+
+    #[test]
+    fn test_render_link() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let link = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Link,
+            NodeData::Link {
+                url: "https://example.com".to_string(),
+                title: "".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "link".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, link.clone());
+        append_child(&link, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><a href=\"https://example.com\">link</a></p>");
+    }
+
+    #[test]
+    fn test_render_link_with_title() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let link = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Link,
+            NodeData::Link {
+                url: "https://example.com".to_string(),
+                title: "Title".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "link".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, link.clone());
+        append_child(&link, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(
+            html,
+            "<p><a href=\"https://example.com\" title=\"Title\">link</a></p>"
+        );
+    }
+
+    #[test]
+    fn test_render_image() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let image = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Image,
+            NodeData::Image {
+                url: "image.png".to_string(),
+                title: "".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "alt".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, image.clone());
+        append_child(&image, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><img src=\"image.png\" alt=\"alt\" /></p>");
+    }
+
+    #[test]
+    fn test_render_soft_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text1 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Hello".to_string(),
+            },
+        )));
+        let soft_break = Rc::new(RefCell::new(Node::new(NodeType::SoftBreak)));
+        let text2 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "world".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text1.clone());
+        append_child(&para, soft_break.clone());
+        append_child(&para, text2.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p>Hello\nworld</p>");
+    }
+
+    #[test]
+    fn test_render_line_break() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let text1 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Hello".to_string(),
+            },
+        )));
+        let line_break = Rc::new(RefCell::new(Node::new(NodeType::LineBreak)));
+        let text2 = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "world".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text1.clone());
+        append_child(&para, line_break.clone());
+        append_child(&para, text2.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p>Hello<br />\nworld</p>");
+    }
+
+    #[test]
+    fn test_render_html_block() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let html_block = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::HtmlBlock,
+            NodeData::HtmlBlock {
+                literal: "<div>content</div>".to_string(),
+            },
+        )));
+
+        append_child(&root, html_block.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<div>content</div>");
+    }
+
+    #[test]
+    fn test_render_html_inline() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let html_inline = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::HtmlInline,
+            NodeData::HtmlInline {
+                literal: "<br />".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, html_inline.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><br /></p>");
+    }
+
+    #[test]
+    fn test_render_with_sourcepos() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        {
+            let mut para_mut = para.borrow_mut();
+            para_mut.source_pos.start_line = 1;
+            para_mut.source_pos.start_column = 1;
+            para_mut.source_pos.end_line = 1;
+            para_mut.source_pos.end_column = 10;
+        }
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Hello".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, text.clone());
+
+        let html = render(&root, crate::options::SOURCEPOS);
+        assert!(html.contains("data-sourcepos"));
+        assert!(html.contains("1:1-1:10"));
+    }
+
+    #[test]
+    fn test_render_unsafe_url_blocked() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let link = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Link,
+            NodeData::Link {
+                url: "javascript:alert('xss')".to_string(),
+                title: "".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "click".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, link.clone());
+        append_child(&link, text.clone());
+
+        let html = render(&root, 0);
+        assert_eq!(html, "<p><a href=\"\">click</a></p>");
+    }
+
+    #[test]
+    fn test_render_unsafe_option_allows_url() {
+        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
+        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
+        let link = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Link,
+            NodeData::Link {
+                url: "javascript:alert('xss')".to_string(),
+                title: "".to_string(),
+            },
+        )));
+        let text = Rc::new(RefCell::new(Node::new_with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "click".to_string(),
+            },
+        )));
+
+        append_child(&root, para.clone());
+        append_child(&para, link.clone());
+        append_child(&link, text.clone());
+
+        let html = render(&root, crate::options::UNSAFE);
+        assert_eq!(
+            html,
+            "<p><a href=\"javascript:alert('xss')\">click</a></p>"
+        );
+    }
 }

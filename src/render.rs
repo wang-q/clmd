@@ -50,3 +50,53 @@ fn is_safe_data_url(url: &str) -> bool {
         || url.starts_with("data:image/jpeg")
         || url.starts_with("data:image/webp")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_html() {
+        assert_eq!(escape_html("<div>"), "&lt;div&gt;");
+        assert_eq!(escape_html("&"), "&amp;");
+        assert_eq!(escape_html("\"test\""), "&quot;test&quot;");
+        assert_eq!(escape_html("'test'"), "'test'"); // Single quote is not escaped
+        assert_eq!(escape_html("hello"), "hello"); // No special chars
+    }
+
+    #[test]
+    fn test_is_safe_url_http() {
+        assert!(is_safe_url("https://example.com"));
+        assert!(is_safe_url("http://example.com"));
+    }
+
+    #[test]
+    fn test_is_safe_url_javascript() {
+        assert!(!is_safe_url("javascript:alert('xss')"));
+        assert!(!is_safe_url("JAVASCRIPT:alert('xss')")); // Case insensitive
+    }
+
+    #[test]
+    fn test_is_safe_url_vbscript() {
+        assert!(!is_safe_url("vbscript:msgbox('xss')"));
+    }
+
+    #[test]
+    fn test_is_safe_url_file() {
+        assert!(!is_safe_url("file:///etc/passwd"));
+    }
+
+    #[test]
+    fn test_is_safe_url_data_image() {
+        assert!(is_safe_url("data:image/png;base64,abc123"));
+        assert!(is_safe_url("data:image/gif;base64,abc123"));
+        assert!(is_safe_url("data:image/jpeg;base64,abc123"));
+        assert!(is_safe_url("data:image/webp;base64,abc123"));
+    }
+
+    #[test]
+    fn test_is_safe_url_data_unsafe() {
+        assert!(!is_safe_url("data:text/html,<script>alert('xss')</script>"));
+        assert!(!is_safe_url("data:application/javascript,alert(1)"));
+    }
+}
