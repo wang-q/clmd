@@ -787,9 +787,10 @@ impl BlockParser {
         }
 
         // Type 4: <! followed by uppercase letter (declaration)
+        // According to commonmark.js: /^<![A-Za-z]/
         if line.starts_with("<!") && line.len() > 2 {
             let third_char = line.chars().nth(2).unwrap();
-            if third_char.is_ascii_uppercase() {
+            if third_char.is_ascii_alphabetic() {
                 return Some(4);
             }
         }
@@ -1393,11 +1394,14 @@ impl BlockParser {
         }
 
         // Determine if this line makes the container last_line_blank
+        // Based on commonmark.js: blank && !(block_quote || heading || thematicBreak ||
+        //   (code_block && fenced) || (item && firstChild == null && startLine == lineNumber))
         let container_type = container.borrow().node_type;
         let last_line_blank = self.blank
             && container_type != NodeType::BlockQuote
             && container_type != NodeType::Heading
             && container_type != NodeType::ThematicBreak
+            && container_type != NodeType::HtmlBlock
             && !(container_type == NodeType::CodeBlock
                 && self.is_fenced_code_block(container))
             && !(container_type == NodeType::Item
@@ -1745,8 +1749,8 @@ impl BlockParser {
             }
             NodeType::HtmlBlock => {
                 let content = self.get_string_content(block);
-                // Remove leading and trailing whitespace/newlines
-                let content = content.trim();
+                // Remove trailing newline only (like commonmark.js: replace(/\n$/, ''))
+                let content = content.strip_suffix('\n').unwrap_or(&content);
                 {
                     let mut block_mut = block.borrow_mut();
                     if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {

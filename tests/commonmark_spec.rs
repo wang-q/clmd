@@ -240,6 +240,97 @@ fn test_commonmark_spec() {
 }
 
 #[test]
+fn test_regression() {
+    let spec_content = fs::read_to_string("tests/fixtures/regression.txt")
+        .expect("Failed to read regression.txt");
+
+    let tests = parse_spec_tests(&spec_content);
+    println!("Found {} regression test cases", tests.len());
+
+    let mut passed = 0;
+    let mut failed = 0;
+
+    for test in &tests {
+        let result = markdown_to_html(&test.markdown, options::DEFAULT);
+
+        if result == test.html {
+            passed += 1;
+        } else {
+            failed += 1;
+            println!("\nFailed test #{} ({})", test.number, test.section);
+            println!("Input: {:?}", test.markdown);
+            println!("Expected: {:?}", test.html);
+            println!("Got: {:?}", result);
+        }
+    }
+
+    println!("\n=== Regression Test Results ===");
+    println!(
+        "Passed: {}/{} ({:.1}%)",
+        passed,
+        tests.len(),
+        (passed as f64 / tests.len() as f64) * 100.0
+    );
+    println!(
+        "Failed: {}/{} ({:.1}%)",
+        failed,
+        tests.len(),
+        (failed as f64 / tests.len() as f64) * 100.0
+    );
+
+    assert!(
+        passed > 0,
+        "No regression tests passed - there may be a fundamental issue"
+    );
+}
+
+#[test]
+fn test_smart_punct() {
+    let spec_content = fs::read_to_string("tests/fixtures/smart_punct.txt")
+        .expect("Failed to read smart_punct.txt");
+
+    let tests = parse_spec_tests(&spec_content);
+    println!("Found {} smart punctuation test cases", tests.len());
+
+    let mut passed = 0;
+    let mut failed = 0;
+
+    for test in &tests {
+        // Smart punctuation requires SMART option
+        let result = markdown_to_html(&test.markdown, options::SMART);
+
+        if result == test.html {
+            passed += 1;
+        } else {
+            failed += 1;
+            println!("\nFailed test #{} ({})", test.number, test.section);
+            println!("Input: {:?}", test.markdown);
+            println!("Expected: {:?}", test.html);
+            println!("Got: {:?}", result);
+        }
+    }
+
+    println!("\n=== Smart Punctuation Test Results ===");
+    println!(
+        "Passed: {}/{} ({:.1}%)",
+        passed,
+        tests.len(),
+        (passed as f64 / tests.len() as f64) * 100.0
+    );
+    println!(
+        "Failed: {}/{} ({:.1}%)",
+        failed,
+        tests.len(),
+        (failed as f64 / tests.len() as f64) * 100.0
+    );
+
+    assert!(
+        passed > 0,
+        "No smart punctuation tests passed - there may be a fundamental issue"
+    );
+}
+
+#[test]
 fn test_specific_examples() {
     // Test a few specific examples to verify basic functionality
 

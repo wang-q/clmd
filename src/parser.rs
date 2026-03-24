@@ -1,7 +1,8 @@
 use crate::blocks::BlockParser;
-use crate::inlines::parse_inlines_with_refmap;
+use crate::inlines::parse_inlines_with_options;
 use crate::iterator::NodeWalker;
 use crate::node::{Node, NodeData, NodeType};
+use crate::options;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -84,14 +85,18 @@ impl Parser {
             }
         }
 
+        // Check if smart punctuation is enabled
+        let smart = (self.options & options::SMART) != 0;
+
         // Process collected nodes
         for (node, content) in nodes_to_process {
-            parse_inlines_with_refmap(
+            parse_inlines_with_options(
                 &node,
                 &content,
                 1, // line number
                 0, // block offset
                 refmap.clone(),
+                smart,
             );
         }
     }

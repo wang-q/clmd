@@ -62,6 +62,8 @@ pub struct Subject {
     pub no_link_openers: bool,
     /// Reference map for link references
     pub refmap: std::collections::HashMap<String, (String, String)>,
+    /// Whether smart punctuation is enabled
+    pub smart: bool,
 }
 
 /// Delimiter struct for tracking emphasis markers
@@ -122,6 +124,7 @@ impl Subject {
             scanned_for_backticks: false,
             no_link_openers: false,
             refmap: std::collections::HashMap::new(),
+            smart: false,
         }
     }
 
@@ -144,6 +147,31 @@ impl Subject {
             scanned_for_backticks: false,
             no_link_openers: false,
             refmap,
+            smart: false,
+        }
+    }
+
+    /// Create a new subject with a reference map and smart punctuation option
+    pub fn with_refmap_and_smart(
+        input: &str,
+        line: usize,
+        block_offset: usize,
+        refmap: std::collections::HashMap<String, (String, String)>,
+        smart: bool,
+    ) -> Self {
+        Subject {
+            input: input.to_string(),
+            pos: 0,
+            line,
+            column_offset: 0,
+            block_offset,
+            delimiters: None,
+            brackets: None,
+            backticks: vec![0; MAX_BACKTICKS + 1],
+            scanned_for_backticks: false,
+            no_link_openers: false,
+            refmap,
+            smart,
         }
     }
 
@@ -229,7 +257,15 @@ impl Subject {
                 let next_is_text = next.borrow().node_type == NodeType::Text;
 
                 if current_is_text && next_is_text {
-                    // Merge next into current
+                    // Check if current or next is a smart quote (single character smart punctuation)
+                    // Smart quotes should not be merged with adjacent text
+                    let current_literal = {
+                        let current_ref = current.borrow();
+                        match &current_ref.data {
+                            NodeData::Text { literal } => literal.clone(),
+                            _ => String::new(),
+                        }
+                    };
                     let next_literal = {
                         let next_ref = next.borrow();
                         match &next_ref.data {
@@ -238,18 +274,33 @@ impl Subject {
                         }
                     };
 
-                    {
-                        let mut current_mut = current.borrow_mut();
-                        if let NodeData::Text { ref mut literal } = current_mut.data {
-                            literal.push_str(&next_literal);
-                        }
-                    }
+                    // Don't merge if current or next is a smart quote
+                    let is_smart_quote = |s: &str| {
+                        s == "\u{2018}"
+                            || s == "\u{2019}"
+                            || s == "\u{201C}"
+                            || s == "\u{201D}"
+                    };
 
-                    // Remove next node
-                    crate::node::unlink(next);
-                    // Continue with same current
-                    current_opt = Some(current);
-                    continue;
+                    if is_smart_quote(&current_literal) || is_smart_quote(&next_literal)
+                    {
+                        // Skip merging for smart quotes
+                    } else {
+                        // Merge next into current
+                        {
+                            let mut current_mut = current.borrow_mut();
+                            if let NodeData::Text { ref mut literal } = current_mut.data
+                            {
+                                literal.push_str(&next_literal);
+                            }
+                        }
+
+                        // Remove next node
+                        crate::node::unlink(next);
+                        // Continue with same current
+                        current_opt = Some(current);
+                        continue;
+                    }
                 }
             }
 
@@ -277,6 +328,7 @@ impl Subject {
             ']' => self.parse_close_bracket(parent),
             '!' => self.parse_bang(parent),
             '\n' => self.parse_newline(parent),
+            '\'' | '"' if self.smart => self.handle_delim(c, parent),
             _ => self.parse_string(parent),
         }
     }
@@ -665,7 +717,27 @@ impl Subject {
 
         // Add delimiter text - create a separate text node (don't merge with previous)
         // This is important for emphasis processing
-        let delim_text: String = std::iter::repeat(c).take(res.num_delims).collect();
+        // For smart quotes, replace with appropriate curly quote
+        let delim_text: String = if self.smart && (c == '\'' || c == '"') {
+            if c == '\'' {
+                // Single quote: use left quote if can_open, otherwise right quote
+                // The correct quote will be set in process_emphasis based on matching
+                if res.can_open {
+                    "\u{2018}".to_string() // left single quote
+                } else {
+                    "\u{2019}".to_string() // right single quote (apostrophe)
+                }
+            } else {
+                // Double quote: use left quote if can_open, otherwise right quote
+                if res.can_open {
+                    "\u{201C}".to_string() // left double quote
+                } else {
+                    "\u{201D}".to_string() // right double quote
+                }
+            }
+        } else {
+            std::iter::repeat(c).take(res.num_delims).collect()
+        };
         let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
         {
             let mut text_mut = text_node.borrow_mut();
@@ -767,6 +839,11 @@ impl Subject {
                 left_flanking && (!right_flanking || before_is_punctuation),
                 right_flanking && (!left_flanking || after_is_punctuation),
             )
+        } else if self.smart && (c == '\'' || c == '"') {
+            // Smart quotes: different logic for single and double quotes
+            // Based on commonmark.js: can_open = left_flanking && !right_flanking
+            //                        can_close = right_flanking
+            (left_flanking && !right_flanking, right_flanking)
         } else {
             (left_flanking, right_flanking)
         };
@@ -959,8 +1036,85 @@ impl Subject {
 
                 let opener_inl = opener_borrow.inl_text.clone();
                 let closer_inl = closer_borrow.inl_text.clone();
+                let closer_char = closer_borrow.delim_char;
                 drop(opener_borrow);
                 drop(closer_borrow);
+
+                // Handle smart quotes
+                if self.smart && (closer_char == '\'' || closer_char == '"') {
+                    // Update opener to left quote (if it's not already left quote)
+                    {
+                        let mut opener_inl_mut = opener_inl.borrow_mut();
+                        if let NodeData::Text {
+                            ref mut literal, ..
+                        } = opener_inl_mut.data
+                        {
+                            if closer_char == '\'' {
+                                *literal = "\u{2018}".to_string(); // left single quote
+                            } else {
+                                *literal = "\u{201C}".to_string(); // left double quote
+                            }
+                        }
+                    }
+                    // Update closer to right quote (if it's not already right quote)
+                    {
+                        let mut closer_inl_mut = closer_inl.borrow_mut();
+                        if let NodeData::Text {
+                            ref mut literal, ..
+                        } = closer_inl_mut.data
+                        {
+                            if closer_char == '\'' {
+                                *literal = "\u{2019}".to_string(); // right single quote
+                            } else {
+                                *literal = "\u{201D}".to_string(); // right double quote
+                            }
+                        }
+                    }
+
+                    // Update delimiter counts and remove if used up
+                    {
+                        let mut opener_mut = opener.borrow_mut();
+                        if opener_mut.num_delims >= use_delims {
+                            opener_mut.num_delims -= use_delims;
+                        } else {
+                            opener_mut.num_delims = 0;
+                        }
+                    }
+                    {
+                        let mut closer_mut = closer.borrow_mut();
+                        if closer_mut.num_delims >= use_delims {
+                            closer_mut.num_delims -= use_delims;
+                        } else {
+                            closer_mut.num_delims = 0;
+                        }
+                    }
+
+                    // Remove delimiter nodes if no delims left
+                    {
+                        let opener_borrow = opener.borrow();
+                        if opener_borrow.num_delims == 0 {
+                            // Don't unlink smart quote nodes, just mark as processed
+                        }
+                    }
+                    {
+                        let closer_borrow = closer.borrow();
+                        if closer_borrow.num_delims == 0 {
+                            // Don't unlink smart quote nodes, just mark as processed
+                        }
+                    }
+
+                    // Mark delimiters as processed
+                    for k in j..=old_closer_idx {
+                        let mut delim_mut = delims[k].borrow_mut();
+                        delim_mut.can_open = false;
+                        delim_mut.can_close = false;
+                    }
+
+                    // Remove processed delimiters from vector
+                    delims.remove(i);
+                    delims.remove(j);
+                    continue;
+                }
 
                 // Create emphasis or strong node
                 let emph_type = if use_delims == 1 {
@@ -1083,6 +1237,35 @@ impl Subject {
                 if old_closer_idx > 0 {
                     openers_bottom[openers_bottom_index] = Some(old_closer_idx - 1);
                 }
+
+                // For smart quotes: unmatched quote that can both open and close is interpreted as left quote
+                // This handles cases like: "A paragraph with no closing quote.
+                // Based on commonmark.js: unmatched quote that can both open and close is interpreted as left quote
+                if self.smart && (closer_char == '\'' || closer_char == '"') {
+                    let closer_borrow = closer.borrow();
+                    let can_open = closer_borrow.can_open;
+                    let can_close = closer_borrow.can_close;
+                    drop(closer_borrow);
+
+                    // Only convert to left quote if it can both open and close
+                    // If it can only close, keep it as right quote
+                    // If it can only open, it was already set to left quote in handle_delim
+                    if can_open && can_close {
+                        let closer_inl = closer.borrow().inl_text.clone();
+                        let mut closer_inl_mut = closer_inl.borrow_mut();
+                        if let NodeData::Text {
+                            ref mut literal, ..
+                        } = closer_inl_mut.data
+                        {
+                            if closer_char == '\'' {
+                                *literal = "\u{2018}".to_string(); // left single quote
+                            } else {
+                                *literal = "\u{201C}".to_string(); // left double quote
+                            }
+                        }
+                    }
+                }
+
                 i += 1;
             }
         }
@@ -1625,14 +1808,20 @@ impl Subject {
         let start = self.pos;
 
         while let Some(c) = self.peek() {
-            if is_special_char(c) {
+            if is_special_char(c, self.smart) {
                 break;
             }
             self.advance();
         }
 
         if self.pos > start {
-            let text = self.input[start..self.pos].to_string();
+            let mut text = self.input[start..self.pos].to_string();
+
+            // Apply smart punctuation transformations if enabled
+            if self.smart {
+                text = self.apply_smart_punctuation(&text);
+            }
+
             // Create a new text node without merging
             // This is important to keep delimiter text nodes separate
             let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
@@ -1650,6 +1839,94 @@ impl Subject {
         } else {
             false
         }
+    }
+
+    /// Apply smart punctuation transformations
+    /// Based on commonmark.js: replace ellipses and dashes
+    fn apply_smart_punctuation(&self, text: &str) -> String {
+        // First handle ellipses: ... -> …
+        let text = text.replace("...", "\u{2026}");
+
+        // Then handle dashes
+        // We need to be careful about the order: --- should be matched before --
+        // Based on commonmark.js logic:
+        // - --- -> — (em dash)
+        // - -- -> – (en dash)
+        // But for sequences like ----, we need to apply rules for multiple dashes
+
+        let mut result = String::new();
+        let mut dash_count = 0;
+
+        for c in text.chars() {
+            if c == '-' {
+                dash_count += 1;
+            } else {
+                // Process any accumulated dashes
+                if dash_count > 0 {
+                    result.push_str(&self.convert_dashes(dash_count));
+                    dash_count = 0;
+                }
+                result.push(c);
+            }
+        }
+
+        // Process any trailing dashes
+        if dash_count > 0 {
+            result.push_str(&self.convert_dashes(dash_count));
+        }
+
+        result
+    }
+
+    /// Convert a sequence of dashes to em/en dashes
+    /// Based on commonmark.js logic from smart_punct.txt:
+    /// - A homogeneous sequence is preferred (all en or all em)
+    /// - 10 hyphens = 5 en dashes
+    /// - 9 hyphens = 3 em dashes
+    /// - 6 hyphens = 2 em dashes (3 is multiple of 3, preferred)
+    /// - 7 hyphens = 2 em + 1 en (when homogeneous is not possible)
+    /// - em dashes come first, then en dashes, with as few en dashes as possible
+    fn convert_dashes(&self, count: usize) -> String {
+        if count == 1 {
+            return "-".to_string();
+        }
+
+        let mut result = String::new();
+
+        // Try to use homogeneous sequence first
+        // Prefer em dashes when divisible by 3 (3, 6, 9, ...)
+        if count % 3 == 0 {
+            // Divisible by 3: use all em dashes
+            for _ in 0..(count / 3) {
+                result.push('\u{2014}'); // em dash
+            }
+        } else if count % 2 == 0 {
+            // Even number but not divisible by 3: use all en dashes
+            for _ in 0..(count / 2) {
+                result.push('\u{2013}'); // en dash
+            }
+        } else {
+            // Not homogeneous: use em dashes first, then en dashes
+            // Use as many em dashes as possible, then fill with en dashes
+            let mut remaining = count;
+
+            // Try to minimize en dashes
+            // Start with as many em dashes as possible
+            while remaining > 4 {
+                result.push('\u{2014}'); // em dash
+                remaining -= 3;
+            }
+
+            // Handle remaining (should be 2, 4, or 5 at this point)
+            match remaining {
+                2 => result.push('\u{2013}'),             // en dash
+                4 => result.push_str("\u{2013}\u{2013}"), // 2 en dashes
+                5 => result.push_str("\u{2014}\u{2013}"), // em + en
+                _ => {}                                   // should not happen
+            }
+        }
+
+        result
     }
 
     /// Append text to parent, merging with previous text node if possible
@@ -1699,11 +1976,18 @@ struct DelimScanResult {
 }
 
 /// Check if a character is special (has special meaning in inline parsing)
-fn is_special_char(c: char) -> bool {
-    matches!(
-        c,
-        '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n'
-    )
+fn is_special_char(c: char, smart: bool) -> bool {
+    if smart {
+        matches!(
+            c,
+            '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n' | '\'' | '"'
+        )
+    } else {
+        matches!(
+            c,
+            '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n'
+        )
+    }
 }
 
 /// Check if a character can be escaped
@@ -2000,7 +2284,20 @@ pub fn parse_inlines_with_refmap(
     block_offset: usize,
     refmap: std::collections::HashMap<String, (String, String)>,
 ) {
-    let mut subject = Subject::with_refmap(content, line, block_offset, refmap);
+    parse_inlines_with_options(parent, content, line, block_offset, refmap, false);
+}
+
+/// Parse inlines with reference map and smart punctuation option
+pub fn parse_inlines_with_options(
+    parent: &Rc<RefCell<Node>>,
+    content: &str,
+    line: usize,
+    block_offset: usize,
+    refmap: std::collections::HashMap<String, (String, String)>,
+    smart: bool,
+) {
+    let mut subject =
+        Subject::with_refmap_and_smart(content, line, block_offset, refmap, smart);
     subject.parse_inlines(parent);
 
     // Clear the parent's literal content since it's now represented as child nodes
@@ -2434,8 +2731,21 @@ fn match_processing_instruction(input: &str) -> Option<(String, usize)> {
 }
 
 /// Match declaration: <! ... >
+/// According to commonmark.js: /^<![A-Za-z]/ - must start with a letter after <!
 fn match_declaration(input: &str) -> Option<(String, usize)> {
     if !input.starts_with("<!") || input.starts_with("<![") {
+        return None;
+    }
+
+    // Declaration must have at least one character after <!
+    if input.len() <= 2 {
+        return None;
+    }
+
+    // Check that the character after <! is an ASCII letter (A-Z or a-z)
+    // Per commonmark.js: /^<![A-Za-z]/
+    let third_char = input.chars().nth(2)?;
+    if !third_char.is_ascii_alphabetic() {
         return None;
     }
 

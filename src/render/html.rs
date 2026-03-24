@@ -227,9 +227,17 @@ impl HtmlRenderer {
                         let decoded_info = decode_entities(info);
                         let lang = decoded_info.split_whitespace().next().unwrap_or("");
                         if !lang.is_empty() {
-                            self.lit(" class=\"language-");
-                            self.lit(&escape_html(lang));
-                            self.lit("\"");
+                            // Check if lang already starts with "language-"
+                            // Per commonmark.js: if (!/^language-/.exec(cls)) { cls = "language-" + cls; }
+                            if lang.starts_with("language-") {
+                                self.lit(" class=\"");
+                                self.lit(&escape_html(lang));
+                                self.lit("\"");
+                            } else {
+                                self.lit(" class=\"language-");
+                                self.lit(&escape_html(lang));
+                                self.lit("\"");
+                            }
                         }
                     }
                 }
@@ -264,12 +272,9 @@ impl HtmlRenderer {
                 }
             }
             NodeType::Heading => {
-                // In tight list items, add newline before heading
-                // The first heading in a list item should also have a newline
-                if !self.item_child_count.is_empty() {
-                    self.track_item_child();
-                    self.lit("\n");
-                }
+                // Add newline before heading (like commonmark.js cr() function)
+                // Only add newline if last output wasn't already a newline
+                self.cr();
                 if let NodeData::Heading { level, .. } = &node.data {
                     self.lit("<h");
                     self.lit(&level.to_string());
