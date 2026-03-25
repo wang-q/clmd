@@ -180,6 +180,47 @@ Based on benchmarks:
 
 ## Historical Performance Data
 
+### 2026-03-25 (Performance Optimization Round - Latest)
+
+Following a comprehensive optimization effort focusing on memory efficiency and parsing speed:
+
+#### Optimizations Applied
+
+1. **Memory Allocation Reduction**
+   - Subject refmap borrowing (avoid HashMap clone)
+   - String allocation reduction in `parse_backticks`
+   - Vec capacity pre-allocation
+
+2. **Character Processing Optimization**
+   - ASCII fast path for character classification
+   - Lookup table (CHAR_TABLE) for punctuation detection
+   - Byte-level processing where possible
+
+3. **Data Structure Improvements**
+   - FxHashMap for faster hashing (rustc-hash)
+   - SmallVec for small array optimization
+   - Reduced heap allocations in hot paths
+
+#### Performance Improvements
+
+| Test | Before | After | Improvement |
+|------|--------|-------|-------------|
+| inline_backticks | 2.79 µs | 2.36 µs | **-15.4%** |
+| inline_em_flat | 10.14 µs | 9.03 µs | **-10.9%** |
+| inline_em_nested | 7.98 µs | 7.45 µs | **-6.6%** |
+| inline_links_flat | 18.34 µs | 17.27 µs | **-5.8%** |
+| inline_links_nested | 19.24 µs | 18.39 µs | **-4.4%** |
+| lorem1_full_document | 19.87 µs | 17.99 µs | **-9.5%** |
+
+**Average improvement**: ~8.5% across inline parsing benchmarks
+
+#### Cross-Language Comparison Improvements
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Small file gap vs cmark | 27% slower | **18% slower** |
+| Large file gap vs cmark | 65% slower | **39% slower** |
+
 ### 2026-03-25 (Arena Migration Complete)
 - Arena-based implementation becomes default
 - 40% average performance improvement

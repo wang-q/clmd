@@ -101,8 +101,8 @@ hyperfine --warmup 10 --min-runs 100 \
 | 实现 | 时间 | 相对速度 |
 |------|------|----------|
 | **cmark (C)** | **1.5 ms** | 1.00x (最快) |
-| **clmd (Rust)** | **1.9 ms** | 1.27x (慢 27%) |
-| **commonmark.js (JS)** | **64.6 ms** | 43.1x (慢 43 倍) |
+| **clmd (Rust)** | **1.7 ms** | 1.18x (慢 18%) |
+| **commonmark.js (JS)** | **63.9 ms** | 43.7x (慢 43 倍) |
 
 ```bash
 $ hyperfine --warmup 10 --min-runs 100 \
@@ -111,17 +111,17 @@ $ hyperfine --warmup 10 --min-runs 100 \
   'node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem1.md'
 
 Benchmark 1: ./target/release/examples/cross_language_bench benches/samples/lorem1.md
-  Time (mean ± σ):       1.9 ms ±   3.2 ms    [User: 0.8 ms, System: 0.5 ms]
+  Time (mean ± σ):       1.7 ms ±   0.6 ms    [User: 0.8 ms, System: 0.5 ms]
 
 Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem1.md
-  Time (mean ± σ):       1.5 ms ±   0.7 ms    [User: 0.6 ms, System: 0.5 ms]
+  Time (mean ± σ):       1.5 ms ±   0.2 ms    [User: 0.6 ms, System: 0.5 ms]
 
 Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem1.md
-  Time (mean ± σ):      64.6 ms ±   3.1 ms    [User: 60.2 ms, System: 8.2 ms]
+  Time (mean ± σ):      63.9 ms ±   3.1 ms    [User: 59.6 ms, System: 8.0 ms]
 
 Summary
-  cmark ran 1.25 times faster than clmd
-  cmark ran 42.49 times faster than commonmark.js
+  cmark ran 1.18 times faster than clmd
+  cmark ran 43.74 times faster than commonmark.js
 ```
 
 ### 大文件测试 (lorem-xlarge.md, ~110KB)
@@ -131,8 +131,8 @@ Summary
 | 实现 | 时间 | 相对速度 |
 |------|------|----------|
 | **cmark (C)** | **2.6 ms** | 1.00x (最快) |
-| **clmd (Rust)** | **4.3 ms** | 1.65x (慢 65%) |
-| **commonmark.js (JS)** | **76.4 ms** | 29.4x (慢 29 倍) |
+| **clmd (Rust)** | **3.6 ms** | 1.39x (慢 39%) |
+| **commonmark.js (JS)** | **74.5 ms** | 29.0x (慢 29 倍) |
 
 ```bash
 $ hyperfine --warmup 3 --min-runs 50 \
@@ -141,30 +141,30 @@ $ hyperfine --warmup 3 --min-runs 50 \
   'node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md'
 
 Benchmark 1: ./target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md
-  Time (mean ± σ):       4.3 ms ±   0.9 ms    [User: 3.1 ms, System: 0.7 ms]
+  Time (mean ± σ):       3.6 ms ±   0.9 ms    [User: 2.5 ms, System: 0.7 ms]
 
 Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem-xlarge.md
-  Time (mean ± σ):       2.6 ms ±   0.3 ms    [User: 1.6 ms, System: 0.6 ms]
+  Time (mean ± σ):       2.6 ms ±   0.7 ms    [User: 1.6 ms, System: 0.6 ms]
 
 Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md
-  Time (mean ± σ):      76.4 ms ±   3.6 ms    [User: 84.6 ms, System: 10.1 ms]
+  Time (mean ± σ):      74.5 ms ±   1.6 ms    [User: 83.1 ms, System: 9.6 ms]
 
 Summary
-  cmark ran 1.61 times faster than clmd
-  cmark ran 28.88 times faster than commonmark.js
+  cmark ran 1.39 times faster than clmd
+  cmark ran 28.97 times faster than commonmark.js
 ```
 
 ### clmd 不同大小文档性能 (Criterion.rs)
 
 | 文档 | 大小 | 解析时间 | 吞吐量 |
 |------|------|----------|--------|
-| `lorem1.md` | ~1KB | 19.9 µs | ~50 MB/s |
+| `lorem1.md` | ~1KB | 17.99 µs | ~55 MB/s |
 | `lorem-large.md` | ~7KB | 133.7 µs | ~52 MB/s |
 | `lorem-xlarge.md` | ~110KB | 2.06 ms | ~53 MB/s |
 
 **观察**: 
 - 解析时间与文档大小呈线性关系
-- 吞吐量稳定在 50-53 MB/s
+- 吞吐量稳定在 52-55 MB/s
 - 性能随文档大小扩展良好
 
 ## 实现架构
@@ -199,22 +199,22 @@ clmd 使用 Arena 分配器来管理 AST 节点内存：
 
 | 文件大小 | cmark (C) | clmd (Rust) | commonmark.js |
 |---------|-----------|-------------|---------------|
-| 小文件 (1KB) | 1.5 ms | 1.9 ms (慢 27%) | 64.6 ms (慢 43 倍) |
-| 大文件 (110KB) | 2.6 ms | 4.3 ms (慢 65%) | 76.4 ms (慢 29 倍) |
+| 小文件 (1KB) | 1.5 ms | 1.7 ms (慢 18%) | 63.9 ms (慢 43 倍) |
+| 大文件 (110KB) | 2.6 ms | 3.6 ms (慢 39%) | 74.5 ms (慢 29 倍) |
 
 ### 关键发现
 
 1. **clmd 非常接近 cmark**
-   - 小文件仅慢 27%
-   - 大文件慢 65%
-   - 纯解析性能优异（19.9 µs for 1KB）
+   - 小文件仅慢 18%（优化前 27%）
+   - 大文件慢 39%（优化前 65%）
+   - 纯解析性能优异（17.99 µs for 1KB）
 
 2. **远超 commonmark.js**
    - 小文件快 43 倍
    - 大文件快 29 倍
 
 3. **稳定的吞吐量**
-   - 50-53 MB/s across all document sizes
+   - 52-55 MB/s across all document sizes
    - 线性扩展性良好
 
 ### 与参考实现对比
@@ -222,8 +222,14 @@ clmd 使用 Arena 分配器来管理 AST 节点内存：
 | 实现 | 语言 | 小文件 (1KB) | 大文件 (110KB) | 特点 |
 |------|------|-------------|---------------|------|
 | cmark | C | 1.5 ms | 2.6 ms | 原生性能，无 GC |
-| clmd | Rust | 1.9 ms | 4.3 ms | 内存安全，Arena 分配 |
-| commonmark.js | JS | 64.6 ms | 76.4 ms | 跨平台，易用 |
+| clmd | Rust | 1.7 ms | 3.6 ms | 内存安全，Arena 分配 |
+| commonmark.js | JS | 63.9 ms | 74.5 ms | 跨平台，易用 |
+
+### 优化成果
+
+经过多轮优化，clmd 与 cmark 的差距显著缩小：
+- 小文件差距从 27% 降至 18%
+- 大文件差距从 65% 降至 39%
 
 ### 未来优化方向
 

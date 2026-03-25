@@ -246,57 +246,6 @@ pub fn render_man(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
     String::from("<!-- Man page rendering not yet implemented for Arena -->")
 }
 
-/// Process inlines for all leaf blocks in the document
-fn process_inlines_arena(arena: &mut NodeArena, root: NodeId, _options: u32) {
-    use crate::inlines::Subject;
-
-    // Collect all leaf blocks that need inline processing
-    let mut leaf_blocks: Vec<(NodeId, String)> = Vec::new();
-    collect_leaf_blocks(arena, root, &mut leaf_blocks);
-
-    // Process inlines for each leaf block
-    for (node_id, content) in leaf_blocks {
-        let mut subject = Subject::new(&content, 1, 0);
-        subject.parse_inlines(arena, node_id);
-    }
-}
-
-/// Collect leaf blocks that need inline processing
-fn collect_leaf_blocks(
-    arena: &NodeArena,
-    node_id: NodeId,
-    leaf_blocks: &mut Vec<(NodeId, String)>,
-) {
-    let node = arena.get(node_id);
-
-    match node.node_type {
-        NodeType::Paragraph | NodeType::Heading => {
-            // For paragraphs and headings, check if content is in the node's data
-            let content = if let NodeData::Text { literal } = &node.data {
-                literal.clone()
-            } else if let NodeData::Heading { content, .. } = &node.data {
-                content.clone()
-            } else {
-                String::new()
-            };
-
-            if !content.is_empty() {
-                leaf_blocks.push((node_id, content));
-            }
-        }
-        _ => {
-            // Recursively process children
-            if let Some(child_id) = node.first_child {
-                let mut current = Some(child_id);
-                while let Some(id) = current {
-                    collect_leaf_blocks(arena, id, leaf_blocks);
-                    current = arena.get(id).next;
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

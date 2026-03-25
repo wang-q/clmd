@@ -1042,7 +1042,8 @@ impl<'a> Subject<'a> {
         // Collect all delimiter info into a vector (safer than raw pointers)
         // We store: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims)
         // Use SmallVec to avoid heap allocation for small stacks
-        let mut delims: SmallVec<[(NodeId, char, bool, bool, usize, usize); 32]> = SmallVec::new();
+        let mut delims: SmallVec<[(NodeId, char, bool, bool, usize, usize); 32]> =
+            SmallVec::new();
 
         // Traverse the delimiter stack and collect info
         let mut current = self.delimiters.as_ref();
