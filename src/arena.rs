@@ -210,12 +210,12 @@ impl TreeOps {
     /// Append a child to a parent node
     pub fn append_child(arena: &mut NodeArena, parent_id: NodeId, child_id: NodeId) {
         let parent = arena.get_mut(parent_id);
-        
+
         if let Some(last_child_id) = parent.last_child {
             // Link child to previous last child
             let last_child = arena.get_mut(last_child_id);
             last_child.next = Some(child_id);
-            
+
             let child = arena.get_mut(child_id);
             child.prev = Some(last_child_id);
         } else {
@@ -223,11 +223,11 @@ impl TreeOps {
             let parent = arena.get_mut(parent_id);
             parent.first_child = Some(child_id);
         }
-        
+
         // Always update last_child and set parent
         let parent = arena.get_mut(parent_id);
         parent.last_child = Some(child_id);
-        
+
         let child = arena.get_mut(child_id);
         child.parent = Some(parent_id);
     }
@@ -296,7 +296,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let node = Node::new(NodeType::Document);
         let id = arena.alloc(node);
-        
+
         assert_eq!(id, 0);
         assert_eq!(arena.len(), 1);
         assert!(arena.is_valid(id));
@@ -305,18 +305,18 @@ mod tests {
     #[test]
     fn test_tree_operations() {
         let mut arena = NodeArena::new();
-        
+
         // Create parent
         let parent = arena.alloc(Node::new(NodeType::Document));
-        
+
         // Create children
         let child1 = arena.alloc(Node::new(NodeType::Paragraph));
         let child2 = arena.alloc(Node::new(NodeType::Paragraph));
-        
+
         // Append children
         TreeOps::append_child(&mut arena, parent, child1);
         TreeOps::append_child(&mut arena, parent, child2);
-        
+
         // Verify tree structure
         assert_eq!(arena.get(parent).first_child, Some(child1));
         assert_eq!(arena.get(parent).last_child, Some(child2));
@@ -329,19 +329,19 @@ mod tests {
     #[test]
     fn test_unlink() {
         let mut arena = NodeArena::new();
-        
+
         let parent = arena.alloc(Node::new(NodeType::Document));
         let child1 = arena.alloc(Node::new(NodeType::Paragraph));
         let child2 = arena.alloc(Node::new(NodeType::Paragraph));
         let child3 = arena.alloc(Node::new(NodeType::Paragraph));
-        
+
         TreeOps::append_child(&mut arena, parent, child1);
         TreeOps::append_child(&mut arena, parent, child2);
         TreeOps::append_child(&mut arena, parent, child3);
-        
+
         // Unlink middle child
         TreeOps::unlink(&mut arena, child2);
-        
+
         // Verify structure
         assert_eq!(arena.get(child1).next, Some(child3));
         assert_eq!(arena.get(child3).prev, Some(child1));

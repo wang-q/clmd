@@ -15,7 +15,7 @@ fn main() {
     }
 
     let input = fs::read_to_string(&args[1]).expect("Failed to read file");
-    
+
     // Run once (hyperfine will handle iterations)
     let _ = markdown_to_html(&input, options::DEFAULT);
 }

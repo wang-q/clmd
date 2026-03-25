@@ -42,7 +42,7 @@ mod rc_version {
 
     pub fn append_child(parent: &Rc<RefCell<Node>>, child: Rc<RefCell<Node>>) {
         let parent_ref = parent.borrow();
-        
+
         if let Some(ref last_child) = *parent_ref.last_child.borrow() {
             // Link child to previous last child
             *child.borrow().prev.borrow_mut() = Some(Rc::downgrade(last_child));
@@ -51,7 +51,7 @@ mod rc_version {
             // No children yet, set as first child
             *parent_ref.first_child.borrow_mut() = Some(child.clone());
         }
-        
+
         // Always update last_child
         *parent_ref.last_child.borrow_mut() = Some(child.clone());
         *child.borrow().parent.borrow_mut() = Some(Rc::downgrade(parent));
@@ -60,34 +60,34 @@ mod rc_version {
     /// Build a simple document tree with n paragraphs
     pub fn build_tree(n: usize) -> Rc<RefCell<Node>> {
         let doc = Node::new(NodeType::Document);
-        
+
         for _ in 0..n {
             let para = Node::new(NodeType::Paragraph);
-            
+
             // Add some text children
             for _ in 0..5 {
                 let text = Node::new(NodeType::Text);
                 append_child(&para, text);
             }
-            
+
             append_child(&doc, para);
         }
-        
+
         doc
     }
 
     /// Traverse the tree
     pub fn traverse(node: &Rc<RefCell<Node>>) -> usize {
         let mut count = 1;
-        
+
         if let Some(ref first_child) = *node.borrow().first_child.borrow() {
             count += traverse(first_child);
         }
-        
+
         if let Some(ref next) = *node.borrow().next.borrow() {
             count += traverse(next);
         }
-        
+
         count
     }
 }
@@ -146,21 +146,21 @@ mod arena_version {
 
     pub fn append_child(arena: &mut Arena, parent_id: NodeId, child_id: NodeId) {
         let parent = arena.get_mut(parent_id);
-        
+
         if let Some(last_child_id) = parent.last_child {
             let last_child = arena.get_mut(last_child_id);
             last_child.next = Some(child_id);
-            
+
             let child = arena.get_mut(child_id);
             child.prev = Some(last_child_id);
         } else {
             let parent = arena.get_mut(parent_id);
             parent.first_child = Some(child_id);
         }
-        
+
         let parent = arena.get_mut(parent_id);
         parent.last_child = Some(child_id);
-        
+
         let child = arena.get_mut(child_id);
         child.parent = Some(parent_id);
     }
@@ -169,19 +169,19 @@ mod arena_version {
     pub fn build_tree(n: usize) -> (Arena, NodeId) {
         let mut arena = Arena::new();
         let doc = arena.alloc(Node::new(NodeType::Document));
-        
+
         for _ in 0..n {
             let para = arena.alloc(Node::new(NodeType::Paragraph));
-            
+
             // Add some text children
             for _ in 0..5 {
                 let text = arena.alloc(Node::new(NodeType::Text));
                 append_child(&mut arena, para, text);
             }
-            
+
             append_child(&mut arena, doc, para);
         }
-        
+
         (arena, doc)
     }
 
@@ -189,28 +189,28 @@ mod arena_version {
     pub fn traverse(arena: &Arena, node_id: NodeId) -> usize {
         let mut count = 1;
         let node = arena.get(node_id);
-        
+
         if let Some(first_child) = node.first_child {
             count += traverse(arena, first_child);
         }
-        
+
         if let Some(next) = node.next {
             count += traverse(arena, next);
         }
-        
+
         count
     }
 }
 
 fn main() {
     println!("Arena vs Rc<RefCell> Performance Comparison\n");
-    
+
     let sizes = [100, 1000, 10000];
     let iterations = 1000;
-    
+
     for &size in &sizes {
         println!("--- Tree size: {} paragraphs ---", size);
-        
+
         // Benchmark Rc<RefCell> version
         let start = Instant::now();
         for _ in 0..iterations {
@@ -219,7 +219,7 @@ fn main() {
             assert_eq!(count, 1 + size * 6); // doc + n * (para + 5 text)
         }
         let rc_time = start.elapsed();
-        
+
         // Benchmark Arena version
         let start = Instant::now();
         for _ in 0..iterations {
@@ -228,12 +228,18 @@ fn main() {
             assert_eq!(count, 1 + size * 6);
         }
         let arena_time = start.elapsed();
-        
-        println!("  Rc<RefCell>:  {:?} ({:?} per iteration)", 
-                 rc_time, rc_time / iterations);
-        println!("  Arena:        {:?} ({:?} per iteration)", 
-                 arena_time, arena_time / iterations);
-        
+
+        println!(
+            "  Rc<RefCell>:  {:?} ({:?} per iteration)",
+            rc_time,
+            rc_time / iterations
+        );
+        println!(
+            "  Arena:        {:?} ({:?} per iteration)",
+            arena_time,
+            arena_time / iterations
+        );
+
         if arena_time < rc_time {
             let speedup = rc_time.as_secs_f64() / arena_time.as_secs_f64();
             println!("  Arena is {:.2}x faster", speedup);
@@ -243,7 +249,7 @@ fn main() {
         }
         println!();
     }
-    
+
     println!("\nConclusion:");
     println!("If Arena shows significant speedup (>20%), it's worth migrating the full codebase.");
     println!("Otherwise, the current Rc<RefCell> approach is acceptable.");

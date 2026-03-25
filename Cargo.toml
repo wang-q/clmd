@@ -3,11 +3,6 @@ name = "clmd"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["rc-refcell"]
-rc-refcell = []
-arena = []
-
 [dependencies]
 thiserror = "1.0"
 regex = "1.10"

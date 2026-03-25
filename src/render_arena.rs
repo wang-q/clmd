@@ -2,8 +2,8 @@
 //!
 //! This is the Arena-based version of HTML rendering.
 
-use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::arena::Node;
+use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use std::fmt::Write;
 
@@ -20,7 +20,7 @@ impl HtmlRenderer {
 
     fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) {
         let node = arena.get(node_id);
-        
+
         match node.node_type {
             NodeType::Document => {
                 Self::render_children(arena, node_id, output);
@@ -82,8 +82,12 @@ impl HtmlRenderer {
                     if info.is_empty() {
                         output.push_str("<pre><code>");
                     } else {
-                        write!(output, "<pre><code class=\"language-{}\">", 
-                            escape_html(info)).unwrap();
+                        write!(
+                            output,
+                            "<pre><code class=\"language-{}\">",
+                            escape_html(info)
+                        )
+                        .unwrap();
                     }
                     output.push_str(&escape_html(literal));
                     output.push_str("</code></pre>\n");
@@ -124,8 +128,13 @@ impl HtmlRenderer {
                     if title.is_empty() {
                         write!(output, "<a href=\"{}\">", escape_html(url)).unwrap();
                     } else {
-                        write!(output, "<a href=\"{}\" title=\"{}\">", 
-                            escape_html(url), escape_html(title)).unwrap();
+                        write!(
+                            output,
+                            "<a href=\"{}\" title=\"{}\">",
+                            escape_html(url),
+                            escape_html(title)
+                        )
+                        .unwrap();
                     }
                     Self::render_children(arena, node_id, output);
                     output.push_str("</a>");
@@ -135,11 +144,22 @@ impl HtmlRenderer {
                 if let NodeData::Image { url, title } = &node.data {
                     let alt = Self::collect_text(arena, node_id);
                     if title.is_empty() {
-                        write!(output, "<img src=\"{}\" alt=\"{}\" />", 
-                            escape_html(url), escape_html(&alt)).unwrap();
+                        write!(
+                            output,
+                            "<img src=\"{}\" alt=\"{}\" />",
+                            escape_html(url),
+                            escape_html(&alt)
+                        )
+                        .unwrap();
                     } else {
-                        write!(output, "<img src=\"{}\" alt=\"{}\" title=\"{}\" />", 
-                            escape_html(url), escape_html(&alt), escape_html(title)).unwrap();
+                        write!(
+                            output,
+                            "<img src=\"{}\" alt=\"{}\" title=\"{}\" />",
+                            escape_html(url),
+                            escape_html(&alt),
+                            escape_html(title)
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -179,11 +199,11 @@ impl HtmlRenderer {
 
     fn collect_text_recursive(arena: &NodeArena, node_id: NodeId, result: &mut String) {
         let node = arena.get(node_id);
-        
+
         if let NodeData::Text { literal } = &node.data {
             result.push_str(literal);
         }
-        
+
         if let Some(child_id) = node.first_child {
             let mut current = Some(child_id);
             while let Some(id) = current {
@@ -218,7 +238,7 @@ mod tests {
     fn test_render_simple() {
         let mut arena = NodeArena::new();
         let doc = BlockParser::parse(&mut arena, "Hello world");
-        
+
         let html = HtmlRenderer::render(&arena, doc);
         assert!(html.contains("<p>"));
         assert!(html.contains("Hello world"));
@@ -229,7 +249,7 @@ mod tests {
     fn test_render_heading() {
         let mut arena = NodeArena::new();
         let doc = BlockParser::parse(&mut arena, "# Heading 1");
-        
+
         let html = HtmlRenderer::render(&arena, doc);
         assert!(html.contains("<h1>"));
         assert!(html.contains("Heading 1"));

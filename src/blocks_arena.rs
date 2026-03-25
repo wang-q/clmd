@@ -3,8 +3,8 @@
 //! This is the Arena-based version of block parsing,
 //! intended to replace the Rc<RefCell> version for better performance.
 
-use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::arena::Node;
+use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::NodeType;
 use std::collections::HashMap;
 
@@ -145,7 +145,7 @@ impl<'a> BlockParser<'a> {
     fn incorporate_line(&mut self) {
         // Simple implementation: create paragraph nodes for non-empty lines
         let trimmed = self.current_line.trim();
-        
+
         if trimmed.is_empty() {
             // Blank line - finalize current tip if it's a paragraph
             if self.get_node_type(self.tip) == NodeType::Paragraph {
@@ -162,7 +162,9 @@ impl<'a> BlockParser<'a> {
             } else if self.current_line.starts_with("> ") {
                 // Block quote
                 self.handle_block_quote();
-            } else if self.current_line.starts_with("- ") || self.current_line.starts_with("* ") {
+            } else if self.current_line.starts_with("- ")
+                || self.current_line.starts_with("* ")
+            {
                 // List item
                 self.handle_list_item();
             } else {
@@ -176,7 +178,7 @@ impl<'a> BlockParser<'a> {
     fn parse_atx_heading(&self) -> Option<u32> {
         let line = self.current_line.trim_start();
         let mut level = 0;
-        
+
         for c in line.chars() {
             if c == '#' && level < 6 {
                 level += 1;
@@ -184,7 +186,7 @@ impl<'a> BlockParser<'a> {
                 break;
             }
         }
-        
+
         // Must have space after #
         if level > 0 && line.chars().nth(level as usize) == Some(' ') {
             Some(level)
@@ -196,18 +198,19 @@ impl<'a> BlockParser<'a> {
     /// Create a heading node
     fn create_heading(&mut self, level: u32) {
         // Extract heading content
-        let content = self.current_line
+        let content = self
+            .current_line
             .trim_start()
             .trim_start_matches('#')
             .trim_start()
             .trim_end()
             .to_string();
-        
+
         let heading = self.arena.alloc(Node::with_data(
             NodeType::Heading,
-            crate::node::NodeData::Heading { level, content }
+            crate::node::NodeData::Heading { level, content },
         ));
-        
+
         TreeOps::append_child(self.arena, self.doc, heading);
         self.set_block_info(heading, BlockInfo::new());
     }
@@ -220,29 +223,30 @@ impl<'a> BlockParser<'a> {
             crate::node::NodeData::CodeBlock {
                 info: String::new(),
                 literal: String::new(),
-            }
+            },
         ));
-        
+
         TreeOps::append_child(self.arena, self.doc, code_block);
         self.set_block_info(code_block, BlockInfo::new());
     }
 
     /// Handle block quote
     fn handle_block_quote(&mut self) {
-        let content = self.current_line
+        let content = self
+            .current_line
             .trim_start_matches("> ")
             .trim_end()
             .to_string();
-        
+
         // Check if we need to create new block quote or append to existing
         let bq = self.arena.alloc(Node::new(NodeType::BlockQuote));
         TreeOps::append_child(self.arena, self.doc, bq);
         self.set_block_info(bq, BlockInfo::new());
-        
+
         // Add paragraph inside block quote
         let para = self.arena.alloc(Node::with_data(
             NodeType::Paragraph,
-            crate::node::NodeData::Paragraph
+            crate::node::NodeData::Paragraph,
         ));
         TreeOps::append_child(self.arena, bq, para);
         self.set_block_info(para, BlockInfo::new());
@@ -252,12 +256,13 @@ impl<'a> BlockParser<'a> {
 
     /// Handle list item
     fn handle_list_item(&mut self) {
-        let content = self.current_line
+        let content = self
+            .current_line
             .trim_start_matches("- ")
             .trim_start_matches("* ")
             .trim_end()
             .to_string();
-        
+
         // Create list if needed
         let list = self.arena.alloc(Node::with_data(
             NodeType::List,
@@ -267,20 +272,20 @@ impl<'a> BlockParser<'a> {
                 start: 0,
                 tight: false,
                 bullet_char: '-',
-            }
+            },
         ));
         TreeOps::append_child(self.arena, self.doc, list);
         self.set_block_info(list, BlockInfo::new());
-        
+
         // Create item
         let item = self.arena.alloc(Node::new(NodeType::Item));
         TreeOps::append_child(self.arena, list, item);
         self.set_block_info(item, BlockInfo::new());
-        
+
         // Add paragraph inside item
         let para = self.arena.alloc(Node::with_data(
             NodeType::Paragraph,
-            crate::node::NodeData::Paragraph
+            crate::node::NodeData::Paragraph,
         ));
         TreeOps::append_child(self.arena, item, para);
         self.set_block_info(para, BlockInfo::new());
@@ -295,13 +300,13 @@ impl<'a> BlockParser<'a> {
             // Create new paragraph
             let para = self.arena.alloc(Node::with_data(
                 NodeType::Paragraph,
-                crate::node::NodeData::Paragraph
+                crate::node::NodeData::Paragraph,
             ));
             TreeOps::append_child(self.arena, self.doc, para);
             self.set_block_info(para, BlockInfo::new());
             self.tip = para;
         }
-        
+
         // Append content to current paragraph
         let content = self.current_line.trim_end().to_string();
         self.append_string_content(self.tip, &content);
@@ -327,18 +332,18 @@ impl<'a> BlockParser<'a> {
                     // Create text node with content
                     let text_node = self.arena.alloc(Node::with_data(
                         NodeType::Text,
-                        crate::node::NodeData::Text { literal: content }
+                        crate::node::NodeData::Text { literal: content },
                     ));
                     TreeOps::append_child(self.arena, block, text_node);
                 }
             }
         }
-        
+
         // Move tip to parent
         if let Some(parent) = self.arena.get(block).parent {
             self.tip = parent;
         }
-        
+
         // Mark as closed
         if let Some(info) = self.get_block_info_mut(block) {
             info.is_open = false;
@@ -398,7 +403,7 @@ mod tests {
     fn test_arena_parser_creation() {
         let mut arena = NodeArena::new();
         let parser = BlockParser::new(&mut arena);
-        
+
         assert_eq!(parser.doc, 0);
         assert_eq!(parser.tip, 0);
     }
@@ -407,7 +412,7 @@ mod tests {
     fn test_arena_parse_simple() {
         let mut arena = NodeArena::new();
         let doc = BlockParser::parse(&mut arena, "Hello world");
-        
+
         assert_eq!(doc, 0);
         assert_eq!(arena.get(doc).node_type, NodeType::Document);
     }
@@ -416,7 +421,7 @@ mod tests {
     fn test_arena_parse_heading() {
         let mut arena = NodeArena::new();
         let doc = BlockParser::parse(&mut arena, "# Heading 1");
-        
+
         assert_eq!(arena.get(doc).node_type, NodeType::Document);
         // Check that heading was created as child
         let first_child = arena.get(doc).first_child;
@@ -428,7 +433,7 @@ mod tests {
     fn test_arena_parse_paragraphs() {
         let mut arena = NodeArena::new();
         let doc = BlockParser::parse(&mut arena, "Para 1\n\nPara 2");
-        
+
         assert_eq!(arena.get(doc).node_type, NodeType::Document);
         // Should have two paragraph children
         let first_child = arena.get(doc).first_child;

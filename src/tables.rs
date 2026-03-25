@@ -11,8 +11,7 @@
 //! | Cell 3   | Cell 4   |
 //! ```
 
-use crate::node::{append_child, NodeData, NodeType, SourcePos, TableAlignment};
-use crate::Node;
+use crate::node::{append_child, Node, NodeData, NodeType, SourcePos, TableAlignment};
 use std::cell::RefCell;
 use std::rc::Rc;
 

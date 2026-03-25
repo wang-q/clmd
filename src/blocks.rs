@@ -1,65 +1,13 @@
+use crate::arena::Node;
 /// Block-level parsing for CommonMark documents
 ///
 /// This module implements the block parsing algorithm based on the CommonMark spec.
-/// It processes input line by line, building the AST structure.
-use crate::inlines::{parse_reference, unescape_string};
+/// It processes input line by line, building the AST structure using Arena allocation.
+use crate::arena::{NodeArena, NodeId, TreeOps};
+use crate::inlines_arena as inlines;
+use crate::inlines_arena::{parse_reference, unescape_string};
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
-use crate::node::{
-    append_child, unlink, DelimType, ListType, Node, NodeData, NodeType, SourcePos,
-};
-use std::cell::RefCell;
-use std::rc::Rc;
-
-/// Unique identifier for a node in the arena
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodeId(usize);
-
-/// Block parser state
-pub struct BlockParser {
-    /// Root document node
-    pub doc: Rc<RefCell<Node>>,
-    /// Current tip (last open block)
-    pub tip: Rc<RefCell<Node>>,
-    /// Old tip for tracking unmatched blocks
-    pub old_tip: Rc<RefCell<Node>>,
-    /// Last matched container
-    pub last_matched_container: Rc<RefCell<Node>>,
-    /// Current line being processed
-    pub current_line: String,
-    /// Current line number
-    pub line_number: usize,
-    /// Current offset in line
-    pub offset: usize,
-    /// Current column
-    pub column: usize,
-    /// Next non-space position
-    pub next_nonspace: usize,
-    /// Next non-space column
-    pub next_nonspace_column: usize,
-    /// Current indent level
-    pub indent: usize,
-    /// Whether current line is indented
-    pub indented: bool,
-    /// Whether current line is blank
-    pub blank: bool,
-    /// Whether we partially consumed a tab
-    pub partially_consumed_tab: bool,
-    /// Whether all containers are closed
-    pub all_closed: bool,
-    /// Last line length
-    pub last_line_length: usize,
-    /// Content buffer for accumulating text (used during parsing)
-    pub content: String,
-    /// Reference map for link references: label -> (url, title)
-    pub refmap: std::collections::HashMap<String, (String, String)>,
-    /// Block info for each node (fence info, list data, etc.)
-    /// Using Vec with pointer-based indexing for O(1) access
-    block_info: Vec<Option<BlockInfo>>,
-    /// Map from node pointer to block_info index
-    node_to_index: std::collections::HashMap<*const (), usize>,
-    /// Next available index in block_info
-    next_index: usize,
-}
+use crate::node::{DelimType, ListType, NodeData, NodeType, SourcePos};
 
 /// Block info for tracking fenced code blocks and list items
 #[derive(Debug, Clone)]
@@ -103,16 +51,63 @@ impl BlockInfo {
     }
 }
 
-impl BlockParser {
-    /// Create a new block parser
-    pub fn new() -> Self {
-        let doc = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let tip = doc.clone();
-        let old_tip = doc.clone();
-        let last_matched_container = doc.clone();
+/// Block parser state using Arena allocation
+pub struct BlockParser<'a> {
+    /// Arena for node allocation
+    arena: &'a mut NodeArena,
+    /// Root document node ID
+    pub doc: NodeId,
+    /// Current tip (last open block)
+    pub tip: NodeId,
+    /// Old tip for tracking unmatched blocks
+    pub old_tip: NodeId,
+    /// Last matched container
+    pub last_matched_container: NodeId,
+    /// Current line being processed
+    pub current_line: String,
+    /// Current line number
+    pub line_number: usize,
+    /// Current offset in line
+    pub offset: usize,
+    /// Current column
+    pub column: usize,
+    /// Next non-space position
+    pub next_nonspace: usize,
+    /// Next non-space column
+    pub next_nonspace_column: usize,
+    /// Current indent level
+    pub indent: usize,
+    /// Whether current line is indented
+    pub indented: bool,
+    /// Whether current line is blank
+    pub blank: bool,
+    /// Whether we partially consumed a tab
+    pub partially_consumed_tab: bool,
+    /// Whether all containers are closed
+    pub all_closed: bool,
+    /// Last line length
+    pub last_line_length: usize,
+    /// Reference map for link references: label -> (url, title)
+    pub refmap: std::collections::HashMap<String, (String, String)>,
+    /// Block info for each node
+    block_info: Vec<Option<BlockInfo>>,
+    /// Map from node ID to block_info index
+    node_to_index: std::collections::HashMap<NodeId, usize>,
+    /// Next available index in block_info
+    pub next_index: usize,
+}
+
+impl<'a> BlockParser<'a> {
+    /// Create a new block parser with the given arena
+    pub fn new(arena: &'a mut NodeArena) -> Self {
+        let doc = arena.alloc(Node::new(NodeType::Document));
+        let tip = doc;
+        let old_tip = doc;
+        let last_matched_container = doc;
 
         let mut parser = BlockParser {
-            doc: doc.clone(),
+            arena,
+            doc,
             tip,
             old_tip,
             last_matched_container,
@@ -128,22 +123,21 @@ impl BlockParser {
             partially_consumed_tab: false,
             all_closed: true,
             last_line_length: 0,
-            content: String::new(),
             refmap: std::collections::HashMap::new(),
-            block_info: Vec::with_capacity(64), // Pre-allocate for typical document size
+            block_info: Vec::with_capacity(64),
             node_to_index: std::collections::HashMap::with_capacity(64),
             next_index: 0,
         };
 
         // Initialize block info for document
-        parser.set_block_info(&doc, BlockInfo::new());
+        parser.set_block_info(doc, BlockInfo::new());
 
         parser
     }
 
     /// Parse a complete document
-    pub fn parse(input: &str) -> Rc<RefCell<Node>> {
-        let mut parser = Self::new();
+    pub fn parse(arena: &'a mut NodeArena, input: &str) -> NodeId {
+        let mut parser = Self::new(arena);
 
         // Process lines directly without creating intermediate String
         // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
@@ -162,7 +156,7 @@ impl BlockParser {
         // and don't get an extra newline added to their content
         parser.finalize_document();
 
-        parser.doc.clone()
+        parser.doc
     }
 
     /// Process a single line
@@ -194,7 +188,7 @@ impl BlockParser {
     fn incorporate_line(&mut self) {
         let mut all_matched = true;
 
-        self.old_tip = self.tip.clone();
+        self.old_tip = self.tip;
         self.all_closed = true;
 
         // Try to match existing containers
@@ -205,11 +199,11 @@ impl BlockParser {
         }
 
         let mut container = last_matched_container.unwrap();
-        self.last_matched_container = container.clone();
+        self.last_matched_container = container;
 
         // Check if container is a leaf that accepts lines
-        let container_type = container.borrow().node_type;
-        let _accepts_lines = self.accepts_lines(&container);
+        let container_type = self.arena.get(container).node_type;
+        let _accepts_lines = self.accepts_lines(container);
         let is_leaf =
             matches!(container_type, NodeType::Heading | NodeType::ThematicBreak);
 
@@ -218,25 +212,22 @@ impl BlockParser {
             self.find_next_nonspace();
 
             // Try each block start function
-            container = self.open_new_blocks(&container, all_matched);
+            container = self.open_new_blocks(container, all_matched);
         }
 
         // Add line content to appropriate container
-        self.add_text_to_container(&container);
+        self.add_text_to_container(container);
     }
 
     /// Check which open blocks can continue on this line
-    fn check_open_blocks(
-        &mut self,
-        all_matched: &mut bool,
-    ) -> Option<Rc<RefCell<Node>>> {
+    fn check_open_blocks(&mut self, all_matched: &mut bool) -> Option<NodeId> {
         *all_matched = true;
-        let mut container = self.doc.clone();
+        let mut container = self.doc;
 
         loop {
-            let last_child_opt = container.borrow().last_child.borrow().clone();
+            let last_child_opt = self.arena.get(container).last_child;
             if let Some(last_child) = last_child_opt {
-                if !self.is_open(&last_child) {
+                if !self.is_open(last_child) {
                     break;
                 }
                 container = last_child;
@@ -246,17 +237,15 @@ impl BlockParser {
 
             self.find_next_nonspace();
 
-            let result = self.check_container_continuation(&container);
+            let result = self.check_container_continuation(container);
             match result {
                 0 => {} // Matched, continue
                 1 => {
                     // Failed to match
                     *all_matched = false;
                     // Get parent before modifying container
-                    let parent_opt = container.borrow().parent.borrow().clone();
-                    container = parent_opt
-                        .and_then(|w| w.upgrade())
-                        .unwrap_or_else(|| self.doc.clone());
+                    let parent_opt = self.arena.get(container).parent;
+                    container = parent_opt.unwrap_or(self.doc);
                     break;
                 }
                 2 => return None, // End of line for fenced code
@@ -264,14 +253,14 @@ impl BlockParser {
             }
         }
 
-        self.all_closed = Rc::ptr_eq(&container, &self.old_tip);
+        self.all_closed = container == self.old_tip;
 
         Some(container)
     }
 
     /// Check if a container can continue on this line
-    fn check_container_continuation(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
-        let node_type = container.borrow().node_type;
+    fn check_container_continuation(&mut self, container: NodeId) -> i32 {
+        let node_type = self.arena.get(container).node_type;
 
         match node_type {
             NodeType::BlockQuote => self.continue_block_quote(),
@@ -315,16 +304,16 @@ impl BlockParser {
     }
 
     /// Continue list
-    fn continue_list(&mut self, _container: &Rc<RefCell<Node>>) -> i32 {
+    fn continue_list(&mut self, _container: NodeId) -> i32 {
         // Lists always continue - new list items are handled in open_new_blocks
         // This matches commonmark.js behavior where list.continue returns 0
         0
     }
 
     /// Continue list item
-    fn continue_item(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+    fn continue_item(&mut self, container: NodeId) -> i32 {
         if self.blank {
-            if container.borrow().first_child.borrow().is_none() {
+            if self.arena.get(container).first_child.is_none() {
                 // Blank line after empty list item
                 1
             } else {
@@ -347,7 +336,7 @@ impl BlockParser {
     }
 
     /// Continue code block
-    fn continue_code_block(&mut self, container: &Rc<RefCell<Node>>) -> i32 {
+    fn continue_code_block(&mut self, container: NodeId) -> i32 {
         let is_fenced = self.is_fenced_code_block(container);
 
         if is_fenced {
@@ -394,7 +383,7 @@ impl BlockParser {
     }
 
     /// Continue HTML block
-    fn continue_html_block(&self, container: &Rc<RefCell<Node>>) -> i32 {
+    fn continue_html_block(&self, container: NodeId) -> i32 {
         let html_block_type = self.get_html_block_type(container);
 
         // HTML blocks 6 and 7 can be interrupted by blank lines
@@ -406,13 +395,9 @@ impl BlockParser {
     }
 
     /// Try to open new blocks
-    fn open_new_blocks(
-        &mut self,
-        container: &Rc<RefCell<Node>>,
-        all_matched: bool,
-    ) -> Rc<RefCell<Node>> {
-        let mut current_container = container.clone();
-        let mut maybe_lazy = self.tip.borrow().node_type == NodeType::Paragraph;
+    fn open_new_blocks(&mut self, container: NodeId, all_matched: bool) -> NodeId {
+        let mut current_container = container;
+        let mut maybe_lazy = self.arena.get(self.tip).node_type == NodeType::Paragraph;
 
         loop {
             self.find_next_nonspace();
@@ -420,7 +405,7 @@ impl BlockParser {
 
             // Check if we're inside a leaf block that accepts lines
             // (HTML blocks and code blocks don't allow nested blocks)
-            let container_type = current_container.borrow().node_type;
+            let container_type = self.arena.get(current_container).node_type;
             let in_leaf_block =
                 matches!(container_type, NodeType::HtmlBlock | NodeType::CodeBlock);
 
@@ -435,7 +420,7 @@ impl BlockParser {
                 // Indented code block
                 self.close_unmatched_blocks();
                 let code_block = self.add_child(NodeType::CodeBlock, self.offset);
-                self.set_fence_info(&code_block, '\0', 0, 0);
+                self.set_fence_info(code_block, '\0', 0, 0);
                 self.advance_offset(CODE_INDENT, true);
                 return code_block;
             }
@@ -557,7 +542,7 @@ impl BlockParser {
                         let heading =
                             self.add_child(NodeType::Heading, self.next_nonspace);
                         {
-                            let mut heading_mut = heading.borrow_mut();
+                            let heading_mut = self.arena.get_mut(heading);
                             if let NodeData::Heading {
                                 level: ref mut l,
                                 content: ref mut c,
@@ -599,7 +584,7 @@ impl BlockParser {
                                 let code_block = self
                                     .add_child(NodeType::CodeBlock, self.next_nonspace);
                                 {
-                                    let mut code_mut = code_block.borrow_mut();
+                                    let code_mut = self.arena.get_mut(code_block);
                                     if let NodeData::CodeBlock {
                                         info: ref mut i, ..
                                     } = code_mut.data
@@ -610,7 +595,7 @@ impl BlockParser {
                                 // fence_offset should be the position of the fence character
                                 // For fenced code blocks inside block quotes, this is self.next_nonspace
                                 self.set_fence_info(
-                                    &code_block,
+                                    code_block,
                                     first_char,
                                     fence_length,
                                     self.next_nonspace,
@@ -628,26 +613,28 @@ impl BlockParser {
             // Don't start a new HTML block if we're already inside an HTML block
             // (HTML blocks can contain other tags)
             let in_html_block =
-                current_container.borrow().node_type == NodeType::HtmlBlock;
+                self.arena.get(current_container).node_type == NodeType::HtmlBlock;
 
             if !indented && !in_html_block && self.peek_next_nonspace() == Some('<') {
                 let line = &self.current_line[self.next_nonspace..];
                 if let Some(block_type) =
-                    self.scan_html_block_start(line, &current_container, maybe_lazy)
+                    self.scan_html_block_start(line, current_container, maybe_lazy)
                 {
                     self.close_unmatched_blocks();
                     let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
-                    self.set_html_block_type(&html_block, block_type);
+                    self.set_html_block_type(html_block, block_type);
                     return html_block;
                 }
             }
 
             // Try setext heading
-            if !indented && current_container.borrow().node_type == NodeType::Paragraph {
+            if !indented
+                && self.arena.get(current_container).node_type == NodeType::Paragraph
+            {
                 let line = &self.current_line[self.next_nonspace..];
                 if let Some(level) = self.scan_setext_heading_line(line) {
                     // Get the content before converting
-                    let content = self.get_string_content(&current_container);
+                    let content = self.get_string_content(current_container);
 
                     // Process link reference definitions at the beginning of the paragraph
                     let mut processed_content = content.clone();
@@ -680,14 +667,14 @@ impl BlockParser {
                     if !remaining_content.is_empty() {
                         self.close_unmatched_blocks();
                         {
-                            let mut container_mut = current_container.borrow_mut();
+                            let container_mut = self.arena.get_mut(current_container);
                             container_mut.node_type = NodeType::Heading;
                             container_mut.data = NodeData::Heading {
                                 level,
                                 content: remaining_content.to_string(),
                             };
                         }
-                        self.set_setext(&current_container, true);
+                        self.set_setext(current_container, true);
                         self.advance_offset(
                             self.current_line.len() - self.offset,
                             false,
@@ -701,7 +688,7 @@ impl BlockParser {
 
             // Try thematic break
             if !indented
-                && !(current_container.borrow().node_type == NodeType::Paragraph
+                && !(self.arena.get(current_container).node_type == NodeType::Paragraph
                     && !all_matched)
             {
                 let line = &self.current_line[self.next_nonspace..];
@@ -715,7 +702,8 @@ impl BlockParser {
             }
 
             // Try list item
-            if (!indented || current_container.borrow().node_type == NodeType::List)
+            if (!indented
+                || self.arena.get(current_container).node_type == NodeType::List)
                 && self.indent < 4
             {
                 if let Some((
@@ -725,15 +713,15 @@ impl BlockParser {
                     marker_offset,
                     padding,
                     bullet_char,
-                )) = self.parse_list_marker(&current_container)
+                )) = self.parse_list_marker(current_container)
                 {
                     self.close_unmatched_blocks();
 
                     // Check if we can continue an existing list
-                    let can_continue_list = current_container.borrow().node_type
+                    let can_continue_list = self.arena.get(current_container).node_type
                         == NodeType::List
                         && self.lists_match(
-                            &current_container,
+                            current_container,
                             list_type,
                             delim,
                             start,
@@ -744,7 +732,7 @@ impl BlockParser {
                         current_container =
                             self.add_child(NodeType::List, self.next_nonspace);
                         {
-                            let mut list_mut = current_container.borrow_mut();
+                            let list_mut = self.arena.get_mut(current_container);
                             if let NodeData::List {
                                 list_type: ref mut lt,
                                 delim: ref mut d,
@@ -764,7 +752,7 @@ impl BlockParser {
 
                     // Add list item
                     let item = self.add_child(NodeType::Item, self.next_nonspace);
-                    self.set_list_data(&item, marker_offset, padding);
+                    self.set_list_data(item, marker_offset, padding);
                     current_container = item;
                     maybe_lazy = false;
                     continue;
@@ -783,7 +771,7 @@ impl BlockParser {
     fn scan_html_block_start(
         &self,
         line: &str,
-        container: &Rc<RefCell<Node>>,
+        container: NodeId,
         maybe_lazy: bool,
     ) -> Option<u8> {
         // Type 1: <script, <pre, <textarea, <style followed by space, >, or EOL
@@ -822,7 +810,7 @@ impl BlockParser {
 
         // Type 7: Complete HTML tag (cannot interrupt paragraph, not lazy)
         if line.starts_with('<') && !maybe_lazy {
-            if container.borrow().node_type != NodeType::Paragraph {
+            if self.arena.get(container).node_type != NodeType::Paragraph {
                 if self.is_valid_html_tag_type7(line) {
                     return Some(7);
                 }
@@ -1231,7 +1219,7 @@ impl BlockParser {
     /// Parse list marker
     fn parse_list_marker(
         &mut self,
-        container: &Rc<RefCell<Node>>,
+        container: NodeId,
     ) -> Option<(ListType, DelimType, u32, usize, usize, char)> {
         let rest = &self.current_line[self.next_nonspace..];
 
@@ -1256,7 +1244,7 @@ impl BlockParser {
                     // is not empty (i.e., it has content after it on the same line).
                     // However, when not interrupting a paragraph (i.e., at document start
                     // or after a blank line), an empty list item is allowed.
-                    if container.borrow().node_type == NodeType::Paragraph {
+                    if self.arena.get(container).node_type == NodeType::Paragraph {
                         let content_after = after_marker.trim_start();
                         // Empty list item cannot interrupt paragraph
                         if content_after.is_empty() || content_after.starts_with('\n') {
@@ -1327,14 +1315,14 @@ impl BlockParser {
                         || after_delim.starts_with('\n')
                     {
                         // If interrupting paragraph, start must be 1
-                        if container.borrow().node_type == NodeType::Paragraph
+                        if self.arena.get(container).node_type == NodeType::Paragraph
                             && start != 1
                         {
                             return None;
                         }
 
                         // Check for non-blank content if interrupting paragraph
-                        if container.borrow().node_type == NodeType::Paragraph {
+                        if self.arena.get(container).node_type == NodeType::Paragraph {
                             let content_after = after_delim.trim_start();
                             if content_after.is_empty()
                                 || content_after.starts_with('\n')
@@ -1398,20 +1386,20 @@ impl BlockParser {
     }
 
     /// Add text to container
-    fn add_text_to_container(&mut self, container: &Rc<RefCell<Node>>) {
+    fn add_text_to_container(&mut self, container: NodeId) {
         self.find_next_nonspace();
 
         // Set last_line_blank for appropriate nodes
         if self.blank {
-            if let Some(last_child) = container.borrow().last_child.borrow().clone() {
-                self.set_last_line_blank(&last_child, true);
+            if let Some(last_child) = self.arena.get(container).last_child {
+                self.set_last_line_blank(last_child, true);
             }
         }
 
         // Determine if this line makes the container last_line_blank
         // Based on commonmark.js: blank && !(block_quote || heading || thematicBreak ||
         //   (code_block && fenced) || (item && firstChild == null && startLine == lineNumber))
-        let container_type = container.borrow().node_type;
+        let container_type = self.arena.get(container).node_type;
         let last_line_blank = self.blank
             && container_type != NodeType::BlockQuote
             && container_type != NodeType::Heading
@@ -1420,32 +1408,28 @@ impl BlockParser {
             && !(container_type == NodeType::CodeBlock
                 && self.is_fenced_code_block(container))
             && !(container_type == NodeType::Item
-                && container.borrow().first_child.borrow().is_none()
+                && self.arena.get(container).first_child.is_none()
                 && self.get_start_line(container) == self.line_number);
 
         self.set_last_line_blank(container, last_line_blank);
 
         // Propagate last_line_blank up the tree
-        let mut tmp = container.clone();
+        let mut tmp = container;
         loop {
-            let parent_opt = tmp.borrow().parent.borrow().clone();
-            if let Some(parent_weak) = parent_opt {
-                if let Some(parent) = parent_weak.upgrade() {
-                    self.set_last_line_blank(&parent, false);
-                    tmp = parent;
-                } else {
-                    break;
-                }
+            let parent_opt = self.arena.get(tmp).parent;
+            if let Some(parent) = parent_opt {
+                self.set_last_line_blank(parent, false);
+                tmp = parent;
             } else {
                 break;
             }
         }
 
         // Check for lazy continuation
-        let is_lazy = !Rc::ptr_eq(&self.tip, &self.last_matched_container)
-            && Rc::ptr_eq(container, &self.last_matched_container)
+        let is_lazy = self.tip != self.last_matched_container
+            && container == self.last_matched_container
             && !self.blank
-            && self.tip.borrow().node_type == NodeType::Paragraph;
+            && self.arena.get(self.tip).node_type == NodeType::Paragraph;
 
         if is_lazy {
             self.add_line();
@@ -1453,7 +1437,7 @@ impl BlockParser {
             // Not a lazy continuation
             self.close_unmatched_blocks();
 
-            let container_type = container.borrow().node_type;
+            let container_type = self.arena.get(container).node_type;
 
             if container_type == NodeType::CodeBlock {
                 // For fenced code blocks, check if this is a fence line (opening or closing)
@@ -1487,7 +1471,8 @@ impl BlockParser {
                     // We can detect this by checking if this is the first time we're adding content
                     // to this code block. We track this by checking if the current line is the
                     // same line where the block was created.
-                    let block_start_line = container.borrow().source_pos.start_line;
+                    let block_start_line =
+                        self.arena.get(container).source_pos.start_line;
                     let is_first_line = self.line_number == block_start_line as usize;
 
                     // Also check if this line matches the opening fence pattern
@@ -1538,7 +1523,7 @@ impl BlockParser {
                 // Create paragraph container for line
                 let new_para = self.add_child(NodeType::Paragraph, self.next_nonspace);
                 self.advance_next_nonspace();
-                self.add_line_to_node(&new_para);
+                self.add_line_to_node(new_para);
                 // Update tip to the new paragraph
                 self.tip = new_para;
             }
@@ -1596,7 +1581,7 @@ impl BlockParser {
 
     /// Check for HTML block end condition
     /// Returns true if the block should end after this line
-    fn check_html_block_end(&self, container: &Rc<RefCell<Node>>) -> bool {
+    fn check_html_block_end(&self, container: NodeId) -> bool {
         let html_block_type = self.get_html_block_type(container);
         let line = &self.current_line[self.offset..];
 
@@ -1617,11 +1602,11 @@ impl BlockParser {
 
     /// Add current line to tip's content
     fn add_line(&mut self) {
-        self.add_line_to_node(&self.tip.clone());
+        self.add_line_to_node(self.tip);
     }
 
     /// Add current line to a specific node's content
-    fn add_line_to_node(&mut self, node: &Rc<RefCell<Node>>) {
+    fn add_line_to_node(&mut self, node: NodeId) {
         let mut line_content = String::new();
 
         // Handle partially consumed tab
@@ -1647,16 +1632,9 @@ impl BlockParser {
     /// Close unmatched blocks
     fn close_unmatched_blocks(&mut self) {
         if !self.all_closed {
-            while !Rc::ptr_eq(&self.old_tip, &self.last_matched_container) {
-                let parent = self
-                    .old_tip
-                    .borrow()
-                    .parent
-                    .borrow()
-                    .as_ref()
-                    .and_then(|w| w.upgrade())
-                    .unwrap_or_else(|| self.doc.clone());
-                self.finalize_block(&self.old_tip.clone());
+            while self.old_tip != self.last_matched_container {
+                let parent = self.arena.get(self.old_tip).parent.unwrap_or(self.doc);
+                self.finalize_block(self.old_tip);
                 self.old_tip = parent;
             }
             self.all_closed = true;
@@ -1664,22 +1642,11 @@ impl BlockParser {
     }
 
     /// Add a child to the tip
-    fn add_child(
-        &mut self,
-        block_type: NodeType,
-        start_column: usize,
-    ) -> Rc<RefCell<Node>> {
+    fn add_child(&mut self, block_type: NodeType, start_column: usize) -> NodeId {
         // If tip can't accept this child, finalize it and try its parent
-        while !self.can_contain(&self.tip, block_type) {
-            let parent = self
-                .tip
-                .borrow()
-                .parent
-                .borrow()
-                .as_ref()
-                .and_then(|w| w.upgrade())
-                .unwrap_or_else(|| self.doc.clone());
-            self.finalize_block(&self.tip.clone());
+        while !self.can_contain(self.tip, block_type) {
+            let parent = self.arena.get(self.tip).parent.unwrap_or(self.doc);
+            self.finalize_block(self.tip);
             self.tip = parent;
         }
 
@@ -1687,21 +1654,21 @@ impl BlockParser {
         new_block.source_pos.start_line = self.line_number as u32;
         new_block.source_pos.start_column = start_column as u32;
 
-        let new_block_rc = Rc::new(RefCell::new(new_block));
-        append_child(&self.tip, new_block_rc.clone());
+        let new_block_id = self.arena.alloc(new_block);
+        TreeOps::append_child(self.arena, self.tip, new_block_id);
 
         // Initialize block info
-        self.set_block_info(&new_block_rc, BlockInfo::new());
+        self.set_block_info(new_block_id, BlockInfo::new());
 
-        self.tip = new_block_rc.clone();
-        new_block_rc
+        self.tip = new_block_id;
+        new_block_id
     }
 
     /// Finalize a block
-    fn finalize_block(&mut self, block: &Rc<RefCell<Node>>) {
+    fn finalize_block(&mut self, block: NodeId) {
         // Set end position
         {
-            let mut block_mut = block.borrow_mut();
+            let block_mut = self.arena.get_mut(block);
             block_mut.source_pos.end_line = self.line_number.saturating_sub(1) as u32;
             block_mut.source_pos.end_column = self.last_line_length as u32;
         }
@@ -1710,14 +1677,14 @@ impl BlockParser {
         self.set_open(block, false);
 
         // Finalize based on block type
-        let node_type = block.borrow().node_type;
+        let node_type = self.arena.get(block).node_type;
         match node_type {
             NodeType::CodeBlock => {
                 let is_fenced = self.is_fenced_code_block(block);
                 if is_fenced {
                     // Get the current info string (set during block creation from fence line)
                     let _current_info = {
-                        let block_ref = block.borrow();
+                        let block_ref = self.arena.get(block);
                         match &block_ref.data {
                             NodeData::CodeBlock { info, .. } => info.clone(),
                             _ => String::new(),
@@ -1753,7 +1720,7 @@ impl BlockParser {
                 // Move string content to literal
                 let content = self.get_string_content(block);
                 {
-                    let mut block_mut = block.borrow_mut();
+                    let block_mut = self.arena.get_mut(block);
                     if let NodeData::CodeBlock {
                         literal: ref mut l, ..
                     } = block_mut.data
@@ -1767,7 +1734,7 @@ impl BlockParser {
                 // Remove trailing newline only (like commonmark.js: replace(/\n$/, ''))
                 let content = content.strip_suffix('\n').unwrap_or(&content);
                 {
-                    let mut block_mut = block.borrow_mut();
+                    let block_mut = self.arena.get_mut(block);
                     if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {
                         *l = content.to_string();
                     }
@@ -1809,7 +1776,7 @@ impl BlockParser {
 
                     // Update heading content if reference definitions were found
                     if has_reference_defs {
-                        let mut block_mut = block.borrow_mut();
+                        let block_mut = self.arena.get_mut(block);
                         if let NodeData::Heading {
                             content: ref mut c, ..
                         } = block_mut.data
@@ -1818,7 +1785,7 @@ impl BlockParser {
                         }
                     }
                 } else {
-                    let mut block_mut = block.borrow_mut();
+                    let block_mut = self.arena.get_mut(block);
                     if let NodeData::Heading {
                         content: ref mut c, ..
                     } = block_mut.data
@@ -1868,7 +1835,7 @@ impl BlockParser {
 
                 // Update source_pos if we removed any reference definitions
                 if total_lines_removed > 0 {
-                    let mut block_mut = block.borrow_mut();
+                    let block_mut = self.arena.get_mut(block);
                     let source_pos = block_mut.source_pos;
                     block_mut.source_pos = SourcePos {
                         start_line: source_pos.start_line + total_lines_removed as u32,
@@ -1887,7 +1854,7 @@ impl BlockParser {
                     self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
                 } else {
                     {
-                        let mut block_mut = block.borrow_mut();
+                        let block_mut = self.arena.get_mut(block);
                         if let NodeData::Text { literal: ref mut l } = block_mut.data {
                             *l = content.to_string();
                         } else {
@@ -1901,41 +1868,41 @@ impl BlockParser {
             NodeType::List => {
                 // Determine tight/loose status
                 let mut tight = true;
-                let block_ref = block.borrow();
-                let mut item_opt = block_ref.first_child.borrow().clone();
+                let block_ref = self.arena.get(block);
+                let mut item_opt = block_ref.first_child;
 
                 while let Some(item) = item_opt {
                     // Check for non-final list item ending with blank line
-                    if self.get_last_line_blank(&item)
-                        && item.borrow().next.borrow().is_some()
+                    if self.get_last_line_blank(item)
+                        && self.arena.get(item).next.is_some()
                     {
                         tight = false;
                         break;
                     }
 
                     // Check children of list item
-                    let mut subitem_opt = item.borrow().first_child.borrow().clone();
+                    let mut subitem_opt = self.arena.get(item).first_child;
                     while let Some(subitem) = subitem_opt {
-                        let has_next = subitem.borrow().next.borrow().is_some();
-                        let item_has_next = item.borrow().next.borrow().is_some();
+                        let has_next = self.arena.get(subitem).next.is_some();
+                        let item_has_next = self.arena.get(item).next.is_some();
                         if (item_has_next || has_next)
-                            && self.ends_with_blank_line(&subitem)
+                            && self.ends_with_blank_line(subitem)
                         {
                             tight = false;
                             break;
                         }
-                        subitem_opt = subitem.borrow().next.borrow().clone();
+                        subitem_opt = self.arena.get(subitem).next;
                     }
 
                     if !tight {
                         break;
                     }
-                    item_opt = item.borrow().next.borrow().clone();
+                    item_opt = self.arena.get(item).next;
                 }
 
                 drop(block_ref);
                 {
-                    let mut block_mut = block.borrow_mut();
+                    let block_mut = self.arena.get_mut(block);
                     if let NodeData::List {
                         tight: ref mut t, ..
                     } = block_mut.data
@@ -1948,65 +1915,110 @@ impl BlockParser {
         }
 
         // Move tip to parent
-        let parent = block.borrow().parent.borrow().clone();
-        if let Some(parent_weak) = parent {
-            if let Some(parent) = parent_weak.upgrade() {
-                self.tip = parent;
-            }
+        let parent = self.arena.get(block).parent;
+        if let Some(parent) = parent {
+            self.tip = parent;
         }
     }
 
     /// Finalize the entire document
     pub fn finalize_document(&mut self) {
         // Finalize all remaining open blocks
-        while !Rc::ptr_eq(&self.tip, &self.doc) {
-            let tip = self.tip.clone();
-            self.finalize_block(&tip);
+        while self.tip != self.doc {
+            let tip = self.tip;
+            self.finalize_block(tip);
         }
-        self.finalize_block(&self.doc.clone());
+        self.finalize_block(self.doc);
 
         // Remove link reference definitions from the document
         self.remove_link_reference_definitions();
+
+        // Process inline content for leaf blocks
+        self.process_inlines();
+    }
+
+    /// Process inline content for all leaf blocks in the document
+    fn process_inlines(&mut self) {
+        // Collect all leaf blocks that need inline processing
+        let mut leaf_blocks: Vec<(NodeId, String, usize)> = Vec::new();
+        self.collect_leaf_blocks(self.doc, &mut leaf_blocks);
+
+        // Process each leaf block
+        for (node_id, content, line) in leaf_blocks {
+            // Get a copy of refmap for this call
+            let refmap = self.refmap.clone();
+            crate::inlines_arena::parse_inlines_with_options(
+                self.arena, node_id, &content, line, 0, refmap, false,
+            );
+        }
+    }
+
+    /// Recursively collect leaf blocks that need inline processing
+    fn collect_leaf_blocks(
+        &self,
+        node: NodeId,
+        leaf_blocks: &mut Vec<(NodeId, String, usize)>,
+    ) {
+        let node_type = self.arena.get(node).node_type;
+
+        // Check if this is a leaf block that needs inline processing
+        match node_type {
+            NodeType::Paragraph | NodeType::Heading => {
+                let content = self.get_string_content(node);
+                let line = self.get_start_line(node);
+                if !content.is_empty() {
+                    leaf_blocks.push((node, content, line));
+                }
+            }
+            _ => {
+                // For container blocks, recursively process children
+                let mut current = self.arena.get(node).first_child;
+                while let Some(child) = current {
+                    self.collect_leaf_blocks(child, leaf_blocks);
+                    current = self.arena.get(child).next;
+                }
+            }
+        }
     }
 
     /// Remove link reference definitions from the document
     /// This processes paragraph nodes marked as empty during finalization
     fn remove_link_reference_definitions(&mut self) {
-        self.collect_and_remove_empty_paragraphs(&self.doc.clone());
+        self.collect_and_remove_empty_paragraphs(self.doc);
     }
 
     /// Recursively collect and remove empty paragraphs in a single pass
-    fn collect_and_remove_empty_paragraphs(&self, node: &Rc<RefCell<Node>>) {
+    fn collect_and_remove_empty_paragraphs(&mut self, node: NodeId) {
         // Process children first (depth-first), handling next pointers carefully
         // since we might unlink nodes during traversal
-        let first_child_opt = node.borrow().first_child.borrow().clone();
+        let first_child_opt = self.arena.get(node).first_child;
         if let Some(first_child) = first_child_opt {
             let mut current_opt = Some(first_child);
             while let Some(current) = current_opt {
                 // Get next before processing, since current might be unlinked
-                let next_opt = current.borrow().next.borrow().clone();
-                self.collect_and_remove_empty_paragraphs(&current);
+                let next_opt = self.arena.get(current).next;
+                self.collect_and_remove_empty_paragraphs(current);
                 current_opt = next_opt;
             }
         }
 
         // Check if this is a paragraph marked as empty and remove it
-        let node_type = node.borrow().node_type;
+        let node_type = self.arena.get(node).node_type;
         if node_type == NodeType::Paragraph {
             let content = self.get_string_content(node);
             if content == "__EMPTY_PARAGRAPH__" {
-                unlink(node);
+                TreeOps::unlink(self.arena, node);
             }
         }
     }
 
     /// Check if a node ends with a blank line
     /// Based on commonmark.js: returns true if block ends with a blank line
-    fn ends_with_blank_line(&self, node: &Rc<RefCell<Node>>) -> bool {
+    fn ends_with_blank_line(&self, node: NodeId) -> bool {
         // Check if this node has a next sibling and there's a gap between them
-        if let Some(next) = node.borrow().next.borrow().clone() {
-            let node_end_line = node.borrow().source_pos.end_line;
-            let next_start_line = next.borrow().source_pos.start_line;
+        if let Some(next) = self.arena.get(node).next {
+            let node_end_line = self.arena.get(node).source_pos.end_line;
+            let next_start_line = self.arena.get(next).source_pos.start_line;
             // If there's a gap between this node and the next, there's a blank line
             if node_end_line + 1 < next_start_line {
                 return true;
@@ -2019,12 +2031,12 @@ impl BlockParser {
         }
 
         // Recursively check last child for list/item containers
-        let node_type = node.borrow().node_type;
+        let node_type = self.arena.get(node).node_type;
         if (node_type == NodeType::List || node_type == NodeType::Item)
-            && node.borrow().last_child.borrow().is_some()
+            && self.arena.get(node).last_child.is_some()
         {
-            if let Some(last_child) = node.borrow().last_child.borrow().clone() {
-                return self.ends_with_blank_line(&last_child);
+            if let Some(last_child) = self.arena.get(node).last_child {
+                return self.ends_with_blank_line(last_child);
             }
         }
 
@@ -2032,8 +2044,8 @@ impl BlockParser {
     }
 
     /// Check if parent can contain child
-    fn can_contain(&self, parent: &Rc<RefCell<Node>>, child_type: NodeType) -> bool {
-        let parent_type = parent.borrow().node_type;
+    fn can_contain(&self, parent: NodeId, child_type: NodeType) -> bool {
+        let parent_type = self.arena.get(parent).node_type;
 
         match parent_type {
             NodeType::Document | NodeType::BlockQuote => child_type != NodeType::Item,
@@ -2044,8 +2056,8 @@ impl BlockParser {
     }
 
     /// Check if block accepts lines
-    fn accepts_lines(&self, block: &Rc<RefCell<Node>>) -> bool {
-        let block_type = block.borrow().node_type;
+    fn accepts_lines(&self, block: NodeId) -> bool {
+        let block_type = self.arena.get(block).node_type;
         matches!(
             block_type,
             NodeType::Paragraph | NodeType::CodeBlock | NodeType::HtmlBlock
@@ -2057,13 +2069,13 @@ impl BlockParser {
     /// can have different numbers and still belong to the same list
     fn lists_match(
         &self,
-        list: &Rc<RefCell<Node>>,
+        list: NodeId,
         list_type: ListType,
         delim: DelimType,
         _start: u32,
         bullet_char: char,
     ) -> bool {
-        let node = list.borrow();
+        let node = self.arena.get(list);
         if let NodeData::List {
             list_type: lt,
             delim: d,
@@ -2083,17 +2095,16 @@ impl BlockParser {
         }
     }
 
-    // Block info accessors (optimized with Vec-based storage)
+    // Block info accessors
 
     /// Get the index for a node, creating a new slot if needed
     #[inline]
-    fn get_or_create_index(&mut self, node: &Rc<RefCell<Node>>) -> usize {
-        let ptr: *const () = Rc::as_ptr(node) as *const ();
-        if let Some(&index) = self.node_to_index.get(&ptr) {
+    fn get_or_create_index(&mut self, node_id: NodeId) -> usize {
+        if let Some(&index) = self.node_to_index.get(&node_id) {
             index
         } else {
             let index = self.next_index;
-            self.node_to_index.insert(ptr, index);
+            self.node_to_index.insert(node_id, index);
             self.block_info.push(None);
             self.next_index += 1;
             index
@@ -2101,22 +2112,18 @@ impl BlockParser {
     }
 
     #[inline]
-    fn get_index(&self, node: &Rc<RefCell<Node>>) -> Option<usize> {
-        let ptr: *const () = Rc::as_ptr(node) as *const ();
-        self.node_to_index.get(&ptr).copied()
+    fn get_index(&self, node_id: NodeId) -> Option<usize> {
+        self.node_to_index.get(&node_id).copied()
     }
 
-    fn get_block_info(&self, node: &Rc<RefCell<Node>>) -> Option<&BlockInfo> {
-        self.get_index(node)
+    fn get_block_info(&self, node_id: NodeId) -> Option<&BlockInfo> {
+        self.get_index(node_id)
             .and_then(|idx| self.block_info.get(idx))
             .and_then(|opt| opt.as_ref())
     }
 
-    fn get_block_info_mut(
-        &mut self,
-        node: &Rc<RefCell<Node>>,
-    ) -> Option<&mut BlockInfo> {
-        if let Some(idx) = self.get_index(node) {
+    fn get_block_info_mut(&mut self, node_id: NodeId) -> Option<&mut BlockInfo> {
+        if let Some(idx) = self.get_index(node_id) {
             if let Some(Some(ref mut info)) = self.block_info.get_mut(idx) {
                 return Some(info);
             }
@@ -2124,117 +2131,113 @@ impl BlockParser {
         None
     }
 
-    fn set_block_info(&mut self, node: &Rc<RefCell<Node>>, info: BlockInfo) {
-        let idx = self.get_or_create_index(node);
+    fn set_block_info(&mut self, node_id: NodeId, info: BlockInfo) {
+        let idx = self.get_or_create_index(node_id);
         if idx < self.block_info.len() {
             self.block_info[idx] = Some(info);
         }
     }
 
-    fn is_open(&self, node: &Rc<RefCell<Node>>) -> bool {
-        self.get_block_info(node).map_or(false, |info| info.is_open)
+    fn is_open(&self, node_id: NodeId) -> bool {
+        self.get_block_info(node_id)
+            .map_or(false, |info| info.is_open)
     }
 
-    fn set_open(&mut self, node: &Rc<RefCell<Node>>, open: bool) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn set_open(&mut self, node_id: NodeId, open: bool) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.is_open = open;
         }
     }
 
-    fn get_string_content(&self, node: &Rc<RefCell<Node>>) -> String {
-        self.get_block_info(node)
+    fn get_string_content(&self, node_id: NodeId) -> String {
+        self.get_block_info(node_id)
             .map_or(String::new(), |info| info.string_content.clone())
     }
 
-    fn set_string_content(&mut self, node: &Rc<RefCell<Node>>, content: String) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn set_string_content(&mut self, node_id: NodeId, content: String) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.string_content = content;
         }
     }
 
-    fn append_string_content(&mut self, node: &Rc<RefCell<Node>>, value: &str) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn append_string_content(&mut self, node_id: NodeId, value: &str) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.string_content.push_str(value);
         }
     }
 
-    fn is_fenced_code_block(&self, node: &Rc<RefCell<Node>>) -> bool {
-        self.get_block_info(node)
+    fn is_fenced_code_block(&self, node_id: NodeId) -> bool {
+        self.get_block_info(node_id)
             .map_or(false, |info| info.fence_length > 0)
     }
 
-    fn get_fence_info(&self, node: &Rc<RefCell<Node>>) -> (char, usize, usize) {
-        self.get_block_info(node).map_or(('\0', 0, 0), |info| {
+    fn get_fence_info(&self, node_id: NodeId) -> (char, usize, usize) {
+        self.get_block_info(node_id).map_or(('\0', 0, 0), |info| {
             (info.fence_char, info.fence_length, info.fence_offset)
         })
     }
 
     fn set_fence_info(
         &mut self,
-        node: &Rc<RefCell<Node>>,
+        node_id: NodeId,
         fence_char: char,
         fence_length: usize,
         fence_offset: usize,
     ) {
-        if let Some(info) = self.get_block_info_mut(node) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.fence_char = fence_char;
             info.fence_length = fence_length;
             info.fence_offset = fence_offset;
         }
     }
 
-    fn get_list_data(&self, item: &Rc<RefCell<Node>>) -> (usize, usize) {
+    fn get_list_data(&self, item: NodeId) -> (usize, usize) {
         self.get_block_info(item)
             .map_or((0, 2), |info| (info.marker_offset, info.padding))
     }
 
-    fn set_list_data(
-        &mut self,
-        item: &Rc<RefCell<Node>>,
-        marker_offset: usize,
-        padding: usize,
-    ) {
+    fn set_list_data(&mut self, item: NodeId, marker_offset: usize, padding: usize) {
         if let Some(info) = self.get_block_info_mut(item) {
             info.marker_offset = marker_offset;
             info.padding = padding;
         }
     }
 
-    fn get_html_block_type(&self, node: &Rc<RefCell<Node>>) -> u8 {
-        self.get_block_info(node)
+    fn get_html_block_type(&self, node_id: NodeId) -> u8 {
+        self.get_block_info(node_id)
             .map_or(0, |info| info.html_block_type)
     }
 
-    fn set_html_block_type(&mut self, node: &Rc<RefCell<Node>>, block_type: u8) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn set_html_block_type(&mut self, node_id: NodeId, block_type: u8) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.html_block_type = block_type;
         }
     }
 
-    fn is_setext(&self, node: &Rc<RefCell<Node>>) -> bool {
-        self.get_block_info(node)
+    fn is_setext(&self, node_id: NodeId) -> bool {
+        self.get_block_info(node_id)
             .map_or(false, |info| info.is_setext)
     }
 
-    fn set_setext(&mut self, node: &Rc<RefCell<Node>>, setext: bool) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn set_setext(&mut self, node_id: NodeId, setext: bool) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.is_setext = setext;
         }
     }
 
-    fn get_last_line_blank(&self, node: &Rc<RefCell<Node>>) -> bool {
-        self.get_block_info(node)
+    fn get_last_line_blank(&self, node_id: NodeId) -> bool {
+        self.get_block_info(node_id)
             .map_or(false, |info| info.last_line_blank)
     }
 
-    fn set_last_line_blank(&mut self, node: &Rc<RefCell<Node>>, blank: bool) {
-        if let Some(info) = self.get_block_info_mut(node) {
+    fn set_last_line_blank(&mut self, node_id: NodeId, blank: bool) {
+        if let Some(info) = self.get_block_info_mut(node_id) {
             info.last_line_blank = blank;
         }
     }
 
-    fn get_start_line(&self, node: &Rc<RefCell<Node>>) -> usize {
-        node.borrow().source_pos.start_line as usize
+    fn get_start_line(&self, node_id: NodeId) -> usize {
+        self.arena.get(node_id).source_pos.start_line as usize
     }
 
     // Position and parsing helpers
@@ -2345,31 +2348,33 @@ mod tests {
 
     #[test]
     fn test_parser_creation() {
-        let parser = BlockParser::new();
-        assert_eq!(parser.doc.borrow().node_type, NodeType::Document);
-        assert_eq!(parser.tip.borrow().node_type, NodeType::Document);
+        let mut arena = NodeArena::new();
+        let parser = BlockParser::new(&mut arena);
+        assert_eq!(parser.arena.get(parser.doc).node_type, NodeType::Document);
+        assert_eq!(parser.arena.get(parser.tip).node_type, NodeType::Document);
     }
 
     #[test]
     fn test_process_empty_line() {
-        let mut parser = BlockParser::new();
+        let mut arena = NodeArena::new();
+        let mut parser = BlockParser::new(&mut arena);
         parser.process_line("");
         // Should not panic
     }
 
     #[test]
     fn test_parse_simple_paragraph() {
-        let doc = BlockParser::parse("Hello world");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "Hello world");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
         assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
+            arena.get(first_child.unwrap()).node_type,
             NodeType::Paragraph
         );
 
         // Check paragraph content
-        let para = first_child.as_ref().unwrap().borrow();
+        let para = arena.get(first_child.unwrap());
         if let NodeData::Text { literal } = &para.data {
             assert_eq!(literal, "Hello world");
         } else {
@@ -2379,113 +2384,101 @@ mod tests {
 
     #[test]
     fn test_parse_block_quote() {
-        let doc = BlockParser::parse("> Quote line");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "> Quote line");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
         assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
+            arena.get(first_child.unwrap()).node_type,
             NodeType::BlockQuote
         );
     }
 
     #[test]
     fn test_parse_heading() {
-        let doc = BlockParser::parse("## Heading");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "## Heading");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Heading
-        );
+        assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::Heading);
     }
 
     #[test]
     fn test_parse_fenced_code_block() {
         let input = "```\ncode\n```";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, input);
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
         assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
+            arena.get(first_child.unwrap()).node_type,
             NodeType::CodeBlock
         );
     }
 
     #[test]
     fn test_parse_thematic_break() {
-        let doc = BlockParser::parse("---");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "---");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
         assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
+            arena.get(first_child.unwrap()).node_type,
             NodeType::ThematicBreak
         );
     }
 
     #[test]
     fn test_parse_bullet_list() {
-        let doc = BlockParser::parse("* Item 1\n* Item 2");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "* Item 1\n* Item 2");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::List
-        );
+        assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::List);
     }
 
     #[test]
     fn test_parse_ordered_list() {
-        let doc = BlockParser::parse("1. Item 1\n2. Item 2");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "1. Item 1\n2. Item 2");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::List
-        );
+        assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::List);
     }
 
     #[test]
     fn test_parse_nested_block_quote() {
-        let doc = BlockParser::parse("> Outer\n> > Inner");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "> Outer\n> > Inner");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
         assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
+            arena.get(first_child.unwrap()).node_type,
             NodeType::BlockQuote
         );
     }
 
     #[test]
     fn test_parse_setext_heading() {
-        let doc = BlockParser::parse("Heading\n===");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "Heading\n===");
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Heading
-        );
+        assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::Heading);
     }
 
     #[test]
     fn test_remove_link_reference_definitions() {
         let input = "[label]: https://example.com\n\nSome text";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, input);
 
         // The reference definition paragraph should be removed
         // So the first child should be the "Some text" paragraph
-        let first_child = doc_ref.first_child.borrow();
+        let first_child = arena.get(doc).first_child;
         assert!(first_child.is_some(), "Document should have a first child");
 
-        let first_child_ref = first_child.as_ref().unwrap().borrow();
+        let first_child_ref = arena.get(first_child.unwrap());
         assert_eq!(
             first_child_ref.node_type,
             NodeType::Paragraph,
@@ -2502,9 +2495,9 @@ mod tests {
             }
             _ => {
                 // If data is not Text, check first_child for inline content
-                let para_content = first_child_ref.first_child.borrow();
-                if let Some(content_node) = para_content.clone() {
-                    let content_ref = content_node.borrow();
+                let para_content = first_child_ref.first_child;
+                if let Some(content_node) = para_content {
+                    let content_ref = arena.get(content_node);
                     if let NodeData::Text { literal } = &content_ref.data {
                         assert_eq!(
                             literal, "Some text",
@@ -2520,558 +2513,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[test]
-    fn test_remove_multiple_reference_definitions() {
-        let input =
-            "[label1]: https://example.com\n[label2]: https://example.org\n\nSome text";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-
-        // Both reference definitions should be removed
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_reference_definition_with_title() {
-        let input = "[label]: https://example.com \"title\"\n\nSome text";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_parse_indented_code_block() {
-        let input = "    code line 1\n    code line 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::CodeBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_html_block_type1() {
-        let input = "<script>\nalert('hello');\n</script>";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_html_block_type2() {
-        let input = "<!-- comment -->";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_html_block_type6() {
-        let input = "<div>\ncontent\n</div>";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_tight_list() {
-        let input = "* Item 1\n* Item 2\n* Item 3";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let list = first_child.as_ref().unwrap().borrow();
-        assert_eq!(list.node_type, NodeType::List);
-        if let NodeData::List { tight, .. } = &list.data {
-            assert!(*tight, "List should be tight");
-        }
-    }
-
-    #[test]
-    fn test_parse_loose_list() {
-        let input = "* Item 1\n\n* Item 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let list = first_child.as_ref().unwrap().borrow();
-        assert_eq!(list.node_type, NodeType::List);
-        if let NodeData::List { tight, .. } = &list.data {
-            assert!(!*tight, "List should be loose");
-        }
-    }
-
-    #[test]
-    fn test_parse_atx_heading_with_content() {
-        let doc = BlockParser::parse("### Heading Content");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        assert_eq!(heading.node_type, NodeType::Heading);
-        if let NodeData::Heading { level, content } = &heading.data {
-            assert_eq!(*level, 3);
-            assert_eq!(content, "Heading Content");
-        }
-    }
-
-    #[test]
-    fn test_parse_atx_heading_with_closing_hashes() {
-        let doc = BlockParser::parse("## Heading ##");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        assert_eq!(heading.node_type, NodeType::Heading);
-        if let NodeData::Heading { level, content } = &heading.data {
-            assert_eq!(*level, 2);
-            assert_eq!(content, "Heading");
-        }
-    }
-
-    #[test]
-    fn test_parse_fenced_code_with_info() {
-        let input = "```rust\ncode\n```";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let code_block = first_child.as_ref().unwrap().borrow();
-        assert_eq!(code_block.node_type, NodeType::CodeBlock);
-        if let NodeData::CodeBlock { info, literal } = &code_block.data {
-            assert_eq!(info, "rust");
-            assert_eq!(literal, "code\n");
-        }
-    }
-
-    #[test]
-    fn test_parse_thematic_break_variations() {
-        // Test different thematic break characters
-        let breaks = vec!["---", "***", "___", " - - - ", "* * *"];
-        for br in breaks {
-            let doc = BlockParser::parse(br);
-            let doc_ref = doc.borrow();
-            let first_child = doc_ref.first_child.borrow();
-            assert!(first_child.is_some(), "Failed for input: {}", br);
-            assert_eq!(
-                first_child.as_ref().unwrap().borrow().node_type,
-                NodeType::ThematicBreak,
-                "Failed for input: {}",
-                br
-            );
-        }
-    }
-
-    #[test]
-    fn test_parse_ordered_list_with_paren() {
-        let input = "1) Item 1\n2) Item 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let list = first_child.as_ref().unwrap().borrow();
-        assert_eq!(list.node_type, NodeType::List);
-        if let NodeData::List { delim, .. } = &list.data {
-            assert_eq!(*delim, DelimType::Paren);
-        }
-    }
-
-    #[test]
-    fn test_parse_multiple_paragraphs() {
-        let input = "Para 1\n\nPara 2\n\nPara 3";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-
-        let mut count = 0;
-        let mut current = doc_ref.first_child.borrow().clone();
-        while let Some(node) = current {
-            assert_eq!(node.borrow().node_type, NodeType::Paragraph);
-            count += 1;
-            current = node.borrow().next.borrow().clone();
-        }
-        assert_eq!(count, 3);
-    }
-
-    #[test]
-    fn test_parse_empty_document() {
-        // Empty document should create a valid document node
-        let doc = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let doc_ref = doc.borrow();
-        assert_eq!(doc_ref.node_type, NodeType::Document);
-        assert!(doc_ref.first_child.borrow().is_none());
-    }
-
-    #[test]
-    fn test_parse_blank_lines() {
-        let doc = BlockParser::parse("\n\n\n");
-        let doc_ref = doc.borrow();
-        assert_eq!(doc_ref.node_type, NodeType::Document);
-        // Blank lines should not create any blocks
-        assert!(doc_ref.first_child.borrow().is_none());
-    }
-
-    #[test]
-    fn test_parse_list_in_blockquote() {
-        let input = "> * Item 1\n> * Item 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::BlockQuote
-        );
-
-        let blockquote = first_child.as_ref().unwrap().borrow();
-        let list = blockquote.first_child.borrow();
-        assert!(list.is_some());
-        assert_eq!(list.as_ref().unwrap().borrow().node_type, NodeType::List);
-    }
-
-    #[test]
-    fn test_parse_code_block_with_backticks() {
-        let input = "```\nline 1\nline 2\nline 3\n```";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::CodeBlock
-        );
-
-        let code_block = first_child.as_ref().unwrap().borrow();
-        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
-            assert!(literal.contains("line 1"));
-            assert!(literal.contains("line 2"));
-            assert!(literal.contains("line 3"));
-        }
-    }
-
-    #[test]
-    fn test_parse_setext_heading_level1() {
-        let input = "Heading\n========";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        assert_eq!(heading.node_type, NodeType::Heading);
-        if let NodeData::Heading { level, content } = &heading.data {
-            assert_eq!(*level, 1);
-            assert_eq!(content, "Heading");
-        }
-    }
-
-    #[test]
-    fn test_parse_setext_heading_level2() {
-        let input = "Heading\n--------";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        assert_eq!(heading.node_type, NodeType::Heading);
-        if let NodeData::Heading { level, content } = &heading.data {
-            assert_eq!(*level, 2);
-            assert_eq!(content, "Heading");
-        }
-    }
-
-    #[test]
-    fn test_parse_nested_list() {
-        let input = "* Item 1\n  * Nested 1\n  * Nested 2\n* Item 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::List
-        );
-    }
-
-    #[test]
-    fn test_parse_heading_with_special_chars() {
-        let doc = BlockParser::parse("# Heading with <html> & \"quotes\"");
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        assert_eq!(heading.node_type, NodeType::Heading);
-        if let NodeData::Heading { content, .. } = &heading.data {
-            assert_eq!(content, "Heading with <html> & \"quotes\"");
-        }
-    }
-
-    #[test]
-    fn test_parse_list_with_different_bullets() {
-        // Different bullet chars should create separate lists
-        let input = "* Item 1\n+ Item 2\n- Item 3";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-
-        // Should have 3 separate list nodes
-        let mut count = 0;
-        let mut current = doc_ref.first_child.borrow().clone();
-        while let Some(node) = current {
-            assert_eq!(node.borrow().node_type, NodeType::List);
-            count += 1;
-            current = node.borrow().next.borrow().clone();
-        }
-        assert_eq!(count, 3);
-    }
-
-    #[test]
-    fn test_parse_blockquote_with_multiple_lines() {
-        let input = "> Line 1\n> Line 2\n> Line 3";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::BlockQuote
-        );
-
-        // Should contain a paragraph with all lines
-        let blockquote = first_child.as_ref().unwrap().borrow();
-        let para = blockquote.first_child.borrow();
-        assert!(para.is_some());
-        assert_eq!(
-            para.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_parse_paragraph_with_inline_markdown() {
-        let input = "This has **bold** and *italic* text";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_parse_code_block_with_tildes() {
-        let input = "~~~\ncode with ``` backticks\n~~~";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::CodeBlock
-        );
-
-        let code_block = first_child.as_ref().unwrap().borrow();
-        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
-            assert!(literal.contains("```"));
-        }
-    }
-
-    #[test]
-    fn test_parse_html_block_type3() {
-        let input = "<?php\necho 'hello';\n?>";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_html_block_type4() {
-        let input = "<!DOCTYPE html>";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_html_block_type5() {
-        let input = "<![CDATA[\ncontent\n]]>";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::HtmlBlock
-        );
-    }
-
-    #[test]
-    fn test_parse_ordered_list_starting_at_5() {
-        let input = "5. Item 1\n6. Item 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let list = first_child.as_ref().unwrap().borrow();
-        assert_eq!(list.node_type, NodeType::List);
-        if let NodeData::List { start, .. } = &list.data {
-            assert_eq!(*start, 5);
-        }
-    }
-
-    #[test]
-    fn test_parse_list_item_with_multiple_paragraphs() {
-        let input = "* Item 1\n\n  Continued paragraph";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let list = first_child.as_ref().unwrap().borrow();
-        assert_eq!(list.node_type, NodeType::List);
-        if let NodeData::List { tight, .. } = &list.data {
-            assert!(!*tight);
-        }
-    }
-
-    #[test]
-    fn test_parse_link_reference_in_paragraph() {
-        let input = "Some text [ref] more text\n\n[ref]: https://example.com";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        // Should have one paragraph (reference definition removed)
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_parse_empty_list_item() {
-        let input = "* ";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::List
-        );
-    }
-
-    #[test]
-    fn test_parse_heading_level_6() {
-        let input = "###### Level 6";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let heading = first_child.as_ref().unwrap().borrow();
-        if let NodeData::Heading { level, .. } = &heading.data {
-            assert_eq!(*level, 6);
-        }
-    }
-
-    #[test]
-    fn test_parse_heading_level_7_not_valid() {
-        // 7 #s is not a valid heading
-        let input = "####### Not a heading";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        // Should be treated as paragraph
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::Paragraph
-        );
-    }
-
-    #[test]
-    fn test_parse_blockquote_with_blank_line() {
-        let input = "> Line 1\n>\n> Line 2";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        assert_eq!(
-            first_child.as_ref().unwrap().borrow().node_type,
-            NodeType::BlockQuote
-        );
-    }
-
-    #[test]
-    fn test_parse_code_block_with_blank_lines() {
-        let input = "```\nline 1\n\nline 2\n```";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-        let first_child = doc_ref.first_child.borrow();
-        assert!(first_child.is_some());
-        let code_block = first_child.as_ref().unwrap().borrow();
-        if let NodeData::CodeBlock { literal, .. } = &code_block.data {
-            assert!(literal.contains("line 1"));
-            assert!(literal.contains("line 2"));
-        }
-    }
-
-    #[test]
-    fn test_parse_mixed_content() {
-        let input = "# Heading\n\nParagraph\n\n* List item\n\n> Blockquote";
-        let doc = BlockParser::parse(input);
-        let doc_ref = doc.borrow();
-
-        let mut types = vec![];
-        let mut current = doc_ref.first_child.borrow().clone();
-        while let Some(node) = current {
-            types.push(node.borrow().node_type);
-            current = node.borrow().next.borrow().clone();
-        }
-
-        assert_eq!(types.len(), 4);
-        assert_eq!(types[0], NodeType::Heading);
-        assert_eq!(types[1], NodeType::Paragraph);
-        assert_eq!(types[2], NodeType::List);
-        assert_eq!(types[3], NodeType::BlockQuote);
     }
 }

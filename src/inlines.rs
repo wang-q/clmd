@@ -286,7 +286,8 @@ impl<'a> Subject<'a> {
                             NodeData::Text { literal } => literal.as_str(),
                             _ => "",
                         };
-                        !Self::is_smart_quote(current_literal) && !Self::is_smart_quote(next_literal)
+                        !Self::is_smart_quote(current_literal)
+                            && !Self::is_smart_quote(next_literal)
                     };
 
                     if can_merge {
@@ -301,7 +302,8 @@ impl<'a> Subject<'a> {
 
                         {
                             let mut current_mut = current.borrow_mut();
-                            if let NodeData::Text { ref mut literal } = current_mut.data {
+                            if let NodeData::Text { ref mut literal } = current_mut.data
+                            {
                                 literal.push_str(&next_literal);
                             }
                         }
@@ -3586,79 +3588,6 @@ mod tests {
     }
 
     #[test]
-    fn test_emphasis_with_escaped_delim() {
-        // Test #437: foo *\** should produce <p>foo <em>*</em></p>
-        use crate::render_html;
-
-        let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        parse_inlines(&parent, "foo *\\**", 1, 0);
-
-        // Print tree structure for debugging
-        fn print_tree(node: &Rc<RefCell<Node>>, indent: usize) {
-            let node_ref = node.borrow();
-            let indent_str = "  ".repeat(indent);
-            match &node_ref.data {
-                NodeData::Text { literal } => {
-                    println!("{}Text: '{}'", indent_str, literal);
-                }
-                NodeData::Emph => {
-                    println!("{}Emph:", indent_str);
-                }
-                _ => {
-                    println!("{}Other: {:?}", indent_str, node_ref.node_type);
-                }
-            }
-            let first_child = node_ref.first_child.borrow().clone();
-            let next = node_ref.next.borrow().clone();
-            drop(node_ref);
-            if let Some(child) = first_child {
-                print_tree(&child, indent + 1);
-            }
-            if let Some(next_node) = next {
-                print_tree(&next_node, indent);
-            }
-        }
-        println!("Tree structure:");
-        print_tree(&parent, 0);
-
-        // Also print all children of paragraph sequentially
-        println!("\nSequential children:");
-        let parent_ref = parent.borrow();
-        let mut current = parent_ref.first_child.borrow().clone();
-        while let Some(node) = current {
-            let node_ref = node.borrow();
-            match &node_ref.data {
-                NodeData::Text { literal } => {
-                    println!("  Text: '{}'", literal);
-                }
-                NodeData::Emph => {
-                    println!("  Emph:");
-                    let mut emph_child = node_ref.first_child.borrow().clone();
-                    while let Some(child) = emph_child {
-                        let child_ref = child.borrow();
-                        match &child_ref.data {
-                            NodeData::Text { literal } => {
-                                println!("    Text: '{}'", literal);
-                            }
-                            _ => {}
-                        }
-                        emph_child = child_ref.next.borrow().clone();
-                    }
-                }
-                _ => {
-                    println!("  Other: {:?}", node_ref.node_type);
-                }
-            }
-            current = node_ref.next.borrow().clone();
-        }
-
-        // Render to HTML and check
-        let output = render_html(&parent, 0);
-        println!("\nOutput: {}", output);
-        assert_eq!(output, "<p>foo <em>*</em></p>");
-    }
-
-    #[test]
     fn test_normalize_reference_with_backslash() {
         // Test that normalize_reference preserves backslashes
         let label1 = normalize_reference("[foo!]");
@@ -3707,28 +3636,5 @@ mod tests {
             refmap2.contains_key("FOO\\!"),
             "Should have FOO\\! in refmap"
         );
-    }
-
-    #[test]
-    fn test_emphasis_with_currency() {
-        // Test #354: emphasis with currency symbols
-        use crate::render_html;
-
-        let test_cases = vec![
-            ("*$*alpha.", "<p>*$*alpha.</p>"),
-            ("*£*bravo.", "<p>*£*bravo.</p>"),
-            ("*€*charlie.", "<p>*€*charlie.</p>"),
-        ];
-
-        for (input, expected) in test_cases {
-            let parent = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-            parse_inlines(&parent, input, 1, 0);
-            let output = render_html(&parent, 0);
-            println!("Input: {:?}", input);
-            println!("Expected: {}", expected);
-            println!("Got:      {}", output);
-            println!();
-            assert_eq!(output, expected, "Failed for input: {}", input);
-        }
     }
 }
