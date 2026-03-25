@@ -1,4 +1,3 @@
-use crate::arena::Node;
 /// Inline parsing for CommonMark documents (Arena version)
 ///
 /// This module implements the inline parsing algorithm based on the CommonMark spec.
@@ -6,7 +5,7 @@ use crate::arena::Node;
 /// inline elements like emphasis, links, code, etc.
 ///
 /// This is the Arena-based version that uses NodeId instead of Rc<RefCell<Node>>.
-use crate::arena::{NodeArena, NodeId, TreeOps};
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use htmlescape::decode_html;
 use std::collections::HashMap;
@@ -872,6 +871,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Remove delimiters that were added after the link opener
+    #[allow(dead_code)]
     fn remove_delimiters_inside_link(&mut self, opener: &Bracket) {
         // Remove all delimiters that were added after the opener's previous_delimiter
         // These are delimiters inside the link text
@@ -879,7 +879,7 @@ impl<'a> Subject<'a> {
 
         // The delimiter stack is organized with previous pointers (from top to bottom)
         // We need to find delimiters that are NEWER than stack_bottom (i.e., have stack_bottom in their previous chain)
-        if let Some(bottom) = stack_bottom {
+        if let Some(_bottom) = stack_bottom {
             // Simply set the stack_bottom's next to None
             // This effectively removes all delimiters newer than stack_bottom
             // Note: Since we're using Box, we can't easily modify the chain
@@ -887,7 +887,7 @@ impl<'a> Subject<'a> {
 
             // Collect all delimiters from stack_bottom down to the bottom
             let mut delimiters_to_keep: Vec<NodeId> = Vec::new();
-            let mut current = Some(bottom);
+            let mut current = Some(_bottom);
 
             while let Some(delim) = current {
                 delimiters_to_keep.push(delim.inl_text);
@@ -2725,6 +2725,7 @@ fn match_close_tag(input: &str) -> Option<(String, usize)> {
     None
 }
 
+#[allow(dead_code)]
 /// Helper function to get the parent of a node
 fn parent_of(arena: &NodeArena, node_id: NodeId) -> NodeId {
     arena.get(node_id).parent.unwrap_or(0)

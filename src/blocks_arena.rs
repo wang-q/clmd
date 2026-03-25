@@ -328,11 +328,13 @@ impl<'a> BlockParser<'a> {
         let node_type = self.get_node_type(block);
         if node_type == NodeType::Paragraph || node_type == NodeType::Heading {
             if let Some(content) = self.get_string_content(block) {
+                // Trim trailing whitespace and newlines
+                let content = content.trim_end();
                 if !content.is_empty() {
                     // Create text node with content
                     let text_node = self.arena.alloc(Node::with_data(
                         NodeType::Text,
-                        crate::node::NodeData::Text { literal: content },
+                        crate::node::NodeData::Text { literal: content.to_string() },
                     ));
                     TreeOps::append_child(self.arena, block, text_node);
                 }

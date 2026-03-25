@@ -1,10 +1,8 @@
-use crate::arena::Node;
 /// Block-level parsing for CommonMark documents
 ///
 /// This module implements the block parsing algorithm based on the CommonMark spec.
 /// It processes input line by line, building the AST structure using Arena allocation.
-use crate::arena::{NodeArena, NodeId, TreeOps};
-use crate::inlines_arena as inlines;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::inlines_arena::{parse_reference, unescape_string};
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
 use crate::node::{DelimType, ListType, NodeData, NodeType, SourcePos};
@@ -1853,15 +1851,13 @@ impl<'a> BlockParser<'a> {
                     // Store empty content marker
                     self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
                 } else {
-                    {
-                        let block_mut = self.arena.get_mut(block);
-                        if let NodeData::Text { literal: ref mut l } = block_mut.data {
-                            *l = content.to_string();
-                        } else {
-                            block_mut.data = NodeData::Text {
-                                literal: content.to_string(),
-                            };
-                        }
+                    let block_mut = self.arena.get_mut(block);
+                    if let NodeData::Text { literal: ref mut l } = block_mut.data {
+                        *l = content.to_string();
+                    } else {
+                        block_mut.data = NodeData::Text {
+                            literal: content.to_string(),
+                        };
                     }
                 }
             }
@@ -1900,7 +1896,7 @@ impl<'a> BlockParser<'a> {
                     item_opt = self.arena.get(item).next;
                 }
 
-                drop(block_ref);
+                // block_ref is dropped here implicitly
                 {
                     let block_mut = self.arena.get_mut(block);
                     if let NodeData::List {
@@ -1963,8 +1959,25 @@ impl<'a> BlockParser<'a> {
 
         // Check if this is a leaf block that needs inline processing
         match node_type {
-            NodeType::Paragraph | NodeType::Heading => {
-                let content = self.get_string_content(node);
+            NodeType::Paragraph => {
+                // For paragraphs, content is stored in NodeData::Text after finalization
+                let node_ref = self.arena.get(node);
+                let content = match &node_ref.data {
+                    NodeData::Text { literal } => literal.clone(),
+                    _ => self.get_string_content(node),
+                };
+                let line = self.get_start_line(node);
+                if !content.is_empty() && content != "__EMPTY_PARAGRAPH__" {
+                    leaf_blocks.push((node, content, line));
+                }
+            }
+            NodeType::Heading => {
+                // For headings, content is stored in NodeData::Heading
+                let node_ref = self.arena.get(node);
+                let content = match &node_ref.data {
+                    NodeData::Heading { content, .. } => content.clone(),
+                    _ => self.get_string_content(node),
+                };
                 let line = self.get_start_line(node);
                 if !content.is_empty() {
                     leaf_blocks.push((node, content, line));
@@ -2373,9 +2386,13 @@ mod tests {
             NodeType::Paragraph
         );
 
-        // Check paragraph content
+        // After inline processing, paragraph content is stored in child nodes
         let para = arena.get(first_child.unwrap());
-        if let NodeData::Text { literal } = &para.data {
+        let child = para.first_child;
+        assert!(child.is_some(), "Paragraph should have child nodes");
+
+        let content = arena.get(child.unwrap());
+        if let NodeData::Text { literal } = &content.data {
             assert_eq!(literal, "Hello world");
         } else {
             panic!("Expected Text data");
@@ -2485,8 +2502,16 @@ mod tests {
             "First child should be a paragraph"
         );
 
-        // Check the paragraph's data - it should have the text content
-        match &first_child_ref.data {
+        // After inline processing, paragraph content is stored in child nodes
+        // The literal is cleared to prevent double-rendering
+        let para_content = first_child_ref.first_child;
+        assert!(
+            para_content.is_some(),
+            "Paragraph should have child nodes after inline processing"
+        );
+
+        let content_ref = arena.get(para_content.unwrap());
+        match &content_ref.data {
             NodeData::Text { literal } => {
                 assert_eq!(
                     literal, "Some text",
@@ -2494,23 +2519,7 @@ mod tests {
                 );
             }
             _ => {
-                // If data is not Text, check first_child for inline content
-                let para_content = first_child_ref.first_child;
-                if let Some(content_node) = para_content {
-                    let content_ref = arena.get(content_node);
-                    if let NodeData::Text { literal } = &content_ref.data {
-                        assert_eq!(
-                            literal, "Some text",
-                            "Paragraph content should be 'Some text'"
-                        );
-                    } else {
-                        panic!("Expected Text node, got {:?}", content_ref.data);
-                    }
-                } else {
-                    panic!(
-                        "Paragraph should have content in either data or first_child"
-                    );
-                }
+                panic!("Expected Text node, got {:?}", content_ref.data);
             }
         }
     }

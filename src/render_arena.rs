@@ -2,7 +2,6 @@
 //!
 //! This is the Arena-based version of HTML rendering.
 
-use crate::arena::Node;
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use std::fmt::Write;
