@@ -1510,7 +1510,6 @@ impl<'a> Subject<'a> {
                 NodeType::Link
             };
             let link_node = Rc::new(RefCell::new(Node::new(node_type)));
-            eprintln!("DEBUG: Creating link node");
 
             {
                 let mut link_mut = link_node.borrow_mut();

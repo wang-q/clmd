@@ -1,9 +1,15 @@
 pub mod abbreviation;
+pub mod arena;
 pub mod ast;
 pub mod ast_nodes;
 pub mod attributes;
 pub mod autolink;
+
+#[cfg(feature = "rc-refcell")]
 pub mod blocks;
+#[cfg(feature = "arena")]
+pub mod blocks_arena;
+
 pub mod compat;
 pub mod config;
 pub mod converters;
@@ -11,12 +17,21 @@ pub mod definition;
 pub mod footnotes;
 pub mod html_to_md;
 pub mod html_utils;
+
+#[cfg(feature = "rc-refcell")]
 pub mod inlines;
+#[cfg(feature = "arena")]
+pub mod inlines_arena;
+
 pub mod iterator;
 pub mod lexer;
 pub mod node;
 pub mod parser;
 pub mod render;
+
+#[cfg(feature = "arena")]
+pub mod render_arena;
+
 pub mod sequence;
 pub mod strikethrough;
 pub mod tables;
@@ -176,6 +191,70 @@ pub fn render_latex(
 /// The Man page output as a String
 pub fn render_man(root: &std::rc::Rc<std::cell::RefCell<Node>>, options: u32) -> String {
     render::man::render(root, options)
+}
+
+/// Arena-based API (requires `arena` feature)
+#[cfg(feature = "arena")]
+pub mod arena_api {
+    use super::*;
+
+    /// Convert Markdown to HTML using Arena allocation
+    ///
+    /// This is the Arena-based version of `markdown_to_html`.
+    /// It uses `NodeArena` instead of `Rc<RefCell<Node>>` for better performance.
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - The Markdown text to convert
+    /// * `_options` - Options for parsing and rendering (currently unused)
+    ///
+    /// # Returns
+    ///
+    /// The HTML output as a String
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::arena_api::markdown_to_html;
+    ///
+    /// let html = markdown_to_html("Hello world", 0);
+    /// assert!(html.contains("<p>"));
+    /// assert!(html.contains("Hello world"));
+    /// ```
+    pub fn markdown_to_html(text: &str, _options: u32) -> String {
+        let mut arena = arena::NodeArena::new();
+        let doc = blocks_arena::BlockParser::parse(&mut arena, text);
+        render_arena::HtmlRenderer::render(&arena, doc)
+    }
+
+    /// Parse a Markdown document using Arena allocation
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - The Markdown text to parse
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (arena, document_node_id)
+    pub fn parse_document(text: &str) -> (arena::NodeArena, arena::NodeId) {
+        let mut arena = arena::NodeArena::new();
+        let doc = blocks_arena::BlockParser::parse(&mut arena, text);
+        (arena, doc)
+    }
+
+    /// Render an Arena-based AST to HTML
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - The node arena containing the AST
+    /// * `root` - The root node ID
+    ///
+    /// # Returns
+    ///
+    /// The HTML output as a String
+    pub fn render_html(arena: &arena::NodeArena, root: arena::NodeId) -> String {
+        render_arena::HtmlRenderer::render(arena, root)
+    }
 }
 
 #[cfg(test)]
