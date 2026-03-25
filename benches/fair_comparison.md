@@ -75,10 +75,12 @@ function benchmark(input) {
 ### 测试文件
 
 使用相同的测试文件：
-1. `lorem1.md` - 完整文档
-2. `block-bq-flat.md` - 简单块级
-3. `block-code.md` - 代码块
-4. `inline-em-flat.md` - 简单内联
+1. `lorem1.md` - 完整文档 (~1KB)
+2. `lorem-large.md` - 大文档 (~7KB) - 包含多种 Markdown 元素
+3. `lorem-xlarge.md` - 超大文档 (~110KB) - 15x lorem-large
+4. `block-bq-flat.md` - 简单块级
+5. `block-code.md` - 代码块
+6. `inline-em-flat.md` - 简单内联
 
 ### 测量方法
 
@@ -94,6 +96,8 @@ hyperfine --warmup 10 --min-runs 100 \
 
 ## 测试结果
 
+### 小文件测试 (lorem1.md, ~1KB)
+
 使用 hyperfine 进行统一测试（包含进程启动和文件 IO）：
 
 | 实现 | 时间 | 相对速度 |
@@ -101,8 +105,6 @@ hyperfine --warmup 10 --min-runs 100 \
 | **cmark (C)** | **1.5 ms** | 1.00x (最快) |
 | **clmd (Rust)** | **1.7 ms** | 1.17x (慢 17%) |
 | **commonmark.js (JS)** | **63.5 ms** | 42.9x (慢 42 倍) |
-
-### 详细结果
 
 ```bash
 $ hyperfine --warmup 10 --min-runs 100 \
@@ -118,11 +120,50 @@ Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samp
 
 Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem1.md
   Time (mean ± σ):      63.5 ms ±   1.3 ms
-
-Summary
-  cmark ran 1.17x faster than clmd
-  cmark ran 42.94x faster than commonmark.js
 ```
+
+### 大文件测试 (lorem-xlarge.md, ~110KB)
+
+使用 hyperfine 进行统一测试（包含进程启动和文件 IO）：
+
+| 实现 | 时间 | 相对速度 |
+|------|------|----------|
+| **cmark (C)** | **2.7 ms** | 1.00x (最快) |
+| **clmd (Rust)** | **4.8 ms** | 1.81x (慢 81%) |
+| **commonmark.js (JS)** | **75.9 ms** | 28.6x (慢 28 倍) |
+
+```bash
+$ hyperfine --warmup 3 --min-runs 50 \
+  './target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md' \
+  '/Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem-xlarge.md' \
+  'node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md'
+
+Benchmark 1: ./target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md
+  Time (mean ± σ):       4.8 ms ±   0.3 ms
+
+Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem-xlarge.md
+  Time (mean ± σ):       2.7 ms ±   0.7 ms
+
+Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md
+  Time (mean ± σ):      75.9 ms ±   4.8 ms
+```
+
+### clmd 不同大小文档性能 (Criterion.rs)
+
+| 文档 | 大小 | 解析时间 | 吞吐量 |
+|------|------|----------|--------|
+| `lorem1.md` | ~1KB | 24.4 µs | ~41 MB/s |
+| `lorem-large.md` | ~7KB | 190.3 µs | ~37 MB/s |
+| `lorem-xlarge.md` | ~110KB | 2.95 ms | ~37 MB/s |
+| `fair_comparison.md` | ~6KB | 125.4 µs | ~48 MB/s |
+
+**观察**: 解析时间与文档大小呈线性关系，吞吐量稳定在 37-48 MB/s，说明性能随文档大小扩展良好。
+
+**大文件 vs 小文件对比**:
+- 小文件 (1KB): clmd 仅比 cmark 慢 17%
+- 大文件 (110KB): clmd 比 cmark 慢 81%
+
+说明随着文档增大，clmd 与 cmark 的差距会扩大，主要因为 `Rc<RefCell>` 的内存分配和借用检查开销累积。
 
 ## 结论
 

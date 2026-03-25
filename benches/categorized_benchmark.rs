@@ -183,6 +183,28 @@ fn bench_rawtabs(c: &mut Criterion) {
     });
 }
 
+// Large document benchmarks
+fn bench_lorem_large(c: &mut Criterion) {
+    let input = include_str!("samples/lorem-large.md");
+    c.bench_function("lorem_large_7kb", |b| {
+        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+    });
+}
+
+fn bench_lorem_xlarge(c: &mut Criterion) {
+    let input = include_str!("samples/lorem-xlarge.md");
+    c.bench_function("lorem_xlarge_110kb", |b| {
+        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+    });
+}
+
+fn bench_fair_comparison(c: &mut Criterion) {
+    let input = include_str!("fair_comparison.md");
+    c.bench_function("fair_comparison_doc", |b| {
+        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+    });
+}
+
 // Group benchmarks
 criterion_group!(
     block_benchmarks,
@@ -215,7 +237,14 @@ criterion_group!(
     bench_inline_newlines,
 );
 
-criterion_group!(full_document_benchmarks, bench_lorem1, bench_rawtabs,);
+criterion_group!(
+    full_document_benchmarks,
+    bench_lorem1,
+    bench_rawtabs,
+    bench_lorem_large,
+    bench_lorem_xlarge,
+    bench_fair_comparison,
+);
 
 criterion_main!(
     block_benchmarks,
