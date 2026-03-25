@@ -927,18 +927,283 @@ impl<'a> Subject<'a> {
     }
 
     /// Process emphasis delimiters
-    /// Based on commonmark.js processEmphasis function
-    /// stack_bottom: if provided, only process delimiters after this one
+    /// Based on commonmark.js processEmphasis function and cmark implementation
     fn process_emphasis(
         &mut self,
-        _arena: &mut NodeArena,
-        _stack_bottom: Option<&Delimiter>,
+        arena: &mut NodeArena,
+        stack_bottom: Option<&Delimiter>,
     ) {
-        // Simplified implementation - emphasis processing is complex and requires
-        // careful handling of the delimiter stack. For now, we just clear the
-        // delimiter stack without processing.
-        // TODO: Implement full emphasis processing
-        self.delimiters = None;
+        // Collect all delimiter info into a vector (safer than raw pointers)
+        // We store: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims)
+        let mut delims: Vec<(NodeId, char, bool, bool, usize, usize)> = Vec::new();
+
+        // Traverse the delimiter stack and collect info
+        let mut current = self.delimiters.as_ref();
+        while let Some(d) = current {
+            delims.push((
+                d.inl_text,
+                d.delim_char,
+                d.can_open,
+                d.can_close,
+                d.orig_delims,
+                d.num_delims,
+            ));
+            current = d.previous.as_ref();
+        }
+
+        // Reverse to get them in order from oldest to newest
+        delims.reverse();
+
+        // Find the starting index based on stack_bottom
+        // stack_bottom is a delimiter that should NOT be processed (it's the boundary)
+        let start_idx = if let Some(sb) = stack_bottom {
+            // Find the position of stack_bottom in delims
+            delims
+                .iter()
+                .position(|(node_id, _, _, _, orig, _)| {
+                    *node_id == sb.inl_text && *orig == sb.orig_delims
+                })
+                .map(|i| i + 1)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        // Initialize openers_bottom for each delimiter type
+        // Index mapping: 0=" 1=' 2-7=_ (based on can_open and length % 3) 8-13=* (based on can_open and length % 3)
+        let mut openers_bottom: [usize; 14] = [start_idx; 14];
+
+        // Process closers from left to right, starting from start_idx
+        let mut closer_idx = start_idx;
+        while closer_idx < delims.len() {
+            let (
+                closer_inl,
+                closer_char,
+                closer_can_open,
+                closer_can_close,
+                closer_orig_delims,
+                _,
+            ) = delims[closer_idx];
+
+            if !closer_can_close {
+                closer_idx += 1;
+                continue;
+            }
+
+            // Determine openers_bottom index based on closer type
+            let openers_bottom_idx = match closer_char {
+                '"' => 0,
+                '\'' => 1,
+                '_' => {
+                    2 + if closer_can_open { 3 } else { 0 } + (closer_orig_delims % 3)
+                }
+                '*' => {
+                    8 + if closer_can_open { 3 } else { 0 } + (closer_orig_delims % 3)
+                }
+                _ => {
+                    closer_idx += 1;
+                    continue;
+                }
+            };
+
+            // Look for matching opener
+            // First, try to find an opener with the same number of delimiters
+            let mut opener_idx = closer_idx;
+            let mut opener_found = false;
+
+            while opener_idx > openers_bottom[openers_bottom_idx] {
+                opener_idx -= 1;
+                let (
+                    _,
+                    opener_char,
+                    opener_can_open,
+                    opener_can_close,
+                    opener_orig_delims,
+                    _,
+                ) = delims[opener_idx];
+
+                if opener_char == closer_char
+                    && opener_can_open
+                    && opener_orig_delims == closer_orig_delims
+                {
+                    // Check for odd match rule
+                    let odd_match = (closer_can_open || opener_can_close)
+                        && closer_orig_delims % 3 != 0
+                        && (opener_orig_delims + closer_orig_delims) % 3 == 0;
+
+                    if !odd_match {
+                        opener_found = true;
+                        break;
+                    }
+                }
+            }
+
+            // If no exact match found, look for any matching opener
+            if !opener_found {
+                opener_idx = closer_idx;
+                while opener_idx > openers_bottom[openers_bottom_idx] {
+                    opener_idx -= 1;
+                    let (
+                        _,
+                        opener_char,
+                        opener_can_open,
+                        opener_can_close,
+                        opener_orig_delims,
+                        _,
+                    ) = delims[opener_idx];
+
+                    if opener_char == closer_char && opener_can_open {
+                        // Check for odd match rule
+                        let odd_match = (closer_can_open || opener_can_close)
+                            && closer_orig_delims % 3 != 0
+                            && (opener_orig_delims + closer_orig_delims) % 3 == 0;
+
+                        if !odd_match {
+                            opener_found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let old_closer_idx = closer_idx;
+
+            if closer_char == '*' || closer_char == '_' {
+                if opener_found {
+                    let (opener_inl, _, _, _, opener_orig_delims, _) =
+                        delims[opener_idx];
+
+                    // Calculate number of delimiters to use
+                    let use_delims =
+                        if opener_orig_delims >= 2 && closer_orig_delims >= 2 {
+                            2
+                        } else {
+                            1
+                        };
+
+                    // Update the text nodes to remove used delimiters
+                    let opener_text = {
+                        let node = arena.get_mut(opener_inl);
+                        if let NodeData::Text { ref mut literal } = node.data {
+                            let new_len = literal.len().saturating_sub(use_delims);
+                            literal.truncate(new_len);
+                            literal.clone()
+                        } else {
+                            String::new()
+                        }
+                    };
+
+                    let closer_text = {
+                        let node = arena.get_mut(closer_inl);
+                        if let NodeData::Text { ref mut literal } = node.data {
+                            let new_len = literal.len().saturating_sub(use_delims);
+                            literal.truncate(new_len);
+                            literal.clone()
+                        } else {
+                            String::new()
+                        }
+                    };
+
+                    // Create emphasis or strong node
+                    let emph_type = if use_delims == 1 {
+                        NodeType::Emph
+                    } else {
+                        NodeType::Strong
+                    };
+                    let emph_node = arena.alloc(Node::new(emph_type));
+
+                    // Move nodes between opener and closer into the emphasis node
+                    let mut current_child = arena.get(opener_inl).next;
+                    while let Some(child_id) = current_child {
+                        if child_id == closer_inl {
+                            break;
+                        }
+                        let next_child = arena.get(child_id).next;
+
+                        // Unlink from current position and append to emphasis
+                        TreeOps::unlink(arena, child_id);
+                        TreeOps::append_child(arena, emph_node, child_id);
+
+                        current_child = next_child;
+                    }
+
+                    // Insert emphasis node after opener
+                    TreeOps::insert_after(arena, opener_inl, emph_node);
+
+                    // Remove delimiter inline nodes if they are now empty
+                    if opener_text.is_empty() {
+                        TreeOps::unlink(arena, opener_inl);
+                    }
+                    if closer_text.is_empty() {
+                        TreeOps::unlink(arena, closer_inl);
+                    }
+                    // Always advance to next closer
+                    closer_idx += 1;
+                } else {
+                    closer_idx += 1;
+                }
+            } else if closer_char == '\'' || closer_char == '"' {
+                // Smart quote handling
+                let quote_char = if closer_char == '\'' {
+                    '\u{2019}'
+                } else {
+                    '\u{201D}'
+                };
+                {
+                    let node = arena.get_mut(closer_inl);
+                    if let NodeData::Text { ref mut literal } = node.data {
+                        *literal = quote_char.to_string();
+                    }
+                }
+
+                if opener_found {
+                    let (opener_inl, _, _, _, _, _) = delims[opener_idx];
+                    let open_quote = if closer_char == '\'' {
+                        '\u{2018}'
+                    } else {
+                        '\u{201C}'
+                    };
+                    {
+                        let node = arena.get_mut(opener_inl);
+                        if let NodeData::Text { ref mut literal } = node.data {
+                            *literal = open_quote.to_string();
+                        }
+                    }
+                }
+
+                closer_idx += 1;
+            }
+
+            if !opener_found {
+                openers_bottom[openers_bottom_idx] = old_closer_idx;
+            }
+        }
+
+        // Rebuild the delimiter stack, keeping only delimiters up to start_idx
+        // These are the delimiters that were before stack_bottom (or all if stack_bottom is None)
+        if start_idx > 0 {
+            // Keep delimiters from 0 to start_idx-1
+            let delims_to_keep: Vec<_> = delims.into_iter().take(start_idx).collect();
+            self.delimiters = None;
+            for (node_id, char, can_open, can_close, orig_delims, num_delims) in
+                delims_to_keep
+            {
+                let delim = Box::new(Delimiter {
+                    previous: self.delimiters.take(),
+                    inl_text: node_id,
+                    position: 0,
+                    num_delims,
+                    orig_delims,
+                    delim_char: char,
+                    can_open,
+                    can_close,
+                });
+                self.delimiters = Some(delim);
+            }
+        } else {
+            // Clear delimiter stack
+            self.delimiters = None;
+        }
     }
 
     /// Parse open bracket (start of link or image)
@@ -1193,9 +1458,13 @@ impl<'a> Subject<'a> {
                 opener.previous_delimiter.as_ref().map(|v| &**v),
             );
 
-            // Remove delimiters that are inside the link from the delimiter stack
-            // These delimiters have been processed and should be removed
-            // self.remove_delimiters_inside_link(&opener);
+            // Restore previous_delimiter to the delimiter stack
+            // This allows emphasis outside the link to be processed later
+            if let Some(prev_delim) = opener.previous_delimiter {
+                // Rebuild the delimiter stack with previous_delimiter at the bottom
+                // Current stack is empty (process_emphasis cleared it or it was already empty)
+                self.delimiters = Some(prev_delim);
+            }
 
             // Remove the matched opener from bracket stack BEFORE deactivating previous openers
             // This ensures we don't deactivate the current opener itself

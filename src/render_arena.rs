@@ -14,6 +14,10 @@ impl HtmlRenderer {
     pub fn render(arena: &NodeArena, node_id: NodeId) -> String {
         let mut output = String::new();
         Self::render_node(arena, node_id, &mut output);
+        // Remove trailing newline to match expected output format
+        while output.ends_with('\n') {
+            output.pop();
+        }
         output
     }
 

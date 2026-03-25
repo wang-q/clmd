@@ -252,6 +252,9 @@ impl<'a> BlockParser<'a> {
         self.set_block_info(para, BlockInfo::new());
         self.append_string_content(para, &content);
         self.append_string_content(para, "\n");
+
+        // Set tip to paragraph so it gets finalized
+        self.tip = para;
     }
 
     /// Handle list item
@@ -291,6 +294,9 @@ impl<'a> BlockParser<'a> {
         self.set_block_info(para, BlockInfo::new());
         self.append_string_content(para, &content);
         self.append_string_content(para, "\n");
+
+        // Set tip to paragraph so it gets finalized
+        self.tip = para;
     }
 
     /// Handle paragraph
@@ -324,19 +330,14 @@ impl<'a> BlockParser<'a> {
 
     /// Finalize a block
     fn finalize_block(&mut self, block: NodeId) {
-        // Convert string content to text node for paragraphs
+        // Store content in node's data for paragraphs and headings
         let node_type = self.get_node_type(block);
-        if node_type == NodeType::Paragraph || node_type == NodeType::Heading {
+        if node_type == NodeType::Paragraph {
             if let Some(content) = self.get_string_content(block) {
-                // Trim trailing whitespace and newlines
-                let content = content.trim_end();
+                let content = content.trim_end().to_string();
                 if !content.is_empty() {
-                    // Create text node with content
-                    let text_node = self.arena.alloc(Node::with_data(
-                        NodeType::Text,
-                        crate::node::NodeData::Text { literal: content.to_string() },
-                    ));
-                    TreeOps::append_child(self.arena, block, text_node);
+                    let block_mut = self.arena.get_mut(block);
+                    block_mut.data = crate::node::NodeData::Text { literal: content };
                 }
             }
         }

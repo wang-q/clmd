@@ -93,11 +93,18 @@ pub struct BlockParser<'a> {
     node_to_index: std::collections::HashMap<NodeId, usize>,
     /// Next available index in block_info
     pub next_index: usize,
+    /// Options for parsing
+    pub options: u32,
 }
 
 impl<'a> BlockParser<'a> {
     /// Create a new block parser with the given arena
     pub fn new(arena: &'a mut NodeArena) -> Self {
+        Self::new_with_options(arena, 0)
+    }
+
+    /// Create a new block parser with the given arena and options
+    pub fn new_with_options(arena: &'a mut NodeArena, options: u32) -> Self {
         let doc = arena.alloc(Node::new(NodeType::Document));
         let tip = doc;
         let old_tip = doc;
@@ -125,6 +132,7 @@ impl<'a> BlockParser<'a> {
             block_info: Vec::with_capacity(64),
             node_to_index: std::collections::HashMap::with_capacity(64),
             next_index: 0,
+            options,
         };
 
         // Initialize block info for document
@@ -135,7 +143,16 @@ impl<'a> BlockParser<'a> {
 
     /// Parse a complete document
     pub fn parse(arena: &'a mut NodeArena, input: &str) -> NodeId {
-        let mut parser = Self::new(arena);
+        Self::parse_with_options(arena, input, 0)
+    }
+
+    /// Parse a complete document with options
+    pub fn parse_with_options(
+        arena: &'a mut NodeArena,
+        input: &str,
+        options: u32,
+    ) -> NodeId {
+        let mut parser = Self::new_with_options(arena, options);
 
         // Process lines directly without creating intermediate String
         // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
@@ -1939,12 +1956,15 @@ impl<'a> BlockParser<'a> {
         let mut leaf_blocks: Vec<(NodeId, String, usize)> = Vec::new();
         self.collect_leaf_blocks(self.doc, &mut leaf_blocks);
 
+        // Check if smart punctuation is enabled
+        let smart = (self.options & crate::options::SMART) != 0;
+
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {
             // Get a copy of refmap for this call
             let refmap = self.refmap.clone();
             crate::inlines_arena::parse_inlines_with_options(
-                self.arena, node_id, &content, line, 0, refmap, false,
+                self.arena, node_id, &content, line, 0, refmap, smart,
             );
         }
     }

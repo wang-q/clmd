@@ -285,6 +285,37 @@ impl TreeOps {
     pub fn parent(arena: &NodeArena, node_id: NodeId) -> Option<NodeId> {
         arena.get(node_id).parent
     }
+
+    /// Insert a node after a reference node (as a sibling)
+    pub fn insert_after(
+        arena: &mut NodeArena,
+        reference_id: NodeId,
+        new_node_id: NodeId,
+    ) {
+        let reference = arena.get(reference_id);
+        let next_id = reference.next;
+        let parent_id = reference.parent;
+
+        // Update new node's connections
+        let new_node = arena.get_mut(new_node_id);
+        new_node.prev = Some(reference_id);
+        new_node.next = next_id;
+        new_node.parent = parent_id;
+
+        // Update reference node's next pointer
+        let reference = arena.get_mut(reference_id);
+        reference.next = Some(new_node_id);
+
+        // Update next node's prev pointer if exists
+        if let Some(next) = next_id {
+            let next_node = arena.get_mut(next);
+            next_node.prev = Some(new_node_id);
+        } else if let Some(parent) = parent_id {
+            // Reference was the last child, update parent's last_child
+            let parent_node = arena.get_mut(parent);
+            parent_node.last_child = Some(new_node_id);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -82,12 +82,9 @@ pub mod options {
 /// let html = markdown_to_html("Hello *world*", options::DEFAULT);
 /// assert_eq!(html, "<p>Hello <em>world</em></p>");
 /// ```
-pub fn markdown_to_html(text: &str, _options: u32) -> String {
+pub fn markdown_to_html(text: &str, options: u32) -> String {
     let mut arena = NodeArena::new();
-    let doc = blocks_arena::BlockParser::parse(&mut arena, text);
-
-    // Process inlines for all leaf blocks
-    process_inlines_arena(&mut arena, doc, _options);
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
 
     render_arena::HtmlRenderer::render(&arena, doc)
 }
@@ -104,10 +101,7 @@ pub fn markdown_to_html(text: &str, _options: u32) -> String {
 /// A tuple of (arena, document_node_id)
 pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
     let mut arena = NodeArena::new();
-    let doc = blocks_arena::BlockParser::parse(&mut arena, text);
-
-    // Process inlines for all leaf blocks
-    process_inlines_arena(&mut arena, doc, options);
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
 
     (arena, doc)
 }
@@ -216,7 +210,7 @@ fn collect_leaf_blocks(
 
     match node.node_type {
         NodeType::Paragraph | NodeType::Heading => {
-            // Get content from string_content or literal
+            // For paragraphs and headings, check if content is in the node's data
             let content = if let NodeData::Text { literal } = &node.data {
                 literal.clone()
             } else if let NodeData::Heading { content, .. } = &node.data {
@@ -249,7 +243,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_basic() {
         let html = markdown_to_html("Hello world", options::DEFAULT);
-        assert_eq!(html, "<p>Hello world</p>\n");
+        assert_eq!(html, "<p>Hello world</p>");
     }
 
     #[test]
@@ -280,24 +274,39 @@ mod tests {
     #[test]
     fn test_markdown_to_html_code_block() {
         let html = markdown_to_html("```rust\nfn main() {}\n```", options::DEFAULT);
-        assert!(html.contains("<pre>"));
-        assert!(html.contains("<code class=\"language-rust\">"));
-        assert!(html.contains("fn main() {}"));
+        println!("Code block HTML: {:?}", html);
+        assert!(html.contains("<pre>"), "Expected <pre> in {}", html);
+        assert!(
+            html.contains("<code class=\"language-rust\">"),
+            "Expected <code class=\"language-rust\"> in {}",
+            html
+        );
+        assert!(
+            html.contains("fn main() {}"),
+            "Expected fn main() {{}} in {}",
+            html
+        );
     }
 
     #[test]
     fn test_markdown_to_html_blockquote() {
         let html = markdown_to_html("> Quote", options::DEFAULT);
-        assert!(html.contains("<blockquote>"));
-        assert!(html.contains("Quote"));
+        println!("Blockquote HTML: {:?}", html);
+        assert!(
+            html.contains("<blockquote>"),
+            "Expected <blockquote> in {}",
+            html
+        );
+        assert!(html.contains("Quote"), "Expected Quote in {}", html);
     }
 
     #[test]
     fn test_markdown_to_html_list() {
         let html = markdown_to_html("- Item 1\n- Item 2", options::DEFAULT);
-        assert!(html.contains("<ul>"));
-        assert!(html.contains("Item 1"));
-        assert!(html.contains("Item 2"));
+        println!("List HTML: {:?}", html);
+        assert!(html.contains("<ul>"), "Expected <ul> in {}", html);
+        assert!(html.contains("Item 1"), "Expected Item 1 in {}", html);
+        assert!(html.contains("Item 2"), "Expected Item 2 in {}", html);
     }
 
     #[test]
@@ -311,7 +320,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_thematic_break() {
         let html = markdown_to_html("---", options::DEFAULT);
-        assert_eq!(html, "<hr />\n");
+        assert_eq!(html, "<hr />");
     }
 
     #[test]
