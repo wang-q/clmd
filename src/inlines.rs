@@ -31,6 +31,73 @@ use crate::node::{NodeData, NodeType};
 use htmlescape::decode_html;
 use std::collections::HashMap;
 
+/// Character lookup table for fast classification
+/// Bit flags:
+/// - bit 0: is_punctuation
+/// - bit 1: is_whitespace
+/// - bit 2: is_special (needs special handling in inline parsing)
+static CHAR_TABLE: [u8; 256] = {
+    let mut table = [0u8; 256];
+    // Punctuation characters
+    table[b'!' as usize] = 0b101;
+    table[b'"' as usize] = 0b101;
+    table[b'#' as usize] = 0b001;
+    table[b'$' as usize] = 0b001;
+    table[b'%' as usize] = 0b001;
+    table[b'&' as usize] = 0b101;
+    table[b'\'' as usize] = 0b101;
+    table[b'(' as usize] = 0b001;
+    table[b')' as usize] = 0b001;
+    table[b'*' as usize] = 0b101;
+    table[b'+' as usize] = 0b001;
+    table[b',' as usize] = 0b001;
+    table[b'-' as usize] = 0b001;
+    table[b'.' as usize] = 0b001;
+    table[b'/' as usize] = 0b001;
+    table[b':' as usize] = 0b001;
+    table[b';' as usize] = 0b001;
+    table[b'<' as usize] = 0b101;
+    table[b'=' as usize] = 0b001;
+    table[b'>' as usize] = 0b001;
+    table[b'?' as usize] = 0b001;
+    table[b'@' as usize] = 0b001;
+    table[b'[' as usize] = 0b101;
+    table[b'\\' as usize] = 0b001;
+    table[b']' as usize] = 0b001;
+    table[b'^' as usize] = 0b001;
+    table[b'_' as usize] = 0b101;
+    table[b'`' as usize] = 0b101;
+    table[b'{' as usize] = 0b001;
+    table[b'|' as usize] = 0b001;
+    table[b'}' as usize] = 0b001;
+    table[b'~' as usize] = 0b001;
+    // Whitespace characters
+    table[b' ' as usize] = 0b010;
+    table[b'\t' as usize] = 0b010;
+    table[b'\n' as usize] = 0b010;
+    table[b'\r' as usize] = 0b010;
+    table[b'\x0C' as usize] = 0b010; // Form feed
+    table
+};
+
+/// Fast check if a byte is punctuation using lookup table
+#[inline(always)]
+pub fn is_punctuation_fast(b: u8) -> bool {
+    CHAR_TABLE[b as usize] & 0b001 != 0
+}
+
+/// Fast check if a byte is whitespace using lookup table
+#[inline(always)]
+pub fn is_whitespace_fast(b: u8) -> bool {
+    CHAR_TABLE[b as usize] & 0b010 != 0
+}
+
+/// Fast check if a byte is a special inline character
+#[inline(always)]
+pub fn is_special_fast(b: u8) -> bool {
+    CHAR_TABLE[b as usize] & 0b100 != 0
+}
+
 /// HTML5 named entities lookup table
 /// This includes entities that may not be supported by htmlescape
 fn get_html5_entity(name: &str) -> Option<&'static str> {
@@ -2252,14 +2319,11 @@ pub fn normalize_reference(label: &str) -> String {
 
 /// Check if a character is punctuation
 fn is_punctuation(c: char) -> bool {
-    // ASCII punctuation
-    if c.is_ascii_punctuation() {
-        return true;
+    // Fast path for ASCII using lookup table
+    if c.is_ascii() {
+        return is_punctuation_fast(c as u8);
     }
     // Unicode punctuation (Pc, Pd, Ps, Pe, Pi, Pf, Po categories)
-    if c.is_ascii() {
-        return false;
-    }
     // Check for specific Unicode punctuation characters commonly used in tests
     matches!(c,
         '\u{00A2}'..='\u{00A5}' | // ¢£¤¥ (currency symbols)
