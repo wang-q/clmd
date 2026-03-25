@@ -1,3 +1,23 @@
+//! AST node definitions for CommonMark documents
+//!
+//! This module defines the node types and structures used to represent
+//! a CommonMark document as an Abstract Syntax Tree (AST).
+//!
+//! # Node Structure
+//!
+//! Each node has:
+//! - A [`NodeType`] identifying the kind of element
+//! - [`NodeData`] containing type-specific information
+//! - Parent/child/sibling pointers for tree navigation
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use clmd::node::{Node, NodeType, NodeData};
+//!
+//! let node = Node::new(NodeType::Paragraph, NodeData::default());
+//! ```
+
 /// Node types in the CommonMark AST
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeType {

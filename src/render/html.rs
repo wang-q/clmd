@@ -1,6 +1,6 @@
+use crate::html_utils::{escape_html, is_safe_url};
 use crate::iterator::{NodeWalker, WalkerEvent};
 use crate::node::{Node, NodeData, NodeType, SourcePos};
-use crate::render::{escape_html, is_safe_url};
 use htmlescape::decode_html;
 use std::cell::RefCell;
 use std::rc::Rc;

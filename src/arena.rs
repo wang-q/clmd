@@ -1,7 +1,26 @@
-//! Arena-based node allocation
+//! Arena-based node allocation for AST
 //!
-//! This module provides an arena allocator for AST nodes,
-//! replacing the previous Rc<RefCell<Node>> approach.
+//! This module provides an efficient arena allocator for AST (Abstract Syntax Tree) nodes,
+//! replacing the previous `Rc<RefCell<Node>>` approach with a more performant bump allocator pattern.
+//!
+//! # Overview
+//!
+//! The arena allocator provides:
+//! - O(1) node allocation
+//! - Cache-friendly memory layout
+//! - Simple lifetime management
+//! - Tree operations via NodeId references
+//!
+//! # Example
+//!
+//! ```
+//! use clmd::{NodeArena, TreeOps, NodeType, Node};
+//!
+//! let mut arena = NodeArena::new();
+//! let root = arena.alloc(Node::new(NodeType::Document));
+//! let paragraph = arena.alloc(Node::new(NodeType::Paragraph));
+//! TreeOps::append_child(&mut arena, root, paragraph);
+//! ```
 
 use crate::node::{NodeData, NodeType, SourcePos};
 

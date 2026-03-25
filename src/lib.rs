@@ -1,40 +1,98 @@
+/// Abbreviation support (not yet implemented)
 pub mod abbreviation;
+
+/// Arena-based memory management for AST nodes
+///
+/// This module provides the core data structures for efficient node allocation
+/// and tree manipulation using arena allocation instead of Rc<RefCell>.
 pub mod arena;
+
+/// AST traversal and visitor patterns
 pub mod ast;
+
+/// AST node type definitions
 pub mod ast_nodes;
+
+/// HTML attributes handling
 pub mod attributes;
+
+/// Autolink detection (URLs and email addresses)
 pub mod autolink;
 
+/// Block-level parsing for CommonMark documents
+///
+/// This module implements the block parsing algorithm based on the CommonMark spec.
+/// It processes input line by line, building the AST structure using Arena allocation.
 pub mod blocks;
-pub mod blocks_arena;
 
+/// Compatibility layer for different API versions
 pub mod compat;
+
+/// Configuration management
 pub mod config;
+
+/// Document converters (HTML, LaTeX, etc.)
 pub mod converters;
+
+/// Definition lists support
 pub mod definition;
+
+/// Footnotes support
 pub mod footnotes;
+
+/// HTML to Markdown conversion
 pub mod html_to_md;
+
+/// HTML utilities (escaping, entity decoding)
 pub mod html_utils;
 
+/// Inline parsing for CommonMark documents
+///
+/// This module implements the inline parsing algorithm based on the CommonMark spec.
+/// It processes the content of leaf blocks to produce inline elements like
+/// emphasis, links, code, etc.
 pub mod inlines;
-pub mod inlines_arena;
 
+/// AST iteration and traversal
 pub mod iterator;
-pub mod lexer;
-pub mod node;
-pub mod parser;
-pub mod render;
-pub mod render_arena;
 
+/// Lexical analysis utilities
+pub mod lexer;
+
+/// Core node types and data structures
+pub mod node;
+
+/// High-level parser interface
+pub mod parser;
+
+/// HTML rendering for Arena-based AST
+///
+/// This module provides HTML output generation for documents parsed
+/// using the Arena-based parser.
+pub mod render;
+
+/// Text sequence utilities
 pub mod sequence;
+
+/// Strikethrough text support
 pub mod strikethrough;
+
+/// Tables support (GitHub Flavored Markdown)
 pub mod tables;
+
+/// Task lists support (GitHub Flavored Markdown)
 pub mod tasklist;
+
+/// Test utilities
 pub mod test_utils;
+
+/// Table of contents generation
 pub mod toc;
+
+/// YAML front matter support
 pub mod yaml_front_matter;
 
-pub use arena::{NodeArena, NodeId, TreeOps};
+pub use arena::{Node, NodeArena, NodeId, TreeOps};
 pub use iterator::{NodeIterator, NodeWalker};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
 
@@ -86,7 +144,7 @@ pub fn markdown_to_html(text: &str, options: u32) -> String {
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
 
-    render_arena::HtmlRenderer::render(&arena, doc)
+    render::HtmlRenderer::render(&arena, doc)
 }
 
 /// Parse a CommonMark document
@@ -118,7 +176,7 @@ pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
 ///
 /// The HTML output as a String
 pub fn render_html(arena: &NodeArena, root: NodeId, _options: u32) -> String {
-    render_arena::HtmlRenderer::render(arena, root)
+    render::HtmlRenderer::render(arena, root)
 }
 
 /// Render an Arena-based AST to XML
@@ -187,7 +245,7 @@ pub fn render_man(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
 
 /// Process inlines for all leaf blocks in the document
 fn process_inlines_arena(arena: &mut NodeArena, root: NodeId, _options: u32) {
-    use crate::inlines_arena::Subject;
+    use crate::inlines::Subject;
 
     // Collect all leaf blocks that need inline processing
     let mut leaf_blocks: Vec<(NodeId, String)> = Vec::new();

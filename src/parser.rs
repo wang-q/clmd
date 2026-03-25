@@ -1,6 +1,20 @@
+//! Main parser for CommonMark documents
+//!
+//! This module provides the main entry point for parsing CommonMark documents.
+//! It coordinates block-level and inline parsing phases to produce a complete AST.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use clmd::{Parser, Options};
+//!
+//! let parser = Parser::new(Options::DEFAULT);
+//! let (arena, doc_id) = parser.parse("# Hello\n\nWorld");
+//! ```
+
 use crate::arena::{NodeArena, NodeId};
-use crate::blocks_arena::BlockParser;
-use crate::inlines_arena::parse_inlines_with_options;
+use crate::blocks::BlockParser;
+use crate::inlines::parse_inlines_with_options;
 use crate::node::{NodeData, NodeType};
 use crate::options;
 use std::collections::HashMap;

@@ -1,9 +1,32 @@
-/// Block-level parsing for CommonMark documents
-///
-/// This module implements the block parsing algorithm based on the CommonMark spec.
-/// It processes input line by line, building the AST structure using Arena allocation.
+//! Block-level parsing for CommonMark documents
+//!
+//! This module implements the block parsing algorithm based on the CommonMark spec.
+//! It processes input line by line, building the AST structure using Arena allocation.
+//!
+//! # Overview
+//!
+//! Block parsing is the first phase of Markdown processing. It identifies and parses
+//! block-level elements:
+//!
+//! - **Leaf blocks**: Paragraphs, headings, code blocks, HTML blocks
+//! - **Container blocks**: Blockquotes, lists, list items
+//! - **Document metadata**: Link reference definitions
+//!
+//! The parser uses a line-by-line approach, maintaining a stack of open blocks
+//! and matching each line against potential containers.
+//!
+//! # Example
+//!
+//! ```
+//! use clmd::{parse_document, render_html, options};
+//!
+//! let (arena, doc) = parse_document("# Heading\n\nParagraph", options::DEFAULT);
+//! let html = render_html(&arena, doc, options::DEFAULT);
+//! assert!(html.contains("<h1>Heading</h1>"));
+//! assert!(html.contains("<p>Paragraph</p>"));
+//! ```
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::inlines_arena::{parse_reference, unescape_string};
+use crate::inlines::{parse_reference, unescape_string};
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
 use crate::node::{DelimType, ListType, NodeData, NodeType, SourcePos};
 
@@ -1963,7 +1986,7 @@ impl<'a> BlockParser<'a> {
         for (node_id, content, line) in leaf_blocks {
             // Get a copy of refmap for this call
             let refmap = self.refmap.clone();
-            crate::inlines_arena::parse_inlines_with_options(
+            crate::inlines::parse_inlines_with_options(
                 self.arena, node_id, &content, line, 0, refmap, smart,
             );
         }

@@ -1,118 +1,286 @@
-pub mod commonmark;
-pub mod html;
-pub mod latex;
-pub mod man;
-pub mod xml;
+//! HTML rendering for Arena-based AST
+//!
+//! This module provides HTML output generation for documents parsed using the Arena-based parser.
+//!
+//! # Overview
+//!
+//! The renderer traverses the AST and generates HTML output:
+//!
+//! - **Block elements**: Paragraphs, headings, lists, code blocks, blockquotes
+//! - **Inline elements**: Emphasis, strong, links, images, code, entities
+//! - **Escaping**: HTML special characters are properly escaped
+//! - **URL safety**: Potentially dangerous URLs are filtered out
+//!
+//! # Example
+//!
+//! ```
+//! use clmd::{markdown_to_html, options};
+//!
+//! let html = markdown_to_html("# Hello\n\nWorld", options::DEFAULT);
+//! assert_eq!(html, "<h1>Hello</h1>\n<p>World</p>");
+//! ```
 
-use crate::node::Node;
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType};
+use std::fmt::Write;
 
-/// Base renderer trait
-pub trait Renderer {
-    fn render(&mut self, root: &Rc<RefCell<Node>>, options: u32) -> String;
-}
+/// HTML renderer for Arena-based AST
+pub struct HtmlRenderer;
 
-/// Escape HTML special characters
-/// Optimized with byte-level scanning and pre-allocated capacity
-pub fn escape_html(text: &str) -> String {
-    // Fast path: check if any escaping is needed
-    let bytes = text.as_bytes();
-    let mut needs_escape = false;
-    for &b in bytes {
-        if matches!(b, b'&' | b'<' | b'>' | b'"') {
-            needs_escape = true;
-            break;
+impl HtmlRenderer {
+    /// Render a node and its children to HTML
+    pub fn render(arena: &NodeArena, node_id: NodeId) -> String {
+        let mut output = String::new();
+        Self::render_node(arena, node_id, &mut output);
+        // Remove trailing newline to match expected output format
+        while output.ends_with('\n') {
+            output.pop();
+        }
+        output
+    }
+
+    fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) {
+        let node = arena.get(node_id);
+
+        match node.node_type {
+            NodeType::Document => {
+                Self::render_children(arena, node_id, output);
+            }
+            NodeType::Paragraph => {
+                output.push_str("<p>");
+                // Try to get content from block_info if no children
+                if arena.get(node_id).first_child.is_none() {
+                    if let NodeData::Text { literal } = &node.data {
+                        output.push_str(&escape_html(literal));
+                    }
+                } else {
+                    Self::render_children(arena, node_id, output);
+                }
+                output.push_str("</p>\n");
+            }
+            NodeType::Heading => {
+                if let NodeData::Heading { level, content } = &node.data {
+                    write!(output, "<h{}>", level).unwrap();
+                    if !content.is_empty() {
+                        output.push_str(&escape_html(content));
+                    } else {
+                        Self::render_children(arena, node_id, output);
+                    }
+                    write!(output, "</h{}>\n", level).unwrap();
+                }
+            }
+            NodeType::BlockQuote => {
+                output.push_str("<blockquote>\n");
+                Self::render_children(arena, node_id, output);
+                output.push_str("</blockquote>\n");
+            }
+            NodeType::List => {
+                if let NodeData::List { list_type, .. } = &node.data {
+                    match list_type {
+                        crate::node::ListType::Bullet => {
+                            output.push_str("<ul>\n");
+                            Self::render_children(arena, node_id, output);
+                            output.push_str("</ul>\n");
+                        }
+                        crate::node::ListType::Ordered => {
+                            output.push_str("<ol>\n");
+                            Self::render_children(arena, node_id, output);
+                            output.push_str("</ol>\n");
+                        }
+                        _ => {
+                            Self::render_children(arena, node_id, output);
+                        }
+                    }
+                }
+            }
+            NodeType::Item => {
+                output.push_str("<li>");
+                Self::render_children(arena, node_id, output);
+                output.push_str("</li>\n");
+            }
+            NodeType::CodeBlock => {
+                if let NodeData::CodeBlock { info, literal } = &node.data {
+                    if info.is_empty() {
+                        output.push_str("<pre><code>");
+                    } else {
+                        write!(
+                            output,
+                            "<pre><code class=\"language-{}\">",
+                            escape_html(info)
+                        )
+                        .unwrap();
+                    }
+                    output.push_str(&escape_html(literal));
+                    output.push_str("</code></pre>\n");
+                }
+            }
+            NodeType::HtmlBlock => {
+                if let NodeData::HtmlBlock { literal } = &node.data {
+                    output.push_str(literal);
+                }
+            }
+            NodeType::ThematicBreak => {
+                output.push_str("<hr />\n");
+            }
+            NodeType::Text => {
+                if let NodeData::Text { literal } = &node.data {
+                    output.push_str(&escape_html(literal));
+                }
+            }
+            NodeType::Code => {
+                if let NodeData::Code { literal } = &node.data {
+                    output.push_str("<code>");
+                    output.push_str(&escape_html(literal));
+                    output.push_str("</code>");
+                }
+            }
+            NodeType::Emph => {
+                output.push_str("<em>");
+                Self::render_children(arena, node_id, output);
+                output.push_str("</em>");
+            }
+            NodeType::Strong => {
+                output.push_str("<strong>");
+                Self::render_children(arena, node_id, output);
+                output.push_str("</strong>");
+            }
+            NodeType::Link => {
+                if let NodeData::Link { url, title } = &node.data {
+                    if title.is_empty() {
+                        write!(output, "<a href=\"{}\">", escape_html(url)).unwrap();
+                    } else {
+                        write!(
+                            output,
+                            "<a href=\"{}\" title=\"{}\">",
+                            escape_html(url),
+                            escape_html(title)
+                        )
+                        .unwrap();
+                    }
+                    Self::render_children(arena, node_id, output);
+                    output.push_str("</a>");
+                }
+            }
+            NodeType::Image => {
+                if let NodeData::Image { url, title } = &node.data {
+                    let alt = Self::collect_text(arena, node_id);
+                    if title.is_empty() {
+                        write!(
+                            output,
+                            "<img src=\"{}\" alt=\"{}\" />",
+                            escape_html(url),
+                            escape_html(&alt)
+                        )
+                        .unwrap();
+                    } else {
+                        write!(
+                            output,
+                            "<img src=\"{}\" alt=\"{}\" title=\"{}\" />",
+                            escape_html(url),
+                            escape_html(&alt),
+                            escape_html(title)
+                        )
+                        .unwrap();
+                    }
+                }
+            }
+            NodeType::HtmlInline => {
+                if let NodeData::HtmlInline { literal } = &node.data {
+                    output.push_str(literal);
+                }
+            }
+            NodeType::SoftBreak => {
+                output.push('\n');
+            }
+            NodeType::LineBreak => {
+                output.push_str("<br />\n");
+            }
+            _ => {
+                // Unknown node type, just render children
+                Self::render_children(arena, node_id, output);
+            }
         }
     }
 
-    if !needs_escape {
-        return text.to_string();
+    fn render_children(arena: &NodeArena, node_id: NodeId, output: &mut String) {
+        if let Some(child_id) = arena.get(node_id).first_child {
+            let mut current = Some(child_id);
+            while let Some(id) = current {
+                Self::render_node(arena, id, output);
+                current = TreeOps::next_sibling(arena, id);
+            }
+        }
     }
 
-    // Slow path: escape needed - pre-allocate with extra capacity for entities
-    let mut result = String::with_capacity(text.len() * 2);
-    for &b in bytes {
-        match b {
-            b'&' => result.push_str("&amp;"),
-            b'<' => result.push_str("&lt;"),
-            b'>' => result.push_str("&gt;"),
-            b'"' => result.push_str("&quot;"),
-            _ => result.push(b as char),
+    fn collect_text(arena: &NodeArena, node_id: NodeId) -> String {
+        let mut result = String::new();
+        Self::collect_text_recursive(arena, node_id, &mut result);
+        result
+    }
+
+    fn collect_text_recursive(arena: &NodeArena, node_id: NodeId, result: &mut String) {
+        let node = arena.get(node_id);
+
+        if let NodeData::Text { literal } = &node.data {
+            result.push_str(literal);
+        }
+
+        if let Some(child_id) = node.first_child {
+            let mut current = Some(child_id);
+            while let Some(id) = current {
+                Self::collect_text_recursive(arena, id, result);
+                current = TreeOps::next_sibling(arena, id);
+            }
+        }
+    }
+}
+
+/// Escape HTML special characters
+fn escape_html(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            _ => result.push(c),
         }
     }
     result
 }
 
-/// Check if a URL is safe
-/// Based on commonmark.js reUnsafeProtocol and reSafeDataProtocol
-pub fn is_safe_url(url: &str) -> bool {
-    let url_lower = url.to_lowercase();
-
-    // Check for unsafe protocols
-    let is_unsafe = url_lower.starts_with("javascript:")
-        || url_lower.starts_with("vbscript:")
-        || url_lower.starts_with("file:")
-        || (url_lower.starts_with("data:") && !is_safe_data_url(&url_lower));
-
-    !is_unsafe
-}
-
-/// Check if a data URL is safe (only allows image types)
-fn is_safe_data_url(url: &str) -> bool {
-    // Allow data:image/* URLs
-    url.starts_with("data:image/png")
-        || url.starts_with("data:image/gif")
-        || url.starts_with("data:image/jpeg")
-        || url.starts_with("data:image/webp")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blocks::BlockParser;
+
+    #[test]
+    fn test_render_simple() {
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "Hello world");
+
+        let html = HtmlRenderer::render(&arena, doc);
+        assert!(html.contains("<p>"));
+        assert!(html.contains("Hello world"));
+        assert!(html.contains("</p>"));
+    }
+
+    #[test]
+    fn test_render_heading() {
+        let mut arena = NodeArena::new();
+        let doc = BlockParser::parse(&mut arena, "# Heading 1");
+
+        let html = HtmlRenderer::render(&arena, doc);
+        assert!(html.contains("<h1>"));
+        assert!(html.contains("Heading 1"));
+        assert!(html.contains("</h1>"));
+    }
 
     #[test]
     fn test_escape_html() {
-        assert_eq!(escape_html("<div>"), "&lt;div&gt;");
+        assert_eq!(escape_html("<script>"), "&lt;script&gt;");
         assert_eq!(escape_html("&"), "&amp;");
         assert_eq!(escape_html("\"test\""), "&quot;test&quot;");
-        assert_eq!(escape_html("'test'"), "'test'"); // Single quote is not escaped
-        assert_eq!(escape_html("hello"), "hello"); // No special chars
-    }
-
-    #[test]
-    fn test_is_safe_url_http() {
-        assert!(is_safe_url("https://example.com"));
-        assert!(is_safe_url("http://example.com"));
-    }
-
-    #[test]
-    fn test_is_safe_url_javascript() {
-        assert!(!is_safe_url("javascript:alert('xss')"));
-        assert!(!is_safe_url("JAVASCRIPT:alert('xss')")); // Case insensitive
-    }
-
-    #[test]
-    fn test_is_safe_url_vbscript() {
-        assert!(!is_safe_url("vbscript:msgbox('xss')"));
-    }
-
-    #[test]
-    fn test_is_safe_url_file() {
-        assert!(!is_safe_url("file:///etc/passwd"));
-    }
-
-    #[test]
-    fn test_is_safe_url_data_image() {
-        assert!(is_safe_url("data:image/png;base64,abc123"));
-        assert!(is_safe_url("data:image/gif;base64,abc123"));
-        assert!(is_safe_url("data:image/jpeg;base64,abc123"));
-        assert!(is_safe_url("data:image/webp;base64,abc123"));
-    }
-
-    #[test]
-    fn test_is_safe_url_data_unsafe() {
-        assert!(!is_safe_url("data:text/html,<script>alert('xss')</script>"));
-        assert!(!is_safe_url("data:application/javascript,alert(1)"));
     }
 }

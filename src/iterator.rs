@@ -1,3 +1,19 @@
+//! AST iterator for traversing the CommonMark document tree
+//!
+//! This module provides an iterator for traversing the AST in a depth-first manner,
+//! yielding enter and exit events for each node.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use clmd::iterator::{NodeIterator, EventType};
+//!
+//! let iter = NodeIterator::new(root_node);
+//! while iter.next() != EventType::Done {
+//!     // Process enter/exit events
+//! }
+//! ```
+
 use crate::node::{unlink, Node, NodeType};
 use std::cell::RefCell;
 use std::rc::Rc;
