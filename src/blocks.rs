@@ -1972,45 +1972,30 @@ impl BlockParser {
     /// Remove link reference definitions from the document
     /// This processes paragraph nodes marked as empty during finalization
     fn remove_link_reference_definitions(&mut self) {
-        let empty_nodes = self.find_empty_paragraphs();
-
-        // Remove empty nodes (paragraphs that only contained reference definitions)
-        for node in empty_nodes {
-            unlink(&node);
-        }
+        self.collect_and_remove_empty_paragraphs(&self.doc.clone());
     }
 
-    /// Find paragraphs marked as empty (only contained reference definitions)
-    fn find_empty_paragraphs(&self) -> Vec<Rc<RefCell<Node>>> {
-        let mut empty_nodes = Vec::new();
-        self.collect_empty_paragraphs(&self.doc.clone(), &mut empty_nodes);
-        empty_nodes
-    }
-
-    /// Recursively collect empty paragraphs
-    fn collect_empty_paragraphs(
-        &self,
-        node: &Rc<RefCell<Node>>,
-        empty_nodes: &mut Vec<Rc<RefCell<Node>>>,
-    ) {
-        let node_type = node.borrow().node_type;
-
-        // Check if this is a paragraph marked as empty
-        if node_type == NodeType::Paragraph {
-            let content = self.get_string_content(node);
-            if content == "__EMPTY_PARAGRAPH__" {
-                empty_nodes.push(node.clone());
-            }
-        }
-
-        // Recursively process children without creating intermediate Vec
+    /// Recursively collect and remove empty paragraphs in a single pass
+    fn collect_and_remove_empty_paragraphs(&self, node: &Rc<RefCell<Node>>) {
+        // Process children first (depth-first), handling next pointers carefully
+        // since we might unlink nodes during traversal
         let first_child_opt = node.borrow().first_child.borrow().clone();
         if let Some(first_child) = first_child_opt {
             let mut current_opt = Some(first_child);
             while let Some(current) = current_opt {
+                // Get next before processing, since current might be unlinked
                 let next_opt = current.borrow().next.borrow().clone();
-                self.collect_empty_paragraphs(&current, empty_nodes);
+                self.collect_and_remove_empty_paragraphs(&current);
                 current_opt = next_opt;
+            }
+        }
+
+        // Check if this is a paragraph marked as empty and remove it
+        let node_type = node.borrow().node_type;
+        if node_type == NodeType::Paragraph {
+            let content = self.get_string_content(node);
+            if content == "__EMPTY_PARAGRAPH__" {
+                unlink(node);
             }
         }
     }

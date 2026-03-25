@@ -274,19 +274,34 @@ impl<'a> Subject<'a> {
                 let next_is_text = next.borrow().node_type == NodeType::Text;
 
                 if current_is_text && next_is_text {
-                    // Get literals with minimal borrow scope
-                    let current_literal = Self::get_text_literal(&current);
-                    let next_literal = Self::get_text_literal(&next);
+                    // Check if either is a smart quote without cloning
+                    let can_merge = {
+                        let current_ref = current.borrow();
+                        let next_ref = next.borrow();
+                        let current_literal = match &current_ref.data {
+                            NodeData::Text { literal } => literal.as_str(),
+                            _ => "",
+                        };
+                        let next_literal = match &next_ref.data {
+                            NodeData::Text { literal } => literal.as_str(),
+                            _ => "",
+                        };
+                        !Self::is_smart_quote(current_literal) && !Self::is_smart_quote(next_literal)
+                    };
 
-                    // Don't merge if current or next is a smart quote
-                    if !Self::is_smart_quote(&current_literal)
-                        && !Self::is_smart_quote(&next_literal)
-                    {
-                        // Merge next into current
+                    if can_merge {
+                        // Get next's literal and merge into current
+                        let next_literal = {
+                            let next_ref = next.borrow();
+                            match &next_ref.data {
+                                NodeData::Text { literal } => literal.clone(),
+                                _ => String::new(),
+                            }
+                        };
+
                         {
                             let mut current_mut = current.borrow_mut();
-                            if let NodeData::Text { ref mut literal } = current_mut.data
-                            {
+                            if let NodeData::Text { ref mut literal } = current_mut.data {
                                 literal.push_str(&next_literal);
                             }
                         }
@@ -304,16 +319,6 @@ impl<'a> Subject<'a> {
             Self::merge_adjacent_text_nodes(&current);
 
             current_opt = next_opt;
-        }
-    }
-
-    /// Helper to get text literal from a node
-    #[inline(always)]
-    fn get_text_literal(node: &Rc<RefCell<Node>>) -> String {
-        let node_ref = node.borrow();
-        match &node_ref.data {
-            NodeData::Text { literal } => literal.clone(),
-            _ => String::new(),
         }
     }
 
@@ -1868,15 +1873,9 @@ impl<'a> Subject<'a> {
         }
 
         if self.pos > start {
-            let mut text = self.input[start..self.pos].to_string();
+            let text_slice = &self.input[start..self.pos];
 
-            // Apply smart punctuation transformations if enabled
-            if self.smart {
-                text = self.apply_smart_punctuation(&text);
-            }
-
-            // Create a new text node without merging
-            // This is important to keep delimiter text nodes separate
+            // Create text node with the content
             let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
             {
                 let mut text_mut = text_node.borrow_mut();
@@ -1884,7 +1883,13 @@ impl<'a> Subject<'a> {
                     ref mut literal, ..
                 } = text_mut.data
                 {
-                    *literal = text;
+                    // Apply smart punctuation transformations if enabled
+                    if self.smart {
+                        *literal = self.apply_smart_punctuation(text_slice);
+                    } else {
+                        // Fast path: no smart punctuation, just clone the slice
+                        *literal = text_slice.to_string();
+                    }
                 }
             }
             append_child(parent, text_node);
