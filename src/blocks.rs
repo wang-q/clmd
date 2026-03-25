@@ -29,6 +29,7 @@ use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::inlines::{parse_reference, unescape_string};
 use crate::lexer::{is_space_or_tab, CODE_INDENT, TAB_STOP};
 use crate::node::{DelimType, ListType, NodeData, NodeType, SourcePos};
+use rustc_hash::FxHashMap;
 
 /// Block info for tracking fenced code blocks and list items
 #[derive(Debug, Clone)]
@@ -109,11 +110,11 @@ pub struct BlockParser<'a> {
     /// Last line length
     pub last_line_length: usize,
     /// Reference map for link references: label -> (url, title)
-    pub refmap: std::collections::HashMap<String, (String, String)>,
+    pub refmap: FxHashMap<String, (String, String)>,
     /// Block info for each node
     block_info: Vec<Option<BlockInfo>>,
     /// Map from node ID to block_info index
-    node_to_index: std::collections::HashMap<NodeId, usize>,
+    node_to_index: FxHashMap<NodeId, usize>,
     /// Next available index in block_info
     pub next_index: usize,
     /// Options for parsing
@@ -151,9 +152,9 @@ impl<'a> BlockParser<'a> {
             partially_consumed_tab: false,
             all_closed: true,
             last_line_length: 0,
-            refmap: std::collections::HashMap::new(),
+            refmap: FxHashMap::default(),
             block_info: Vec::with_capacity(64),
-            node_to_index: std::collections::HashMap::with_capacity(64),
+            node_to_index: FxHashMap::default(),
             next_index: 0,
             options,
         };

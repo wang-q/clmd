@@ -29,6 +29,8 @@
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use htmlescape::decode_html;
+use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 
 /// Character lookup table for fast classification
@@ -143,7 +145,7 @@ pub struct Subject<'a> {
     /// Whether there are no link openers
     pub no_link_openers: bool,
     /// Reference map for link references (borrowed to avoid cloning)
-    pub refmap: &'a std::collections::HashMap<String, (String, String)>,
+    pub refmap: &'a FxHashMap<String, (String, String)>,
     /// Whether smart punctuation is enabled
     pub smart: bool,
 }
@@ -188,9 +190,13 @@ pub struct Bracket {
 }
 
 /// Static empty refmap for Subject::new
-static EMPTY_REFMAP: std::sync::OnceLock<
-    std::collections::HashMap<String, (String, String)>,
-> = std::sync::OnceLock::new();
+static EMPTY_REFMAP: std::sync::OnceLock<FxHashMap<String, (String, String)>> =
+    std::sync::OnceLock::new();
+
+/// Get or initialize the empty refmap
+fn get_empty_refmap() -> &'static FxHashMap<String, (String, String)> {
+    EMPTY_REFMAP.get_or_init(|| FxHashMap::default())
+}
 
 impl<'a> Subject<'a> {
     /// Create a new subject from a string
@@ -204,7 +210,7 @@ impl<'a> Subject<'a> {
             delimiters: None,
             brackets: None,
             no_link_openers: false,
-            refmap: EMPTY_REFMAP.get_or_init(std::collections::HashMap::new),
+            refmap: get_empty_refmap(),
             smart: false,
         }
     }
@@ -214,7 +220,7 @@ impl<'a> Subject<'a> {
         input: &'a str,
         line: usize,
         block_offset: usize,
-        refmap: &'a std::collections::HashMap<String, (String, String)>,
+        refmap: &'a FxHashMap<String, (String, String)>,
     ) -> Self {
         Subject {
             input,
@@ -235,7 +241,7 @@ impl<'a> Subject<'a> {
         input: &'a str,
         line: usize,
         block_offset: usize,
-        refmap: &'a std::collections::HashMap<String, (String, String)>,
+        refmap: &'a FxHashMap<String, (String, String)>,
         smart: bool,
     ) -> Self {
         Subject {
@@ -985,8 +991,8 @@ impl<'a> Subject<'a> {
             // We need to rebuild the delimiter stack
 
             // Collect all delimiters from stack_bottom down to the bottom
-            // Pre-allocate with reasonable capacity (typically small)
-            let mut delimiters_to_keep: Vec<NodeId> = Vec::with_capacity(16);
+            // Use SmallVec to avoid heap allocation for small stacks
+            let mut delimiters_to_keep: SmallVec<[NodeId; 16]> = SmallVec::new();
             let mut current = Some(_bottom);
 
             while let Some(delim) = current {
@@ -1035,8 +1041,8 @@ impl<'a> Subject<'a> {
     ) {
         // Collect all delimiter info into a vector (safer than raw pointers)
         // We store: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims)
-        // Pre-allocate with reasonable capacity (typically small)
-        let mut delims: Vec<(NodeId, char, bool, bool, usize, usize)> = Vec::with_capacity(32);
+        // Use SmallVec to avoid heap allocation for small stacks
+        let mut delims: SmallVec<[(NodeId, char, bool, bool, usize, usize); 32]> = SmallVec::new();
 
         // Traverse the delimiter stack and collect info
         let mut current = self.delimiters.as_ref();
@@ -1527,8 +1533,8 @@ impl<'a> Subject<'a> {
 
             // Move content between opener and closer into link node
             let opener_inl = opener.inl_text;
-            // Pre-allocate with reasonable capacity (typically small)
-            let mut nodes_to_move: Vec<NodeId> = Vec::with_capacity(16);
+            // Use SmallVec to avoid heap allocation for small stacks
+            let mut nodes_to_move: SmallVec<[NodeId; 16]> = SmallVec::new();
 
             {
                 let opener_ref = arena.get(opener_inl);
@@ -2363,7 +2369,7 @@ pub fn parse_inlines_with_refmap(
     content: &str,
     line: usize,
     block_offset: usize,
-    refmap: &std::collections::HashMap<String, (String, String)>,
+    refmap: &FxHashMap<String, (String, String)>,
 ) {
     parse_inlines_with_options(
         arena,
@@ -2383,7 +2389,7 @@ pub fn parse_inlines_with_options(
     content: &str,
     line: usize,
     block_offset: usize,
-    refmap: &std::collections::HashMap<String, (String, String)>,
+    refmap: &FxHashMap<String, (String, String)>,
     smart: bool,
 ) {
     let mut subject =
@@ -2405,7 +2411,7 @@ pub fn parse_inlines_with_options(
 /// If a reference is found, it is added to the refmap.
 pub fn parse_reference(
     s: &str,
-    refmap: &mut std::collections::HashMap<String, (String, String)>,
+    refmap: &mut FxHashMap<String, (String, String)>,
 ) -> usize {
     // Skip leading whitespace and newlines
     let trimmed = s.trim_start_matches(|c: char| c.is_ascii_whitespace());
@@ -2426,7 +2432,7 @@ impl<'a> Subject<'a> {
     /// Returns the number of characters consumed, or 0 if no reference was found
     fn parse_reference_definition(
         &mut self,
-        refmap: &mut std::collections::HashMap<String, (String, String)>,
+        refmap: &mut FxHashMap<String, (String, String)>,
     ) -> usize {
         let start_pos = self.pos;
 
