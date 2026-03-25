@@ -1984,10 +1984,9 @@ impl<'a> BlockParser<'a> {
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {
-            // Get a copy of refmap for this call
-            let refmap = self.refmap.clone();
+            // Pass refmap by reference to avoid cloning
             crate::inlines::parse_inlines_with_options(
-                self.arena, node_id, &content, line, 0, refmap, smart,
+                self.arena, node_id, &content, line, 0, &self.refmap, smart,
             );
         }
     }

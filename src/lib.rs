@@ -43,6 +43,9 @@ pub mod footnotes;
 /// HTML to Markdown conversion
 pub mod html_to_md;
 
+/// String pool for efficient memory reuse
+pub mod pool;
+
 /// HTML utilities (escaping, entity decoding)
 pub mod html_utils;
 

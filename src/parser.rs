@@ -59,6 +59,7 @@ impl Parser {
         let smart = (self.options & options::SMART) != 0;
 
         // Process collected nodes
+        let empty_refmap = HashMap::new();
         for (node_id, content) in nodes_to_process {
             parse_inlines_with_options(
                 arena,
@@ -66,7 +67,7 @@ impl Parser {
                 &content,
                 1,              // line number
                 0,              // block offset
-                HashMap::new(), // refmap - TODO: extract from document
+                &empty_refmap,  // refmap - TODO: extract from document
                 smart,
             );
         }

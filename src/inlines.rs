@@ -75,8 +75,8 @@ pub struct Subject<'a> {
     pub brackets: Option<Box<Bracket>>,
     /// Whether there are no link openers
     pub no_link_openers: bool,
-    /// Reference map for link references
-    pub refmap: std::collections::HashMap<String, (String, String)>,
+    /// Reference map for link references (borrowed to avoid cloning)
+    pub refmap: &'a std::collections::HashMap<String, (String, String)>,
     /// Whether smart punctuation is enabled
     pub smart: bool,
 }
@@ -120,6 +120,10 @@ pub struct Bracket {
     pub previous_delimiter: Option<Box<Delimiter>>,
 }
 
+/// Static empty refmap for Subject::new
+static EMPTY_REFMAP: std::sync::OnceLock<std::collections::HashMap<String, (String, String)>> =
+    std::sync::OnceLock::new();
+
 impl<'a> Subject<'a> {
     /// Create a new subject from a string
     pub fn new(input: &'a str, line: usize, block_offset: usize) -> Self {
@@ -132,7 +136,7 @@ impl<'a> Subject<'a> {
             delimiters: None,
             brackets: None,
             no_link_openers: false,
-            refmap: std::collections::HashMap::new(),
+            refmap: EMPTY_REFMAP.get_or_init(std::collections::HashMap::new),
             smart: false,
         }
     }
@@ -142,7 +146,7 @@ impl<'a> Subject<'a> {
         input: &'a str,
         line: usize,
         block_offset: usize,
-        refmap: std::collections::HashMap<String, (String, String)>,
+        refmap: &'a std::collections::HashMap<String, (String, String)>,
     ) -> Self {
         Subject {
             input,
@@ -163,7 +167,7 @@ impl<'a> Subject<'a> {
         input: &'a str,
         line: usize,
         block_offset: usize,
-        refmap: std::collections::HashMap<String, (String, String)>,
+        refmap: &'a std::collections::HashMap<String, (String, String)>,
         smart: bool,
     ) -> Self {
         Subject {
@@ -2285,7 +2289,7 @@ pub fn parse_inlines_with_refmap(
     content: &str,
     line: usize,
     block_offset: usize,
-    refmap: std::collections::HashMap<String, (String, String)>,
+    refmap: &std::collections::HashMap<String, (String, String)>,
 ) {
     parse_inlines_with_options(
         arena,
@@ -2305,7 +2309,7 @@ pub fn parse_inlines_with_options(
     content: &str,
     line: usize,
     block_offset: usize,
-    refmap: std::collections::HashMap<String, (String, String)>,
+    refmap: &std::collections::HashMap<String, (String, String)>,
     smart: bool,
 ) {
     let mut subject =
