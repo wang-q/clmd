@@ -324,6 +324,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Parse a single inline element
+    #[inline(always)]
     fn parse_inline(&mut self, parent: &Rc<RefCell<Node>>) -> bool {
         let c = match self.peek() {
             Some(c) => c,

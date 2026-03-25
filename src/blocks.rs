@@ -2003,29 +2003,15 @@ impl BlockParser {
             }
         }
 
-        // Recursively process children
-        let children_to_process: Vec<Rc<RefCell<Node>>> = {
-            let node_ref = node.borrow();
-            let mut children = Vec::new();
-            if let Some(first_child) = node_ref.first_child.borrow().clone() {
-                children.push(first_child.clone());
-                let mut current = first_child.clone();
-                loop {
-                    let next_opt = current.borrow().next.borrow().clone();
-                    match next_opt {
-                        Some(next) => {
-                            children.push(next.clone());
-                            current = next;
-                        }
-                        None => break,
-                    }
-                }
+        // Recursively process children without creating intermediate Vec
+        let first_child_opt = node.borrow().first_child.borrow().clone();
+        if let Some(first_child) = first_child_opt {
+            let mut current_opt = Some(first_child);
+            while let Some(current) = current_opt {
+                let next_opt = current.borrow().next.borrow().clone();
+                self.collect_empty_paragraphs(&current, empty_nodes);
+                current_opt = next_opt;
             }
-            children
-        };
-
-        for child in children_to_process {
-            self.collect_empty_paragraphs(&child, empty_nodes);
         }
     }
 
