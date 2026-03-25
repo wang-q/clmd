@@ -1986,7 +1986,13 @@ impl<'a> BlockParser<'a> {
         for (node_id, content, line) in leaf_blocks {
             // Pass refmap by reference to avoid cloning
             crate::inlines::parse_inlines_with_options(
-                self.arena, node_id, &content, line, 0, &self.refmap, smart,
+                self.arena,
+                node_id,
+                &content,
+                line,
+                0,
+                &self.refmap,
+                smart,
             );
         }
     }

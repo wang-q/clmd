@@ -65,9 +65,9 @@ impl Parser {
                 arena,
                 node_id,
                 &content,
-                1,              // line number
-                0,              // block offset
-                &empty_refmap,  // refmap - TODO: extract from document
+                1,             // line number
+                0,             // block offset
+                &empty_refmap, // refmap - TODO: extract from document
                 smart,
             );
         }

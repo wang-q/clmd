@@ -69,7 +69,7 @@ mod tests {
         let mut pool = StringPool::with_capacity(100);
         pool.push_str("Hello");
         assert_eq!(pool.as_str(), "Hello");
-        
+
         pool.clear();
         assert_eq!(pool.as_str(), "");
         assert!(pool.buffer_mut().capacity() >= 100);
@@ -79,7 +79,7 @@ mod tests {
     fn test_string_pool_take() {
         let mut pool = StringPool::with_capacity(100);
         pool.push_str("World");
-        
+
         let s = pool.take_string();
         assert_eq!(s, "World");
         assert_eq!(pool.as_str(), "");

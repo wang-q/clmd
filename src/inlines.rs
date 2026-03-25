@@ -121,8 +121,9 @@ pub struct Bracket {
 }
 
 /// Static empty refmap for Subject::new
-static EMPTY_REFMAP: std::sync::OnceLock<std::collections::HashMap<String, (String, String)>> =
-    std::sync::OnceLock::new();
+static EMPTY_REFMAP: std::sync::OnceLock<
+    std::collections::HashMap<String, (String, String)>,
+> = std::sync::OnceLock::new();
 
 impl<'a> Subject<'a> {
     /// Create a new subject from a string
@@ -436,15 +437,9 @@ impl<'a> Subject<'a> {
     /// Parse backtick-delimited code span
     fn parse_backticks(&mut self, arena: &mut NodeArena, parent: NodeId) -> bool {
         let _start_pos = self.pos;
-        let mut ticks = String::new();
 
-        // Count opening backticks
-        while self.peek() == Some('`') {
-            ticks.push('`');
-            self.advance();
-        }
-
-        let tick_len = ticks.len();
+        // Count opening backticks (no allocation)
+        let tick_len = self.count_char('`');
         let after_open_ticks = self.pos;
 
         // Look for closing backticks
@@ -454,24 +449,26 @@ impl<'a> Subject<'a> {
             }
 
             if self.peek() == Some('`') {
-                let mut close_ticks = String::new();
                 let close_start = self.pos;
+                let close_len = self.count_char('`');
 
-                while self.peek() == Some('`') {
-                    close_ticks.push('`');
-                    self.advance();
-                }
-
-                if close_ticks.len() == tick_len {
+                if close_len == tick_len {
                     // Found matching close
-                    let content = self.input[after_open_ticks..close_start].to_string();
-                    let content = content.replace('\n', " ");
+                    let content = &self.input[after_open_ticks..close_start];
+
+                    // Build content without allocation for simple cases
+                    let content = if content.contains('\n') {
+                        // Replace newlines with spaces
+                        content.replace('\n', " ")
+                    } else {
+                        content.to_string()
+                    };
 
                     // Trim single leading/trailing space if both exist
                     let content = if content.len() >= 2
-                        && content.starts_with(' ')
-                        && content.ends_with(' ')
-                        && content.trim() != ""
+                        && content.as_bytes().first() == Some(&b' ')
+                        && content.as_bytes().last() == Some(&b' ')
+                        && !content.trim().is_empty()
                     {
                         content[1..content.len() - 1].to_string()
                     } else {
@@ -498,8 +495,18 @@ impl<'a> Subject<'a> {
 
         // No matching close found, treat as literal
         self.pos = after_open_ticks;
-        self.append_text(arena, parent, &ticks);
+        self.append_text(arena, parent, &"`".repeat(tick_len));
         true
+    }
+
+    /// Count consecutive occurrences of a character
+    fn count_char(&mut self, ch: char) -> usize {
+        let mut count = 0;
+        while self.peek() == Some(ch) {
+            count += 1;
+            self.advance();
+        }
+        count
     }
 
     /// Parse backslash escape or hard line break
@@ -911,7 +918,8 @@ impl<'a> Subject<'a> {
             // We need to rebuild the delimiter stack
 
             // Collect all delimiters from stack_bottom down to the bottom
-            let mut delimiters_to_keep: Vec<NodeId> = Vec::new();
+            // Pre-allocate with reasonable capacity (typically small)
+            let mut delimiters_to_keep: Vec<NodeId> = Vec::with_capacity(16);
             let mut current = Some(_bottom);
 
             while let Some(delim) = current {
@@ -960,7 +968,8 @@ impl<'a> Subject<'a> {
     ) {
         // Collect all delimiter info into a vector (safer than raw pointers)
         // We store: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims)
-        let mut delims: Vec<(NodeId, char, bool, bool, usize, usize)> = Vec::new();
+        // Pre-allocate with reasonable capacity (typically small)
+        let mut delims: Vec<(NodeId, char, bool, bool, usize, usize)> = Vec::with_capacity(32);
 
         // Traverse the delimiter stack and collect info
         let mut current = self.delimiters.as_ref();
@@ -1451,7 +1460,8 @@ impl<'a> Subject<'a> {
 
             // Move content between opener and closer into link node
             let opener_inl = opener.inl_text;
-            let mut nodes_to_move: Vec<NodeId> = Vec::new();
+            // Pre-allocate with reasonable capacity (typically small)
+            let mut nodes_to_move: Vec<NodeId> = Vec::with_capacity(16);
 
             {
                 let opener_ref = arena.get(opener_inl);
