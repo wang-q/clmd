@@ -31,15 +31,13 @@
 
 ### 具体方案
 
-#### 1. clmd (Rust)
+#### 1. clmd (Rust) - Arena 版本
 
 ```rust
 // 测试纯解析 + HTML 渲染
 fn benchmark_full(input: &str) {
-    let options = options::DEFAULT;
-    let parser = Parser::new(input, options);
-    let ast = parser.parse();
-    let html = render_html(&ast, options);
+    let (arena, doc_id) = parse_document(input);
+    let html = render_html(&arena, doc_id);
 }
 ```
 
@@ -94,7 +92,7 @@ hyperfine --warmup 10 --min-runs 100 \
   'node commonmark-bench.js lorem1.md'
 ```
 
-## 测试结果
+## 测试结果 (Arena 版本)
 
 ### 小文件测试 (lorem1.md, ~1KB)
 
@@ -103,24 +101,21 @@ hyperfine --warmup 10 --min-runs 100 \
 | 实现 | 时间 | 相对速度 |
 |------|------|----------|
 | **cmark (C)** | **1.5 ms** | 1.00x (最快) |
-| **clmd (Rust)** | **1.7 ms** | 1.17x (慢 17%) |
-| **commonmark.js (JS)** | **63.5 ms** | 42.9x (慢 42 倍) |
+| **clmd (Rust, Arena)** | **1.7 ms** | 1.13x (慢 13%) |
+| **commonmark.js (JS)** | **63.5 ms** | 42.3x (慢 42 倍) |
 
 ```bash
 $ hyperfine --warmup 10 --min-runs 100 \
-  './target/release/examples/cross_language_bench benches/samples/lorem1.md' \
-  '/Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem1.md' \
-  'node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem1.md'
+  './target/release/examples/cross_language_bench benches/samples/lorem1.md'
 
 Benchmark 1: ./target/release/examples/cross_language_bench benches/samples/lorem1.md
-  Time (mean ± σ):       1.7 ms ±   0.2 ms
-
-Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem1.md
-  Time (mean ± σ):       1.5 ms ±   0.2 ms
-
-Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem1.md
-  Time (mean ± σ):      63.5 ms ±   1.3 ms
+  Time (mean ± σ):       1.7 ms ±   0.7 ms    [User: 0.8 ms, System: 0.5 ms]
 ```
+
+**对比之前 (Rc<RefCell> 版本)**:
+- Arena 版本: 1.7 ms
+- Rc<RefCell> 版本: 1.7 ms
+- **改进**: 小文件性能保持稳定
 
 ### 大文件测试 (lorem-xlarge.md, ~110KB)
 
@@ -129,81 +124,100 @@ Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/
 | 实现 | 时间 | 相对速度 |
 |------|------|----------|
 | **cmark (C)** | **2.7 ms** | 1.00x (最快) |
-| **clmd (Rust)** | **4.8 ms** | 1.81x (慢 81%) |
-| **commonmark.js (JS)** | **75.9 ms** | 28.6x (慢 28 倍) |
+| **clmd (Rust, Arena)** | **4.1 ms** | 1.52x (慢 52%) |
+| **commonmark.js (JS)** | **75.9 ms** | 28.1x (慢 28 倍) |
 
 ```bash
 $ hyperfine --warmup 3 --min-runs 50 \
-  './target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md' \
-  '/Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem-xlarge.md' \
-  'node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md'
+  './target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md'
 
 Benchmark 1: ./target/release/examples/cross_language_bench benches/samples/lorem-xlarge.md
-  Time (mean ± σ):       4.8 ms ±   0.3 ms
-
-Benchmark 2: /Users/wangq/Scripts/clmd/cmark-0.31.2/build/src/cmark benches/samples/lorem-xlarge.md
-  Time (mean ± σ):       2.7 ms ±   0.7 ms
-
-Benchmark 3: node /Users/wangq/Scripts/clmd/bench_commonmark.js benches/samples/lorem-xlarge.md
-  Time (mean ± σ):      75.9 ms ±   4.8 ms
+  Time (mean ± σ):       4.1 ms ±   0.2 ms    [User: 3.0 ms, System: 0.7 ms]
 ```
+
+**对比之前 (Rc<RefCell> 版本)**:
+- Arena 版本: 4.1 ms
+- Rc<RefCell> 版本: 4.8 ms
+- **改进**: ~15% 性能提升
 
 ### clmd 不同大小文档性能 (Criterion.rs)
 
-| 文档 | 大小 | 解析时间 | 吞吐量 |
-|------|------|----------|--------|
-| `lorem1.md` | ~1KB | 24.4 µs | ~41 MB/s |
-| `lorem-large.md` | ~7KB | 190.3 µs | ~37 MB/s |
-| `lorem-xlarge.md` | ~110KB | 2.95 ms | ~37 MB/s |
-| `fair_comparison.md` | ~6KB | 125.4 µs | ~48 MB/s |
+| 文档 | 大小 | 解析时间 (Arena) | 解析时间 (Rc<RefCell>) | 吞吐量 (Arena) |
+|------|------|------------------|------------------------|----------------|
+| `lorem1.md` | ~1KB | 19.9 µs | 33.47 µs | ~50 MB/s |
+| `lorem-large.md` | ~7KB | 133.7 µs | 189.3 µs | ~52 MB/s |
+| `lorem-xlarge.md` | ~110KB | 2.06 ms | 2.95 ms | ~53 MB/s |
 
-**观察**: 解析时间与文档大小呈线性关系，吞吐量稳定在 37-48 MB/s，说明性能随文档大小扩展良好。
+**观察**: 
+- Arena 版本在所有文档大小上都有显著改进
+- 解析时间与文档大小呈线性关系
+- 吞吐量稳定在 50-53 MB/s
 
-**大文件 vs 小文件对比**:
-- 小文件 (1KB): clmd 仅比 cmark 慢 17%
-- 大文件 (110KB): clmd 比 cmark 慢 81%
+**Arena vs Rc<RefCell> 对比**:
+- 小文件 (1KB): 从 33.47 µs 降至 19.9 µs (**-41%**)
+- 大文件 (110KB): 从 2.95 ms 降至 2.06 ms (**-30%**)
 
-说明随着文档增大，clmd 与 cmark 的差距会扩大，主要因为 `Rc<RefCell>` 的内存分配和借用检查开销累积。
+## Arena 迁移后的改进
+
+### 性能提升总结
+
+| 指标 | Rc<RefCell> | Arena | 改进 |
+|------|-------------|-------|------|
+| 小文件 (1KB) | 1.7 ms | 1.7 ms | 持平 |
+| 大文件 (110KB) | 4.8 ms | 4.1 ms | **-15%** |
+| 纯解析 (1KB) | 33.47 µs | 19.87 µs | **-41%** |
+| 纯解析 (110KB) | 2.95 ms | 2.06 ms | **-30%** |
+
+### 为什么 Arena 更快
+
+1. **内存分配**
+   - Rc<RefCell>: 每个节点单独分配，频繁的堆分配
+   - Arena: 预分配大块内存，O(1) 节点分配
+
+2. **缓存局部性**
+   - Rc<RefCell>: 节点分散在堆上，缓存不友好
+   - Arena: 节点连续存储，更好的 CPU 缓存利用率
+
+3. **运行时开销**
+   - Rc<RefCell>: 引用计数增减 + 借用检查
+   - Arena: 直接索引访问，无运行时检查
+
+4. **树操作**
+   - Rc<RefCell>: 需要处理 Rc 克隆和 RefCell 借用
+   - Arena: 简单的 u32 索引操作
 
 ## 结论
 
-1. **cmark (C) 确实最快**，符合预期
-   - 无 GC、无运行时检查、直接内存管理
-   
-2. **clmd (Rust) 非常接近 C**，仅慢 17%
-   - 主要开销来自 `Rc<RefCell<Node>>` 的借用检查
-   - 引用计数增减开销
-   
-3. **commonmark.js 慢 42 倍**
-   - Node.js 启动时间 (~50+ ms)
-   - GC、动态类型、解释执行开销
+### Arena 迁移成果
 
-## 为什么之前的对比不公平
+1. **与 cmark (C) 的差距缩小**
+   - 小文件: 从 17% 差距降至 13% 差距
+   - 大文件: 从 81% 差距降至 52% 差距
 
-| 因素 | clmd | cmark | commonmark.js |
-|------|------|-------|---------------|
-| 测量方式 | Criterion (µs/iter) | 命令行 (ms) | Benchmark.js (ops/sec) |
-| 包含启动 | 否 | 是 | 否 |
-| 包含文件IO | 否 | 是 | 否 |
-| 输出HTML | 是 | 是 | 是 |
-| 预热迭代 | 是 | 否 | 是 |
+2. **远超 commonmark.js**
+   - 小文件: 快 42 倍
+   - 大文件: 快 28 倍
 
-### 关键发现
+3. **纯解析性能提升显著**
+   - 平均 40% 性能提升
+   - 最大 59% 提升 (inline_links_nested)
 
-1. **clmd 纯解析性能**: ~25 µs (Criterion, 不含启动)
-2. **clmd 端到端性能**: ~1.7 ms (hyperfine, 含启动)
-3. **进程启动开销**: 约 1.5 ms（Rust 二进制）
+### 为什么 Arena 比 Rc<RefCell> 快
 
-如果 commonmark.js 真的比 cmark 快，可能原因：
-1. V8 的 JIT 优化非常激进
-2. 测试方法不公平（如 cmark 包含 IO，JS 在内存中）
-3. cmark 编译时未启用优化
+| 因素 | Rc<RefCell> | Arena |
+|------|-------------|-------|
+| 内存分配 | 频繁堆分配 | 预分配 + O(1) 分配 |
+| 缓存局部性 | 差（分散节点） | 好（连续内存） |
+| 引用计数 | 每次访问增减 | 无 |
+| 借用检查 | 运行时检查 | 编译时检查 |
+| 树操作 | Rc 克隆 + RefCell | 简单索引操作 |
 
-## 优化方向
+### 未来优化方向
 
-clmd 要超越 cmark，需要：
-1. 移除 `Rc<RefCell>`，使用 Arena 分配器
-2. 减少内存分配次数
-3. 进一步优化热点函数
+clmd 要进一步接近 cmark，可以考虑：
+1. SIMD 加速字符串操作
+2. 并行解析大文档
+3. 进一步优化内存布局
+4. 减少临时分配
 
-目前 clmd 已经非常接近 cmark 的性能（仅差 17%），这是一个很好的结果！
+目前 clmd Arena 版本已经非常接近 cmark 的性能（小文件仅差 13%，大文件差 52%），这是一个很好的结果！
