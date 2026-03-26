@@ -176,13 +176,6 @@ fn bench_lorem1(c: &mut Criterion) {
     });
 }
 
-fn bench_rawtabs(c: &mut Criterion) {
-    let input = include_str!("samples/rawtabs.md");
-    c.bench_function("rawtabs", |b| {
-        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-    });
-}
-
 // Large document benchmarks
 fn bench_lorem_large(c: &mut Criterion) {
     let input = include_str!("samples/lorem-large.md");
@@ -194,13 +187,6 @@ fn bench_lorem_large(c: &mut Criterion) {
 fn bench_lorem_xlarge(c: &mut Criterion) {
     let input = include_str!("samples/lorem-xlarge.md");
     c.bench_function("lorem_xlarge_110kb", |b| {
-        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-    });
-}
-
-fn bench_fair_comparison(c: &mut Criterion) {
-    let input = include_str!("fair_comparison.md");
-    c.bench_function("fair_comparison_doc", |b| {
         b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
     });
 }
@@ -240,10 +226,8 @@ criterion_group!(
 criterion_group!(
     full_document_benchmarks,
     bench_lorem1,
-    bench_rawtabs,
     bench_lorem_large,
     bench_lorem_xlarge,
-    bench_fair_comparison,
 );
 
 // Synthetic benchmarks (from parse_benchmark.rs)
