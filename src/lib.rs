@@ -147,7 +147,7 @@ pub fn markdown_to_html(text: &str, options: u32) -> String {
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
 
-    render::HtmlRenderer::render(&arena, doc)
+    render::arena_html::render(&arena, doc, options)
 }
 
 /// Parse a CommonMark document
@@ -178,8 +178,8 @@ pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
 /// # Returns
 ///
 /// The HTML output as a String
-pub fn render_html(arena: &NodeArena, root: NodeId, _options: u32) -> String {
-    render::HtmlRenderer::render(arena, root)
+pub fn render_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    render::arena_html::render(arena, root, options)
 }
 
 /// Render an Arena-based AST to XML

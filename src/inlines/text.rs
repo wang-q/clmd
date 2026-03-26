@@ -54,12 +54,12 @@ fn convert_dashes(count: usize) -> String {
 
     // Try to use homogeneous sequence first
     // Prefer em dashes when divisible by 3 (3, 6, 9, ...)
-    if count % 3 == 0 {
+    if count.is_multiple_of(3) {
         // Divisible by 3: use all em dashes
         for _ in 0..(count / 3) {
             result.push('\u{2014}'); // em dash
         }
-    } else if count % 2 == 0 {
+    } else if count.is_multiple_of(2) {
         // Even number but not divisible by 3: use all en dashes
         for _ in 0..(count / 2) {
             result.push('\u{2013}'); // en dash

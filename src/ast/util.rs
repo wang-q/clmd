@@ -11,7 +11,7 @@ pub fn find_node<F>(root: &Rc<RefCell<Node>>, predicate: &F) -> Option<Rc<RefCel
 where
     F: Fn(&Node) -> bool,
 {
-    if predicate(&*root.borrow()) {
+    if predicate(&root.borrow()) {
         return Some(root.clone());
     }
 
@@ -43,7 +43,7 @@ fn collect_nodes_recursive<F>(
 ) where
     F: Fn(&Node) -> bool,
 {
-    if predicate(&*node.borrow()) {
+    if predicate(&node.borrow()) {
         result.push(node.clone());
     }
 
@@ -151,7 +151,7 @@ fn collect_text_content(node: &Node, content: &mut String) {
     // For now, just traverse children
     let mut child = node.first_child();
     while let Some(c) = child {
-        collect_text_content(&*c.borrow(), content);
+        collect_text_content(&c.borrow(), content);
         child = c.borrow().next();
     }
 }

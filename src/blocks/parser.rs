@@ -116,11 +116,7 @@ impl<'a> BlockParser<'a> {
         // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
         for line in input.split('\n') {
             // Remove trailing '\r' if present (CRLF handling)
-            let line = if line.ends_with('\r') {
-                &line[..line.len() - 1]
-            } else {
-                line
-            };
+            let line = line.strip_suffix('\r').unwrap_or(line);
             parser.process_line(line);
         }
 

@@ -87,7 +87,7 @@ impl<'a> BlockParser<'a> {
             self.advance_next_nonspace();
             self.advance_offset(1, false);
             // Optional following space
-            if self.peek_current().map_or(false, is_space_or_tab) {
+            if self.peek_current().is_some_and(is_space_or_tab) {
                 self.advance_offset(1, true);
             }
             0
@@ -156,7 +156,7 @@ impl<'a> BlockParser<'a> {
             }
             // Continue with the code block - skip optional spaces of fence offset
             let mut i = fence_offset;
-            while i > 0 && self.peek_current().map_or(false, is_space_or_tab) {
+            while i > 0 && self.peek_current().is_some_and(is_space_or_tab) {
                 self.advance_offset(1, true);
                 i -= 1;
             }

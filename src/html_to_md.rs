@@ -13,6 +13,7 @@
 
 /// HTML element conversion rules
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ConversionRules {
     /// Whether to wrap text at certain column
     pub wrap_column: Option<usize>,
@@ -20,14 +21,6 @@ pub struct ConversionRules {
     pub hard_breaks: bool,
 }
 
-impl Default for ConversionRules {
-    fn default() -> Self {
-        Self {
-            wrap_column: None,
-            hard_breaks: false,
-        }
-    }
-}
 
 /// Convert HTML to Markdown
 pub fn convert(html: &str) -> String {
@@ -74,7 +67,7 @@ impl HtmlToMarkdown {
         let mut tag_name = String::new();
         let mut text_content = String::new();
 
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             match ch {
                 '<' => {
                     // Process accumulated text

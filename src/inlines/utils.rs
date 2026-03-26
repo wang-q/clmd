@@ -271,7 +271,6 @@ pub fn normalize_reference(label: &str) -> String {
     // Note: We do NOT unescape here - backslash escapes are preserved in link labels
     // per CommonMark spec. So "foo\!" stays as "foo\!", not "foo!"
     let normalized = label
-        .trim()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");

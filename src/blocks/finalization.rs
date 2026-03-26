@@ -162,11 +162,11 @@ impl<'a> BlockParser<'a> {
         let line = &self.current_line[self.offset..];
 
         // Trim leading whitespace first
-        let line = line.trim_start_matches(|c: char| c == ' ' || c == '\t');
+        let line = line.trim_start_matches([' ', '\t']);
 
         // Now trim trailing whitespace (including newline) and hashtags
         let trimmed = line
-            .trim_end_matches(|c: char| c == ' ' || c == '\t' || c == '\n' || c == '\r');
+            .trim_end_matches([' ', '\t', '\n', '\r']);
 
         // Remove trailing hashtags (must be preceded by space/tab or start of content)
         let mut end = trimmed.len();

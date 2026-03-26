@@ -83,7 +83,7 @@ pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
                     let mut label_end = label_start;
                     let mut found_close = false;
 
-                    while let Some((end_pos, end_ch)) = chars.next() {
+                    for (end_pos, end_ch) in chars.by_ref() {
                         if end_ch == ']' {
                             label_end = end_pos;
                             found_close = true;

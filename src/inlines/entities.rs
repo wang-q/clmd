@@ -12,8 +12,7 @@ pub fn parse_entity(s: &str) -> Option<(String, usize)> {
     }
 
     // Numeric entity: &#123; or &#x7B;
-    if s.starts_with('#') {
-        let rest = &s[1..];
+    if let Some(rest) = s.strip_prefix('#') {
         if rest.starts_with('x') || rest.starts_with('X') {
             // Hex entity: #x7B; (rest starts with x)
             let hex_digits_start = 1; // Skip the 'x' or 'X'
@@ -152,9 +151,9 @@ pub fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     let entity_str = &input[..end];
 
     // Try numeric entity first: &#123; or &#x7B;
-    if entity_str.starts_with("&#") {
+    if let Some(rest) = entity_str.strip_prefix("&#") {
         // Check if it's a valid numeric entity format
-        let rest = &entity_str[2..]; // Skip "&#"
+        // Skip "&#"
 
         if rest.starts_with('x') || rest.starts_with('X') {
             // Hex entity: &#x7B;

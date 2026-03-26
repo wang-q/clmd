@@ -53,7 +53,7 @@ impl<'a> BlockParser<'a> {
 
     pub(crate) fn is_open(&self, node_id: NodeId) -> bool {
         self.get_block_info(node_id)
-            .map_or(false, |info| info.is_open)
+            .is_some_and(|info| info.is_open)
     }
 
     pub(crate) fn set_open(&mut self, node_id: NodeId, open: bool) {
@@ -81,7 +81,7 @@ impl<'a> BlockParser<'a> {
 
     pub(crate) fn is_fenced_code_block(&self, node_id: NodeId) -> bool {
         self.get_block_info(node_id)
-            .map_or(false, |info| info.fence_length > 0)
+            .is_some_and(|info| info.fence_length > 0)
     }
 
     pub(crate) fn get_fence_info(&self, node_id: NodeId) -> (char, usize, usize) {
@@ -134,7 +134,7 @@ impl<'a> BlockParser<'a> {
 
     pub(crate) fn is_setext(&self, node_id: NodeId) -> bool {
         self.get_block_info(node_id)
-            .map_or(false, |info| info.is_setext)
+            .is_some_and(|info| info.is_setext)
     }
 
     pub(crate) fn set_setext(&mut self, node_id: NodeId, setext: bool) {
@@ -145,7 +145,7 @@ impl<'a> BlockParser<'a> {
 
     pub(crate) fn get_last_line_blank(&self, node_id: NodeId) -> bool {
         self.get_block_info(node_id)
-            .map_or(false, |info| info.last_line_blank)
+            .is_some_and(|info| info.last_line_blank)
     }
 
     pub(crate) fn set_last_line_blank(&mut self, node_id: NodeId, blank: bool) {

@@ -145,18 +145,15 @@ pub struct SourcePos {
 
 /// Table cell alignment
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum TableAlignment {
+    #[default]
     None,
     Left,
     Center,
     Right,
 }
 
-impl Default for TableAlignment {
-    fn default() -> Self {
-        TableAlignment::None
-    }
-}
 
 /// Node data variants
 #[derive(Debug, Clone, PartialEq, Eq)]

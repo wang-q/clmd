@@ -200,7 +200,7 @@ impl Iterator for DescendantIterator {
 }
 
 /// Helper functions for node operations
-
+///
 /// Append a child to a parent node and set up proper parent relationship
 pub fn append_child(parent: &Rc<RefCell<Node>>, child: Rc<RefCell<Node>>) {
     // Set child's parent

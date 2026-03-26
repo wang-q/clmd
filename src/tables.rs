@@ -11,9 +11,8 @@
 //! | Cell 3   | Cell 4   |
 //! ```
 
-use crate::node::{append_child, Node, NodeData, NodeType, SourcePos, TableAlignment};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos, TableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {
@@ -60,11 +59,10 @@ pub fn is_delimiter_row(line: &str) -> bool {
         }
 
         // Check for trailing :
-        if i < bytes.len() {
-            if bytes[i] != b':' || i != bytes.len() - 1 {
+        if i < bytes.len()
+            && (bytes[i] != b':' || i != bytes.len() - 1) {
                 return false;
             }
-        }
 
         valid_cells += 1;
     }
@@ -95,19 +93,9 @@ fn parse_row_cells(line: &str) -> Vec<String> {
     let trimmed = line.trim();
     let mut cells = Vec::new();
 
-    // Handle leading |
-    let content = if trimmed.starts_with('|') {
-        &trimmed[1..]
-    } else {
-        trimmed
-    };
-
-    // Handle trailing |
-    let content = if content.ends_with('|') {
-        &content[..content.len() - 1]
-    } else {
-        content
-    };
+    // Handle leading and trailing |
+    let content = trimmed.strip_prefix('|').unwrap_or(trimmed);
+    let content = content.strip_suffix('|').unwrap_or(content);
 
     // Split by | and trim each cell
     for cell in content.split('|') {
@@ -122,19 +110,9 @@ fn parse_alignments(line: &str) -> Vec<TableAlignment> {
     let trimmed = line.trim();
     let mut alignments = Vec::new();
 
-    // Handle leading |
-    let content = if trimmed.starts_with('|') {
-        &trimmed[1..]
-    } else {
-        trimmed
-    };
-
-    // Handle trailing |
-    let content = if content.ends_with('|') {
-        &content[..content.len() - 1]
-    } else {
-        content
-    };
+    // Handle leading and trailing |
+    let content = trimmed.strip_prefix('|').unwrap_or(trimmed);
+    let content = content.strip_suffix('|').unwrap_or(content);
 
     // Split by | and parse each cell
     for cell in content.split('|') {
@@ -145,11 +123,12 @@ fn parse_alignments(line: &str) -> Vec<TableAlignment> {
 }
 
 /// Try to parse a table from the given lines
-/// Returns (table_node, lines_consumed) if successful
+/// Returns (table_node_id, lines_consumed) if successful
 pub fn try_parse_table(
+    arena: &mut NodeArena,
     lines: &[&str],
     start_line: usize,
-) -> Option<(Rc<RefCell<Node>>, usize)> {
+) -> Option<(NodeId, usize)> {
     if lines.is_empty() || !is_table_row(lines[0]) {
         return None;
     }
@@ -188,13 +167,15 @@ pub fn try_parse_table(
     };
 
     // Create table node
-    let table_node = Rc::new(RefCell::new(Node::new(NodeType::Table)));
-    {
-        let mut table = table_node.borrow_mut();
-        table.data = NodeData::Table {
+    let table_node = arena.alloc(Node::with_data(
+        NodeType::Table,
+        NodeData::Table {
             num_columns,
             alignments: alignments.clone(),
-        };
+        },
+    ));
+    {
+        let table = arena.get_mut(table_node);
         table.source_pos = SourcePos {
             start_line: start_line as u32,
             start_column: 1,
@@ -204,46 +185,61 @@ pub fn try_parse_table(
     }
 
     // Create table head
-    let thead_node = Rc::new(RefCell::new(Node::new(NodeType::TableHead)));
-    thead_node.borrow_mut().data = NodeData::TableHead;
-    thead_node.borrow_mut().source_pos = SourcePos {
-        start_line: start_line as u32,
-        start_column: 1,
-        end_line: start_line as u32,
-        end_column: header_line.len() as u32,
-    };
+    let thead_node = arena.alloc(Node::with_data(
+        NodeType::TableHead,
+        NodeData::TableHead,
+    ));
+    {
+        let thead = arena.get_mut(thead_node);
+        thead.source_pos = SourcePos {
+            start_line: start_line as u32,
+            start_column: 1,
+            end_line: start_line as u32,
+            end_column: header_line.len() as u32,
+        };
+    }
 
     // Create header row
-    let header_row = Rc::new(RefCell::new(Node::new(NodeType::TableRow)));
-    header_row.borrow_mut().data = NodeData::TableRow;
+    let header_row = arena.alloc(Node::new(NodeType::TableRow));
+    {
+        let row = arena.get_mut(header_row);
+        row.data = NodeData::TableRow;
+    }
 
     // Create header cells
     for (i, cell_content) in header_cells.iter().enumerate() {
-        let cell = Rc::new(RefCell::new(Node::new(NodeType::TableCell)));
-        cell.borrow_mut().data = NodeData::TableCell {
-            column_index: i,
-            alignment: alignments.get(i).copied().unwrap_or(TableAlignment::None),
-            is_header: true,
-        };
+        let cell = arena.alloc(Node::with_data(
+            NodeType::TableCell,
+            NodeData::TableCell {
+                column_index: i,
+                alignment: alignments.get(i).copied().unwrap_or(TableAlignment::None),
+                is_header: true,
+            },
+        ));
 
         // Create paragraph for cell content
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        para.borrow_mut().data = NodeData::Paragraph;
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        {
+            let p = arena.get_mut(para);
+            p.data = NodeData::Paragraph;
+        }
 
         // Create text node for content
-        let text = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        text.borrow_mut().data = NodeData::Text {
-            literal: cell_content.clone(),
-        };
+        let text = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: cell_content.clone(),
+            },
+        ));
 
         // Build tree: cell -> para -> text
-        append_child(&para, text);
-        append_child(&cell, para);
-        append_child(&header_row, cell);
+        TreeOps::append_child(arena, para, text);
+        TreeOps::append_child(arena, cell, para);
+        TreeOps::append_child(arena, header_row, cell);
     }
 
-    append_child(&thead_node, header_row);
-    append_child(&table_node, thead_node);
+    TreeOps::append_child(arena, thead_node, header_row);
+    TreeOps::append_child(arena, table_node, thead_node);
 
     // Parse body rows (optional)
     let mut lines_consumed = 2;
@@ -257,38 +253,50 @@ pub fn try_parse_table(
         let row_cells = parse_row_cells(line);
         let row_line_num = start_line + 2 + i;
 
-        let row = Rc::new(RefCell::new(Node::new(NodeType::TableRow)));
-        row.borrow_mut().data = NodeData::TableRow;
-        row.borrow_mut().source_pos = SourcePos {
-            start_line: row_line_num as u32,
-            start_column: 1,
-            end_line: row_line_num as u32,
-            end_column: line.len() as u32,
-        };
+        let row = arena.alloc(Node::with_data(
+            NodeType::TableRow,
+            NodeData::TableRow,
+        ));
+        {
+            let r = arena.get_mut(row);
+            r.source_pos = SourcePos {
+                start_line: row_line_num as u32,
+                start_column: 1,
+                end_line: row_line_num as u32,
+                end_column: line.len() as u32,
+            };
+        }
 
         // Create cells for this row
         for (j, cell_content) in row_cells.iter().enumerate().take(num_columns) {
-            let cell = Rc::new(RefCell::new(Node::new(NodeType::TableCell)));
-            cell.borrow_mut().data = NodeData::TableCell {
-                column_index: j,
-                alignment: alignments.get(j).copied().unwrap_or(TableAlignment::None),
-                is_header: false,
-            };
+            let cell = arena.alloc(Node::with_data(
+                NodeType::TableCell,
+                NodeData::TableCell {
+                    column_index: j,
+                    alignment: alignments.get(j).copied().unwrap_or(TableAlignment::None),
+                    is_header: false,
+                },
+            ));
 
             // Create paragraph for cell content
-            let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-            para.borrow_mut().data = NodeData::Paragraph;
+            let para = arena.alloc(Node::new(NodeType::Paragraph));
+            {
+                let p = arena.get_mut(para);
+                p.data = NodeData::Paragraph;
+            }
 
             // Create text node for content
-            let text = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-            text.borrow_mut().data = NodeData::Text {
-                literal: cell_content.clone(),
-            };
+            let text = arena.alloc(Node::with_data(
+                NodeType::Text,
+                NodeData::Text {
+                    literal: cell_content.clone(),
+                },
+            ));
 
             // Build tree: cell -> para -> text
-            append_child(&para, text);
-            append_child(&cell, para);
-            append_child(&row, cell);
+            TreeOps::append_child(arena, para, text);
+            TreeOps::append_child(arena, cell, para);
+            TreeOps::append_child(arena, row, cell);
         }
 
         body_rows.push(row);
@@ -297,14 +305,17 @@ pub fn try_parse_table(
 
     // Add body rows to table (without tbody wrapper for simplicity)
     for row in body_rows {
-        append_child(&table_node, row);
+        TreeOps::append_child(arena, table_node, row);
     }
 
     // Update table end position
     let end_line = start_line + lines_consumed - 1;
     let last_line = lines[lines_consumed - 1];
-    table_node.borrow_mut().source_pos.end_line = end_line as u32;
-    table_node.borrow_mut().source_pos.end_column = last_line.len() as u32;
+    {
+        let table = arena.get_mut(table_node);
+        table.source_pos.end_line = end_line as u32;
+        table.source_pos.end_column = last_line.len() as u32;
+    }
 
     Some((table_node, lines_consumed))
 }
@@ -354,14 +365,15 @@ mod tests {
             "| Cell 3   | Cell 4   |",
         ];
 
-        let result = try_parse_table(&lines, 1);
+        let mut arena = NodeArena::new();
+        let result = try_parse_table(&mut arena, &lines, 1);
         assert!(result.is_some());
 
-        let (table, lines_consumed) = result.unwrap();
+        let (table_id, lines_consumed) = result.unwrap();
         assert_eq!(lines_consumed, 4);
 
-        let table_ref = table.borrow();
-        match &table_ref.data {
+        let table = arena.get(table_id);
+        match &table.data {
             NodeData::Table {
                 num_columns,
                 alignments,
@@ -383,12 +395,13 @@ mod tests {
             "| a    | b      | c     |",
         ];
 
-        let result = try_parse_table(&lines, 1);
+        let mut arena = NodeArena::new();
+        let result = try_parse_table(&mut arena, &lines, 1);
         assert!(result.is_some());
 
-        let (table, _) = result.unwrap();
-        let table_ref = table.borrow();
-        match &table_ref.data {
+        let (table_id, _) = result.unwrap();
+        let table = arena.get(table_id);
+        match &table.data {
             NodeData::Table { alignments, .. } => {
                 assert_eq!(alignments[0], TableAlignment::Left);
                 assert_eq!(alignments[1], TableAlignment::Center);

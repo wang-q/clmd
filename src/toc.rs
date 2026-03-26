@@ -75,11 +75,8 @@ pub fn extract_heading_text(node: &Rc<RefCell<Node>>) -> String {
     fn collect_text(node: &Rc<RefCell<Node>>, text: &mut String) {
         let node_ref = node.borrow();
 
-        match &node_ref.data {
-            NodeData::Text { literal } => {
-                text.push_str(literal);
-            }
-            _ => {}
+        if let NodeData::Text { literal } = &node_ref.data {
+            text.push_str(literal);
         }
 
         // Process children

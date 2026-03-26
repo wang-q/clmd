@@ -79,7 +79,7 @@ static EMPTY_REFMAP: std::sync::OnceLock<FxHashMap<String, (String, String)>> =
 
 /// Get or initialize the empty refmap
 fn get_empty_refmap() -> &'static FxHashMap<String, (String, String)> {
-    EMPTY_REFMAP.get_or_init(|| FxHashMap::default())
+    EMPTY_REFMAP.get_or_init(FxHashMap::default)
 }
 
 impl<'a> Subject<'a> {
@@ -645,7 +645,7 @@ impl<'a> Subject<'a> {
                 }
             }
         } else {
-            std::iter::repeat(c).take(res.num_delims).collect()
+            std::iter::repeat_n(c, res.num_delims).collect()
         };
         let text_node = arena.alloc(Node::new(NodeType::Text));
         {

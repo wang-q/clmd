@@ -14,9 +14,8 @@
 //! https://github.com/user/repo
 //! ```
 
-use crate::node::{append_child, Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos};
 
 /// Regex patterns for URL detection (simplified)
 const URL_SCHEMES: &[&str] = &["http://", "https://", "ftp://"];
@@ -24,7 +23,7 @@ const URL_SCHEMES: &[&str] = &["http://", "https://", "ftp://"];
 /// Check if text contains a potential URL
 pub fn contains_url(text: &str) -> bool {
     text.contains("www.")
-        || text.contains("@")
+        || text.contains('@')
         || URL_SCHEMES.iter().any(|s| text.contains(s))
 }
 
@@ -158,20 +157,16 @@ fn try_parse_email(chars: &[char], start: usize) -> Option<(usize, usize, String
     Some((start, i, email))
 }
 
-/// Create an autolink node
+/// Create an autolink node in the arena
+/// Returns the NodeId of the created link node
 pub fn create_autolink_node(
+    arena: &mut NodeArena,
     url: &str,
     is_email: bool,
     line: u32,
     col: u32,
-) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::Link)));
-
-    let display_url = if is_email {
-        url.to_string()
-    } else {
-        url.to_string()
-    };
+) -> NodeId {
+    let display_url = url.to_string();
 
     let href = if is_email {
         format!("mailto:{}", url)
@@ -179,13 +174,17 @@ pub fn create_autolink_node(
         url.to_string()
     };
 
-    {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::Link {
+    let link_node = arena.alloc(Node::with_data(
+        NodeType::Link,
+        NodeData::Link {
             url: href,
             title: String::new(),
-        };
-        node_ref.source_pos = SourcePos {
+        },
+    ));
+
+    {
+        let node = arena.get_mut(link_node);
+        node.source_pos = SourcePos {
             start_line: line,
             start_column: col,
             end_line: line,
@@ -194,25 +193,35 @@ pub fn create_autolink_node(
     }
 
     // Create text node for the display text
-    let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-    text_node.borrow_mut().data = NodeData::Text {
-        literal: display_url,
-    };
+    let text_node = arena.alloc(Node::with_data(
+        NodeType::Text,
+        NodeData::Text {
+            literal: display_url,
+        },
+    ));
 
-    append_child(&node, text_node);
+    TreeOps::append_child(arena, link_node, text_node);
 
-    node
+    link_node
 }
 
-/// Process text for autolinks and return a list of nodes
-pub fn process_autolinks(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<Node>>> {
+/// Process text for autolinks and return a list of node IDs
+/// The nodes are allocated in the arena and returned as NodeIds
+pub fn process_autolinks(
+    arena: &mut NodeArena,
+    text: &str,
+    line: u32,
+    col: u32,
+) -> Vec<NodeId> {
     let urls = find_urls(text);
     if urls.is_empty() {
         // No URLs found, return single text node
-        let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        node.borrow_mut().data = NodeData::Text {
-            literal: text.to_string(),
-        };
+        let node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: text.to_string(),
+            },
+        ));
         return vec![node];
     }
 
@@ -223,15 +232,17 @@ pub fn process_autolinks(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<Node
         // Add text before URL
         if start > last_end {
             let before_text = &text[last_end..start];
-            let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-            node.borrow_mut().data = NodeData::Text {
-                literal: before_text.to_string(),
-            };
+            let node = arena.alloc(Node::with_data(
+                NodeType::Text,
+                NodeData::Text {
+                    literal: before_text.to_string(),
+                },
+            ));
             nodes.push(node);
         }
 
         // Add autolink node
-        let link_node = create_autolink_node(&url, is_email, line, col + start as u32);
+        let link_node = create_autolink_node(arena, &url, is_email, line, col + start as u32);
         nodes.push(link_node);
 
         last_end = end;
@@ -240,10 +251,12 @@ pub fn process_autolinks(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<Node
     // Add remaining text after last URL
     if last_end < text.len() {
         let after_text = &text[last_end..];
-        let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        node.borrow_mut().data = NodeData::Text {
-            literal: after_text.to_string(),
-        };
+        let node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: after_text.to_string(),
+            },
+        ));
         nodes.push(node);
     }
 
@@ -315,11 +328,12 @@ mod tests {
 
     #[test]
     fn test_create_autolink_node() {
-        let node = create_autolink_node("https://example.com", false, 1, 1);
-        let node_ref = node.borrow();
-        assert_eq!(node_ref.node_type, NodeType::Link);
+        let mut arena = NodeArena::new();
+        let node_id = create_autolink_node(&mut arena, "https://example.com", false, 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::Link);
 
-        match &node_ref.data {
+        match &node.data {
             NodeData::Link { url, .. } => {
                 assert_eq!(url, "https://example.com");
             }
@@ -329,10 +343,11 @@ mod tests {
 
     #[test]
     fn test_create_email_autolink() {
-        let node = create_autolink_node("test@example.com", true, 1, 1);
-        let node_ref = node.borrow();
+        let mut arena = NodeArena::new();
+        let node_id = create_autolink_node(&mut arena, "test@example.com", true, 1, 1);
+        let node = arena.get(node_id);
 
-        match &node_ref.data {
+        match &node.data {
             NodeData::Link { url, .. } => {
                 assert_eq!(url, "mailto:test@example.com");
             }
@@ -342,12 +357,13 @@ mod tests {
 
     #[test]
     fn test_process_autolinks() {
-        let nodes = process_autolinks("Visit https://example.com today", 1, 1);
+        let mut arena = NodeArena::new();
+        let nodes = process_autolinks(&mut arena, "Visit https://example.com today", 1, 1);
         assert_eq!(nodes.len(), 3); // text, link, text
 
-        assert_eq!(nodes[0].borrow().node_type, NodeType::Text);
-        assert_eq!(nodes[1].borrow().node_type, NodeType::Link);
-        assert_eq!(nodes[2].borrow().node_type, NodeType::Text);
+        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
+        assert_eq!(arena.get(nodes[1]).node_type, NodeType::Link);
+        assert_eq!(arena.get(nodes[2]).node_type, NodeType::Text);
     }
 
     #[test]

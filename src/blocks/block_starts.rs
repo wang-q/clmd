@@ -49,7 +49,7 @@ impl<'a> BlockParser<'a> {
                 self.close_unmatched_blocks();
                 self.advance_next_nonspace();
                 self.advance_offset(1, false);
-                if self.peek_current().map_or(false, is_space_or_tab) {
+                if self.peek_current().is_some_and(is_space_or_tab) {
                     self.advance_offset(1, true);
                 }
                 let block_quote =
@@ -100,9 +100,9 @@ impl<'a> BlockParser<'a> {
                         // Remove closing sequence using regex-like logic
                         // Pattern 1: ^[ \t]*#+[ \t]*$ - content is only whitespace + #s
                         let trimmed_start =
-                            content.trim_start_matches(|c: char| c == ' ' || c == '\t');
+                            content.trim_start_matches([' ', '\t']);
                         let trimmed_end = trimmed_start
-                            .trim_end_matches(|c: char| c == ' ' || c == '\t');
+                            .trim_end_matches([' ', '\t']);
                         if trimmed_end.chars().all(|c| c == '#')
                             && !trimmed_end.is_empty()
                         {
@@ -155,7 +155,7 @@ impl<'a> BlockParser<'a> {
 
                         // Trim leading whitespace from content
                         content = content
-                            .trim_start_matches(|c: char| c == ' ' || c == '\t')
+                            .trim_start_matches([' ', '\t'])
                             .to_string();
 
                         let heading =
@@ -430,13 +430,11 @@ impl<'a> BlockParser<'a> {
         }
 
         // Type 7: Complete HTML tag (cannot interrupt paragraph, not lazy)
-        if line.starts_with('<') && !maybe_lazy {
-            if self.arena.get(container).node_type != NodeType::Paragraph {
-                if self.is_valid_html_tag_type7(line) {
+        if line.starts_with('<') && !maybe_lazy
+            && self.arena.get(container).node_type != NodeType::Paragraph
+                && self.is_valid_html_tag_type7(line) {
                     return Some(7);
                 }
-            }
-        }
 
         None
     }
@@ -538,7 +536,7 @@ impl<'a> BlockParser<'a> {
 
         for tag in &tags {
             // Check for opening tag: <tag
-            if line_lower.len() >= 1 + tag.len() && line_lower[1..].starts_with(tag) {
+            if line_lower.len() > tag.len() && line_lower[1..].starts_with(tag) {
                 let after = &line_lower[1 + tag.len()..];
                 // Must be followed by space, tab, >, newline, or />
                 if after.is_empty()
@@ -566,7 +564,7 @@ impl<'a> BlockParser<'a> {
                     || after.starts_with("/>")
                 {
                     // Don't match closing tags for type 1 tags (they end type 1 blocks)
-                    if !type1_end_tags.contains(&tag.as_ref()) {
+                    if !type1_end_tags.contains(&tag) {
                         return true;
                     }
                 }
@@ -881,7 +879,7 @@ impl<'a> BlockParser<'a> {
 
                     // Skip up to 5 spaces
                     while self.column - spaces_start_col < 5
-                        && self.peek_current().map_or(false, is_space_or_tab)
+                        && self.peek_current().is_some_and(is_space_or_tab)
                     {
                         self.advance_offset(1, true);
                     }
@@ -891,12 +889,12 @@ impl<'a> BlockParser<'a> {
                     let spaces_after_marker = self.column - spaces_start_col;
 
                     let padding;
-                    if spaces_after_marker >= 5 || spaces_after_marker < 1 || blank_item
+                    if !(1..5).contains(&spaces_after_marker) || blank_item
                     {
                         padding = 2; // marker length (1) + 1 space
                         self.column = spaces_start_col;
                         self.offset = spaces_start_offset;
-                        if self.peek_current().map_or(false, is_space_or_tab) {
+                        if self.peek_current().is_some_and(is_space_or_tab) {
                             self.advance_offset(1, true);
                         }
                     } else {
@@ -966,7 +964,7 @@ impl<'a> BlockParser<'a> {
 
                         // Skip up to 5 spaces
                         while self.column - spaces_start_col < 5
-                            && self.peek_current().map_or(false, is_space_or_tab)
+                            && self.peek_current().is_some_and(is_space_or_tab)
                         {
                             self.advance_offset(1, true);
                         }
@@ -976,14 +974,13 @@ impl<'a> BlockParser<'a> {
                         let spaces_after_marker = self.column - spaces_start_col;
 
                         let padding;
-                        if spaces_after_marker >= 5
-                            || spaces_after_marker < 1
+                        if !(1..5).contains(&spaces_after_marker)
                             || blank_item
                         {
                             padding = digits.len() + 2; // marker length + 1 space
                             self.column = spaces_start_col;
                             self.offset = spaces_start_offset;
-                            if self.peek_current().map_or(false, is_space_or_tab) {
+                            if self.peek_current().is_some_and(is_space_or_tab) {
                                 self.advance_offset(1, true);
                             }
                         } else {

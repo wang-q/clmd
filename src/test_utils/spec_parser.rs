@@ -146,9 +146,7 @@ fn parse_example_header(line: &str) -> Option<(String, usize, Vec<String>)> {
 pub fn generate_rust_tests(examples: &[SpecExample], module_name: &str) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!(
-        "// Auto-generated tests from flexmark-java spec file\n"
-    ));
+    output.push_str("// Auto-generated tests from flexmark-java spec file\n");
     output.push_str(&format!("// Module: {}\n\n", module_name));
     output.push_str("use crate::*;\n\n");
 

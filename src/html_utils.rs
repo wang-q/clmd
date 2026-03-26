@@ -246,7 +246,7 @@ pub mod entities {
     pub fn decode_entities(input: &str) -> String {
         let mut result = input.to_string();
         for (entity, char_) in ENTITIES {
-            result = result.replace(*entity, *char_);
+            result = result.replace(*entity, char_);
         }
         result
     }

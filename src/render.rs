@@ -20,6 +20,8 @@
 //! assert_eq!(html, "<h1>Hello</h1>\n<p>World</p>");
 //! ```
 
+pub mod arena_html;
+
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use std::fmt::Write;
@@ -66,7 +68,7 @@ impl HtmlRenderer {
                     } else {
                         Self::render_children(arena, node_id, output);
                     }
-                    write!(output, "</h{}>\n", level).unwrap();
+                    writeln!(output, "</h{}>", level).unwrap();
                 }
             }
             NodeType::BlockQuote => {

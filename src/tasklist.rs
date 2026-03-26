@@ -20,8 +20,7 @@ pub fn parse_task_marker(text: &str) -> Option<bool> {
     let trimmed = text.trim_start();
 
     // Check for pattern: [ ] or [x] or [X]
-    if trimmed.starts_with('[') {
-        let rest = &trimmed[1..];
+    if let Some(rest) = trimmed.strip_prefix('[') {
         if let Some(close_bracket) = rest.find(']') {
             let content = &rest[..close_bracket];
             let content_trimmed = content.trim();
