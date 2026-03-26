@@ -246,8 +246,132 @@ criterion_group!(
     bench_fair_comparison,
 );
 
+// Synthetic benchmarks (from parse_benchmark.rs)
+fn bench_small_document(c: &mut Criterion) {
+    let input = "# Hello World\n\nThis is a **small** document with *some* formatting.\n\n- Item 1\n- Item 2\n- Item 3\n\n> A blockquote\n> with multiple lines\n";
+    c.bench_function("synthetic_small_document", |b| {
+        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+    });
+}
+
+fn bench_medium_document(c: &mut Criterion) {
+    let input = r#"# Introduction
+
+This is a medium-sized document with various Markdown features.
+
+## Section 1: Text Formatting
+
+You can write text in **bold**, *italic*, or ***both***.
+You can also use ~~strikethrough~~ and `inline code`.
+
+## Section 2: Lists
+
+### Unordered Lists
+
+- First item
+- Second item
+  - Nested item 1
+  - Nested item 2
+- Third item
+
+### Ordered Lists
+
+1. First step
+2. Second step
+3. Third step
+
+## Section 3: Code Blocks
+
+Here's a code block:
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+## Section 4: Links and Images
+
+Visit [example.com](https://example.com) for more information.
+
+![Alt text](image.png)
+
+## Section 5: Blockquotes
+
+> This is a blockquote.
+> It can span multiple lines.
+>
+> > And can be nested too!
+
+## Section 6: Tables
+
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+
+## Conclusion
+
+That's all for this medium document!
+"#;
+    c.bench_function("synthetic_medium_document", |b| {
+        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+    });
+}
+
+fn bench_large_document(c: &mut Criterion) {
+    let medium = r#"# Introduction
+
+This is a medium-sized document with various Markdown features.
+
+## Section 1: Text Formatting
+
+You can write text in **bold**, *italic*, or ***both***.
+
+## Section 2: Lists
+
+- First item
+- Second item
+- Third item
+
+## Section 3: Code Blocks
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+## Section 4: Links
+
+Visit [example.com](https://example.com) for more information.
+
+## Section 5: Blockquotes
+
+> This is a blockquote.
+
+## Section 6: Tables
+
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+"#;
+    let large = medium.repeat(10);
+    c.bench_function("synthetic_large_document", |b| {
+        b.iter(|| markdown_to_html(black_box(&large), options::DEFAULT))
+    });
+}
+
+criterion_group!(
+    synthetic_benchmarks,
+    bench_small_document,
+    bench_medium_document,
+    bench_large_document,
+);
+
 criterion_main!(
     block_benchmarks,
     inline_benchmarks,
     full_document_benchmarks,
+    synthetic_benchmarks,
 );

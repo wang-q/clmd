@@ -1,9 +1,13 @@
-//! Comrak benchmark runner
+//! Cross-language benchmark runner
 //!
 //! This binary runs the same benchmark as cmark and commonmark.js
 //! for fair comparison.
+//!
+//! Usage:
+//!   cargo build --release --example cross_language_bench
+//!   ./target/release/examples/cross_language_bench <markdown-file>
 
-use comrak::{markdown_to_html, Options};
+use clmd::{markdown_to_html, options};
 use std::env;
 use std::fs;
 
@@ -17,5 +21,5 @@ fn main() {
     let input = fs::read_to_string(&args[1]).expect("Failed to read file");
 
     // Run once (hyperfine will handle iterations)
-    let _ = markdown_to_html(&input, &Options::default());
+    let _ = markdown_to_html(&input, options::DEFAULT);
 }

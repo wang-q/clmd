@@ -19,28 +19,38 @@ criterion = "0.5"
 [profile.release]
 debug = true
 
-[[bench]]
-name = "parser_bench"
-harness = false
-
+# Benchmarks
 [[bench]]
 name = "categorized_benchmark"
 harness = false
 
 [[bench]]
-name = "parse_benchmark"
+name = "feature_benchmark"
 harness = false
 
+[[bench]]
+name = "pathological_benchmark"
+harness = false
+
+[[bench]]
+name = "real_world_benchmark"
+harness = false
+
+# Examples - Benchmarks
 [[example]]
 name = "cross_language_bench"
-path = "examples/cross_language_bench.rs"
+path = "examples/bench/cross_language_bench.rs"
 
 [[example]]
-name = "comrak_bench"
-path = "examples/comrak_bench.rs"
-required-features = ["comrak"]
+name = "cross_rust_bench"
+path = "examples/bench/cross_rust_bench.rs"
+required-features = ["comrak", "pulldown-cmark"]
 
 [[example]]
-name = "pulldown_cmark_bench"
-path = "examples/pulldown_cmark_bench.rs"
-required-features = ["pulldown-cmark"]
+name = "flamegraph_bench"
+path = "examples/bench/flamegraph_bench.rs"
+
+# Examples - Comparisons
+[[example]]
+name = "arena_comparison"
+path = "examples/compare/arena_comparison.rs"
