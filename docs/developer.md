@@ -46,6 +46,7 @@ clmd 是一个用 Rust 实现的高性能 CommonMark 规范解析器，参考了
 | cmark-0.31.2 | C | 高性能，比原始 Markdown.pl 快 10,000 倍 |
 | commonmark.js-0.31.2 | JavaScript | 与 marked 相当，纯 JS 实现 |
 | flexmark-java-0.64.6 | Java | 高度可扩展，功能丰富，34+ 扩展模块 |
+| comrak-0.51.0 | Rust | 100% CommonMark + GFM 兼容，Arena-based AST |
 
 ### 核心功能
 
@@ -455,3 +456,651 @@ flexmark 的测试框架也值得参考：
 
 完整的 flexmark-java 分析文档位于：
 `.trae/documents/flexmark-java-analysis.md`
+
+## comrak 参考分析
+
+comrak 是一个用 Rust 编写的高性能 CommonMark 和 GFM 兼容 Markdown 解析器，版本 0.51.0。它是 clmd 项目的重要参考，因为同为 Rust 实现，其设计模式和架构决策对 clmd 具有直接借鉴价值。
+
+### 项目概况
+
+- **版本**: 0.51.0
+- **Rust 版本要求**: 1.85+
+- **Edition**: 2024
+- **核心依赖**: typed-arena, jetscii, smallvec, rustc-hash, phf
+- **许可证**: BSD-2-Clause
+
+### 源码结构
+
+```
+src/
+├── lib.rs              # 公共 API 和 crate 根文档
+├── parser/
+│   ├── mod.rs          # 解析器主模块，parse_document 入口
+│   ├── inlines.rs      # 内联元素解析（强调、链接、代码等）
+│   ├── options.rs      # 解析和渲染选项定义
+│   ├── autolink.rs     # 自动链接检测
+│   ├── table.rs        # GFM 表格解析
+│   ├── shortcodes.rs   # Emoji 短代码（可选特性）
+│   └── phoenix_heex.rs # Phoenix HEEx 模板支持
+├── nodes.rs            # AST 节点定义（NodeValue, Node 等）
+├── arena_tree.rs       # Arena-based 树数据结构
+├── html.rs             # HTML 渲染器
+├── cm.rs               # CommonMark 格式渲染器
+├── xml.rs              # XML 格式渲染器
+├── typst.rs            # Typst 格式渲染器
+├── adapters.rs         # 插件适配器 trait 定义
+├── scanners.rs         # 字符扫描工具
+├── strings.rs          # 字符串处理工具
+├── entity.rs           # HTML 实体处理
+├── ctype.rs            # 字符类型判断
+└── character_set.rs    # 字符集合工具
+```
+
+### 核心设计亮点
+
+#### 1. Arena-based AST 内存管理
+
+comrak 使用 `typed_arena::Arena` 进行 AST 内存管理，与 clmd 的设计一致：
+
+```rust
+pub type Arena<'a> = typed_arena::Arena<nodes::AstNode<'a>>;
+
+pub fn parse_document<'a>(arena: &'a Arena<'a>, md: &str, options: &Options) -> Node<'a> {
+    let root = arena.alloc(Ast { ... }.into());
+    Parser::new(arena, root, options).parse(md)
+}
+```
+
+**借鉴点**:
+- 使用 `typed_arena` crate 而非自定义实现
+- `Node<'a>` 类型别名简化引用
+- 生命周期 `'a` 贯穿整个 AST
+
+#### 2. 统一的 NodeValue 枚举
+
+comrak 将所有节点类型统一在一个 `NodeValue` 枚举中：
+
+```rust
+pub enum NodeValue {
+    // 块级节点
+    Document,
+    BlockQuote,
+    List(NodeList),
+    Item(NodeList),
+    CodeBlock(Box<NodeCodeBlock>),
+    Paragraph,
+    Heading(NodeHeading),
+    // ... 更多块级节点
+    
+    // 内联节点
+    Text(Cow<'static, str>),
+    SoftBreak,
+    LineBreak,
+    Code(NodeCode),
+    Emph,
+    Strong,
+    Link(Box<NodeLink>),
+    // ... 更多内联节点
+}
+```
+
+**借鉴点**:
+- 使用 `Cow<'static, str>` 存储文本，避免不必要的克隆
+- 使用 `Box<T>` 包装大型结构体，减小枚举大小
+- 节点元数据（如 `NodeList`, `NodeHeading`）作为独立结构体
+
+#### 3. 选项系统设计
+
+comrak 使用结构体嵌套组织选项：
+
+```rust
+pub struct Options<'c> {
+    pub extension: Extension<'c>,
+    pub parse: Parse<'c>,
+    pub render: Render,
+}
+
+pub struct Extension<'c> {
+    pub strikethrough: bool,
+    pub table: bool,
+    pub autolink: bool,
+    pub tasklist: bool,
+    pub footnotes: bool,
+    // ... 更多扩展选项
+}
+```
+
+**借鉴点**:
+- 使用生命周期参数 `'c` 支持引用类型的选项
+- 使用 `#[cfg(feature = "bon")]` 和 `bon::Builder` 提供构建器模式
+- 每个选项都有详细的文档注释和示例代码
+
+#### 4. 插件适配器架构
+
+comrak 通过适配器 trait 支持插件扩展：
+
+```rust
+pub trait SyntaxHighlighterAdapter: Send + Sync {
+    fn write_highlighted(&self, output: &mut dyn fmt::Write, lang: Option<&str>, code: &str) -> fmt::Result;
+    fn write_pre_tag(&self, output: &mut dyn fmt::Write, attributes: HashMap<&'static str, Cow<'_, str>>) -> fmt::Result;
+    fn write_code_tag(&self, output: &mut dyn fmt::Write, attributes: HashMap<&'static str, Cow<'_, str>>) -> fmt::Result;
+}
+
+pub trait HeadingAdapter: Send + Sync {
+    fn enter(&self, output: &mut dyn fmt::Write, heading: &HeadingMeta, sourcepos: Option<Sourcepos>) -> fmt::Result;
+    fn exit(&self, output: &mut dyn fmt::Write, heading: &HeadingMeta) -> fmt::Result;
+}
+```
+
+**借鉴点**:
+- 使用 trait 定义扩展点，而非回调函数
+- 适配器需要 `Send + Sync` 保证线程安全
+- 使用 `&mut dyn fmt::Write` 作为输出目标，灵活且可测试
+
+#### 5. HTML 渲染器的 create_formatter 宏
+
+comrak 提供了一个强大的宏用于创建自定义 HTML 格式化器：
+
+```rust
+#[macro_export]
+macro_rules! create_formatter {
+    ($name:ident, { $( $pat:pat => | $( $capture:ident ),* | $case:tt ),* $(,)? }) => { ... };
+}
+```
+
+**使用示例**:
+
+```rust
+create_formatter!(CustomFormatter<usize>, {
+    NodeValue::Emph => |context, entering| {
+        context.user += 1;
+        if entering {
+            context.write_str("<i>")?;
+        } else {
+            context.write_str("</i>")?;
+        }
+    },
+    NodeValue::Strong => |context, entering| {
+        context.write_str(if entering { "<b>" } else { "</b>" })?;
+    },
+});
+```
+
+**借鉴点**:
+- 宏允许用户自定义特定节点的渲染行为
+- 支持用户自定义状态（如示例中的 `usize` 计数器）
+- `ChildRendering` 枚举控制子节点的渲染方式
+
+#### 6. 内联解析优化
+
+comrak 的内联解析器使用多种优化技术：
+
+```rust
+pub struct Subject<'a: 'd, 'r, 'o, 'd, 'c, 'p> {
+    pub arena: &'a Arena<'a>,
+    pub options: &'o Options<'c>,
+    pub input: String,
+    pub scanner: Scanner,
+    pub backticks: [usize; MAXBACKTICKS + 1],
+    special_char_bytes: [bool; 256],
+    skip_char_bytes: [bool; 256],
+    emph_delim_bytes: [bool; 256],
+    brackets: SmallVec<[Bracket<'a>; 8]>,
+    // ...
+}
+```
+
+**优化点**:
+- 使用 `SmallVec` 存储括号栈，小数据量时避免堆分配
+- 使用字节查找表（`[bool; 256]`）快速判断特殊字符
+- 预分配 `backticks` 数组存储反引号位置
+
+#### 7. 多格式渲染支持
+
+comrak 原生支持多种输出格式：
+
+| 格式 | 模块 | 特点 |
+|------|------|------|
+| HTML | html.rs | 标准 HTML5 输出，支持插件 |
+| CommonMark | cm.rs | 规范化 Markdown 输出（roundtrip）|
+| XML | xml.rs | CommonMark XML 格式 |
+| Typst | typst.rs | 学术排版系统格式 |
+
+**借鉴点**:
+- 每种格式有独立的渲染器模块
+- 统一的 `format_document` 和 `format_document_with_plugins` API
+- 使用 `fmt::Write` trait 抽象输出目标
+
+#### 8. 字符处理工具
+
+comrak 使用专门的模块处理字符：
+
+```rust
+// ctype.rs - 字符类型判断
+pub fn isspace(c: u8) -> bool { c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' }
+pub fn isdigit(c: u8) -> bool { (b'0'..=b'9').contains(&c) }
+pub fn ispunct(c: u8) -> bool { ... }
+
+// scanners.rs - 字符扫描
+pub fn scan_atx_heading_start(s: &[u8]) -> Option<usize> { ... }
+pub fn scan_thematic_break(s: &[u8]) -> Option<usize> { ... }
+```
+
+**借鉴点**:
+- 使用字节操作而非字符操作，提高性能
+- 扫描器返回 `Option<usize>` 表示匹配长度
+- 使用 `jetscii` crate 进行快速字符查找
+
+### 扩展功能实现
+
+comrak 支持丰富的扩展功能：
+
+**GFM 扩展**:
+- 表格（tables）
+- 删除线（strikethrough）
+- 任务列表（tasklist）
+- 自动链接（autolink）
+- GitHub Alerts
+
+**文档增强**:
+- 脚注（footnotes）
+- 定义列表（description lists）
+- 上标/下标（superscript/subscript）
+- 高亮（highlight）
+- 下划线（underline）
+- 剧透（spoiler）
+
+**其他**:
+- 数学公式（math dollars/code）
+- 多行块引用
+- 前端 matter
+- WikiLink
+- Emoji 短代码
+
+### 对 clmd 的启示
+
+#### 1. 代码组织
+
+comrak 的模块划分清晰，每个文件职责单一：
+- `parser/` 目录包含所有解析相关代码
+- 渲染器按格式分文件（html.rs, cm.rs, xml.rs, typst.rs）
+- 工具函数按功能分文件（strings.rs, scanners.rs, entity.rs）
+
+#### 2. 性能优化
+
+- 使用 `rustc_hash::FxHashMap` 替代标准 HashMap，更好的哈希性能
+- 使用 `smallvec::SmallVec` 减少小数组的堆分配
+- 使用 `jetscii` 进行 SIMD 加速的字符查找
+- 使用 `phf` 进行编译时静态映射生成
+
+#### 3. 测试和文档
+
+- 每个公共 API 都有详细的文档注释和示例代码
+- 使用 `#[cfg(test)]` 和 `strum` 进行测试辅助
+- 使用 `arbitrary` 特性支持模糊测试
+
+#### 4. 特性管理
+
+comrak 使用 Cargo features 精细控制功能：
+- `cli`: 命令行工具
+- `syntect`: 语法高亮
+- `shortcodes`: Emoji 短代码
+- `phoenix_heex`: Phoenix 模板支持
+- `bon`: 构建器模式支持
+
+### 核心算法参考
+
+| 功能 | comrak (Rust) | 参考文件 |
+|------|---------------|----------|
+| 块级解析 | Parser::process_line | parser/mod.rs |
+| 内联解析 | Subject::parse_inline | parser/inlines.rs |
+| 强调处理 | process_emphasis | parser/inlines.rs |
+| 链接处理 | handle_close_bracket | parser/inlines.rs |
+| HTML 渲染 | format_node_default | html.rs |
+| CommonMark 渲染 | CommonMarkFormatter | cm.rs |
+
+### 与 clmd 的差异
+
+| 方面 | comrak | clmd |
+|------|--------|------|
+| AST 内存管理 | typed_arena | 自定义 NodeArena |
+| 节点引用 | 直接引用 `&'a Node<'a, T>` | NodeId 索引 |
+| 选项系统 | 结构体嵌套 | DataKey 类型安全配置 |
+| 扩展机制 | 特性开关 + 适配器 trait | 模块化扩展 |
+| 渲染器 | 宏生成 + 函数指针 | 访问者模式 |
+
+### 可借鉴的具体实现
+
+1. **NodeValue 枚举设计**: 使用 `Cow<'static, str>` 和 `Box<T>` 优化内存布局
+2. **选项构建器**: 使用 `bon` crate 生成构建器模式
+3. **内联解析优化**: 字节查找表和 `SmallVec` 优化
+4. **渲染器宏**: `create_formatter!` 宏的设计思路
+5. **多格式支持**: 统一的渲染器 API 设计
+6. **字符处理**: `ctype.rs` 和 `scanners.rs` 的工具函数设计
+
+## pulldown-cmark 参考分析
+
+pulldown-cmark 是一个用 Rust 编写的高性能 pull parser，版本 0.13.3。它采用事件驱动的解析方式，与 comrak 的 AST 方式形成对比，为 clmd 提供了另一种设计思路。
+
+### 项目概况
+
+- **版本**: 0.13.3
+- **Rust 版本要求**: 1.71.1+
+- **Edition**: 2021
+- **核心依赖**: bitflags, unicase, memchr, getopts
+- **许可证**: MIT
+
+### 源码结构
+
+```
+src/
+├── lib.rs              # 公共 API 和 Event/Tag 定义
+├── parse.rs            # Parser 实现，核心解析逻辑
+├── firstpass.rs        # 第一遍解析：块级结构
+├── tree.rs             # Vec-based 树结构
+├── strings.rs          # CowStr 和 InlineStr 实现
+├── scanners.rs         # 字符扫描工具
+├── html.rs             # HTML 渲染器
+├── utils.rs            # TextMergeStream 等工具
+├── entities.rs         # HTML 实体处理
+├── linklabel.rs        # 链接标签处理
+└── puncttable.rs       # 标点符号表
+```
+
+### 核心设计亮点
+
+#### 1. Pull Parser 事件驱动架构
+
+pulldown-cmark 采用事件驱动（SAX-like）而非 AST 方式：
+
+```rust
+pub enum Event<'a> {
+    Start(Tag<'a>),
+    End(TagEnd),
+    Text(CowStr<'a>),
+    Code(CowStr<'a>),
+    Html(CowStr<'a>),
+    // ... 更多事件
+}
+
+pub struct Parser<'input> {
+    text: &'input str,
+    options: Options,
+    tree: Tree<Item>,
+    // ...
+}
+
+impl<'input> Iterator for Parser<'input> {
+    type Item = Event<'input>;
+    fn next(&mut self) -> Option<Self::Item> { ... }
+}
+```
+
+**借鉴点**:
+- 事件驱动方式内存占用更低，适合流式处理
+- `Iterator` trait 实现使解析器可直接用于迭代
+- 支持 `OffsetIter` 同时获取事件和源码位置
+
+#### 2. 高效的 CowStr 字符串类型
+
+pulldown-cmark 实现了自定义的 Copy-on-Write 字符串：
+
+```rust
+pub enum CowStr<'a> {
+    Boxed(Box<str>),
+    Borrowed(&'a str),
+    Inlined(InlineStr),  // 小字符串内联存储
+}
+
+pub struct InlineStr {
+    inner: [u8; MAX_INLINE_STR_LEN],  // 22 bytes on 64-bit
+    len: u8,
+}
+```
+
+**借鉴点**:
+- 小字符串（≤22字节）直接内联，避免堆分配
+- `Borrowed` 变体直接引用输入字符串，零拷贝
+- 使用 `Box<str>` 而非 `String`，节省 8 字节容量字段
+
+#### 3. Vec-based 树结构
+
+使用简单的 Vec 存储树节点，通过索引引用：
+
+```rust
+#[derive(Clone)]
+pub(crate) struct Tree<T> {
+    nodes: Vec<Node<T>>,
+    spine: Vec<TreeIndex>,  // 当前路径上的节点索引
+    cur: Option<TreeIndex>,
+}
+
+pub(crate) struct Node<T> {
+    pub child: Option<TreeIndex>,
+    pub next: Option<TreeIndex>,
+    pub item: T,
+}
+
+pub(crate) struct TreeIndex(NonZeroUsize);
+```
+
+**借鉴点**:
+- 使用 `NonZeroUsize` 允许 `Option<TreeIndex>` 占用优化
+- `spine` 栈跟踪当前路径，支持高效的父子导航
+- 索引从 1 开始，0 作为哨兵值简化边界处理
+
+#### 4. 两遍解析策略
+
+第一遍解析块结构，第二遍解析内联元素：
+
+```rust
+// 第一遍：块级解析
+pub(crate) fn run_first_pass(text: &str, options: Options) -> (Tree<Item>, Allocations<'_>) {
+    let mut first_pass = FirstPass { ... };
+    first_pass.run()
+}
+
+// 第二遍：内联解析（在 Iterator::next 中按需进行）
+fn next(&mut self) -> Option<Event<'input>> {
+    // 处理块级事件
+    // 遇到需要内联解析的块时，进行第二遍解析
+}
+```
+
+**借鉴点**:
+- 分离块级和内联解析，逻辑更清晰
+- 内联解析按需进行，避免不必要的计算
+- 使用 `ItemBody` 枚举标记待处理的元素
+
+#### 5. 紧凑的 ItemBody 枚举
+
+使用单个枚举表示所有节点类型，区分"待处理"和"已处理"：
+
+```rust
+pub(crate) enum ItemBody {
+    // 待处理的行内元素
+    MaybeEmphasis(usize, bool, bool),
+    MaybeCode(usize, bool),
+    MaybeLinkOpen,
+    MaybeLinkClose(bool),
+    
+    // 已处理的行内元素
+    Emphasis,
+    Strong,
+    Code(CowIndex),
+    Link(LinkIndex),
+    
+    // 块级元素
+    Paragraph,
+    Heading(HeadingLevel, Option<HeadingIndex>),
+    List(bool, u8, u64),  // is_tight, list_char, start
+    // ...
+}
+```
+
+**借鉴点**:
+- 使用 `Maybe*` 前缀标记需要第二遍解析的元素
+- 紧凑的设计减少内存占用
+- 使用索引（`CowIndex`, `LinkIndex`）引用外部存储的数据
+
+#### 6. 高效的扫描器设计
+
+扫描器返回 `Option<usize>` 表示匹配长度：
+
+```rust
+pub(crate) fn scan_atx_heading_start(s: &[u8]) -> Option<usize> { ... }
+pub(crate) fn scan_thematic_break(s: &[u8]) -> Option<usize> { ... }
+
+// 使用 memchr 进行快速字符查找
+use memchr::memchr;
+let ix = memchr(b'\n', &bytes[start..])?;
+```
+
+**借鉴点**:
+- 使用 `memchr` crate 进行快速字节查找
+- 扫描器纯函数设计，无副作用，易于测试
+- 返回 `Option<usize>` 简洁表示匹配结果
+
+#### 7. TextMergeStream 工具
+
+合并连续的文本事件，提高下游处理效率：
+
+```rust
+pub struct TextMergeStream<'a, I> {
+    inner: TextMergeWithOffset<'a, DummyOffsets<I>>,
+}
+
+impl<'a, I> Iterator for TextMergeStream<'a, I> {
+    type Item = Event<'a>;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        // 合并连续的 Event::Text
+    }
+}
+```
+
+**借鉴点**:
+- 包装器模式增强解析器功能
+- 自动合并连续文本事件，简化下游处理
+- 提供带偏移量的版本 `TextMergeWithOffset`
+
+#### 8. 紧凑的 TagEnd 设计
+
+使用独立的 `TagEnd` 枚举表示结束标签，控制大小：
+
+```rust
+pub enum TagEnd {
+    Paragraph,
+    Heading(HeadingLevel),
+    List(bool),
+    // ...
+}
+
+// 确保 TagEnd 不超过 2 字节
+#[cfg(target_pointer_width = "64")]
+const _STATIC_ASSERT_TAG_END_SIZE: [(); 2] = [(); std::mem::size_of::<TagEnd>()];
+```
+
+**借鉴点**:
+- 分离 `Tag` 和 `TagEnd`，`TagEnd` 更紧凑
+- 使用编译时断言验证大小约束
+- `TagEnd` 只包含必要信息，减少内存占用
+
+### 扩展功能实现
+
+pulldown-cmark 使用 `bitflags` 管理扩展选项：
+
+```rust
+bitflags! {
+    pub struct Options: u32 {
+        const ENABLE_TABLES = 1 << 0;
+        const ENABLE_FOOTNOTES = 1 << 1;
+        const ENABLE_STRIKETHROUGH = 1 << 2;
+        const ENABLE_TASKLISTS = 1 << 3;
+        const ENABLE_SMART_PUNCTUATION = 1 << 4;
+        const ENABLE_HEADING_ATTRIBUTES = 1 << 5;
+        const ENABLE_DEFINITION_LIST = 1 << 9;
+        const ENABLE_GFM = 1 << 10;
+        // ...
+    }
+}
+```
+
+**支持的扩展**:
+- 表格（GFM）
+- 脚注
+- 删除线
+- 任务列表
+- 智能标点
+- 标题属性
+- 定义列表
+- WikiLink
+- 上标/下标
+- 数学公式
+
+### 对 clmd 的启示
+
+#### 1. 事件驱动 vs AST
+
+pulldown-cmark 的事件驱动方式适合：
+- 流式处理大文档
+- 内存受限环境
+- 只需要特定事件的场景
+
+clmd 的 AST 方式适合：
+- 需要完整文档结构的操作
+- 多格式渲染
+- 文档转换和修改
+
+#### 2. 内存优化技巧
+
+- **CowStr**: 小字符串内联，大字符串共享
+- **TreeIndex**: 使用 `NonZeroUsize` 优化 Option 大小
+- **TagEnd**: 分离开始/结束标签，结束标签更紧凑
+- **spine 栈**: 避免递归，高效导航
+
+#### 3. 两遍解析的优势
+
+- 第一遍只处理块结构，逻辑简单
+- 第二遍按需解析内联，避免不必要工作
+- 易于支持增量解析
+
+#### 4. 代码组织
+
+- `scanners.rs`: 纯函数扫描器，可独立测试
+- `strings.rs`: 字符串类型定义
+- `utils.rs`: 通用工具（TextMergeStream）
+- `html.rs`: HTML 渲染器作为独立模块
+
+### 核心算法参考
+
+| 功能 | pulldown-cmark (Rust) | 参考文件 |
+|------|----------------------|----------|
+| 块级解析 | FirstPass::parse_block | firstpass.rs |
+| 内联解析 | Parser::handle_inline | parse.rs |
+| 强调处理 | process_emphasis | parse.rs |
+| 链接处理 | handle_close_bracket | parse.rs |
+| HTML 渲染 | HtmlWriter::run | html.rs |
+| 树操作 | Tree::append, push, pop | tree.rs |
+
+### 与 clmd 的差异
+
+| 方面 | pulldown-cmark | clmd |
+|------|----------------|------|
+| 解析方式 | 事件驱动 (Pull) | AST-based |
+| 内存模型 | CowStr 共享 | Arena 分配 |
+| 树结构 | Vec-based + 索引 | Arena + NodeId |
+| 扩展机制 | bitflags 选项 | 模块化扩展 |
+| 渲染方式 | 事件迭代器 | 访问者模式 |
+| 字符串处理 | CowStr 内联 | 字符串池 |
+
+### 可借鉴的具体实现
+
+1. **CowStr 设计**: 小字符串内联优化，避免小字符串的堆分配
+2. **两遍解析**: 分离块级和内联解析，按需处理
+3. **NonZeroUsize**: 使用 `NonZeroUsize` 优化 Option 索引的大小
+4. **扫描器函数**: 纯函数扫描器，返回 `Option<usize>`
+5. **TextMergeStream**: 包装器模式合并连续事件
+6. **spine 栈**: 高效树导航，避免递归
+7. **memchr 优化**: 使用 SIMD 加速字节查找
+8. **编译时断言**: 验证类型大小约束

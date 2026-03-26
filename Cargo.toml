@@ -10,6 +10,8 @@ htmlescape = "0.3"
 bumpalo = { version = "3.14", features = ["collections"] }
 rustc-hash = "1.1"
 smallvec = "1.13"
+comrak = { path = "./comrak-0.51.0", optional = true }
+pulldown-cmark = { path = "./pulldown-cmark-0.13.3/pulldown-cmark", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -28,3 +30,17 @@ harness = false
 [[bench]]
 name = "parse_benchmark"
 harness = false
+
+[[example]]
+name = "cross_language_bench"
+path = "examples/cross_language_bench.rs"
+
+[[example]]
+name = "comrak_bench"
+path = "examples/comrak_bench.rs"
+required-features = ["comrak"]
+
+[[example]]
+name = "pulldown_cmark_bench"
+path = "examples/pulldown_cmark_bench.rs"
+required-features = ["pulldown-cmark"]
