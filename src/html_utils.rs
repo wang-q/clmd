@@ -12,13 +12,15 @@
 /// - `<` → `&lt;`
 /// - `>` → `&gt;`
 /// - `"` → `&quot;`
-/// - `'` → `&#x27;`
+///
+/// Note: Single quotes `'` are NOT escaped in HTML content,
+/// only in attribute values (use `escape_html_attribute` for that).
 pub fn escape_html(input: &str) -> String {
     // Fast path: check if any escaping is needed
     let bytes = input.as_bytes();
     let mut needs_escape = false;
     for &b in bytes {
-        if matches!(b, b'&' | b'<' | b'>' | b'"' | b'\'') {
+        if matches!(b, b'&' | b'<' | b'>' | b'"') {
             needs_escape = true;
             break;
         }
@@ -36,7 +38,6 @@ pub fn escape_html(input: &str) -> String {
             b'<' => result.push_str("&lt;"),
             b'>' => result.push_str("&gt;"),
             b'"' => result.push_str("&quot;"),
-            b'\'' => result.push_str("&#x27;"),
             _ => result.push(b as char),
         }
     }

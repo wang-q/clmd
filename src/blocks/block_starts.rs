@@ -237,7 +237,7 @@ impl<'a> BlockParser<'a> {
                 let before_hash = &content[..start];
                 if before_hash.ends_with(' ') || before_hash.ends_with('\t') {
                     return before_hash
-                        .trim_end_matches(|c: char| c == ' ' || c == '\t')
+                        .trim_end_matches([' ', '\t'])
                         .to_string();
                 }
             }
@@ -662,7 +662,10 @@ impl<'a> BlockParser<'a> {
             }
 
             // Check closing tag
-            if line_lower.len() >= 2 + tag.len() && line_lower[2..].starts_with(tag) {
+            if line_lower.len() >= 2 + tag.len()
+                && line_lower[2..].starts_with(tag)
+                && !type1_end_tags.contains(tag)
+            {
                 let after = &line_lower[2 + tag.len()..];
                 if after.is_empty()
                     || after.starts_with(' ')
@@ -672,9 +675,7 @@ impl<'a> BlockParser<'a> {
                     || after.starts_with('\r')
                     || after.starts_with("/>")
                 {
-                    if !type1_end_tags.contains(tag) {
-                        return true;
-                    }
+                    return true;
                 }
             }
         }

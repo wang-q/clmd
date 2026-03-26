@@ -31,8 +31,8 @@ fn parse_spec_tests(content: &str) -> Vec<TestCase> {
         let line = lines[i];
 
         // Check for section header
-        if line.starts_with("## ") {
-            current_section = line[3..].trim().to_string();
+        if let Some(section) = line.strip_prefix("## ") {
+            current_section = section.trim().to_string();
         }
 
         // Check for test example start

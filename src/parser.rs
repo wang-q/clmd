@@ -66,21 +66,26 @@ impl Parser {
 
         // Create arena and parse blocks
         let mut arena = NodeArena::new();
-        let doc = BlockParser::parse_with_limits(
+        let (doc, refmap) = BlockParser::parse_with_limits_and_refmap(
             &mut arena,
             &normalized_input,
             self.options,
             self.limits,
         )?;
 
-        // Process inlines
-        self.process_inlines(&mut arena, doc);
+        // Process inlines with the refmap extracted from the document
+        self.process_inlines(&mut arena, doc, &refmap);
 
         Ok((arena, doc))
     }
 
     /// Process inline content for all leaf blocks
-    fn process_inlines(&self, arena: &mut NodeArena, root: NodeId) {
+    fn process_inlines(
+        &self,
+        arena: &mut NodeArena,
+        root: NodeId,
+        refmap: &FxHashMap<String, (String, String)>,
+    ) {
         // Collect leaf blocks that need inline processing
         let mut nodes_to_process: Vec<(NodeId, String)> = Vec::new();
         self.collect_leaf_blocks(arena, root, &mut nodes_to_process);
@@ -88,16 +93,15 @@ impl Parser {
         // Check if smart punctuation is enabled
         let smart = (self.options & options::SMART) != 0;
 
-        // Process collected nodes
-        let empty_refmap = FxHashMap::default();
+        // Process collected nodes with the refmap from the document
         for (node_id, content) in nodes_to_process {
             parse_inlines_with_options(
                 arena,
                 node_id,
                 &content,
-                1,             // line number
-                0,             // block offset
-                &empty_refmap, // refmap - TODO: extract from document
+                1, // line number
+                0, // block offset
+                refmap,
                 smart,
             );
         }

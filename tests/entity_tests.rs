@@ -15,7 +15,7 @@ fn test_basic_named_entities_converted() {
     ];
 
     for (entity, expected_char) in test_cases {
-        let input = format!("{}", entity);
+        let input = entity.to_string();
         let result = markdown_to_html(&input, options::DEFAULT);
         // The entity should be converted to its character
         assert!(
@@ -34,7 +34,7 @@ fn test_decimal_numeric_references_converted() {
     let test_cases = vec![("&#65;", "A"), ("&#97;", "a"), ("&#38;", "&")];
 
     for (entity, expected_char) in test_cases {
-        let input = format!("{}", entity);
+        let input = entity.to_string();
         let result = markdown_to_html(&input, options::DEFAULT);
         assert!(
             result.contains(expected_char),
@@ -52,7 +52,7 @@ fn test_hexadecimal_numeric_references_converted() {
     let test_cases = vec![("&#x41;", "A"), ("&#x61;", "a"), ("&#x26;", "&")];
 
     for (entity, expected_char) in test_cases {
-        let input = format!("{}", entity);
+        let input = entity.to_string();
         let result = markdown_to_html(&input, options::DEFAULT);
         assert!(
             result.contains(expected_char),
@@ -77,7 +77,7 @@ fn test_common_named_entities_converted() {
     ];
 
     for (entity, expected_char) in test_cases {
-        let input = format!("{}", entity);
+        let input = entity.to_string();
         let result = markdown_to_html(&input, options::DEFAULT);
         assert!(
             result.contains(expected_char),

@@ -116,15 +116,14 @@ fn find_matching_opener(
         if opener_char == closer_char
             && opener_can_open
             && opener_orig_delims == closer_orig_delims
-        {
-            if !is_odd_match(
+            && !is_odd_match(
                 closer_can_open,
                 opener_can_close,
                 closer_orig_delims,
                 opener_orig_delims,
-            ) {
-                return Some(opener_idx);
-            }
+            )
+        {
+            return Some(opener_idx);
         }
     }
 
@@ -135,15 +134,16 @@ fn find_matching_opener(
         let (_, opener_char, opener_can_open, opener_can_close, opener_orig_delims, _) =
             delims[opener_idx];
 
-        if opener_char == closer_char && opener_can_open {
-            if !is_odd_match(
+        if opener_char == closer_char
+            && opener_can_open
+            && !is_odd_match(
                 closer_can_open,
                 opener_can_close,
                 closer_orig_delims,
                 opener_orig_delims,
-            ) {
-                return Some(opener_idx);
-            }
+            )
+        {
+            return Some(opener_idx);
         }
     }
 

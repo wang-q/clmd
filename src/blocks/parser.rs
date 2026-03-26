@@ -156,6 +156,23 @@ impl<'a> BlockParser<'a> {
         options: u32,
         limits: ParserLimits,
     ) -> ParseResult<NodeId> {
+        Self::parse_with_limits_and_refmap(arena, input, options, limits).map(|(doc, _)| doc)
+    }
+
+    /// Parse a complete document with custom limits and return the refmap
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParseError` if:
+    /// - Input exceeds maximum allowed size
+    /// - Line length exceeds maximum allowed
+    /// - Nesting depth exceeds maximum allowed
+    pub fn parse_with_limits_and_refmap(
+        arena: &'a mut NodeArena,
+        input: &str,
+        options: u32,
+        limits: ParserLimits,
+    ) -> ParseResult<(NodeId, FxHashMap<String, (String, String)>)> {
         // Validate input size
         let input_size = input.len();
         if input_size > limits.max_input_size {
@@ -192,7 +209,7 @@ impl<'a> BlockParser<'a> {
         // and don't get an extra newline added to their content
         parser.finalize_document();
 
-        Ok(parser.doc)
+        Ok((parser.doc, parser.refmap))
     }
 
     /// Process a single line
