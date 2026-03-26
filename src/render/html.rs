@@ -47,6 +47,8 @@ struct HtmlRenderer<'a> {
     disable_tags: i32,
     /// Track if we're at the first child of a list item (for tight lists)
     item_child_count: Vec<usize>,
+    /// Footnote reference counter for generating unique IDs
+    footnote_index: usize,
 }
 
 impl<'a> HtmlRenderer<'a> {
@@ -59,6 +61,7 @@ impl<'a> HtmlRenderer<'a> {
             last_out: '\n',
             disable_tags: 0,
             item_child_count: Vec::new(),
+            footnote_index: 1,
         }
     }
 
@@ -275,20 +278,71 @@ impl<'a> HtmlRenderer<'a> {
                     self.disable_tags += 1;
                 }
             }
-            NodeType::Table
-            | NodeType::TableHead
-            | NodeType::TableRow
-            | NodeType::TableCell => {
-                // Table rendering not yet implemented
+            NodeType::Table => {
+                self.cr();
+                self.lit("<table>");
+                self.tight_list_stack.push(false);
+            }
+            NodeType::TableHead => {
+                self.lit("<thead>");
+            }
+            NodeType::TableRow => {
+                self.lit("<tr>");
+            }
+            NodeType::TableCell => {
+                if let NodeData::TableCell {
+                    is_header,
+                    alignment,
+                    ..
+                } = &node.data
+                {
+                    if *is_header {
+                        self.lit("<th");
+                    } else {
+                        self.lit("<td");
+                    }
+                    // Add alignment attribute if not default
+                    match alignment {
+                        crate::node::TableAlignment::Left => {
+                            self.lit(" align=\"left\"");
+                        }
+                        crate::node::TableAlignment::Center => {
+                            self.lit(" align=\"center\"");
+                        }
+                        crate::node::TableAlignment::Right => {
+                            self.lit(" align=\"right\"");
+                        }
+                        _ => {}
+                    }
+                    self.lit(">");
+                }
             }
             NodeType::Strikethrough => {
                 self.lit("<del>");
             }
             NodeType::TaskItem => {
-                // Task item rendering
+                if let NodeData::TaskItem { checked } = &node.data {
+                    if *checked {
+                        self.lit(
+                            "<input type=\"checkbox\" checked=\"\" disabled=\"\" /> ",
+                        );
+                    } else {
+                        self.lit("<input type=\"checkbox\" disabled=\"\" /> ");
+                    }
+                }
             }
-            NodeType::FootnoteRef | NodeType::FootnoteDef => {
-                // Footnote rendering not yet implemented
+            NodeType::FootnoteRef => {
+                if let NodeData::FootnoteRef { label, .. } = &node.data {
+                    let id = format!("fnref-{}-{}", label, self.footnote_index);
+                    self.lit(&format!("<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"{}\">[{}]</a></sup>",
+                        label, id, self.footnote_index));
+                    self.footnote_index += 1;
+                }
+            }
+            NodeType::FootnoteDef => {
+                if let NodeData::FootnoteDef { label, .. } = &node.data {
+                    self.lit(&format!("<li id=\"fn-{}\">", label));
+                }
             }
             NodeType::CustomBlock | NodeType::CustomInline => {
                 // Custom nodes not yet implemented
@@ -372,10 +426,25 @@ impl<'a> HtmlRenderer<'a> {
                     }
                 }
             }
-            NodeType::Table
-            | NodeType::TableHead
-            | NodeType::TableRow
-            | NodeType::TableCell => {}
+            NodeType::Table => {
+                self.lit("</table>\n");
+                self.tight_list_stack.pop();
+            }
+            NodeType::TableHead => {
+                self.lit("</thead>");
+            }
+            NodeType::TableRow => {
+                self.lit("</tr>");
+            }
+            NodeType::TableCell => {
+                if let NodeData::TableCell { is_header, .. } = &node.data {
+                    if *is_header {
+                        self.lit("</th>");
+                    } else {
+                        self.lit("</td>");
+                    }
+                }
+            }
             NodeType::Strikethrough => {
                 self.lit("</del>");
             }
@@ -454,16 +523,50 @@ impl<'a> HtmlRenderer<'a> {
 
 /// Strip HTML tags from a string
 /// Used when disable_tags is active (e.g., for image alt text)
+///
+/// This function handles:
+/// - Simple tags: `<b>text</b>` -> `text`
+/// - Nested tags: `<a><b>text</b></a>` -> `text`
+/// - Attributes with > in quotes: `<a title=">">text</a>` -> `text`
 fn strip_html_tags(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut in_tag = false;
+    let mut in_quote = false;
+    let mut quote_char = '\0';
+    let mut tag_depth = 0;
 
     for c in s.chars() {
-        if c == '<' {
+        if in_tag {
+            if in_quote {
+                // Inside a quoted attribute value
+                if c == quote_char {
+                    in_quote = false;
+                    quote_char = '\0';
+                }
+                // Ignore all characters inside quotes, including >
+            } else {
+                // Not in a quote, check for quote start or tag end
+                match c {
+                    '"' | '\'' => {
+                        in_quote = true;
+                        quote_char = c;
+                    }
+                    '>' => {
+                        tag_depth -= 1;
+                        if tag_depth == 0 {
+                            in_tag = false;
+                        }
+                    }
+                    '<' => {
+                        tag_depth += 1;
+                    }
+                    _ => {}
+                }
+            }
+        } else if c == '<' {
             in_tag = true;
-        } else if c == '>' && in_tag {
-            in_tag = false;
-        } else if !in_tag {
+            tag_depth = 1;
+        } else {
             result.push(c);
         }
     }

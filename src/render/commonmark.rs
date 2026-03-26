@@ -168,6 +168,35 @@ impl<'a> CommonMarkRenderer<'a> {
             NodeType::Image => {
                 self.write_inline("![");
             }
+            NodeType::Strikethrough => {
+                self.write_inline("~~");
+            }
+            NodeType::TaskItem => {
+                if let NodeData::TaskItem { checked } = &node.data {
+                    if *checked {
+                        self.write_inline("[x] ");
+                    } else {
+                        self.write_inline("[ ] ");
+                    }
+                }
+            }
+            NodeType::FootnoteRef => {
+                if let NodeData::FootnoteRef { label, .. } = &node.data {
+                    self.write_inline(&format!("[^{}]", label));
+                }
+            }
+            NodeType::FootnoteDef => {
+                if let NodeData::FootnoteDef { label, .. } = &node.data {
+                    self.write_inline(&format!("[^{}]: ", label));
+                }
+            }
+            NodeType::Table
+            | NodeType::TableHead
+            | NodeType::TableRow
+            | NodeType::TableCell => {
+                // Table rendering in CommonMark is complex and may not be fully supported
+                // For now, we skip table rendering in CommonMark output
+            }
             _ => {}
         }
     }
@@ -218,6 +247,26 @@ impl<'a> CommonMarkRenderer<'a> {
                     }
                     self.write_inline(")");
                 }
+            }
+            NodeType::Strikethrough => {
+                self.write_inline("~~");
+            }
+            NodeType::TaskItem => {
+                // Task item marker is already written in enter_node
+            }
+            NodeType::FootnoteRef => {
+                // Footnote ref is already written in enter_node
+            }
+            NodeType::FootnoteDef => {
+                // Footnote def is already written in enter_node
+                self.write_line("");
+                self.need_blank_line = true;
+            }
+            NodeType::Table
+            | NodeType::TableHead
+            | NodeType::TableRow
+            | NodeType::TableCell => {
+                // Table rendering in CommonMark - skip
             }
             _ => {}
         }

@@ -240,11 +240,17 @@ fn test_commonmark_spec() {
         }
     }
 
-    // For now, just print results without failing
-    // Once we have good coverage, we can assert on pass rate
+    // Assert on pass rate to prevent regressions
+    // Current pass rate is 94.2%, set threshold slightly below to allow for minor variations
+    const MIN_PASS_RATE: f64 = 0.94;
+    let pass_rate = passed as f64 / tests.len() as f64;
     assert!(
-        passed > 0,
-        "No tests passed - there may be a fundamental issue"
+        pass_rate >= MIN_PASS_RATE,
+        "Pass rate {:.1}% is below the threshold {:.1}%\nPassed: {}/{} tests",
+        pass_rate * 100.0,
+        MIN_PASS_RATE * 100.0,
+        passed,
+        tests.len()
     );
 }
 

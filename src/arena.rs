@@ -216,6 +216,20 @@ impl NodeArena {
         &mut self.nodes[id as usize]
     }
 
+    /// Get a reference to a node by ID, returning None if the ID is invalid
+    ///
+    /// This is the safe alternative to `get()` which panics on invalid IDs.
+    pub fn try_get(&self, id: NodeId) -> Option<&Node> {
+        self.nodes.get(id as usize)
+    }
+
+    /// Get a mutable reference to a node by ID, returning None if the ID is invalid
+    ///
+    /// This is the safe alternative to `get_mut()` which panics on invalid IDs.
+    pub fn try_get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(id as usize)
+    }
+
     /// Get the root node (document) - always ID 0
     pub fn root(&self) -> NodeId {
         0
@@ -419,5 +433,35 @@ mod tests {
         assert_eq!(arena.get(child2).parent, None);
         assert_eq!(arena.get(child2).prev, None);
         assert_eq!(arena.get(child2).next, None);
+    }
+
+    #[test]
+    fn test_try_get() {
+        let mut arena = NodeArena::new();
+        let node = Node::new(NodeType::Document);
+        let id = arena.alloc(node);
+
+        // Valid ID should return Some
+        assert!(arena.try_get(id).is_some());
+        assert!(arena.try_get_mut(id).is_some());
+
+        // Invalid ID should return None
+        assert!(arena.try_get(999).is_none());
+        assert!(arena.try_get_mut(999).is_none());
+    }
+
+    #[test]
+    fn test_try_get_mut_modification() {
+        let mut arena = NodeArena::new();
+        let node = Node::new(NodeType::Paragraph);
+        let id = arena.alloc(node);
+
+        // Modify through try_get_mut
+        if let Some(node_mut) = arena.try_get_mut(id) {
+            node_mut.node_type = NodeType::BlockQuote;
+        }
+
+        // Verify modification
+        assert_eq!(arena.get(id).node_type, NodeType::BlockQuote);
     }
 }

@@ -251,22 +251,22 @@ pub mod options {
     pub const DEFAULT: u32 = 0;
 
     /// Include a `data-sourcepos` attribute on all block elements
-    pub const SOURCEPOS: u32 = 1 << 1;
+    pub const SOURCEPOS: u32 = 1 << 0;
 
     /// Render `softbreak` elements as hard line breaks
-    pub const HARDBREAKS: u32 = 1 << 2;
-
-    /// Render raw HTML and unsafe links
-    pub const UNSAFE: u32 = 1 << 17;
+    pub const HARDBREAKS: u32 = 1 << 1;
 
     /// Render `softbreak` elements as spaces
-    pub const NOBREAKS: u32 = 1 << 4;
+    pub const NOBREAKS: u32 = 1 << 2;
 
     /// Validate UTF-8 in the input before parsing
-    pub const VALIDATE_UTF8: u32 = 1 << 9;
+    pub const VALIDATE_UTF8: u32 = 1 << 3;
 
     /// Convert straight quotes to curly, `---` to em dashes, `--` to en dashes
-    pub const SMART: u32 = 1 << 10;
+    pub const SMART: u32 = 1 << 4;
+
+    /// Render raw HTML and unsafe links
+    pub const UNSAFE: u32 = 1 << 5;
 }
 
 /// Simple interface: convert Markdown to HTML

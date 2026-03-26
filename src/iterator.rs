@@ -113,6 +113,80 @@ impl<'a> ArenaNodeIterator<'a> {
     }
 }
 
+/// Item type for the standard Iterator implementation
+pub type ArenaIteratorItem = (NodeId, EventType);
+
+impl<'a> Iterator for ArenaNodeIterator<'a> {
+    type Item = ArenaIteratorItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let event = self.next_event();
+        if event == EventType::Done {
+            None
+        } else {
+            self.current.map(|node| (node, event))
+        }
+    }
+}
+
+impl<'a> ArenaNodeIterator<'a> {
+    /// Original next method, renamed to avoid conflict with Iterator trait
+    pub fn next_event(&mut self) -> EventType {
+        if self.event_type == EventType::None {
+            // First call - start at root
+            self.current = Some(self.root);
+            self.event_type = EventType::Enter;
+            return EventType::Enter;
+        }
+
+        if let Some(current) = self.current {
+            match self.event_type {
+                EventType::Enter => {
+                    // Try to go to first child
+                    let first_child = self.arena.get(current).first_child;
+                    if let Some(first_child) = first_child {
+                        self.current = Some(first_child);
+                        self.event_type = EventType::Enter;
+                        EventType::Enter
+                    } else {
+                        // Leaf node - return Exit immediately
+                        self.event_type = EventType::Exit;
+                        EventType::Exit
+                    }
+                }
+                EventType::Exit => {
+                    // Check if we're back at root after exiting it
+                    if current == self.root {
+                        self.event_type = EventType::Done;
+                        return EventType::Done;
+                    }
+
+                    // Try to go to next sibling
+                    let next = self.arena.get(current).next;
+                    if let Some(next) = next {
+                        self.current = Some(next);
+                        self.event_type = EventType::Enter;
+                        EventType::Enter
+                    } else {
+                        // Go back to parent
+                        let parent = self.arena.get(current).parent;
+                        if let Some(parent) = parent {
+                            self.current = Some(parent);
+                            self.event_type = EventType::Exit;
+                            return EventType::Exit;
+                        }
+                        self.event_type = EventType::Done;
+                        EventType::Done
+                    }
+                }
+                _ => EventType::Done,
+            }
+        } else {
+            EventType::Done
+        }
+    }
+}
+
 /// A walker that can be used to iterate through the node tree
 pub struct ArenaNodeWalker<'a> {
     #[allow(dead_code)]

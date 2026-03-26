@@ -8,13 +8,8 @@ pub const CODE_INDENT: usize = 4;
 /// Tab stop size
 pub const TAB_STOP: usize = 4;
 
-/// Position in the input
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Position {
-    pub line: usize,
-    pub column: usize,
-    pub offset: usize,
-}
+// Re-export Position from error module to avoid duplication
+pub use crate::error::Position;
 
 /// Line information
 #[derive(Debug, Clone)]
@@ -416,6 +411,7 @@ mod tests {
 
     #[test]
     fn test_position_default() {
+        // Position is now re-exported from error module
         let pos = Position::default();
         assert_eq!(pos.line, 0);
         assert_eq!(pos.column, 0);
