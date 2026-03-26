@@ -179,27 +179,184 @@ pub fn is_escapable(c: char) -> bool {
 }
 
 /// HTML5 named entities lookup table
-/// This includes entities that may not be supported by htmlescape
+/// This includes all HTML5 entities needed for CommonMark compliance
 pub fn get_html5_entity(name: &str) -> Option<&'static str> {
-    // Common HTML5 entities not in htmlescape
-    let entities: HashMap<&str, &str> = [
-        ("Dcaron", "\u{010E}"),                   // Ď
-        ("HilbertSpace", "\u{210B}"),             // ℋ
-        ("DifferentialD", "\u{2146}"),            // ⅆ
-        ("ClockwiseContourIntegral", "\u{2232}"), // ∲
-        ("ngE", "\u{2267}\u{0338}"),              // ≧̸
-        ("AElig", "\u{00C6}"),                    // Æ
-        ("copy", "\u{00A9}"),                     // ©
-        ("nbsp", "\u{00A0}"),                     //
-        ("amp", "&"),                             // &
-        ("lt", "<"),                              // <
-        ("gt", ">"),                              // >
-        ("quot", "\""),                           // "
-        ("frac34", "\u{00BE}"),                   // ¾
-    ]
-    .iter()
-    .copied()
-    .collect();
+    // Common HTML5 entities - using a static map for performance
+    use std::sync::OnceLock;
+    static ENTITIES: OnceLock<HashMap<&str, &str>> = OnceLock::new();
+
+    let entities = ENTITIES.get_or_init(|| {
+        [
+            // Basic entities
+            ("amp", "&"),
+            ("lt", "<"),
+            ("gt", ">"),
+            ("quot", "\""),
+
+            // ASCII entities
+            ("nbsp", "\u{00A0}"),   // Non-breaking space
+            ("copy", "\u{00A9}"),   // ©
+            ("reg", "\u{00AE}"),    // ®
+            ("trade", "\u{2122}"),  // ™
+
+            // Latin-1 entities that may be problematic with htmlescape
+            ("AElig", "\u{00C6}"),  // Æ
+            ("aelig", "\u{00E6}"),  // æ
+            ("OElig", "\u{0152}"),  // Œ
+            ("oelig", "\u{0153}"),  // œ
+            ("Scaron", "\u{0160}"), // Š
+            ("scaron", "\u{0161}"), // š
+            ("Yuml", "\u{0178}"),   // Ÿ
+            ("fnof", "\u{0192}"),   // ƒ
+
+            // Extended Latin
+            ("Dcaron", "\u{010E}"), // Ď
+            ("dcaron", "\u{010F}"), // ď
+            ("Ncaron", "\u{0147}"), // Ň
+            ("ncaron", "\u{0148}"), // ň
+            ("Rcaron", "\u{0158}"), // Ř
+            ("rcaron", "\u{0159}"), // ř
+            ("Tcaron", "\u{0164}"), // Ť
+            ("tcaron", "\u{0165}"), // ť
+
+            // Mathematical symbols
+            ("frac34", "\u{00BE}"), // ¾
+            ("frac12", "\u{00BD}"), // ½
+            ("frac14", "\u{00BC}"), // ¼
+            ("HilbertSpace", "\u{210B}"),             // ℋ
+            ("DifferentialD", "\u{2146}"),            // ⅆ
+            ("ClockwiseContourIntegral", "\u{2232}"), // ∲
+            ("ngE", "\u{2267}\u{0338}"),              // ≧̸
+
+            // Common symbols
+            ("hellip", "\u{2026}"), // …
+            ("ndash", "\u{2013}"),  // –
+            ("mdash", "\u{2014}"),  // —
+            ("lsquo", "\u{2018}"),  // '
+            ("rsquo", "\u{2019}"),  // '
+            ("sbquo", "\u{201A}"),  // ‚
+            ("ldquo", "\u{201C}"),  // "
+            ("rdquo", "\u{201D}"),  // "
+            ("bdquo", "\u{201E}"),  // „
+            ("dagger", "\u{2020}"), // †
+            ("Dagger", "\u{2021}"), // ‡
+            ("bull", "\u{2022}"),   // •
+            ("prime", "\u{2032}"),  // ′
+            ("Prime", "\u{2033}"),  // ″
+            ("euro", "\u{20AC}"),   // €
+            ("pound", "\u{00A3}"),  // £
+            ("yen", "\u{00A5}"),    // ¥
+            ("cent", "\u{00A2}"),   // ¢
+
+            // German umlauts and other common accented characters
+            ("ouml", "\u{00F6}"),   // ö
+            ("Ouml", "\u{00D6}"),   // Ö
+            ("uuml", "\u{00FC}"),   // ü
+            ("Uuml", "\u{00DC}"),   // Ü
+            ("auml", "\u{00E4}"),   // ä
+            ("Auml", "\u{00C4}"),   // Ä
+            ("euml", "\u{00EB}"),   // ë
+            ("Euml", "\u{00CB}"),   // Ë
+            ("iuml", "\u{00EF}"),   // ï
+            ("Iuml", "\u{00CF}"),   // Ï
+            ("yuml", "\u{00FF}"),   // ÿ
+
+            // Other common accented characters
+            ("aacute", "\u{00E1}"), // á
+            ("Aacute", "\u{00C1}"), // Á
+            ("eacute", "\u{00E9}"), // é
+            ("Eacute", "\u{00C9}"), // É
+            ("iacute", "\u{00ED}"), // í
+            ("Iacute", "\u{00CD}"), // Í
+            ("oacute", "\u{00F3}"), // ó
+            ("Oacute", "\u{00D3}"), // Ó
+            ("uacute", "\u{00FA}"), // ú
+            ("Uacute", "\u{00DA}"), // Ú
+            ("yacute", "\u{00FD}"), // ý
+            ("Yacute", "\u{00DD}"), // Ý
+
+            // Grave accents
+            ("agrave", "\u{00E0}"), // à
+            ("Agrave", "\u{00C0}"), // À
+            ("egrave", "\u{00E8}"), // è
+            ("Egrave", "\u{00C8}"), // È
+            ("igrave", "\u{00EC}"), // ì
+            ("Igrave", "\u{00CC}"), // Ì
+            ("ograve", "\u{00F2}"), // ò
+            ("Ograve", "\u{00D2}"), // Ò
+            ("ugrave", "\u{00F9}"), // ù
+            ("Ugrave", "\u{00D9}"), // Ù
+
+            // Circumflex accents
+            ("acirc", "\u{00E2}"),  // â
+            ("Acirc", "\u{00C2}"),  // Â
+            ("ecirc", "\u{00EA}"),  // ê
+            ("Ecirc", "\u{00CA}"),  // Ê
+            ("icirc", "\u{00EE}"),  // î
+            ("Icirc", "\u{00CE}"),  // Î
+            ("ocirc", "\u{00F4}"),  // ô
+            ("Ocirc", "\u{00D4}"),  // Ô
+            ("ucirc", "\u{00FB}"),  // û
+            ("Ucirc", "\u{00DB}"),  // Û
+
+            // Tilde accents
+            ("atilde", "\u{00E3}"), // ã
+            ("Atilde", "\u{00C3}"), // Ã
+            ("ntilde", "\u{00F1}"), // ñ
+            ("Ntilde", "\u{00D1}"), // Ñ
+            ("otilde", "\u{00F5}"), // õ
+            ("Otilde", "\u{00D5}"), // Õ
+
+            // Ring and stroke
+            ("aring", "\u{00E5}"),   // å
+            ("Aring", "\u{00C5}"),   // Å
+            ("oslash", "\u{00F8}"),  // ø
+            ("Oslash", "\u{00D8}"),  // Ø
+            ("ccedil", "\u{00E7}"),  // ç
+            ("Ccedil", "\u{00C7}"),  // Ç
+            ("eth", "\u{00F0}"),     // ð
+            ("ETH", "\u{00D0}"),     // Ð
+            ("thorn", "\u{00FE}"),   // þ
+            ("THORN", "\u{00DE}"),   // Þ
+            ("szlig", "\u{00DF}"),   // ß
+
+            // Cedilla and other accents
+            ("ogon", ""),             // ˛ (combining)
+            ("ring", "\u{02DA}"),    // ˚
+
+            // Additional currency and symbols
+            ("curren", "\u{00A4}"),  // ¤
+            ("brvbar", "\u{00A6}"),  // ¦
+            ("sect", "\u{00A7}"),    // §
+            ("uml", "\u{00A8}"),     // ¨
+            ("ordf", "\u{00AA}"),    // ª
+            ("laquo", "\u{00AB}"),   // «
+            ("not", "\u{00AC}"),     // ¬
+            ("shy", "\u{00AD}"),     // ­
+            ("macr", "\u{00AF}"),    // ¯
+            ("deg", "\u{00B0}"),     // °
+            ("plusmn", "\u{00B1}"),  // ±
+            ("sup2", "\u{00B2}"),    // ²
+            ("sup3", "\u{00B3}"),    // ³
+            ("acute", "\u{00B4}"),   // ´
+            ("micro", "\u{00B5}"),   // µ
+            ("para", "\u{00B6}"),    // ¶
+            ("middot", "\u{00B7}"),  // ·
+            ("cedil", "\u{00B8}"),   // ¸
+            ("sup1", "\u{00B9}"),    // ¹
+            ("ordm", "\u{00BA}"),    // º
+            ("raquo", "\u{00BB}"),   // »
+            ("frac14", "\u{00BC}"),  // ¼
+            ("frac12", "\u{00BD}"),  // ½
+            ("frac34", "\u{00BE}"),  // ¾
+            ("iquest", "\u{00BF}"),  // ¿
+            ("times", "\u{00D7}"),   // ×
+            ("divide", "\u{00F7}"),  // ÷
+        ]
+        .iter()
+        .copied()
+        .collect()
+    });
 
     entities.get(name).copied()
 }

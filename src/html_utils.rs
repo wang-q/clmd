@@ -30,15 +30,15 @@ pub fn escape_html(input: &str) -> String {
         return input.to_string();
     }
 
-    // Slow path: escape needed
+    // Slow path: escape needed - process as characters to handle UTF-8 correctly
     let mut result = String::with_capacity(input.len() * 2);
-    for &b in bytes {
-        match b {
-            b'&' => result.push_str("&amp;"),
-            b'<' => result.push_str("&lt;"),
-            b'>' => result.push_str("&gt;"),
-            b'"' => result.push_str("&quot;"),
-            _ => result.push(b as char),
+    for c in input.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            _ => result.push(c),
         }
     }
     result

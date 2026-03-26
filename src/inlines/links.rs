@@ -2,7 +2,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::inlines::entities::unescape_string;
-use crate::inlines::utils::{is_escapable, normalize_reference, normalize_uri};
+use crate::inlines::utils::{is_escapable, is_punctuation, normalize_reference, normalize_uri};
 use crate::node::{NodeData, NodeType};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
@@ -387,13 +387,24 @@ pub fn parse_reference_link(
         return None;
     } else if label_len == 0 {
         // Shortcut reference link [text] - only if at end of line or followed by punctuation
-        let at_line_end = ctx
-            .peek()
-            .map(|c| c == '\n' || c == '\r' || c == ' ')
-            .unwrap_or(true)
-            || ctx.pos >= ctx.input.len();
+        // Check the character after the closing bracket (closer_position + 1)
+        let after_closer = closer_position + 1;
+        let at_line_end = if after_closer >= ctx.input.len() {
+            true
+        } else {
+            let c = ctx.input.as_bytes()[after_closer] as char;
+            c == '\n' || c == '\r' || c == ' ' || c == '\t'
+        };
 
-        if at_line_end {
+        // Also allow shortcut reference links followed by punctuation
+        let followed_by_punct = if after_closer >= ctx.input.len() {
+            false
+        } else {
+            let c = ctx.input.as_bytes()[after_closer] as char;
+            is_punctuation(c)
+        };
+
+        if at_line_end || followed_by_punct {
             let label_start = if is_image {
                 opener_position + 2
             } else {
@@ -461,7 +472,9 @@ pub fn parse_reference_definition(
     ctx.skip_spaces_and_newlines();
 
     // Try to parse optional title
-    let title = if ctx.pos != before_title {
+    // Title can be on the same line or on the next line (with indentation)
+    // But only if we actually skipped some whitespace (title must be separated from destination)
+    let title = if ctx.pos > before_title {
         parse_link_title(&mut ctx)
     } else {
         None

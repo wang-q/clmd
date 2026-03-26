@@ -1,7 +1,6 @@
 //! HTML entity parsing for inline elements
 
 use crate::inlines::utils::{get_html5_entity, is_escapable};
-use htmlescape::decode_html;
 
 /// Parse an HTML entity at the start of a string
 /// Returns (decoded_char, chars_consumed) or None
@@ -73,18 +72,9 @@ pub fn parse_entity(s: &str) -> Option<(String, usize)> {
         if name_end > 0 && s[name_end..].starts_with(';') {
             let name = &s[..name_end];
 
-            // First try our HTML5 entity table
+            // Use our HTML5 entity table only (htmlescape has encoding issues)
             if let Some(decoded) = get_html5_entity(name) {
                 return Some((decoded.to_string(), name_end + 1));
-            }
-
-            // Then try htmlescape
-            let entity_str = format!("&{};", name);
-            if let Ok(decoded) = decode_html(&entity_str) {
-                // Only return if htmlescape actually decoded it
-                if decoded != entity_str {
-                    return Some((decoded, name_end + 1));
-                }
             }
         }
     }
@@ -184,7 +174,7 @@ pub fn parse_entity_char(input: &str) -> Option<(String, usize)> {
         return None;
     }
 
-    // Try named entity from our table
+    // Try named entity from our table only (htmlescape has encoding issues)
     if entity_str.len() > 2 {
         let name = &entity_str[1..entity_str.len() - 1]; // Remove & and ;
         if !name.is_empty() {
@@ -194,16 +184,6 @@ pub fn parse_entity_char(input: &str) -> Option<(String, usize)> {
         }
     }
 
-    // Try to decode using htmlescape crate
-    match decode_html(entity_str) {
-        Ok(decoded) => {
-            // If decoding produced a different result, it's a valid entity
-            if decoded != entity_str {
-                Some((decoded, end))
-            } else {
-                None
-            }
-        }
-        Err(_) => None,
-    }
+    // Entity not found in our table
+    None
 }
