@@ -20,7 +20,7 @@
 //! assert_eq!(html, "<h1>Hello</h1>\n<p>World</p>");
 //! ```
 
-pub mod arena_html;
+pub mod html;
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
