@@ -1,7 +1,7 @@
 //! Benchmarks for parsing performance
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use clmd::Document;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn small_document() -> &'static str {
     "# Hello World\n\nThis is a **small** document with *some* formatting.\n\n- Item 1\n- Item 2\n- Item 3\n\n> A blockquote\n> with multiple lines\n"
@@ -123,7 +123,8 @@ fn benchmark_code_blocks(c: &mut Criterion) {
 }
 
 fn benchmark_tables(c: &mut Criterion) {
-    let table = "| H1 | H2 | H3 |\n|---|---|---|\n| A | B | C |\n| D | E | F |\n".repeat(20);
+    let table =
+        "| H1 | H2 | H3 |\n|---|---|---|\n| A | B | C |\n| D | E | F |\n".repeat(20);
     c.bench_function("parse_tables", |b| {
         b.iter(|| {
             let doc = Document::parse(black_box(&table)).unwrap();

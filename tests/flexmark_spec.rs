@@ -1,6 +1,15 @@
 use clmd::{markdown_to_html, options};
 use std::fs;
 
+/// Test logging macro - only prints when VERBOSE_TESTS is set
+macro_rules! test_log {
+    ($($arg:tt)*) => {
+        if std::env::var("VERBOSE_TESTS").is_ok() {
+            std::println!($($arg)*);
+        }
+    };
+}
+
 #[derive(Debug)]
 struct SpecExample {
     section: String,
@@ -127,7 +136,7 @@ fn run_spec_tests(spec_file: &str, module_name: &str) {
         .unwrap_or_else(|_| panic!("Failed to read {}", spec_file));
 
     let examples = parse_flexmark_spec(&spec_content);
-    println!("Found {} {} test examples", examples.len(), module_name);
+    test_log!("Found {} {} test examples", examples.len(), module_name);
 
     let mut passed = 0;
     let mut failed = 0;
@@ -152,14 +161,14 @@ fn run_spec_tests(spec_file: &str, module_name: &str) {
         }
     }
 
-    println!("\n=== {} Spec Test Results ===", module_name);
-    println!(
+    test_log!("\n=== {} Spec Test Results ===", module_name);
+    test_log!(
         "Passed: {}/{} ({:.1}%)",
         passed,
         examples.len(),
         (passed as f64 / examples.len() as f64) * 100.0
     );
-    println!(
+    test_log!(
         "Failed: {}/{} ({:.1}%)",
         failed,
         examples.len(),
@@ -168,12 +177,12 @@ fn run_spec_tests(spec_file: &str, module_name: &str) {
 
     // Print some failures for debugging
     if !failures.is_empty() {
-        println!("\n=== Sample Failures ===");
+        test_log!("\n=== Sample Failures ===");
         for (section, number, input, expected, got) in &failures {
-            println!("\n{}: {} #{}", module_name, section, number);
-            println!("Input: {:?}", input);
-            println!("Expected: {:?}", expected);
-            println!("Got: {:?}", got);
+            test_log!("\n{}: {} #{}", module_name, section, number);
+            test_log!("Input: {:?}", input);
+            test_log!("Expected: {:?}", expected);
+            test_log!("Got: {:?}", got);
         }
     }
 

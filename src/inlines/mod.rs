@@ -174,15 +174,15 @@ impl<'a> Subject<'a> {
         if self.pos < self.input.len() {
             let b = self.input.as_bytes()[self.pos];
             // For ASCII characters (0-127), advance by 1
-            // For UTF-8 multi-byte sequences, calculate the length
+            // For UTF-8 multi-byte sequences, use char::len_utf8 for correctness
             self.pos += if b < 0x80 {
                 1
-            } else if b < 0xE0 {
-                2
-            } else if b < 0xF0 {
-                3
             } else {
-                4
+                // Use chars().next() to correctly calculate UTF-8 character length
+                self.input[self.pos..]
+                    .chars()
+                    .next()
+                    .map_or(1, |c| c.len_utf8())
             };
             // Ensure we don't go past the end
             if self.pos > self.input.len() {

@@ -187,12 +187,32 @@ impl NodeArena {
     }
 
     /// Get a reference to a node by ID
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is invalid (out of bounds).
     pub fn get(&self, id: NodeId) -> &Node {
+        assert!(
+            (id as usize) < self.nodes.len(),
+            "Invalid NodeId: {} (arena has {} nodes)",
+            id,
+            self.nodes.len()
+        );
         &self.nodes[id as usize]
     }
 
     /// Get a mutable reference to a node by ID
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ID is invalid (out of bounds).
     pub fn get_mut(&mut self, id: NodeId) -> &mut Node {
+        assert!(
+            (id as usize) < self.nodes.len(),
+            "Invalid NodeId: {} (arena has {} nodes)",
+            id,
+            self.nodes.len()
+        );
         &mut self.nodes[id as usize]
     }
 

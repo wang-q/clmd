@@ -2,6 +2,15 @@ use clmd::{markdown_to_html, options};
 use std::collections::HashMap;
 use std::fs;
 
+/// Test logging macro - only prints when VERBOSE_TESTS is set
+macro_rules! test_log {
+    ($($arg:tt)*) => {
+        if std::env::var("VERBOSE_TESTS").is_ok() {
+            std::println!($($arg)*);
+        }
+    };
+}
+
 #[derive(Debug)]
 struct TestCase {
     number: usize,
@@ -102,7 +111,7 @@ fn test_commonmark_spec() {
         fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
 
     let tests = parse_spec_tests(&spec_content);
-    println!("Found {} test cases", tests.len());
+    test_log!("Found {} test cases", tests.len());
 
     let mut passed = 0;
     let mut failed = 0;
@@ -145,14 +154,14 @@ fn test_commonmark_spec() {
         }
     }
 
-    println!("\n=== CommonMark Spec Test Results ===");
-    println!(
+    test_log!("\n=== CommonMark Spec Test Results ===");
+    test_log!(
         "Passed: {}/{} ({:.1}%)",
         passed,
         tests.len(),
         (passed as f64 / tests.len() as f64) * 100.0
     );
-    println!(
+    test_log!(
         "Failed: {}/{} ({:.1}%)",
         failed,
         tests.len(),
@@ -160,7 +169,7 @@ fn test_commonmark_spec() {
     );
 
     if let Some((num, section)) = first_passed {
-        println!("\nFirst passed test: #{} ({})", num, section);
+        test_log!("\nFirst passed test: #{} ({})", num, section);
     }
 
     // Group failed tests by section
@@ -173,11 +182,11 @@ fn test_commonmark_spec() {
                 .push(*num);
         }
 
-        println!("\n=== Failed Tests by Section ===");
+        test_log!("\n=== Failed Tests by Section ===");
         let mut sections: Vec<_> = failed_by_section.iter().collect();
         sections.sort_by_key(|(s, _)| s.as_str());
         for (section, tests) in sections {
-            println!("{}: {} tests", section, tests.len());
+            test_log!("{}: {} tests", section, tests.len());
         }
     }
 
@@ -214,19 +223,19 @@ fn test_commonmark_spec() {
     }
 
     if !failed_by_section.is_empty() {
-        println!("\n=== All Failures by Section ===");
+        test_log!("\n=== All Failures by Section ===");
         let mut sections: Vec<_> = failed_by_section.iter().collect();
         sections.sort_by_key(|(s, _)| s.as_str());
         for (section, tests) in sections {
-            println!("\n=== {} ===", section);
+            test_log!("\n=== {} ===", section);
             for (num, markdown, expected, got) in tests.iter().take(5) {
-                println!("\nTest #{}", num);
-                println!("Input: {:?}", markdown);
-                println!("Expected: {:?}", expected);
-                println!("Got: {:?}", got);
+                test_log!("\nTest #{}", num);
+                test_log!("Input: {:?}", markdown);
+                test_log!("Expected: {:?}", expected);
+                test_log!("Got: {:?}", got);
             }
             if tests.len() > 5 {
-                println!("... and {} more", tests.len() - 5);
+                test_log!("... and {} more", tests.len() - 5);
             }
         }
     }
@@ -245,7 +254,7 @@ fn test_regression() {
         .expect("Failed to read regression.txt");
 
     let tests = parse_spec_tests(&spec_content);
-    println!("Found {} regression test cases", tests.len());
+    test_log!("Found {} regression test cases", tests.len());
 
     let mut passed = 0;
     let mut failed = 0;
@@ -257,21 +266,21 @@ fn test_regression() {
             passed += 1;
         } else {
             failed += 1;
-            println!("\nFailed test #{} ({})", test.number, test.section);
-            println!("Input: {:?}", test.markdown);
-            println!("Expected: {:?}", test.html);
-            println!("Got: {:?}", result);
+            test_log!("\nFailed test #{} ({})", test.number, test.section);
+            test_log!("Input: {:?}", test.markdown);
+            test_log!("Expected: {:?}", test.html);
+            test_log!("Got: {:?}", result);
         }
     }
 
-    println!("\n=== Regression Test Results ===");
-    println!(
+    test_log!("\n=== Regression Test Results ===");
+    test_log!(
         "Passed: {}/{} ({:.1}%)",
         passed,
         tests.len(),
         (passed as f64 / tests.len() as f64) * 100.0
     );
-    println!(
+    test_log!(
         "Failed: {}/{} ({:.1}%)",
         failed,
         tests.len(),
@@ -290,7 +299,7 @@ fn test_smart_punct() {
         .expect("Failed to read smart_punct.txt");
 
     let tests = parse_spec_tests(&spec_content);
-    println!("Found {} smart punctuation test cases", tests.len());
+    test_log!("Found {} smart punctuation test cases", tests.len());
 
     let mut passed = 0;
     let mut failed = 0;
@@ -303,21 +312,21 @@ fn test_smart_punct() {
             passed += 1;
         } else {
             failed += 1;
-            println!("\nFailed test #{} ({})", test.number, test.section);
-            println!("Input: {:?}", test.markdown);
-            println!("Expected: {:?}", test.html);
-            println!("Got: {:?}", result);
+            test_log!("\nFailed test #{} ({})", test.number, test.section);
+            test_log!("Input: {:?}", test.markdown);
+            test_log!("Expected: {:?}", test.html);
+            test_log!("Got: {:?}", result);
         }
     }
 
-    println!("\n=== Smart Punctuation Test Results ===");
-    println!(
+    test_log!("\n=== Smart Punctuation Test Results ===");
+    test_log!(
         "Passed: {}/{} ({:.1}%)",
         passed,
         tests.len(),
         (passed as f64 / tests.len() as f64) * 100.0
     );
-    println!(
+    test_log!(
         "Failed: {}/{} ({:.1}%)",
         failed,
         tests.len(),
@@ -351,14 +360,14 @@ fn test_specific_examples() {
 
     // Debug test for ATX heading issue #79
     let result = markdown_to_html("## \n#\n### ###", options::DEFAULT);
-    println!("ATX heading test #79 result: {:?}", result);
-    println!("Expected: {:?}", "<h2></h2>\n<h1></h1>\n<h3></h3>");
+    test_log!("ATX heading test #79 result: {:?}", result);
+    test_log!("Expected: {:?}", "<h2></h2>\n<h1></h1>\n<h3></h3>");
 
     // Debug test for Setext heading issue #91
     let input = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>";
     let result = markdown_to_html(input, options::DEFAULT);
-    println!("\nSetext heading test #91 result: {:?}", result);
-    println!(
+    test_log!("\nSetext heading test #91 result: {:?}", result);
+    test_log!(
         "Expected: {:?}",
         "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=\"a lot</h2>\n<p>of dashes\"/&gt;</p>"
     );
@@ -366,27 +375,27 @@ fn test_specific_examples() {
     // Simpler test case
     let input2 = "<a title=\"a lot\n---\nof dashes\"/>";
     let result2 = markdown_to_html(input2, options::DEFAULT);
-    println!("\nSimpler test result: {:?}", result2);
+    test_log!("\nSimpler test result: {:?}", result2);
 
     // Even simpler test case - just the heading part
     let input3 = "<a title=\"a lot\n---";
     let result3 = markdown_to_html(input3, options::DEFAULT);
-    println!("\nEven simpler test result: {:?}", result3);
+    test_log!("\nEven simpler test result: {:?}", result3);
 
     // Test without newline
     let input4 = "<a title=\"a lot";
     let result4 = markdown_to_html(input4, options::DEFAULT);
-    println!("\nWithout newline test result: {:?}", result4);
+    test_log!("\nWithout newline test result: {:?}", result4);
 
     // Test fenced code block #126
     let input5 = "```";
     let result5 = markdown_to_html(input5, options::DEFAULT);
-    println!("\nFenced code block #126 result: {:?}", result5);
-    println!("Expected: {:?}", "<pre><code></code></pre>");
+    test_log!("\nFenced code block #126 result: {:?}", result5);
+    test_log!("Expected: {:?}", "<pre><code></code></pre>");
 
     // Test fenced code block with content
     let input6 = "```\nfoo\n```";
     let result6 = markdown_to_html(input6, options::DEFAULT);
-    println!("\nFenced code block with content result: {:?}", result6);
-    println!("Expected: {:?}", "<pre><code>foo\n</code></pre>");
+    test_log!("\nFenced code block with content result: {:?}", result6);
+    test_log!("Expected: {:?}", "<pre><code>foo\n</code></pre>");
 }

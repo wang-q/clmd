@@ -323,12 +323,32 @@ pub fn is_safe_url(url: &str) -> bool {
 /// Check if a data URL is safe (only allows image types)
 ///
 /// Currently allows: png, gif, jpeg, webp
+/// Validates the format: data:image/{type}[;base64],{data}
 fn is_safe_data_url(url: &str) -> bool {
-    // Allow data:image/* URLs
-    url.starts_with("data:image/png")
-        || url.starts_with("data:image/gif")
-        || url.starts_with("data:image/jpeg")
-        || url.starts_with("data:image/webp")
+    // Must start with data:image/
+    let prefix = "data:image/";
+    if !url.starts_with(prefix) {
+        return false;
+    }
+
+    // Get the part after data:image/
+    let after_prefix = &url[prefix.len()..];
+
+    // Check for allowed image types followed by ;base64, or ,
+    let allowed_types = ["png", "gif", "jpeg", "jpg", "webp"];
+
+    for img_type in &allowed_types {
+        let with_base64 = format!("{};base64,", img_type);
+        let without_base64 = format!("{},", img_type);
+
+        if after_prefix.starts_with(&with_base64)
+            || after_prefix.starts_with(&without_base64)
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]

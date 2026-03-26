@@ -6,6 +6,15 @@
 use clmd::{html_to_md, markdown_to_html, options};
 use std::fs;
 
+/// Test logging macro - only prints when VERBOSE_TESTS is set
+macro_rules! test_log {
+    ($($arg:tt)*) => {
+        if std::env::var("VERBOSE_TESTS").is_ok() {
+            std::println!($($arg)*);
+        }
+    };
+}
+
 #[derive(Debug)]
 #[allow(dead_code)]
 struct TestCase {
@@ -85,7 +94,7 @@ fn test_roundtrip_sample() {
         fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
 
     let tests = parse_spec_tests(&spec_content);
-    println!("Testing roundtrip for {} spec tests", tests.len());
+    test_log!("Testing roundtrip for {} spec tests", tests.len());
 
     let mut passed = 0;
     let mut failed = 0;
@@ -114,20 +123,21 @@ fn test_roundtrip_sample() {
         } else {
             failed += 1;
             if failed <= 3 {
-                println!(
+                test_log!(
                     "\nRoundtrip failed for test #{} ({})",
-                    test.number, test.section
+                    test.number,
+                    test.section
                 );
-                println!("Original: {:?}", test.markdown);
-                println!("Roundtrip: {:?}", roundtrip_md);
+                test_log!("Original: {:?}", test.markdown);
+                test_log!("Roundtrip: {:?}", roundtrip_md);
             }
         }
     }
 
-    println!("\n=== Roundtrip Test Results ===");
-    println!("Passed: {}", passed);
-    println!("Failed: {}", failed);
-    println!("Skipped: {}", skipped);
+    test_log!("\n=== Roundtrip Test Results ===");
+    test_log!("Passed: {}", passed);
+    test_log!("Failed: {}", failed);
+    test_log!("Skipped: {}", skipped);
 
     // For now, just verify we don't panic and some tests pass
     assert!(passed > 0, "Some roundtrip tests should pass");
@@ -162,10 +172,10 @@ fn test_simple_roundtrip() {
 
         // The roundtrip should contain the essential content
         // (exact format may differ)
-        println!("Original: {:?}", _md);
-        println!("HTML: {:?}", html);
-        println!("Roundtrip: {:?}", roundtrip);
-        println!();
+        test_log!("Original: {:?}", _md);
+        test_log!("HTML: {:?}", html);
+        test_log!("Roundtrip: {:?}", roundtrip);
+        test_log!("");
     }
 }
 

@@ -57,7 +57,9 @@ impl<'a> BlockParser<'a> {
             }
 
             // Try fenced code block
-            if let BlockStartResult::Done(node) = self.try_open_fenced_code_block(indented) {
+            if let BlockStartResult::Done(node) =
+                self.try_open_fenced_code_block(indented)
+            {
                 return node;
             }
 
@@ -300,7 +302,10 @@ impl<'a> BlockParser<'a> {
 
         {
             let code_mut = self.arena.get_mut(code_block);
-            if let NodeData::CodeBlock { info: ref mut i, .. } = code_mut.data {
+            if let NodeData::CodeBlock {
+                info: ref mut i, ..
+            } = code_mut.data
+            {
                 *i = info;
             }
         }
@@ -335,7 +340,8 @@ impl<'a> BlockParser<'a> {
         }
 
         let line = &self.current_line[self.next_nonspace..];
-        if let Some(block_type) = self.scan_html_block_start(line, container, maybe_lazy) {
+        if let Some(block_type) = self.scan_html_block_start(line, container, maybe_lazy)
+        {
             self.close_unmatched_blocks();
             let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
             self.set_html_block_type(html_block, block_type);
@@ -397,7 +403,8 @@ impl<'a> BlockParser<'a> {
                 break;
             }
 
-            let consumed = crate::inlines::parse_reference(&processed_content, &mut self.refmap);
+            let consumed =
+                crate::inlines::parse_reference(&processed_content, &mut self.refmap);
             if consumed == 0 {
                 break;
             }
@@ -451,10 +458,11 @@ impl<'a> BlockParser<'a> {
         }
 
         let marker_result = self.parse_list_marker(container);
-        let (list_type, delim, start, marker_offset, padding, bullet_char) = match marker_result {
-            Some(r) => r,
-            None => return BlockStartResult::None,
-        };
+        let (list_type, delim, start, marker_offset, padding, bullet_char) =
+            match marker_result {
+                Some(r) => r,
+                None => return BlockStartResult::None,
+            };
 
         self.close_unmatched_blocks();
 
@@ -570,14 +578,68 @@ impl<'a> BlockParser<'a> {
     /// Match HTML block type 6
     fn match_html_block_type6(&self, line: &str) -> bool {
         let tags = [
-            "address", "article", "aside", "base", "basefont", "blockquote", "body",
-            "caption", "center", "col", "colgroup", "dd", "details", "dialog", "dir",
-            "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form",
-            "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header",
-            "hr", "html", "iframe", "legend", "li", "link", "main", "menu", "menuitem",
-            "nav", "noframes", "ol", "optgroup", "option", "p", "param", "section",
-            "search", "summary", "table", "tbody", "td", "tfoot", "th", "thead", "title",
-            "tr", "track", "ul",
+            "address",
+            "article",
+            "aside",
+            "base",
+            "basefont",
+            "blockquote",
+            "body",
+            "caption",
+            "center",
+            "col",
+            "colgroup",
+            "dd",
+            "details",
+            "dialog",
+            "dir",
+            "div",
+            "dl",
+            "dt",
+            "fieldset",
+            "figcaption",
+            "figure",
+            "footer",
+            "form",
+            "frame",
+            "frameset",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "head",
+            "header",
+            "hr",
+            "html",
+            "iframe",
+            "legend",
+            "li",
+            "link",
+            "main",
+            "menu",
+            "menuitem",
+            "nav",
+            "noframes",
+            "ol",
+            "optgroup",
+            "option",
+            "p",
+            "param",
+            "section",
+            "search",
+            "summary",
+            "table",
+            "tbody",
+            "td",
+            "tfoot",
+            "th",
+            "thead",
+            "title",
+            "tr",
+            "track",
+            "ul",
         ];
 
         let type1_end_tags = ["script", "pre", "textarea", "style"];
@@ -775,18 +837,18 @@ impl<'a> BlockParser<'a> {
                                     }
                                 }
                             }
-                            _ => {
-                                loop {
-                                    match chars.peek() {
-                                        Some(&c)
-                                            if !c.is_whitespace() && c != '>' && c != '/' =>
-                                        {
-                                            chars.next();
-                                        }
-                                        _ => break,
+                            _ => loop {
+                                match chars.peek() {
+                                    Some(&c)
+                                        if !c.is_whitespace()
+                                            && c != '>'
+                                            && c != '/' =>
+                                    {
+                                        chars.next();
                                     }
+                                    _ => break,
                                 }
-                            }
+                            },
                         }
                     }
                 }
@@ -901,7 +963,8 @@ impl<'a> BlockParser<'a> {
             self.advance_offset(1, true);
         }
 
-        let blank_item = self.peek_current().is_none() || self.peek_current() == Some('\n');
+        let blank_item =
+            self.peek_current().is_none() || self.peek_current() == Some('\n');
         let spaces_after_marker = self.column - spaces_start_col;
 
         let padding = if !(1..5).contains(&spaces_after_marker) || blank_item {
@@ -915,7 +978,14 @@ impl<'a> BlockParser<'a> {
             1 + spaces_after_marker
         };
 
-        Some((ListType::Bullet, DelimType::None, 0, self.indent, padding, first_char))
+        Some((
+            ListType::Bullet,
+            DelimType::None,
+            0,
+            self.indent,
+            padding,
+            first_char,
+        ))
     }
 
     /// Parse ordered list marker
@@ -977,7 +1047,8 @@ impl<'a> BlockParser<'a> {
             self.advance_offset(1, true);
         }
 
-        let blank_item = self.peek_current().is_none() || self.peek_current() == Some('\n');
+        let blank_item =
+            self.peek_current().is_none() || self.peek_current() == Some('\n');
         let spaces_after_marker = self.column - spaces_start_col;
 
         let padding = if !(1..5).contains(&spaces_after_marker) || blank_item {

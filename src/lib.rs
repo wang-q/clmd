@@ -166,7 +166,12 @@ impl Document {
     /// A `ParseResult` containing the parsed document or an error
     pub fn parse_with_limits(input: &str, limits: ParserLimits) -> ParseResult<Self> {
         let mut arena = NodeArena::new();
-        let root = blocks::BlockParser::parse_with_limits(&mut arena, input, options::DEFAULT, limits);
+        let root = blocks::BlockParser::parse_with_limits(
+            &mut arena,
+            input,
+            options::DEFAULT,
+            limits,
+        );
         Ok(Document { arena, root })
     }
 
