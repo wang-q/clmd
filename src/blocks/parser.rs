@@ -156,7 +156,8 @@ impl<'a> BlockParser<'a> {
         options: u32,
         limits: ParserLimits,
     ) -> ParseResult<NodeId> {
-        Self::parse_with_limits_and_refmap(arena, input, options, limits).map(|(doc, _)| doc)
+        Self::parse_with_limits_and_refmap(arena, input, options, limits)
+            .map(|(doc, _)| doc)
     }
 
     /// Parse a complete document with custom limits and return the refmap

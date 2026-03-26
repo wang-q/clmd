@@ -96,13 +96,9 @@ impl Parser {
         // Process collected nodes with the refmap from the document
         for (node_id, content) in nodes_to_process {
             parse_inlines_with_options(
-                arena,
-                node_id,
-                &content,
-                1, // line number
+                arena, node_id, &content, 1, // line number
                 0, // block offset
-                refmap,
-                smart,
+                refmap, smart,
             );
         }
     }

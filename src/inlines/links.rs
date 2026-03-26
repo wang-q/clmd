@@ -21,6 +21,9 @@ pub struct Bracket {
     pub active: bool,
     /// Whether there was a bracket after this one
     pub bracket_after: bool,
+    /// Previous delimiter in stack (for emphasis processing)
+    /// This is a marker to identify which delimiter was on the stack before this bracket
+    pub previous_delimiter_marker: Option<(NodeId, usize)>, // (inl_text, orig_delims)
 }
 
 /// Link parsing context

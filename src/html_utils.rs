@@ -361,7 +361,8 @@ mod tests {
         assert_eq!(escape_html("<div>"), "&lt;div&gt;");
         assert_eq!(escape_html("&"), "&amp;");
         assert_eq!(escape_html("\"quoted\""), "&quot;quoted&quot;");
-        assert_eq!(escape_html("it's"), "it&#x27;s");
+        // Single quotes are NOT escaped in HTML content (only in attributes)
+        assert_eq!(escape_html("it's"), "it's");
     }
 
     #[test]

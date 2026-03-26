@@ -38,7 +38,9 @@ mod utils;
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
 use autolinks::{match_email_autolink, match_url_autolink};
-use emphasis::{process_emphasis, scan_delims, Delimiter};
+use emphasis::{
+    process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,
+};
 use entities::parse_entity_char;
 use html_tags::match_html_tag;
 use links::{
@@ -712,6 +714,11 @@ impl<'a> Subject<'a> {
         TreeOps::append_child(arena, parent, text_node);
 
         // Add to bracket stack
+        // Record the current top delimiter as the previous delimiter for this bracket
+        let previous_delimiter_marker = self
+            .delimiters
+            .as_ref()
+            .map(|d| (d.inl_text, d.orig_delims));
         let bracket = Box::new(Bracket {
             previous: self.brackets.take(),
             inl_text: text_node,
@@ -719,6 +726,7 @@ impl<'a> Subject<'a> {
             image: false,
             active: true,
             bracket_after: false,
+            previous_delimiter_marker,
         });
 
         self.brackets = Some(bracket);
@@ -796,8 +804,19 @@ impl<'a> Subject<'a> {
 
             // Process emphasis with opener's previous delimiter FIRST
             // This processes emphasis delimiters inside the link text
-            // Note: We need to handle the delimiter stack carefully here
-            // For now, we skip this complex interaction
+            // The previous_delimiter_marker identifies which delimiter was on the stack
+            // before this bracket, so we only process delimiters added inside the link text
+            process_emphasis(
+                arena,
+                &mut self.delimiters,
+                opener.previous_delimiter_marker,
+            );
+
+            // Remove delimiters that are inside the link from the delimiter stack
+            remove_delimiters_inside_link(
+                &mut self.delimiters,
+                opener.previous_delimiter_marker,
+            );
 
             // Remove the matched opener from bracket stack BEFORE deactivating previous openers
             // This ensures we don't deactivate the current opener itself
@@ -852,6 +871,11 @@ impl<'a> Subject<'a> {
             TreeOps::append_child(arena, parent, text_node);
 
             // Add to bracket stack as image
+            // Record the current top delimiter as the previous delimiter for this bracket
+            let previous_delimiter_marker = self
+                .delimiters
+                .as_ref()
+                .map(|d| (d.inl_text, d.orig_delims));
             let bracket = Box::new(Bracket {
                 previous: self.brackets.take(),
                 inl_text: text_node,
@@ -859,6 +883,7 @@ impl<'a> Subject<'a> {
                 image: true,
                 active: true,
                 bracket_after: false,
+                previous_delimiter_marker,
             });
 
             self.brackets = Some(bracket);

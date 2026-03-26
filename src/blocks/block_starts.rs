@@ -236,9 +236,7 @@ impl<'a> BlockParser<'a> {
             if start > 0 {
                 let before_hash = &content[..start];
                 if before_hash.ends_with(' ') || before_hash.ends_with('\t') {
-                    return before_hash
-                        .trim_end_matches([' ', '\t'])
-                        .to_string();
+                    return before_hash.trim_end_matches([' ', '\t']).to_string();
                 }
             }
         }

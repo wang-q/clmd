@@ -26,8 +26,9 @@ pub struct Delimiter {
     pub can_close: bool,
 }
 
-/// Delimiter information tuple: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims)
-type DelimInfo = (NodeId, char, bool, bool, usize, usize);
+/// Delimiter information tuple: (inl_text, delim_char, can_open, can_close, orig_delims, num_delims, processed)
+/// processed: true if this delimiter has been used in an emphasis pair
+type DelimInfo = (NodeId, char, bool, bool, usize, usize, bool);
 
 /// Collect delimiter information from the delimiter stack
 fn collect_delimiters(delimiters: &Option<Box<Delimiter>>) -> SmallVec<[DelimInfo; 32]> {
@@ -42,6 +43,7 @@ fn collect_delimiters(delimiters: &Option<Box<Delimiter>>) -> SmallVec<[DelimInf
             d.can_close,
             d.orig_delims,
             d.num_delims,
+            false, // processed = false initially
         ));
         current = d.previous.as_ref();
     }
@@ -52,12 +54,16 @@ fn collect_delimiters(delimiters: &Option<Box<Delimiter>>) -> SmallVec<[DelimInf
 }
 
 /// Find the starting index based on stack_bottom
-fn find_start_index(delims: &[DelimInfo], stack_bottom: Option<&Delimiter>) -> usize {
-    if let Some(sb) = stack_bottom {
+/// stack_bottom_marker is (inl_text, orig_delims) to identify the delimiter
+fn find_start_index(
+    delims: &[DelimInfo],
+    stack_bottom_marker: Option<(NodeId, usize)>,
+) -> usize {
+    if let Some((inl_text, orig_delims)) = stack_bottom_marker {
         delims
             .iter()
-            .position(|(node_id, _, _, _, orig, _)| {
-                *node_id == sb.inl_text && *orig == sb.orig_delims
+            .position(|(node_id, _, _, _, orig, _, _)| {
+                *node_id == inl_text && *orig == orig_delims
             })
             .map(|i| i + 1)
             .unwrap_or(0)
@@ -110,8 +116,20 @@ fn find_matching_opener(
     let mut opener_idx = closer_idx;
     while opener_idx > bottom {
         opener_idx -= 1;
-        let (_, opener_char, opener_can_open, opener_can_close, opener_orig_delims, _) =
-            delims[opener_idx];
+        let (
+            _,
+            opener_char,
+            opener_can_open,
+            opener_can_close,
+            opener_orig_delims,
+            _,
+            processed,
+        ) = delims[opener_idx];
+
+        // Skip already processed delimiters
+        if processed {
+            continue;
+        }
 
         if opener_char == closer_char
             && opener_can_open
@@ -131,8 +149,20 @@ fn find_matching_opener(
     let mut opener_idx = closer_idx;
     while opener_idx > bottom {
         opener_idx -= 1;
-        let (_, opener_char, opener_can_open, opener_can_close, opener_orig_delims, _) =
-            delims[opener_idx];
+        let (
+            _,
+            opener_char,
+            opener_can_open,
+            opener_can_close,
+            opener_orig_delims,
+            _,
+            processed,
+        ) = delims[opener_idx];
+
+        // Skip already processed delimiters
+        if processed {
+            continue;
+        }
 
         if opener_char == closer_char
             && opener_can_open
@@ -204,8 +234,8 @@ fn process_emphasis_pair(
     opener_idx: usize,
     closer_idx: usize,
 ) {
-    let (opener_inl, _, _, _, opener_orig_delims, _) = delims[opener_idx];
-    let (closer_inl, _, _, _, closer_orig_delims, _) = delims[closer_idx];
+    let (opener_inl, _, _, _, opener_orig_delims, _, _) = delims[opener_idx];
+    let (closer_inl, _, _, _, closer_orig_delims, _, _) = delims[closer_idx];
 
     let use_delims = if opener_orig_delims >= 2 && closer_orig_delims >= 2 {
         2
@@ -237,7 +267,7 @@ fn process_smart_quotes(
     closer_idx: usize,
     closer_char: char,
 ) {
-    let (closer_inl, _, _, _, _, _) = delims[closer_idx];
+    let (closer_inl, _, _, _, _, _, _) = delims[closer_idx];
 
     let quote_char = if closer_char == '\'' {
         '\u{2019}'
@@ -253,7 +283,7 @@ fn process_smart_quotes(
     }
 
     if let Some(opener_idx) = opener_idx {
-        let (opener_inl, _, _, _, _, _) = delims[opener_idx];
+        let (opener_inl, _, _, _, _, _, _) = delims[opener_idx];
         let open_quote = if closer_char == '\'' {
             '\u{2018}'
         } else {
@@ -276,7 +306,7 @@ fn rebuild_delimiter_stack(
     if start_idx > 0 {
         let delims_to_keep: Vec<_> = delims.into_iter().take(start_idx).collect();
         *delimiters = None;
-        for (node_id, char, can_open, can_close, orig_delims, num_delims) in
+        for (node_id, char, can_open, can_close, orig_delims, num_delims, _processed) in
             delims_to_keep
         {
             let delim = Box::new(Delimiter {
@@ -381,16 +411,17 @@ pub fn scan_delims(input: &str, pos: usize, c: char) -> (DelimScanResult, usize)
 
 /// Process emphasis delimiters
 /// Based on commonmark.js processEmphasis function and cmark implementation
+/// stack_bottom_marker: if provided, only process delimiters after this one (identified by (inl_text, orig_delims))
 pub fn process_emphasis(
     arena: &mut NodeArena,
     delimiters: &mut Option<Box<Delimiter>>,
-    stack_bottom: Option<&Delimiter>,
+    stack_bottom_marker: Option<(NodeId, usize)>,
 ) {
-    // Collect all delimiter info
-    let delims = collect_delimiters(delimiters);
+    // Collect all delimiter info into a mutable vector
+    let mut delims = collect_delimiters(delimiters);
 
-    // Find the starting index based on stack_bottom
-    let start_idx = find_start_index(&delims, stack_bottom);
+    // Find the starting index based on stack_bottom_marker
+    let start_idx = find_start_index(&delims, stack_bottom_marker);
 
     // Initialize openers_bottom for each delimiter type
     // Index mapping: 0=" 1=' 2-7=_ (based on can_open and length % 3) 8-13=* (based on can_open and length % 3)
@@ -406,7 +437,14 @@ pub fn process_emphasis(
             closer_can_close,
             closer_orig_delims,
             _,
+            closer_processed,
         ) = delims[closer_idx];
+
+        // Skip already processed delimiters
+        if closer_processed {
+            closer_idx += 1;
+            continue;
+        }
 
         if !closer_can_close {
             closer_idx += 1;
@@ -444,6 +482,9 @@ pub fn process_emphasis(
             '*' | '_' => {
                 if let Some(opener_idx) = opener_idx {
                     process_emphasis_pair(arena, &delims, opener_idx, closer_idx);
+                    // Mark both opener and closer as processed
+                    delims[opener_idx].6 = true;
+                    delims[closer_idx].6 = true;
                 }
                 closer_idx += 1;
             }
@@ -455,6 +496,11 @@ pub fn process_emphasis(
                     closer_idx,
                     closer_char,
                 );
+                // Mark both opener and closer as processed for smart quotes
+                if let Some(opener_idx) = opener_idx {
+                    delims[opener_idx].6 = true;
+                }
+                delims[closer_idx].6 = true;
                 closer_idx += 1;
             }
             _ => closer_idx += 1,
@@ -467,4 +513,21 @@ pub fn process_emphasis(
 
     // Rebuild the delimiter stack
     rebuild_delimiter_stack(delimiters, delims, start_idx);
+}
+
+/// Remove delimiters that are inside a link from the delimiter stack
+/// This is called after processing emphasis inside link text
+/// The `stack_bottom_marker` identifies the delimiter that was the top of stack before the link opener
+/// After process_emphasis is called, all delimiters inside the link have been marked as processed
+/// We need to remove them from the stack, keeping only unprocessed delimiters
+pub fn remove_delimiters_inside_link(
+    _delimiters: &mut Option<Box<Delimiter>>,
+    _stack_bottom_marker: Option<(NodeId, usize)>,
+) {
+    // Collect all unprocessed delimiters (those not inside the link)
+    // Since process_emphasis has already been called with the stack_bottom,
+    // all delimiters inside the link should have been processed and marked
+    // But in our current implementation, we rebuild the stack in process_emphasis
+    // So this function is effectively a no-op - the stack has already been rebuilt
+    // to only include delimiters up to stack_bottom
 }
