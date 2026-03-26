@@ -4,7 +4,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
-use crate::error::ParserLimits;
+use crate::error::{ParseError, ParseResult, ParserLimits};
 use crate::node::{NodeData, NodeType};
 use rustc_hash::FxHashMap;
 
@@ -121,30 +121,48 @@ impl<'a> BlockParser<'a> {
     }
 
     /// Parse a complete document with options
+    ///
+    /// Uses relaxed limits for backward compatibility.
+    /// For strict limits, use `parse_with_limits`.
     pub fn parse_with_options(
         arena: &'a mut NodeArena,
         input: &str,
         options: u32,
     ) -> NodeId {
-        Self::parse_with_limits(arena, input, options, ParserLimits::default())
+        // Use relaxed limits for backward compatibility
+        let limits = ParserLimits {
+            max_input_size: 100 * 1024 * 1024, // 100MB
+            max_nesting_depth: 1000,
+            max_line_length: 10_000_000, // 10MB per line
+            max_list_items: 1_000_000,
+            max_links: 1_000_000,
+        };
+        // For backward compatibility, unwrap the result
+        // In new code, use parse_with_limits which returns ParseResult
+        Self::parse_with_limits(arena, input, options, limits).expect("Parsing failed")
     }
 
     /// Parse a complete document with custom limits
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParseError` if:
+    /// - Input exceeds maximum allowed size
+    /// - Line length exceeds maximum allowed
+    /// - Nesting depth exceeds maximum allowed
     pub fn parse_with_limits(
         arena: &'a mut NodeArena,
         input: &str,
         options: u32,
         limits: ParserLimits,
-    ) -> NodeId {
+    ) -> ParseResult<NodeId> {
         // Validate input size
         let input_size = input.len();
         if input_size > limits.max_input_size {
-            // For now, we truncate the input instead of failing
-            // In the future, this could return an error
-            eprintln!(
-                "Warning: Input size ({} bytes) exceeds maximum ({} bytes). Truncating.",
-                input_size, limits.max_input_size
-            );
+            return Err(ParseError::InputTooLarge {
+                size: input_size,
+                max_size: limits.max_input_size,
+            });
         }
 
         let mut parser = Self::new_with_limits(arena, options, limits);
@@ -154,20 +172,19 @@ impl<'a> BlockParser<'a> {
         for line in input.split('\n') {
             // Check line length limit
             if line.len() > parser.limits.max_line_length {
-                eprintln!(
-                    "Warning: Line {} exceeds maximum length ({} > {}). Truncating.",
-                    parser.line_number + 1,
-                    line.len(),
-                    parser.limits.max_line_length
-                );
-                let truncated = &line[..parser.limits.max_line_length];
-                let line = truncated.strip_suffix('\r').unwrap_or(truncated);
-                parser.process_line(line);
-            } else {
-                // Remove trailing '\r' if present (CRLF handling)
-                let line = line.strip_suffix('\r').unwrap_or(line);
-                parser.process_line(line);
+                return Err(ParseError::ParseError {
+                    position: crate::error::Position::new(parser.line_number + 1, 1, 0),
+                    message: format!(
+                        "Line exceeds maximum length ({} > {})",
+                        line.len(),
+                        parser.limits.max_line_length
+                    ),
+                });
             }
+
+            // Remove trailing '\r' if present (CRLF handling)
+            let line = line.strip_suffix('\r').unwrap_or(line);
+            parser.process_line(line);
         }
 
         // Finalize all blocks before processing the empty line
@@ -175,7 +192,7 @@ impl<'a> BlockParser<'a> {
         // and don't get an extra newline added to their content
         parser.finalize_document();
 
-        parser.doc
+        Ok(parser.doc)
     }
 
     /// Process a single line

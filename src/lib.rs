@@ -171,7 +171,7 @@ impl Document {
             input,
             options::DEFAULT,
             limits,
-        );
+        )?;
         Ok(Document { arena, root })
     }
 
