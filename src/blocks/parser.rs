@@ -124,6 +124,11 @@ impl<'a> BlockParser<'a> {
     ///
     /// Uses relaxed limits for backward compatibility.
     /// For strict limits, use `parse_with_limits`.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if parsing fails (e.g., input too large).
+    /// For error handling, use `parse_with_limits` instead.
     pub fn parse_with_options(
         arena: &'a mut NodeArena,
         input: &str,
@@ -139,7 +144,14 @@ impl<'a> BlockParser<'a> {
         };
         // For backward compatibility, unwrap the result
         // In new code, use parse_with_limits which returns ParseResult
-        Self::parse_with_limits(arena, input, options, limits).expect("Parsing failed")
+        match Self::parse_with_limits(arena, input, options, limits) {
+            Ok(doc) => doc,
+            Err(e) => {
+                // Log the error and panic with details
+                eprintln!("BlockParser::parse_with_options failed: {}", e);
+                panic!("Parsing failed: {}", e);
+            }
+        }
     }
 
     /// Parse a complete document with custom limits

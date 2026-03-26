@@ -61,8 +61,12 @@ impl Parser {
             });
         }
 
-        // Handle CRLF line endings
-        let normalized_input = text.replace("\r\n", "\n").replace('\r', "\n");
+        // Handle CRLF line endings with single-pass replacement
+        let normalized_input = if text.contains('\r') {
+            text.replace("\r\n", "\n").replace('\r', "\n")
+        } else {
+            text.to_string()
+        };
 
         // Create arena and parse blocks
         let mut arena = NodeArena::new();

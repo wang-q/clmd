@@ -73,6 +73,7 @@ fn find_start_index(
 }
 
 /// Get the openers_bottom index for a given closer
+#[allow(dead_code)]
 fn get_openers_bottom_index(
     closer_char: char,
     closer_can_open: bool,
@@ -88,6 +89,7 @@ fn get_openers_bottom_index(
 }
 
 /// Check if the match is invalid due to the odd match rule
+#[allow(dead_code)]
 fn is_odd_match(
     closer_can_open: bool,
     opener_can_close: bool,
@@ -100,6 +102,7 @@ fn is_odd_match(
 }
 
 /// Find a matching opener for the given closer
+#[allow(dead_code)]
 fn find_matching_opener(
     delims: &[DelimInfo],
     closer_idx: usize,

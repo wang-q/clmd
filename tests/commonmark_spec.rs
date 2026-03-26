@@ -105,6 +105,18 @@ fn normalize_html(html: &str) -> String {
     result.trim().to_string()
 }
 
+/// Known failing test cases that need to be fixed.
+/// These are tracked for debugging and future improvement.
+const KNOWN_FAILURES: &[usize] = &[
+    // Currently no specific known failures tracked
+    // Add test numbers here as they are identified
+];
+
+/// Check if a test failure is known
+fn is_known_failure(test_num: usize) -> bool {
+    KNOWN_FAILURES.contains(&test_num)
+}
+
 #[test]
 fn test_commonmark_spec() {
     let spec_content =

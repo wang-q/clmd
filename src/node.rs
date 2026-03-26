@@ -60,6 +60,10 @@ pub enum NodeType {
     // Task list item
     TaskItem,
 
+    /// Placeholder type used during node initialization.
+    ///
+    /// This variant should not be used for actual AST nodes.
+    /// Nodes must be properly initialized with a concrete type before use.
     None,
 }
 

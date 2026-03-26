@@ -8,13 +8,29 @@ use crate::inlines::unescape_string;
 use crate::lexer::{is_space_or_tab, CODE_INDENT};
 use crate::node::{DelimType, ListType, NodeData, NodeType};
 
-/// Result of trying to open a new block
+/// Result of trying to open a new block during block parsing.
+///
+/// This enum represents the outcome of attempting to start a new block-level element
+/// when processing a line of Markdown input.
 enum BlockStartResult {
-    /// Block was opened, continue processing
+    /// A new block was opened and should become the current container.
+    ///
+    /// The parser should continue processing the current line with this new block
+    /// as the container. This is used for container blocks like blockquotes and
+    /// list items that can contain other blocks.
     Opened(NodeId),
-    /// No block opened, continue with other checks
+
+    /// No new block was started.
+    ///
+    /// The parser should continue checking other block start patterns or
+    /// add the line content to the current container.
     None,
-    /// Block opened and consumed the line, return immediately
+
+    /// A leaf block was opened and has consumed the entire line.
+    ///
+    /// The parser should stop processing this line and move to the next one.
+    /// This is used for leaf blocks like ATX headings, thematic breaks,
+    /// and fenced code blocks that don't accept nested blocks.
     Done(NodeId),
 }
 

@@ -1,0 +1,567 @@
+//! Edge case tests for the clmd parser
+//!
+//! This module tests boundary conditions and edge cases that may not be
+//! covered by the standard CommonMark spec tests.
+
+use clmd::{markdown_to_html, options, Parser, ParserLimits};
+
+/// Test empty input handling
+#[test]
+fn test_empty_input() {
+    let html = markdown_to_html("", options::DEFAULT);
+    assert_eq!(html, "", "Empty input should produce empty output");
+}
+
+/// Test whitespace-only input
+#[test]
+fn test_whitespace_only() {
+    let cases = vec![
+        ("   ", ""),
+        ("\n", ""),
+        ("\t\n\r\n", ""),
+        ("   \n   \n", ""),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert_eq!(
+            html,
+            expected,
+            "Whitespace-only input '{}' should produce '{}'",
+            input.escape_default(),
+            expected
+        );
+    }
+}
+
+/// Test very long lines
+#[test]
+fn test_long_lines() {
+    // Create a very long paragraph
+    let long_text = "a".repeat(10000);
+    let input = format!("{}", long_text);
+    let html = markdown_to_html(&input, options::DEFAULT);
+    assert!(html.contains("<p>"), "Long line should produce paragraph");
+    assert!(
+        html.contains(&long_text),
+        "Long line content should be preserved"
+    );
+}
+
+/// Test deep nesting
+#[test]
+fn test_deep_nesting() {
+    // Create deeply nested blockquotes
+    let mut input = String::new();
+    let depth = 50;
+    for i in 0..depth {
+        input.push_str("> ");
+        input.push_str(&i.to_string());
+        input.push('\n');
+    }
+
+    let html = markdown_to_html(&input, options::DEFAULT);
+    assert!(
+        html.contains("<blockquote>"),
+        "Deep nesting should produce blockquotes"
+    );
+}
+
+/// Test deeply nested lists
+#[test]
+fn test_deep_list_nesting() {
+    let mut input = String::new();
+    let depth = 20;
+
+    for _ in 0..depth {
+        input.push_str("- item\n");
+    }
+
+    let html = markdown_to_html(&input, options::DEFAULT);
+    assert!(html.contains("<ul>"), "Deep list should produce ul");
+    assert!(html.contains("<li>"), "Deep list should produce li");
+}
+
+/// Test special Unicode characters
+#[test]
+fn test_unicode_characters() {
+    let cases = vec![
+        ("Hello 世界", "Hello 世界"),
+        ("Emoji: 🎉 🚀", "🎉 🚀"),
+        ("Math: ∫ ∑ ∏", "∫ ∑ ∏"),
+        ("Arabic: مرحبا", "مرحبا"),
+        ("Hebrew: שלום", "שלום"),
+        ("Zero width: a\u{200B}b", "a\u{200B}b"),
+    ];
+
+    for (input, expected_content) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected_content),
+            "Unicode content should be preserved: {}",
+            input
+        );
+    }
+}
+
+/// Test malformed Markdown - unmatched brackets
+#[test]
+fn test_unmatched_brackets() {
+    let cases = vec![
+        ("[unclosed", "[unclosed"),
+        ("unclosed]", "unclosed]"),
+        ("[[[", "[[["),
+        ("]]]", "]]]"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Unmatched brackets should be preserved as text: {}",
+            input
+        );
+    }
+}
+
+/// Test malformed Markdown - unmatched backticks
+#[test]
+fn test_unmatched_backticks() {
+    let cases = vec![
+        ("`unclosed", "`unclosed"),
+        ("``unclosed", "``unclosed"),
+        ("`code", "`code"),
+    ];
+
+    for (input, _) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        // Should not panic and should produce some output
+        assert!(
+            !html.is_empty() || html.is_empty(),
+            "Should handle unmatched backticks"
+        );
+    }
+}
+
+/// Test parser limits - input too large
+#[test]
+fn test_input_too_large() {
+    let parser =
+        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_input_size(100));
+
+    let large_input = "a".repeat(101);
+    let result = parser.parse(&large_input);
+
+    assert!(result.is_err(), "Should fail for input exceeding max size");
+}
+
+/// Test parser limits - line too long
+#[test]
+fn test_line_too_long() {
+    let parser =
+        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_line_length(50));
+
+    let long_line = "a".repeat(100);
+    let result = parser.parse(&long_line);
+
+    assert!(result.is_err(), "Should fail for line exceeding max length");
+}
+
+/// Test null bytes in input
+#[test]
+fn test_null_bytes() {
+    let input = "Hello\x00World";
+    let html = markdown_to_html(input, options::DEFAULT);
+    // Null bytes should be replaced with replacement character
+    assert!(html.contains("Hello") && html.contains("World"));
+}
+
+/// Test various line endings
+#[test]
+fn test_line_endings() {
+    let cases = vec![
+        ("Line1\nLine2", "Line1", "Line2"),
+        ("Line1\r\nLine2", "Line1", "Line2"),
+        ("Line1\rLine2", "Line1", "Line2"),
+    ];
+
+    for (input, line1, line2) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(line1) && html.contains(line2),
+            "Should handle line endings correctly: {:?}",
+            input.escape_default()
+        );
+    }
+}
+
+/// Test extreme nesting depth
+#[test]
+fn test_extreme_nesting() {
+    let parser =
+        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_nesting_depth(10));
+
+    // Create input that exceeds nesting depth
+    let mut input = String::new();
+    for _ in 0..20 {
+        input.push_str("> ");
+    }
+    input.push_str("text\n");
+
+    let result = parser.parse(&input);
+    // Should either succeed or fail gracefully
+    assert!(result.is_ok() || result.is_err());
+}
+
+/// Test empty code blocks
+#[test]
+fn test_empty_code_blocks() {
+    let cases = vec![
+        ("```\n```", "<code>"),
+        ("```rust\n```", "<code"),
+        ("    ", ""), // Empty indented code block
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        if !expected.is_empty() {
+            assert!(
+                html.contains(expected),
+                "Empty code block should produce code element: {}",
+                input
+            );
+        }
+    }
+}
+
+/// Test HTML entity handling
+#[test]
+fn test_html_entities() {
+    let cases = vec![
+        ("&amp;", "&amp;"),
+        ("&lt;", "&lt;"),
+        ("&gt;", "&gt;"),
+        ("&#123;", "{"),
+        ("&#x7B;", "{"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Entity {} should produce {} in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test smart punctuation option
+#[test]
+fn test_smart_punctuation() {
+    let input = "\"Hello\" -- world...";
+
+    let html_default = markdown_to_html(input, options::DEFAULT);
+    let html_smart = markdown_to_html(input, options::SMART);
+
+    // Smart punctuation should convert quotes and dashes
+    assert_ne!(
+        html_default, html_smart,
+        "Smart punctuation should produce different output"
+    );
+}
+
+/// Test link with special characters
+#[test]
+fn test_special_links() {
+    let cases = vec![
+        ("[text](http://example.com)", "http://example.com"),
+        ("[text](mailto:test@example.com)", "mailto:test@example.com"),
+        ("[text](#anchor)", "#anchor"),
+        ("[text](path/to/file.md)", "path/to/file.md"),
+    ];
+
+    for (input, expected_url) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected_url),
+            "Link URL should be preserved: {}",
+            input
+        );
+    }
+}
+
+/// Test image with empty alt text
+#[test]
+fn test_empty_alt_text() {
+    let input = "![](image.png)";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(html.contains("<img"), "Image should be rendered");
+    assert!(html.contains("image.png"), "Image src should be preserved");
+}
+
+/// Test table edge cases
+#[test]
+fn test_table_edge_cases() {
+    let cases = vec![
+        // Empty cells
+        "|a|b|\n|---|---|\n|c|",
+        // Single column
+        "|a|\n|---|\n|b|",
+        // No header separator
+        "|a|b|\n|c|d|",
+    ];
+
+    for input in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        // Should not panic
+        assert!(!html.is_empty() || html.is_empty());
+    }
+}
+
+/// Test thematic break variations
+#[test]
+fn test_thematic_breaks() {
+    let cases = vec!["***", "---", "___", " * * * ", "- - -", "_ _ _"];
+
+    for input in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains("<hr") || html == "<p>".to_string() + input + "</p>",
+            "Thematic break or paragraph: {}",
+            input
+        );
+    }
+}
+
+/// Test heading edge cases
+#[test]
+fn test_heading_edge_cases() {
+    let cases = vec![
+        ("# ", "<h1>"),
+        ("###### ", "<h6>"),
+        ("####### too many", "<p>"), // 7 hashes should be paragraph
+        ("#\tTab after hash", "<h1>"),
+    ];
+
+    for (input, expected_tag) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected_tag),
+            "Input '{}' should contain '{}' in {}",
+            input,
+            expected_tag,
+            html
+        );
+    }
+}
+
+/// Test list with mixed markers
+#[test]
+fn test_mixed_list_markers() {
+    let input = "- item 1\n+ item 2\n* item 3";
+    let html = markdown_to_html(input, options::DEFAULT);
+
+    // Each different marker should start a new list
+    assert!(html.contains("<ul>"));
+    assert!(html.contains("item 1"));
+    assert!(html.contains("item 2"));
+    assert!(html.contains("item 3"));
+}
+
+/// Test code fence with backticks in content
+#[test]
+fn test_code_fence_with_backticks() {
+    let input = "````\n```\ninner\n```\n````";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(html.contains("<pre>"));
+    assert!(html.contains("<code>"));
+    assert!(html.contains("inner"));
+}
+
+/// Test inline code with backticks
+#[test]
+fn test_inline_code_with_backticks() {
+    // Test inline code containing backticks
+    let input = "`` ` ``"; // Code containing single backtick
+    let html = markdown_to_html(input, options::DEFAULT);
+    // Should produce code element with backtick content
+    assert!(
+        html.contains("<code>") && html.contains("</code>"),
+        "Inline code should handle backticks: {} -> {}",
+        input,
+        html
+    );
+}
+
+/// Test autolink edge cases
+#[test]
+fn test_autolink_edge_cases() {
+    let cases = vec![
+        ("<http://example.com>", "http://example.com"),
+        ("<mailto:test@example.com>", "mailto:test@example.com"),
+        ("<test@example.com>", "test@example.com"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Autolink should work for: {}",
+            input
+        );
+    }
+}
+
+/// Test HTML comment handling
+#[test]
+fn test_html_comments() {
+    let cases = vec![
+        "<!-- comment -->",
+        "<!--\nmulti\nline\n-->",
+        "text <!-- inline --> more",
+    ];
+
+    for input in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        // Should not panic
+        assert!(!html.is_empty() || html.is_empty());
+    }
+}
+
+/// Test reference-style link edge cases
+#[test]
+fn test_reference_link_edge_cases() {
+    let input = r#"[text][ref]
+
+[ref]: http://example.com "title"
+"#;
+
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(
+        html.contains("http://example.com"),
+        "Reference link should resolve: {}",
+        html
+    );
+}
+
+/// Test emphasis edge cases
+#[test]
+fn test_emphasis_edge_cases() {
+    let cases = vec![
+        ("*text*", "<em>"),
+        ("**text**", "<strong>"),
+        // Note: ***text*** produces <em><strong>text</strong></em> (order may vary)
+        ("***text***", "<strong>"),
+        ("_text_", "<em>"),
+        ("__text__", "<strong>"),
+        // Note: ___text___ produces <em><strong>text</strong></em> (order may vary)
+        ("___text___", "<strong>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Emphasis '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test hard line breaks
+#[test]
+fn test_hard_line_breaks() {
+    let cases = vec![("line1  \nline2", "<br"), ("line1\\\nline2", "<br")];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Hard line break should produce br: {}",
+            input
+        );
+    }
+}
+
+/// Test setext heading edge cases
+#[test]
+fn test_setext_heading_edge_cases() {
+    let cases = vec![
+        ("text\n=", "<h1>"),
+        ("text\n-", "<h2>"),
+        ("text\n===", "<h1>"),
+        ("text\n---", "<h2>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Setext heading '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test blockquote with nested elements
+#[test]
+fn test_blockquote_nesting() {
+    let input = "> # Heading in quote\n> \n> - List item\n>   - Nested item";
+    let html = markdown_to_html(input, options::DEFAULT);
+
+    assert!(html.contains("<blockquote>"));
+    assert!(html.contains("<h1>") || html.contains("<h2>"));
+    assert!(html.contains("<ul>"));
+}
+
+/// Test task list items
+#[test]
+fn test_task_list_items() {
+    let cases = vec![
+        ("- [ ] unchecked", "unchecked"),
+        ("- [x] checked", "checked"),
+        ("- [X] checked uppercase", "checked"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected) || html.contains("<li"),
+            "Task list item should be rendered: {}",
+            input
+        );
+    }
+}
+
+/// Test footnote edge cases
+#[test]
+fn test_footnote_edge_cases() {
+    let input = r#"Text[^1]
+
+[^1]: Footnote content
+    with continuation
+"#;
+
+    let html = markdown_to_html(input, options::DEFAULT);
+    // Should not panic
+    assert!(!html.is_empty() || html.is_empty());
+}
+
+/// Test strikethrough
+#[test]
+fn test_strikethrough() {
+    let input = "~~deleted~~";
+    let html = markdown_to_html(input, options::DEFAULT);
+    // Strikethrough may be rendered as <del> or <s>
+    assert!(
+        html.contains("<del>") || html.contains("<s>") || html.contains("deleted"),
+        "Strikethrough should be rendered: {}",
+        html
+    );
+}

@@ -102,6 +102,7 @@ pub use arena::{Node, NodeArena, NodeId, TreeOps};
 pub use error::{ParseError, ParseResult, ParserLimits, Position};
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
+pub use parser::Parser;
 
 /// A parsed Markdown document
 ///
@@ -274,7 +275,7 @@ pub mod options {
 /// # Arguments
 ///
 /// * `text` - The Markdown text to convert
-/// * `_options` - Options for parsing and rendering (currently unused)
+/// * `options` - Options for parsing and rendering (e.g., `options::SMART`)
 ///
 /// # Returns
 ///

@@ -326,10 +326,16 @@ impl<'a> Subject<'a> {
                     let content = &self.input[after_open_ticks..close_start];
 
                     // Build content without allocation for simple cases
-                    let content = if content.contains('\n') {
+                    let content: String = if content.contains('\n') {
                         // Replace newlines with spaces
-                        content.replace('\n', " ")
+                        // Pre-allocate with same capacity to avoid reallocations
+                        let mut result = String::with_capacity(content.len());
+                        for c in content.chars() {
+                            result.push(if c == '\n' { ' ' } else { c });
+                        }
+                        result
                     } else {
+                        // No newlines, use the content directly without allocation
                         content.to_string()
                     };
 
@@ -364,7 +370,23 @@ impl<'a> Subject<'a> {
 
         // No matching close found, treat as literal
         self.pos = after_open_ticks;
-        self.append_text(arena, parent, &"`".repeat(tick_len));
+        // For small number of backticks, avoid allocation with repeat()
+        let backticks: &str = match tick_len {
+            1 => "`",
+            2 => "``",
+            3 => "```",
+            4 => "````",
+            5 => "`````",
+            6 => "``````",
+            7 => "```````",
+            8 => "````````",
+            _ => {
+                // For larger numbers, fall back to repeat
+                self.append_text(arena, parent, &"`".repeat(tick_len));
+                return true;
+            }
+        };
+        self.append_text(arena, parent, backticks);
         true
     }
 
