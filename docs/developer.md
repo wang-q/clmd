@@ -87,17 +87,8 @@ src/
 │   ├── latex.rs        # LaTeX 渲染器
 │   ├── man.rs          # Man page 渲染器
 │   └── commonmark.rs   # CommonMark 渲染器（roundtrip）
-├── ast/                # AST 基础模块（参考 flexmark-java）
-│   ├── mod.rs          # 模块导出
-│   ├── node.rs         # Node 基类
-│   ├── visitor.rs      # 访问者模式
-│   └── util.rs         # AST 工具函数
-├── ast_nodes/          # Trait-based 节点类型系统
-│   ├── mod.rs          # 模块导出
-│   ├── traits.rs       # 核心 trait 定义
-│   ├── extensions.rs   # 节点扩展 trait
-│   ├── block/          # 块级节点导出
-│   └── inline/         # 内联节点导出
+├── ast/                # AST 遍历模块（已弃用，使用 arena 和 iterator）
+│   └── mod.rs          # 模块导出
 ├── config/             # 类型安全的配置系统
 │   ├── mod.rs          # 模块导出
 │   └── data_key.rs     # DataKey 配置实现
@@ -162,7 +153,6 @@ src/
 - **规范兼容**：652/652 CommonMark 测试通过（100%）
 - **回归测试**：32/32 通过（100%）
 - **智能标点**：SMART 选项功能实现（14/15 通过，93.3%）
-- **AST 系统**：参考 flexmark-java 设计，实现新的 AST 系统
 - **GFM 扩展**：
   - 表格支持（tables.rs）
   - 删除线支持（strikethrough.rs）
@@ -183,7 +173,6 @@ src/
 ### 进行中 🚧
 
 - **性能基准测试**：与参考实现进行性能对比，优化热点代码
-- **新 AST 系统集成**：逐步将新 AST 系统与现有解析器/渲染器深度集成
 
 ### 待开始 📋
 
@@ -200,11 +189,10 @@ src/
 | 4. CommonMark 规范兼容 | ✅ 已完成 | 652/652 测试通过 |
 | 5. 回归测试兼容 | ✅ 已完成 | 32/32 测试通过 |
 | 6. 智能标点功能 | ✅ 已完成 | 14/15 测试通过 |
-| 7. AST 系统（参考 flexmark） | ✅ 已完成 | 新 AST 系统实现 |
-| 8. GFM 扩展 | ✅ 已完成 | 表格、删除线、任务列表 |
-| 9. 文档增强扩展 | ✅ 已完成 | 脚注、定义列表、目录、YAML front matter |
-| 10. 性能优化 | � 进行中 | 基准测试和优化 |
-| 11. 文档和发布 | 📋 待开始 | 完善文档准备发布 |
+| 7. GFM 扩展 | ✅ 已完成 | 表格、删除线、任务列表 |
+| 8. 文档增强扩展 | ✅ 已完成 | 脚注、定义列表、目录、YAML front matter |
+| 9. 性能优化 | 🚧 进行中 | 基准测试和优化 |
+| 10. 文档和发布 | 📋 待开始 | 完善文档准备发布 |
 
 ## 测试统计
 
@@ -429,14 +417,14 @@ public interface HtmlRendererExtension {
 参考 flexmark 的 Node 设计，我们已实现：
 - 完善节点间的导航（parent、first_child、last_child、prev、next）
 - 提供完整的树操作方法（append_child、prepend_child、insert_after、insert_before、unlink）
-- 实现访问者模式（Visitor、NodeVisitor）
+- 使用 Arena-based 内存管理替代堆分配
 
 #### 2. 模块化
 已将工具类拆分为独立模块：
-- ast: AST 基础模块（Node、Visitor、工具函数）
-- ast_nodes: 节点类型系统（traits、extensions）
+- arena: AST 内存管理和树操作
+- iterator: AST 遍历和迭代
+- node: 节点类型定义（NodeType、NodeData）
 - config: 配置系统（DataKey、MutableDataSet）
-- compat: 兼容层（新旧系统桥接）
 
 #### 3. 功能实现路线图
 参考 flexmark 的扩展列表，clmd 已实现：

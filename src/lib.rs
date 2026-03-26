@@ -13,9 +13,6 @@ pub mod error;
 /// AST traversal and visitor patterns
 pub mod ast;
 
-/// AST node type definitions
-pub mod ast_nodes;
-
 /// HTML attributes handling
 pub mod attributes;
 
