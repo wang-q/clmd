@@ -7,6 +7,9 @@ pub mod abbreviation;
 /// and tree manipulation using arena allocation instead of Rc<RefCell>.
 pub mod arena;
 
+/// Error types and parsing limits
+pub mod error;
+
 /// AST traversal and visitor patterns
 pub mod ast;
 
@@ -96,8 +99,146 @@ pub mod toc;
 pub mod yaml_front_matter;
 
 pub use arena::{Node, NodeArena, NodeId, TreeOps};
+pub use error::{ParseError, ParseResult, ParserLimits, Position};
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
+
+/// A parsed Markdown document
+///
+/// This type provides a high-level API for parsing and rendering Markdown.
+/// It encapsulates the arena and root node, providing convenient methods
+/// for rendering to various formats.
+///
+/// # Example
+///
+/// ```
+/// use clmd::Document;
+///
+/// let doc = Document::parse("Hello *world*").unwrap();
+/// let html = doc.to_html();
+/// assert_eq!(html, "<p>Hello <em>world</em></p>");
+/// ```
+#[derive(Debug)]
+pub struct Document {
+    arena: NodeArena,
+    root: NodeId,
+}
+
+impl Document {
+    /// Parse a Markdown document with default options
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The Markdown text to parse
+    ///
+    /// # Returns
+    ///
+    /// A `ParseResult` containing the parsed document or an error
+    pub fn parse(input: &str) -> ParseResult<Self> {
+        Self::parse_with_options(input, options::DEFAULT)
+    }
+
+    /// Parse a Markdown document with custom options
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The Markdown text to parse
+    /// * `options` - Options for parsing
+    ///
+    /// # Returns
+    ///
+    /// A `ParseResult` containing the parsed document or an error
+    pub fn parse_with_options(input: &str, options: u32) -> ParseResult<Self> {
+        let mut arena = NodeArena::new();
+        let root = blocks::BlockParser::parse_with_options(&mut arena, input, options);
+        Ok(Document { arena, root })
+    }
+
+    /// Parse a Markdown document with custom limits
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The Markdown text to parse
+    /// * `limits` - Parser limits for input validation
+    ///
+    /// # Returns
+    ///
+    /// A `ParseResult` containing the parsed document or an error
+    pub fn parse_with_limits(input: &str, limits: ParserLimits) -> ParseResult<Self> {
+        let mut arena = NodeArena::new();
+        let root = blocks::BlockParser::parse_with_limits(&mut arena, input, options::DEFAULT, limits);
+        Ok(Document { arena, root })
+    }
+
+    /// Render the document to HTML
+    ///
+    /// # Returns
+    ///
+    /// The HTML output as a String
+    pub fn to_html(&self) -> String {
+        render::html::render(&self.arena, self.root, options::DEFAULT)
+    }
+
+    /// Render the document to HTML with custom options
+    ///
+    /// # Arguments
+    ///
+    /// * `options` - Options for rendering
+    ///
+    /// # Returns
+    ///
+    /// The HTML output as a String
+    pub fn to_html_with_options(&self, options: u32) -> String {
+        render::html::render(&self.arena, self.root, options)
+    }
+
+    /// Render the document to XML
+    ///
+    /// # Returns
+    ///
+    /// The XML output as a String
+    pub fn to_xml(&self) -> String {
+        render::xml::render(&self.arena, self.root, options::DEFAULT)
+    }
+
+    /// Render the document to CommonMark
+    ///
+    /// # Returns
+    ///
+    /// The CommonMark output as a String
+    pub fn to_commonmark(&self) -> String {
+        render::commonmark::render(&self.arena, self.root, options::DEFAULT)
+    }
+
+    /// Render the document to LaTeX
+    ///
+    /// # Returns
+    ///
+    /// The LaTeX output as a String
+    pub fn to_latex(&self) -> String {
+        render::latex::render(&self.arena, self.root, options::DEFAULT)
+    }
+
+    /// Get the root node ID
+    pub fn root(&self) -> NodeId {
+        self.root
+    }
+
+    /// Get a reference to the arena
+    pub fn arena(&self) -> &NodeArena {
+        &self.arena
+    }
+
+    /// Get a mutable reference to the arena
+    pub fn arena_mut(&mut self) -> &mut NodeArena {
+        &mut self.arena
+    }
+
+    /// Consume the document and return the arena and root node
+    pub fn into_parts(self) -> (NodeArena, NodeId) {
+        (self.arena, self.root)
+    }
+}
 
 /// Options for parsing and rendering
 pub mod options {

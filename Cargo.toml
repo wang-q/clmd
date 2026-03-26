@@ -24,3 +24,7 @@ harness = false
 [[bench]]
 name = "categorized_benchmark"
 harness = false
+
+[[bench]]
+name = "parse_benchmark"
+harness = false

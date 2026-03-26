@@ -161,6 +161,7 @@ impl std::fmt::Debug for Node {
 }
 
 /// Arena for allocating and managing nodes
+#[derive(Debug)]
 pub struct NodeArena {
     nodes: Vec<Node>,
 }

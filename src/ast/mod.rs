@@ -1,19 +1,7 @@
 //! AST module
 //!
-//! Provides the core AST node types and traversal utilities.
-//! Design inspired by flexmark-java's AST architecture.
-
-pub mod node;
-pub mod render_compat;
-pub mod util;
-pub mod visitor;
-
-pub use node::{ChildrenIterator, DescendantIterator, Node, SourcePos};
-pub use render_compat::{to_old_node, RenderAdapter, RenderExt};
-pub use util::{
-    collect_nodes, find_node, get_siblings, get_text_content, is_ancestor,
-    make_source_pos, merge_source_pos, node_depth, node_path_depths, replace_node,
-};
-pub use visitor::{
-    CollectingVisitor, FindVisitor, NodeVisitor, TransformVisitor, Visitor,
-};
+//! This module is deprecated. Use `crate::arena` and `crate::iterator` instead.
+//!
+//! The AST functionality has been moved to:
+//! - `crate::arena` - Arena-based node allocation
+//! - `crate::iterator` - AST traversal and iteration

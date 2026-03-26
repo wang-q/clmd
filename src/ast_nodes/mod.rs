@@ -1,27 +1,29 @@
-//! AST Node types
+//! AST Node types (DEPRECATED)
 //!
-//! Provides concrete node type implementations using a trait-based system.
-//! This module is designed to be similar to flexmark-java's AST architecture.
+//! **DEPRECATED**: This module is deprecated and will be removed in a future version.
+//! Please use the `node` module instead, which provides the actual AST node types
+//! used by the parser.
 //!
-//! # Architecture
+//! This module was an experimental trait-based node system that was never
+//! integrated into the main parser. The `node` module contains the real
+//! `NodeType` enum and `NodeData` structures used throughout the codebase.
 //!
-//! The node system is organized around several key traits:
+//! # Migration
 //!
-//! - `NodeType`: Core trait for all nodes, defines basic properties
-//! - `BlockNode`: Marker trait for block-level nodes
-//! - `InlineNode`: Marker trait for inline-level nodes
-//! - `Visitor`: Trait for visiting nodes in a type-safe manner
+//! Instead of using types from this module, use:
+//! - `crate::node::NodeType` - The actual node type enum
+//! - `crate::node::NodeData` - Node data variants
+//! - `crate::Node` - The node structure (re-exported at crate root)
+//! - `crate::arena::NodeId` - Node identifiers
 //!
 //! # Example
 //!
 //! ```
-//! use clmd::ast_nodes::{Document, Paragraph, Text, NodeType, BlockNode, InlineNode};
+//! use clmd::node::{NodeType, NodeData};
+//! use clmd::{Node, NodeArena, NodeId};
 //!
-//! let doc = Document;
-//! assert!(doc.is_block());
-//!
-//! let text = Text { literal: "Hello".to_string() };
-//! assert!(text.is_inline());
+//! let mut arena = NodeArena::new();
+//! let doc_id = arena.alloc(Node::new(NodeType::Document));
 //! ```
 
 pub mod block;

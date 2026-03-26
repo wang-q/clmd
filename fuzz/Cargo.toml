@@ -1,0 +1,27 @@
+[package]
+name = "clmd-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.clmd]
+path = ".."
+
+[[bin]]
+name = "fuzz_parse"
+path = "fuzz_targets/fuzz_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_render"
+path = "fuzz_targets/fuzz_render.rs"
+test = false
+doc = false

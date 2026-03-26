@@ -60,7 +60,7 @@ impl HtmlToMarkdown {
 
     fn convert(&mut self, html: &str) -> String {
         // Simple state machine parser for HTML
-        let mut chars = html.chars().peekable();
+        let chars = html.chars().peekable();
         let mut in_tag = false;
         let mut tag_name = String::new();
         let mut text_content = String::new();
@@ -206,20 +206,12 @@ impl HtmlToMarkdown {
         self.output.push_str("---\n\n");
     }
 
-    fn handle_emphasis(&mut self, marker: &str, is_closing: bool) {
-        if !is_closing {
-            self.output.push_str(marker);
-        } else {
-            self.output.push_str(marker);
-        }
+    fn handle_emphasis(&mut self, marker: &str, _is_closing: bool) {
+        self.output.push_str(marker);
     }
 
-    fn handle_code_inline(&mut self, is_closing: bool) {
-        if !is_closing {
-            self.output.push('`');
-        } else {
-            self.output.push('`');
-        }
+    fn handle_code_inline(&mut self, _is_closing: bool) {
+        self.output.push('`');
     }
 
     fn handle_code_block(&mut self, is_closing: bool) {

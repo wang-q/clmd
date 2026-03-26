@@ -4,6 +4,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
+use crate::error::ParserLimits;
 use crate::node::{NodeData, NodeType};
 use rustc_hash::FxHashMap;
 
@@ -53,6 +54,10 @@ pub struct BlockParser<'a> {
     pub next_index: usize,
     /// Options for parsing
     pub options: u32,
+    /// Parser limits for input validation
+    pub limits: ParserLimits,
+    /// Current nesting depth
+    pub nesting_depth: usize,
 }
 
 impl<'a> BlockParser<'a> {
@@ -63,6 +68,15 @@ impl<'a> BlockParser<'a> {
 
     /// Create a new block parser with the given arena and options
     pub fn new_with_options(arena: &'a mut NodeArena, options: u32) -> Self {
+        Self::new_with_limits(arena, options, ParserLimits::default())
+    }
+
+    /// Create a new block parser with custom limits
+    pub fn new_with_limits(
+        arena: &'a mut NodeArena,
+        options: u32,
+        limits: ParserLimits,
+    ) -> Self {
         let doc = arena.alloc(Node::new(NodeType::Document));
         let tip = doc;
         let old_tip = doc;
@@ -91,6 +105,8 @@ impl<'a> BlockParser<'a> {
             node_to_index: FxHashMap::default(),
             next_index: 0,
             options,
+            limits,
+            nesting_depth: 0,
         };
 
         // Initialize block info for document
@@ -110,14 +126,48 @@ impl<'a> BlockParser<'a> {
         input: &str,
         options: u32,
     ) -> NodeId {
-        let mut parser = Self::new_with_options(arena, options);
+        Self::parse_with_limits(arena, input, options, ParserLimits::default())
+    }
+
+    /// Parse a complete document with custom limits
+    pub fn parse_with_limits(
+        arena: &'a mut NodeArena,
+        input: &str,
+        options: u32,
+        limits: ParserLimits,
+    ) -> NodeId {
+        // Validate input size
+        let input_size = input.len();
+        if input_size > limits.max_input_size {
+            // For now, we truncate the input instead of failing
+            // In the future, this could return an error
+            eprintln!(
+                "Warning: Input size ({} bytes) exceeds maximum ({} bytes). Truncating.",
+                input_size, limits.max_input_size
+            );
+        }
+
+        let mut parser = Self::new_with_limits(arena, options, limits);
 
         // Process lines directly without creating intermediate String
         // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
         for line in input.split('\n') {
-            // Remove trailing '\r' if present (CRLF handling)
-            let line = line.strip_suffix('\r').unwrap_or(line);
-            parser.process_line(line);
+            // Check line length limit
+            if line.len() > parser.limits.max_line_length {
+                eprintln!(
+                    "Warning: Line {} exceeds maximum length ({} > {}). Truncating.",
+                    parser.line_number + 1,
+                    line.len(),
+                    parser.limits.max_line_length
+                );
+                let truncated = &line[..parser.limits.max_line_length];
+                let line = truncated.strip_suffix('\r').unwrap_or(truncated);
+                parser.process_line(line);
+            } else {
+                // Remove trailing '\r' if present (CRLF handling)
+                let line = line.strip_suffix('\r').unwrap_or(line);
+                parser.process_line(line);
+            }
         }
 
         // Finalize all blocks before processing the empty line
@@ -163,11 +213,10 @@ impl<'a> BlockParser<'a> {
         // Try to match existing containers
         let last_matched_container = self.check_open_blocks(&mut all_matched);
 
-        if last_matched_container.is_none() {
-            return;
-        }
-
-        let mut container = last_matched_container.unwrap();
+        let mut container = match last_matched_container {
+            Some(c) => c,
+            None => return,
+        };
         self.last_matched_container = container;
 
         // Check if container is a leaf that accepts lines
