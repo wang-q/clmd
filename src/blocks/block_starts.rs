@@ -304,9 +304,9 @@ impl<'a> BlockParser<'a> {
             }
 
             // Try thematic break
-            if !indented
-                && !(self.arena.get(current_container).node_type == NodeType::Paragraph
-                    && !all_matched)
+            if !(indented
+                || (self.arena.get(current_container).node_type == NodeType::Paragraph
+                    && !all_matched))
             {
                 let line = &self.current_line[self.next_nonspace..];
                 if self.scan_thematic_break(line) {
@@ -562,7 +562,7 @@ impl<'a> BlockParser<'a> {
                     || after.starts_with("/>")
                 {
                     // Don't match closing tags for type 1 tags (they end type 1 blocks)
-                    if !type1_end_tags.contains(&tag) {
+                    if !type1_end_tags.contains(tag) {
                         return true;
                     }
                 }

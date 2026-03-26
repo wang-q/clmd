@@ -6,7 +6,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::rc::Rc;
 
 /// A type-safe key for configuration values
 ///
@@ -180,14 +180,14 @@ fn clone_box(_value: &Box<dyn Any>) -> Box<dyn Any> {
 /// This is similar to flexmark-java's DataSet.
 #[derive(Debug)]
 pub struct DataSet {
-    data: Arc<HashMap<&'static str, Box<dyn Any>>>,
+    data: Rc<HashMap<&'static str, Box<dyn Any>>>,
 }
 
 impl DataSet {
     /// Create a new empty data set
     pub fn new() -> Self {
         Self {
-            data: Arc::new(HashMap::new()),
+            data: Rc::new(HashMap::new()),
         }
     }
 }
@@ -201,7 +201,7 @@ impl Default for DataSet {
 impl Clone for DataSet {
     fn clone(&self) -> Self {
         Self {
-            data: Arc::clone(&self.data),
+            data: Rc::clone(&self.data),
         }
     }
 }

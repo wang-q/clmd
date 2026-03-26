@@ -2,7 +2,6 @@
 ///
 /// The lexer processes input text line by line, tracking position information
 /// and providing helper methods for parsing.
-
 // Code indent threshold (4 spaces or 1 tab)
 pub const CODE_INDENT: usize = 4;
 

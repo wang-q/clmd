@@ -209,7 +209,7 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node::{NodeData, NodeType, SourcePos};
+    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_iterator_basic() {

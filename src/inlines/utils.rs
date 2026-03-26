@@ -255,9 +255,11 @@ pub fn normalize_uri(uri: &str) -> String {
 }
 
 /// Normalize a reference label for lookup
+///
 /// - Collapses internal whitespace to a single space
 /// - Removes leading/trailing whitespace
 /// - Converts to uppercase (for case-insensitive comparison)
+///
 /// Note: Does NOT unescape backslash escapes - [foo\!] and [foo!] are different labels
 pub fn normalize_reference(label: &str) -> String {
     // Remove surrounding brackets if present

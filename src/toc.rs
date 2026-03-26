@@ -13,7 +13,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node::{NodeData, NodeType};
+use crate::node::NodeData;
 
 /// A TOC entry representing a heading
 #[derive(Debug, Clone)]
@@ -197,6 +197,7 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::node::NodeType;
 
     #[test]
     fn test_is_toc_marker() {
