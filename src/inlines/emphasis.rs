@@ -299,16 +299,30 @@ fn rebuild_delimiter_stack(
     start_idx: usize,
 ) {
     // Keep delimiters before start_idx (stack bottom) and any unprocessed delimiters
-    // Unprocessed delimiters have num_delims > 0
+    // Unprocessed delimiters have num_delims > 0 AND are after start_idx
+    // For delimiters before start_idx, we keep them regardless of num_delims
+    // (they are part of the stack bottom)
     let delims_to_keep: Vec<_> = delims
         .into_iter()
         .enumerate()
-        .filter(|(idx, (_, _, _, _, _, num_delims, _))| *idx < start_idx || *num_delims > 0)
+        .filter(|(idx, (_, _, _, _, _, num_delims, _))| {
+            if *idx < start_idx {
+                // Keep stack bottom delimiters
+                true
+            } else {
+                // For delimiters after start_idx, only keep if they still have delims
+                // AND they were not processed (i.e., they didn't find a match)
+                // Actually, if num_delims > 0 but they didn't find a match,
+                // they should be removed from the stack (become regular text)
+                *num_delims > 0
+            }
+        })
         .map(|(_, delim)| delim)
         .collect();
 
     *delimiters = None;
-    for (node_id, char, can_open, can_close, orig_delims, num_delims, _processed) in delims_to_keep
+    for (node_id, char, can_open, can_close, orig_delims, num_delims, _processed) in
+        delims_to_keep
     {
         let delim = Box::new(Delimiter {
             previous: delimiters.take(),
@@ -491,17 +505,32 @@ pub fn process_emphasis(
                         let current_closer_num_delims = closer_num_delims;
 
                         // Calculate number of delimiters to use
-                        let use_delims = if current_opener_num_delims >= 2 && current_closer_num_delims >= 2 {
+                        let use_delims = if current_opener_num_delims >= 2
+                            && current_closer_num_delims >= 2
+                        {
                             2
                         } else {
                             1
                         };
 
-                        process_emphasis_pair(arena, &mut delims, opener_idx, closer_idx, use_delims);
+                        process_emphasis_pair(
+                            arena,
+                            &mut delims,
+                            opener_idx,
+                            closer_idx,
+                            use_delims,
+                        );
 
                         // Update delimiter counts
                         delims[opener_idx].5 -= use_delims;
                         delims[closer_idx].5 -= use_delims;
+
+                        // IMPORTANT: Set num_delims to 0 for all delimiters between opener and closer
+                        // These delimiters are now inside the emphasis node and should not be
+                        // processed as emphasis anymore
+                        for k in (opener_idx + 1)..closer_idx {
+                            delims[k].5 = 0;
+                        }
 
                         // Remove processed delimiters from vector if count is 0
                         // Remove closer first (higher index) to avoid index shifting issues
@@ -513,11 +542,12 @@ pub fn process_emphasis(
                         };
 
                         // Adjust opener_idx if closer was removed and opener was after closer
-                        let adjusted_opener_idx = if closer_removed && opener_idx > closer_idx {
-                            opener_idx - 1
-                        } else {
-                            opener_idx
-                        };
+                        let adjusted_opener_idx =
+                            if closer_removed && opener_idx > closer_idx {
+                                opener_idx - 1
+                            } else {
+                                opener_idx
+                            };
 
                         if delims[adjusted_opener_idx].5 == 0 {
                             delims.remove(adjusted_opener_idx);
@@ -557,16 +587,78 @@ pub fn process_emphasis(
 /// Remove delimiters that are inside a link from the delimiter stack
 /// This is called after processing emphasis inside link text
 /// The `stack_bottom_marker` identifies the delimiter that was the top of stack before the link opener
-/// After process_emphasis is called, all delimiters inside the link have been marked as processed
-/// We need to remove them from the stack, keeping only unprocessed delimiters
+/// After process_emphasis is called with the stack_bottom_marker, the delimiter stack
+/// should already only contain delimiters up to and including the stack_bottom.
+/// This function ensures any remaining delimiters inside the link are removed.
 pub fn remove_delimiters_inside_link(
-    _delimiters: &mut Option<Box<Delimiter>>,
-    _stack_bottom_marker: Option<(NodeId, usize)>,
+    delimiters: &mut Option<Box<Delimiter>>,
+    stack_bottom_marker: Option<(NodeId, usize)>,
 ) {
-    // Collect all unprocessed delimiters (those not inside the link)
-    // Since process_emphasis has already been called with the stack_bottom,
-    // all delimiters inside the link should have been processed and marked
-    // But in our current implementation, we rebuild the stack in process_emphasis
-    // So this function is effectively a no-op - the stack has already been rebuilt
-    // to only include delimiters up to stack_bottom
+    // If there's no stack bottom marker, remove all delimiters
+    let Some((stack_inl_text, stack_orig_delims)) = stack_bottom_marker else {
+        *delimiters = None;
+        return;
+    };
+
+    // Find the delimiter matching the stack_bottom_marker
+    // We need to find the delimiter with matching inl_text and orig_delims
+    // and keep only that delimiter and its predecessors
+    let mut found = false;
+
+    // First, check if the top of stack is the stack_bottom
+    if let Some(ref top) = delimiters {
+        if top.inl_text == stack_inl_text && top.orig_delims == stack_orig_delims {
+            // The top of stack is already the stack_bottom, nothing to remove
+            found = true;
+        }
+    }
+
+    if !found {
+        // We need to search through the stack to find where to truncate
+        // Since we can't easily traverse backwards in a singly-linked list,
+        // we'll collect all delimiters and rebuild the stack
+
+        // Collect all delimiters
+        let all_delims = collect_delimiters(delimiters);
+
+        // Find the index of the stack_bottom delimiter
+        let mut stack_bottom_idx = None;
+        for (idx, (inl_text, _, _, _, orig_delims, _, _)) in
+            all_delims.iter().enumerate()
+        {
+            if *inl_text == stack_inl_text && *orig_delims == stack_orig_delims {
+                stack_bottom_idx = Some(idx);
+                break;
+            }
+        }
+
+        // If we found the stack_bottom, keep only delimiters up to and including it
+        if let Some(idx) = stack_bottom_idx {
+            // Keep delimiters from 0 to idx (inclusive)
+            let delims_to_keep: SmallVec<[DelimInfo; 32]> =
+                all_delims.into_iter().take(idx + 1).collect();
+
+            // Rebuild the delimiter stack
+            *delimiters = None;
+            for (node_id, char, can_open, can_close, orig_delims, num_delims, _) in
+                delims_to_keep
+            {
+                let delim = Box::new(Delimiter {
+                    previous: delimiters.take(),
+                    inl_text: node_id,
+                    position: 0,
+                    num_delims,
+                    orig_delims,
+                    delim_char: char,
+                    can_open,
+                    can_close,
+                });
+                *delimiters = Some(delim);
+            }
+        } else {
+            // Stack bottom not found, this shouldn't happen in normal operation
+            // But to be safe, we clear all delimiters
+            *delimiters = None;
+        }
+    }
 }

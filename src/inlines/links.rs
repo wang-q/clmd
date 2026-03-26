@@ -2,7 +2,9 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::inlines::entities::unescape_string;
-use crate::inlines::utils::{is_escapable, is_punctuation, normalize_reference, normalize_uri};
+use crate::inlines::utils::{
+    is_escapable, is_punctuation, normalize_reference, normalize_uri,
+};
 use crate::node::{NodeData, NodeType};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
