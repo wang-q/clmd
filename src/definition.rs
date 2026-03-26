@@ -12,9 +12,8 @@
 //! : Another definition
 //! ```
 
-use crate::node::{append_child, Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos};
 
 /// A definition list entry
 #[derive(Debug, Clone)]
@@ -51,7 +50,7 @@ pub fn parse_definition_line(line: &str) -> Option<String> {
     }
 
     // Skip ':' and optional whitespace
-    let content = &trimmed[1..].trim_start();
+    let content = trimmed[1..].trim_start();
     Some(content.to_string())
 }
 
@@ -108,19 +107,24 @@ pub fn try_parse_definition_list(
     }
 }
 
-/// Create a definition list node
+/// Create a definition list node in the arena
+/// Returns the NodeId of the created list node
 pub fn create_definition_list_node(
+    arena: &mut NodeArena,
     entries: &[DefinitionEntry],
     start_line: u32,
     _start_col: u32,
-) -> Rc<RefCell<Node>> {
-    let list_node = Rc::new(RefCell::new(Node::new(NodeType::CustomBlock)));
-    {
-        let mut node_ref = list_node.borrow_mut();
-        node_ref.data = NodeData::CustomBlock {
+) -> NodeId {
+    let list_node = arena.alloc(Node::with_data(
+        NodeType::CustomBlock,
+        NodeData::CustomBlock {
             on_enter: "<dl>".to_string(),
             on_exit: "</dl>".to_string(),
-        };
+        },
+    ));
+
+    {
+        let node_ref = arena.get_mut(list_node);
         node_ref.source_pos = SourcePos {
             start_line,
             start_column: 1,
@@ -131,37 +135,45 @@ pub fn create_definition_list_node(
 
     for entry in entries {
         // Create term node (<dt>)
-        let term_node = Rc::new(RefCell::new(Node::new(NodeType::CustomInline)));
-        term_node.borrow_mut().data = NodeData::CustomInline {
-            on_enter: "<dt>".to_string(),
-            on_exit: "</dt>".to_string(),
-        };
+        let term_node = arena.alloc(Node::with_data(
+            NodeType::CustomInline,
+            NodeData::CustomInline {
+                on_enter: "<dt>".to_string(),
+                on_exit: "</dt>".to_string(),
+            },
+        ));
 
         // Create text node for term
-        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        text_node.borrow_mut().data = NodeData::Text {
-            literal: entry.term.clone(),
-        };
+        let text_node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: entry.term.clone(),
+            },
+        ));
 
-        append_child(&term_node, text_node);
-        append_child(&list_node, term_node);
+        TreeOps::append_child(arena, term_node, text_node);
+        TreeOps::append_child(arena, list_node, term_node);
 
         // Create definition nodes (<dd>)
         for def in &entry.definitions {
-            let def_node = Rc::new(RefCell::new(Node::new(NodeType::CustomInline)));
-            def_node.borrow_mut().data = NodeData::CustomInline {
-                on_enter: "<dd>".to_string(),
-                on_exit: "</dd>".to_string(),
-            };
+            let def_node = arena.alloc(Node::with_data(
+                NodeType::CustomInline,
+                NodeData::CustomInline {
+                    on_enter: "<dd>".to_string(),
+                    on_exit: "</dd>".to_string(),
+                },
+            ));
 
             // Create text node for definition
-            let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-            text_node.borrow_mut().data = NodeData::Text {
-                literal: def.clone(),
-            };
+            let text_node = arena.alloc(Node::with_data(
+                NodeType::Text,
+                NodeData::Text {
+                    literal: def.clone(),
+                },
+            ));
 
-            append_child(&def_node, text_node);
-            append_child(&list_node, def_node);
+            TreeOps::append_child(arena, def_node, text_node);
+            TreeOps::append_child(arena, list_node, def_node);
         }
     }
 
@@ -269,6 +281,19 @@ mod tests {
         assert_eq!(entries[0].term, "Term 1");
         assert_eq!(entries[0].definitions.len(), 2);
         assert_eq!(entries[1].term, "Term 2");
+    }
+
+    #[test]
+    fn test_create_definition_list_node() {
+        let entries = vec![DefinitionEntry {
+            term: "Term".to_string(),
+            definitions: vec!["Definition".to_string()],
+        }];
+
+        let mut arena = NodeArena::new();
+        let node_id = create_definition_list_node(&mut arena, &entries, 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::CustomBlock);
     }
 
     #[test]

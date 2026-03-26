@@ -1,4 +1,8 @@
-//! AST Node base class
+//! AST Node base class (deprecated)
+//!
+//! ⚠️ **DEPRECATED**: This module is deprecated. Use `crate::arena::Node` instead.
+//!
+//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
 //!
 //! Design inspired by flexmark-java's Node class.
 //! Provides a doubly-linked tree structure with parent-child relationships.

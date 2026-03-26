@@ -1,4 +1,8 @@
-//! AST utility functions
+//! AST utility functions (deprecated)
+//!
+//! ⚠️ **DEPRECATED**: This module is deprecated. Use `crate::arena::TreeOps` instead.
+//!
+//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
 //!
 //! Provides helper functions for common AST operations.
 

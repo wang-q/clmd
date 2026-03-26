@@ -96,7 +96,7 @@ pub mod toc;
 pub mod yaml_front_matter;
 
 pub use arena::{Node, NodeArena, NodeId, TreeOps};
-pub use iterator::{NodeIterator, NodeWalker};
+pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
 
 /// Options for parsing and rendering

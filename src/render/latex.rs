@@ -1,3 +1,9 @@
+//! LaTeX renderer (deprecated)
+//!
+//! ⚠️ **DEPRECATED**: This module is deprecated. Use Arena-based rendering instead.
+//!
+//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
+
 use crate::iterator::{NodeWalker, WalkerEvent};
 use crate::node::{ListType, Node, NodeData, NodeType};
 use std::cell::RefCell;

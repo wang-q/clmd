@@ -1,3 +1,9 @@
+//! HTML renderer (deprecated)
+//!
+//! ⚠️ **DEPRECATED**: This module is deprecated. Use `crate::render::arena_html` instead.
+//!
+//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
+
 use crate::html_utils::{escape_html, is_safe_url};
 use crate::iterator::{NodeWalker, WalkerEvent};
 use crate::node::{Node, NodeData, NodeType, SourcePos};

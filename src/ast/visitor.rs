@@ -1,4 +1,8 @@
-//! Visitor pattern for AST traversal
+//! Visitor pattern for AST traversal (deprecated)
+//!
+//! ⚠️ **DEPRECATED**: This module is deprecated. Use `crate::iterator::ArenaNodeWalker` instead.
+//!
+//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
 //!
 //! Design inspired by flexmark-java's Visitor pattern.
 //! Provides a flexible way to traverse and operate on the AST.
