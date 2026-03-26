@@ -270,10 +270,7 @@ pub fn normalize_reference(label: &str) -> String {
     // Normalize whitespace: collapse all whitespace sequences to a single space
     // Note: We do NOT unescape here - backslash escapes are preserved in link labels
     // per CommonMark spec. So "foo\!" stays as "foo\!", not "foo!"
-    let normalized = label
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+    let normalized = label.split_whitespace().collect::<Vec<_>>().join(" ");
 
     // Unicode case folding: to_lowercase().to_uppercase() matches commonmark.js behavior
     // This properly handles characters like ß which folds to SS

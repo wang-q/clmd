@@ -242,7 +242,8 @@ pub fn process_autolinks(
         }
 
         // Add autolink node
-        let link_node = create_autolink_node(arena, &url, is_email, line, col + start as u32);
+        let link_node =
+            create_autolink_node(arena, &url, is_email, line, col + start as u32);
         nodes.push(link_node);
 
         last_end = end;
@@ -329,7 +330,8 @@ mod tests {
     #[test]
     fn test_create_autolink_node() {
         let mut arena = NodeArena::new();
-        let node_id = create_autolink_node(&mut arena, "https://example.com", false, 1, 1);
+        let node_id =
+            create_autolink_node(&mut arena, "https://example.com", false, 1, 1);
         let node = arena.get(node_id);
         assert_eq!(node.node_type, NodeType::Link);
 
@@ -358,7 +360,8 @@ mod tests {
     #[test]
     fn test_process_autolinks() {
         let mut arena = NodeArena::new();
-        let nodes = process_autolinks(&mut arena, "Visit https://example.com today", 1, 1);
+        let nodes =
+            process_autolinks(&mut arena, "Visit https://example.com today", 1, 1);
         assert_eq!(nodes.len(), 3); // text, link, text
 
         assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);

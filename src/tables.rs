@@ -59,10 +59,9 @@ pub fn is_delimiter_row(line: &str) -> bool {
         }
 
         // Check for trailing :
-        if i < bytes.len()
-            && (bytes[i] != b':' || i != bytes.len() - 1) {
-                return false;
-            }
+        if i < bytes.len() && (bytes[i] != b':' || i != bytes.len() - 1) {
+            return false;
+        }
 
         valid_cells += 1;
     }
@@ -185,10 +184,8 @@ pub fn try_parse_table(
     }
 
     // Create table head
-    let thead_node = arena.alloc(Node::with_data(
-        NodeType::TableHead,
-        NodeData::TableHead,
-    ));
+    let thead_node =
+        arena.alloc(Node::with_data(NodeType::TableHead, NodeData::TableHead));
     {
         let thead = arena.get_mut(thead_node);
         thead.source_pos = SourcePos {
@@ -253,10 +250,7 @@ pub fn try_parse_table(
         let row_cells = parse_row_cells(line);
         let row_line_num = start_line + 2 + i;
 
-        let row = arena.alloc(Node::with_data(
-            NodeType::TableRow,
-            NodeData::TableRow,
-        ));
+        let row = arena.alloc(Node::with_data(NodeType::TableRow, NodeData::TableRow));
         {
             let r = arena.get_mut(row);
             r.source_pos = SourcePos {
@@ -273,7 +267,10 @@ pub fn try_parse_table(
                 NodeType::TableCell,
                 NodeData::TableCell {
                     column_index: j,
-                    alignment: alignments.get(j).copied().unwrap_or(TableAlignment::None),
+                    alignment: alignments
+                        .get(j)
+                        .copied()
+                        .unwrap_or(TableAlignment::None),
                     is_header: false,
                 },
             ));

@@ -99,10 +99,8 @@ impl<'a> BlockParser<'a> {
 
                         // Remove closing sequence using regex-like logic
                         // Pattern 1: ^[ \t]*#+[ \t]*$ - content is only whitespace + #s
-                        let trimmed_start =
-                            content.trim_start_matches([' ', '\t']);
-                        let trimmed_end = trimmed_start
-                            .trim_end_matches([' ', '\t']);
+                        let trimmed_start = content.trim_start_matches([' ', '\t']);
+                        let trimmed_end = trimmed_start.trim_end_matches([' ', '\t']);
                         if trimmed_end.chars().all(|c| c == '#')
                             && !trimmed_end.is_empty()
                         {
@@ -154,9 +152,7 @@ impl<'a> BlockParser<'a> {
                         }
 
                         // Trim leading whitespace from content
-                        content = content
-                            .trim_start_matches([' ', '\t'])
-                            .to_string();
+                        content = content.trim_start_matches([' ', '\t']).to_string();
 
                         let heading =
                             self.add_child(NodeType::Heading, self.next_nonspace);
@@ -430,11 +426,13 @@ impl<'a> BlockParser<'a> {
         }
 
         // Type 7: Complete HTML tag (cannot interrupt paragraph, not lazy)
-        if line.starts_with('<') && !maybe_lazy
+        if line.starts_with('<')
+            && !maybe_lazy
             && self.arena.get(container).node_type != NodeType::Paragraph
-                && self.is_valid_html_tag_type7(line) {
-                    return Some(7);
-                }
+            && self.is_valid_html_tag_type7(line)
+        {
+            return Some(7);
+        }
 
         None
     }
@@ -889,8 +887,7 @@ impl<'a> BlockParser<'a> {
                     let spaces_after_marker = self.column - spaces_start_col;
 
                     let padding;
-                    if !(1..5).contains(&spaces_after_marker) || blank_item
-                    {
+                    if !(1..5).contains(&spaces_after_marker) || blank_item {
                         padding = 2; // marker length (1) + 1 space
                         self.column = spaces_start_col;
                         self.offset = spaces_start_offset;
@@ -974,9 +971,7 @@ impl<'a> BlockParser<'a> {
                         let spaces_after_marker = self.column - spaces_start_col;
 
                         let padding;
-                        if !(1..5).contains(&spaces_after_marker)
-                            || blank_item
-                        {
+                        if !(1..5).contains(&spaces_after_marker) || blank_item {
                             padding = digits.len() + 2; // marker length + 1 space
                             self.column = spaces_start_col;
                             self.offset = spaces_start_offset;

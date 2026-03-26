@@ -10,9 +10,8 @@
 //! - [X] Also checked task
 //! ```
 
-use crate::node::{Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos};
 
 /// Check if a string is a task list item marker
 /// Returns Some(checked) if it's a task item, None otherwise
@@ -55,17 +54,22 @@ pub fn extract_task_marker(text: &str) -> Option<(bool, &str)> {
     None
 }
 
-/// Create a task item node
+/// Create a task item node in the arena
+/// Returns the NodeId of the created node
 pub fn create_task_item(
+    arena: &mut NodeArena,
     checked: bool,
     content: &str,
     line: u32,
     col: u32,
-) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::TaskItem)));
+) -> NodeId {
+    let node = arena.alloc(Node::with_data(
+        NodeType::TaskItem,
+        NodeData::TaskItem { checked },
+    ));
+
     {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::TaskItem { checked };
+        let node_ref = arena.get_mut(node);
         node_ref.source_pos = SourcePos {
             start_line: line,
             start_column: col,
@@ -76,11 +80,13 @@ pub fn create_task_item(
 
     // Create text node for the content
     if !content.is_empty() {
-        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        text_node.borrow_mut().data = NodeData::Text {
-            literal: content.to_string(),
-        };
-        crate::node::append_child(&node, text_node);
+        let text_node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: content.to_string(),
+            },
+        ));
+        TreeOps::append_child(arena, node, text_node);
     }
 
     node
@@ -168,10 +174,11 @@ mod tests {
 
     #[test]
     fn test_create_task_item() {
-        let node = create_task_item(true, "task content", 1, 1);
-        let node_ref = node.borrow();
-        assert_eq!(node_ref.node_type, NodeType::TaskItem);
-        match &node_ref.data {
+        let mut arena = NodeArena::new();
+        let node_id = create_task_item(&mut arena, true, "task content", 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::TaskItem);
+        match &node.data {
             NodeData::TaskItem { checked } => {
                 assert!(*checked);
             }

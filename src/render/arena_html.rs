@@ -4,8 +4,8 @@
 //! It replaces the previous Rc<RefCell>-based renderer with a more efficient implementation.
 
 use crate::arena::{NodeArena, NodeId};
-use crate::html_utils::{escape_html, is_safe_url};
 use crate::html_utils::entities::decode_entities;
+use crate::html_utils::{escape_html, is_safe_url};
 use crate::node::{NodeData, NodeType, SourcePos};
 
 /// Render an Arena-based AST to HTML
@@ -69,14 +69,14 @@ impl<'a> ArenaHtmlRenderer<'a> {
 
         if entering {
             self.enter_node(node_id);
-            
+
             // Render children
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 self.render_node(child_id, true);
                 child_opt = self.arena.get(child_id).next;
             }
-            
+
             self.exit_node(node_id);
         }
     }
@@ -99,7 +99,10 @@ impl<'a> ArenaHtmlRenderer<'a> {
                 self.tight_list_stack.push(false);
             }
             NodeType::List => {
-                if let NodeData::List { list_type, tight, .. } = &node.data {
+                if let NodeData::List {
+                    list_type, tight, ..
+                } = &node.data
+                {
                     self.tight_list_stack.push(*tight);
                     self.cr();
                     match list_type {
@@ -273,7 +276,10 @@ impl<'a> ArenaHtmlRenderer<'a> {
                     self.disable_tags += 1;
                 }
             }
-            NodeType::Table | NodeType::TableHead | NodeType::TableRow | NodeType::TableCell => {
+            NodeType::Table
+            | NodeType::TableHead
+            | NodeType::TableRow
+            | NodeType::TableCell => {
                 // Table rendering not yet implemented for Arena
             }
             NodeType::Strikethrough => {
@@ -367,7 +373,10 @@ impl<'a> ArenaHtmlRenderer<'a> {
                     }
                 }
             }
-            NodeType::Table | NodeType::TableHead | NodeType::TableRow | NodeType::TableCell => {}
+            NodeType::Table
+            | NodeType::TableHead
+            | NodeType::TableRow
+            | NodeType::TableCell => {}
             NodeType::Strikethrough => {
                 self.lit("</del>");
             }

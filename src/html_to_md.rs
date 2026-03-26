@@ -12,15 +12,13 @@
 //! ```
 
 /// HTML element conversion rules
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ConversionRules {
     /// Whether to wrap text at certain column
     pub wrap_column: Option<usize>,
     /// Whether to convert <br> to two spaces + newline
     pub hard_breaks: bool,
 }
-
 
 /// Convert HTML to Markdown
 pub fn convert(html: &str) -> String {

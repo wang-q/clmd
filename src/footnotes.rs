@@ -15,10 +15,9 @@
 //! Here is some text with an inline footnote^[This is the footnote content.].
 //! ```
 
-use crate::node::{append_child, Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// A footnote reference in the text: [^label]
 #[derive(Debug, Clone)]
@@ -154,15 +153,24 @@ pub fn parse_footnote_def(line: &str) -> Option<(String, String)> {
     Some((label, content))
 }
 
-/// Create a footnote reference node
-pub fn create_footnote_ref_node(label: &str, line: u32, col: u32) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::FootnoteRef)));
-    {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::FootnoteRef {
+/// Create a footnote reference node in the arena
+/// Returns the NodeId of the created node
+pub fn create_footnote_ref_node(
+    arena: &mut NodeArena,
+    label: &str,
+    line: u32,
+    col: u32,
+) -> NodeId {
+    let node = arena.alloc(Node::with_data(
+        NodeType::FootnoteRef,
+        NodeData::FootnoteRef {
             label: label.to_string(),
             ordinal: 0, // Will be assigned during rendering
-        };
+        },
+    ));
+
+    {
+        let node_ref = arena.get_mut(node);
         node_ref.source_pos = SourcePos {
             start_line: line,
             start_column: col,
@@ -170,24 +178,30 @@ pub fn create_footnote_ref_node(label: &str, line: u32, col: u32) -> Rc<RefCell<
             end_column: col + label.len() as u32 + 4, // +4 for [^ and ]
         };
     }
+
     node
 }
 
-/// Create a footnote definition node
+/// Create a footnote definition node in the arena
+/// Returns the NodeId of the created node
 pub fn create_footnote_def_node(
+    arena: &mut NodeArena,
     label: &str,
     content: &str,
     line: u32,
     col: u32,
-) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::FootnoteDef)));
-    {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::FootnoteDef {
+) -> NodeId {
+    let node = arena.alloc(Node::with_data(
+        NodeType::FootnoteDef,
+        NodeData::FootnoteDef {
             label: label.to_string(),
             ordinal: 0, // Will be assigned during rendering
             ref_count: 0,
-        };
+        },
+    ));
+
+    {
+        let node_ref = arena.get_mut(node);
         node_ref.source_pos = SourcePos {
             start_line: line,
             start_column: col,
@@ -198,11 +212,13 @@ pub fn create_footnote_def_node(
 
     // Create text node for the content
     if !content.is_empty() {
-        let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        text_node.borrow_mut().data = NodeData::Text {
-            literal: content.to_string(),
-        };
-        append_child(&node, text_node);
+        let text_node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: content.to_string(),
+            },
+        ));
+        TreeOps::append_child(arena, node, text_node);
     }
 
     node
@@ -403,6 +419,36 @@ mod tests {
         // Get referenced footnotes
         let referenced = registry.get_referenced_footnotes();
         assert_eq!(referenced.len(), 2);
+    }
+
+    #[test]
+    fn test_create_footnote_ref_node() {
+        let mut arena = NodeArena::new();
+        let node_id = create_footnote_ref_node(&mut arena, "1", 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::FootnoteRef);
+
+        match &node.data {
+            NodeData::FootnoteRef { label, .. } => {
+                assert_eq!(label, "1");
+            }
+            _ => panic!("Expected FootnoteRef data"),
+        }
+    }
+
+    #[test]
+    fn test_create_footnote_def_node() {
+        let mut arena = NodeArena::new();
+        let node_id = create_footnote_def_node(&mut arena, "1", "content", 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::FootnoteDef);
+
+        match &node.data {
+            NodeData::FootnoteDef { label, .. } => {
+                assert_eq!(label, "1");
+            }
+            _ => panic!("Expected FootnoteDef data"),
+        }
     }
 
     #[test]

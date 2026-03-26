@@ -144,8 +144,7 @@ pub struct SourcePos {
 }
 
 /// Table cell alignment
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TableAlignment {
     #[default]
     None,
@@ -153,7 +152,6 @@ pub enum TableAlignment {
     Center,
     Right,
 }
-
 
 /// Node data variants
 #[derive(Debug, Clone, PartialEq, Eq)]

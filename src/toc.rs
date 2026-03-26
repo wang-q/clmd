@@ -12,9 +12,8 @@
 //! <!-- TOC -->
 //! ```
 
-use crate::node::{Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{NodeArena, NodeId};
+use crate::node::{NodeData, NodeType};
 
 /// A TOC entry representing a heading
 #[derive(Debug, Clone)]
@@ -67,79 +66,52 @@ pub fn generate_anchor(text: &str) -> String {
     anchor
 }
 
-/// Extract text content from a heading node
-pub fn extract_heading_text(node: &Rc<RefCell<Node>>) -> String {
+/// Extract text content from a heading node in the arena
+pub fn extract_heading_text(arena: &NodeArena, node_id: NodeId) -> String {
     let mut text = String::new();
 
     // Recursively collect text from children
-    fn collect_text(node: &Rc<RefCell<Node>>, text: &mut String) {
-        let node_ref = node.borrow();
+    fn collect_text(arena: &NodeArena, node_id: NodeId, text: &mut String) {
+        let node = arena.get(node_id);
 
-        if let NodeData::Text { literal } = &node_ref.data {
+        if let NodeData::Text { literal } = &node.data {
             text.push_str(literal);
         }
 
         // Process children
-        let first_child_opt = {
-            let node_ref = node.borrow();
-            let child = node_ref.first_child.borrow().as_ref().cloned();
-            child
-        };
-
-        if let Some(first_child) = first_child_opt {
-            collect_text(&first_child, text);
-
-            // Collect siblings
-            let first_next = {
-                let child_ref = first_child.borrow();
-                let next = child_ref.next.borrow().as_ref().cloned();
-                next
-            };
-            let mut current_opt = first_next;
-            while let Some(current) = current_opt {
-                collect_text(&current, text);
-                let next_opt = {
-                    let curr_ref = current.borrow();
-                    let next = curr_ref.next.borrow().as_ref().cloned();
-                    next
-                };
-                current_opt = next_opt;
-            }
+        let mut current_opt = node.first_child;
+        while let Some(child_id) = current_opt {
+            collect_text(arena, child_id, text);
+            current_opt = arena.get(child_id).next;
         }
     }
 
-    let first_child_opt = {
-        let node_ref = node.borrow();
-        let child = node_ref.first_child.borrow().as_ref().cloned();
-        child
-    };
-    if let Some(first_child) = first_child_opt {
-        collect_text(&first_child, &mut text);
+    let node = arena.get(node_id);
+    if let Some(first_child) = node.first_child {
+        collect_text(arena, first_child, &mut text);
     }
 
     text
 }
 
-/// Build TOC entries from document headings
-pub fn build_toc(document: &Rc<RefCell<Node>>) -> Vec<TocEntry> {
+/// Build TOC entries from document headings in the arena
+pub fn build_toc(arena: &NodeArena, document_id: NodeId) -> Vec<TocEntry> {
     let mut entries = Vec::new();
 
-    fn collect_headings(node: &Rc<RefCell<Node>>, entries: &mut Vec<TocEntry>) {
-        // Check if this is a heading
-        let is_heading = {
-            let node_ref = node.borrow();
-            matches!(node_ref.data, NodeData::Heading { .. })
-        };
+    fn collect_headings(
+        arena: &NodeArena,
+        node_id: NodeId,
+        entries: &mut Vec<TocEntry>,
+    ) {
+        let node = arena.get(node_id);
 
-        if is_heading {
-            let text = extract_heading_text(node);
+        // Check if this is a heading
+        if matches!(node.data, NodeData::Heading { .. }) {
+            let text = extract_heading_text(arena, node_id);
             let anchor = generate_anchor(&text);
-            let level = {
-                let node_ref = node.borrow();
-                match &node_ref.data {
-                    NodeData::Heading { level, .. } => *level,
-                    _ => 1,
-                }
+            let level = match &node.data {
+                NodeData::Heading { level, .. } => *level,
+                _ => 1,
             };
 
             entries.push(TocEntry {
@@ -150,35 +122,14 @@ pub fn build_toc(document: &Rc<RefCell<Node>>) -> Vec<TocEntry> {
         }
 
         // Process children
-        let first_child_opt = {
-            let node_ref = node.borrow();
-            let child = node_ref.first_child.borrow().as_ref().cloned();
-            child
-        };
-
-        if let Some(first_child) = first_child_opt {
-            collect_headings(&first_child, entries);
-
-            // Collect siblings
-            let first_next = {
-                let child_ref = first_child.borrow();
-                let next = child_ref.next.borrow().as_ref().cloned();
-                next
-            };
-            let mut current_opt = first_next;
-            while let Some(current) = current_opt {
-                collect_headings(&current, entries);
-                let next_opt = {
-                    let curr_ref = current.borrow();
-                    let next = curr_ref.next.borrow().as_ref().cloned();
-                    next
-                };
-                current_opt = next_opt;
-            }
+        let mut current_opt = node.first_child;
+        while let Some(child_id) = current_opt {
+            collect_headings(arena, child_id, entries);
+            current_opt = arena.get(child_id).next;
         }
     }
 
-    collect_headings(document, &mut entries);
+    collect_headings(arena, document_id, &mut entries);
     entries
 }
 
@@ -242,28 +193,10 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
     md
 }
 
-/// Create a TOC placeholder node
-pub fn create_toc_node(line: u32, col: u32) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::CustomBlock)));
-    {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::CustomBlock {
-            on_enter: "<nav class=\"toc\">".to_string(),
-            on_exit: "</nav>".to_string(),
-        };
-        node_ref.source_pos = SourcePos {
-            start_line: line,
-            start_column: col,
-            end_line: line,
-            end_column: col + 5, // [TOC] is 5 chars
-        };
-    }
-    node
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arena::{Node, NodeArena, TreeOps};
 
     #[test]
     fn test_is_toc_marker() {
@@ -283,6 +216,59 @@ mod tests {
         assert_eq!(generate_anchor("Special!@#Chars"), "specialchars");
         assert_eq!(generate_anchor("123 Number"), "h-123-number");
         assert_eq!(generate_anchor(""), "heading");
+    }
+
+    #[test]
+    fn test_extract_heading_text() {
+        let mut arena = NodeArena::new();
+        let heading = arena.alloc(Node::with_data(
+            NodeType::Heading,
+            NodeData::Heading {
+                level: 1,
+                content: "Test Heading".to_string(),
+            },
+        ));
+        let text = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: "Test Heading".to_string(),
+            },
+        ));
+        TreeOps::append_child(&mut arena, heading, text);
+
+        let extracted = extract_heading_text(&arena, heading);
+        assert_eq!(extracted, "Test Heading");
+    }
+
+    #[test]
+    fn test_build_toc() {
+        let mut arena = NodeArena::new();
+        let doc = arena.alloc(Node::new(NodeType::Document));
+
+        // Create headings
+        for i in 1..=3 {
+            let heading = arena.alloc(Node::with_data(
+                NodeType::Heading,
+                NodeData::Heading {
+                    level: i,
+                    content: format!("Heading {}", i),
+                },
+            ));
+            let text = arena.alloc(Node::with_data(
+                NodeType::Text,
+                NodeData::Text {
+                    literal: format!("Heading {}", i),
+                },
+            ));
+            TreeOps::append_child(&mut arena, heading, text);
+            TreeOps::append_child(&mut arena, doc, heading);
+        }
+
+        let entries = build_toc(&arena, doc);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].level, 1);
+        assert_eq!(entries[1].level, 2);
+        assert_eq!(entries[2].level, 3);
     }
 
     #[test]

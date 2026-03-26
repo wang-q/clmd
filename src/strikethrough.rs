@@ -8,9 +8,8 @@
 //! This is ~~deleted~~ text.
 //! ```
 
-use crate::node::{Node, NodeData, NodeType, SourcePos};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::node::{NodeData, NodeType, SourcePos};
 
 /// The tilde character used for strikethrough
 pub const STRIKETHROUGH_DELIM: char = '~';
@@ -62,16 +61,21 @@ pub fn parse_strikethrough_spans(text: &str) -> Vec<(usize, usize)> {
     spans
 }
 
-/// Create a strikethrough node containing the given text
+/// Create a strikethrough node in the arena containing the given text
+/// Returns the NodeId of the created node
 pub fn create_strikethrough_node(
+    arena: &mut NodeArena,
     text: &str,
     start_line: u32,
     start_col: u32,
-) -> Rc<RefCell<Node>> {
-    let node = Rc::new(RefCell::new(Node::new(NodeType::Strikethrough)));
+) -> NodeId {
+    let node = arena.alloc(Node::with_data(
+        NodeType::Strikethrough,
+        NodeData::Strikethrough,
+    ));
+
     {
-        let mut node_ref = node.borrow_mut();
-        node_ref.data = NodeData::Strikethrough;
+        let node_ref = arena.get_mut(node);
         node_ref.source_pos = SourcePos {
             start_line,
             start_column: start_col,
@@ -81,27 +85,36 @@ pub fn create_strikethrough_node(
     }
 
     // Create text node for the content
-    let text_node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-    text_node.borrow_mut().data = NodeData::Text {
-        literal: text.to_string(),
-    };
+    let text_node = arena.alloc(Node::with_data(
+        NodeType::Text,
+        NodeData::Text {
+            literal: text.to_string(),
+        },
+    ));
 
     // Add text node as child
-    crate::node::append_child(&node, text_node);
+    TreeOps::append_child(arena, node, text_node);
 
     node
 }
 
-/// Process text for strikethrough and return a list of nodes
+/// Process text for strikethrough and return a list of node IDs
 /// This splits the text into regular text nodes and strikethrough nodes
-pub fn process_strikethrough(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<Node>>> {
+pub fn process_strikethrough(
+    arena: &mut NodeArena,
+    text: &str,
+    line: u32,
+    col: u32,
+) -> Vec<NodeId> {
     let spans = parse_strikethrough_spans(text);
     if spans.is_empty() {
         // No strikethrough found, return single text node
-        let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        node.borrow_mut().data = NodeData::Text {
-            literal: text.to_string(),
-        };
+        let node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: text.to_string(),
+            },
+        ));
         return vec![node];
     }
 
@@ -113,10 +126,12 @@ pub fn process_strikethrough(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<
         if start > last_end + STRIKETHROUGH_COUNT {
             let before_text = &text[last_end..start - STRIKETHROUGH_COUNT];
             if !before_text.is_empty() {
-                let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-                node.borrow_mut().data = NodeData::Text {
-                    literal: before_text.to_string(),
-                };
+                let node = arena.alloc(Node::with_data(
+                    NodeType::Text,
+                    NodeData::Text {
+                        literal: before_text.to_string(),
+                    },
+                ));
                 nodes.push(node);
             }
         }
@@ -124,7 +139,7 @@ pub fn process_strikethrough(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<
         // Add strikethrough node
         let strike_text = &text[start..end];
         let strike_node =
-            create_strikethrough_node(strike_text, line, col + start as u32);
+            create_strikethrough_node(arena, strike_text, line, col + start as u32);
         nodes.push(strike_node);
 
         last_end = end + STRIKETHROUGH_COUNT;
@@ -133,10 +148,12 @@ pub fn process_strikethrough(text: &str, line: u32, col: u32) -> Vec<Rc<RefCell<
     // Add remaining text after last strikethrough (if any)
     if last_end < text.len() {
         let after_text = &text[last_end..];
-        let node = Rc::new(RefCell::new(Node::new(NodeType::Text)));
-        node.borrow_mut().data = NodeData::Text {
-            literal: after_text.to_string(),
-        };
+        let node = arena.alloc(Node::with_data(
+            NodeType::Text,
+            NodeData::Text {
+                literal: after_text.to_string(),
+            },
+        ));
         nodes.push(node);
     }
 
@@ -195,10 +212,11 @@ mod tests {
 
     #[test]
     fn test_create_strikethrough_node() {
-        let node = create_strikethrough_node("deleted", 1, 1);
-        let node_ref = node.borrow();
-        assert_eq!(node_ref.node_type, NodeType::Strikethrough);
-        match &node_ref.data {
+        let mut arena = NodeArena::new();
+        let node_id = create_strikethrough_node(&mut arena, "deleted", 1, 1);
+        let node = arena.get(node_id);
+        assert_eq!(node.node_type, NodeType::Strikethrough);
+        match &node.data {
             NodeData::Strikethrough => {}
             _ => panic!("Expected Strikethrough data"),
         }
@@ -206,19 +224,21 @@ mod tests {
 
     #[test]
     fn test_process_strikethrough() {
-        let nodes = process_strikethrough("This is ~~deleted~~ text", 1, 1);
+        let mut arena = NodeArena::new();
+        let nodes = process_strikethrough(&mut arena, "This is ~~deleted~~ text", 1, 1);
         assert_eq!(nodes.len(), 3); // text, strikethrough, text
 
-        assert_eq!(nodes[0].borrow().node_type, NodeType::Text);
-        assert_eq!(nodes[1].borrow().node_type, NodeType::Strikethrough);
-        assert_eq!(nodes[2].borrow().node_type, NodeType::Text);
+        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
+        assert_eq!(arena.get(nodes[1]).node_type, NodeType::Strikethrough);
+        assert_eq!(arena.get(nodes[2]).node_type, NodeType::Text);
     }
 
     #[test]
     fn test_process_no_strikethrough() {
-        let nodes = process_strikethrough("normal text", 1, 1);
+        let mut arena = NodeArena::new();
+        let nodes = process_strikethrough(&mut arena, "normal text", 1, 1);
         assert_eq!(nodes.len(), 1);
-        assert_eq!(nodes[0].borrow().node_type, NodeType::Text);
+        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
     }
 
     #[test]
