@@ -188,14 +188,13 @@ pub fn render_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
 ///
 /// * `arena` - The node arena containing the AST
 /// * `root` - The root node ID
-/// * `_options` - Options for rendering (currently unused)
+/// * `options` - Options for rendering
 ///
 /// # Returns
 ///
 /// The XML output as a String
-pub fn render_xml(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
-    // TODO: Implement XML renderer for Arena
-    String::from("<!-- XML rendering not yet implemented for Arena -->")
+pub fn render_xml(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    render::xml::render(arena, root, options)
 }
 
 /// Render an Arena-based AST as CommonMark
@@ -204,14 +203,13 @@ pub fn render_xml(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
 ///
 /// * `arena` - The node arena containing the AST
 /// * `root` - The root node ID
-/// * `_options` - Options for rendering (currently unused)
+/// * `options` - Options for rendering
 ///
 /// # Returns
 ///
 /// The CommonMark output as a String
-pub fn render_commonmark(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
-    // TODO: Implement CommonMark renderer for Arena
-    String::from("<!-- CommonMark rendering not yet implemented for Arena -->")
+pub fn render_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    render::commonmark::render(arena, root, options)
 }
 
 /// Render an Arena-based AST as LaTeX
@@ -220,14 +218,13 @@ pub fn render_commonmark(_arena: &NodeArena, _root: NodeId, _options: u32) -> St
 ///
 /// * `arena` - The node arena containing the AST
 /// * `root` - The root node ID
-/// * `_options` - Options for rendering (currently unused)
+/// * `options` - Options for rendering
 ///
 /// # Returns
 ///
 /// The LaTeX output as a String
-pub fn render_latex(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
-    // TODO: Implement LaTeX renderer for Arena
-    String::from("<!-- LaTeX rendering not yet implemented for Arena -->")
+pub fn render_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    render::latex::render(arena, root, options)
 }
 
 /// Render an Arena-based AST as a Man page (groff format)
@@ -236,14 +233,13 @@ pub fn render_latex(_arena: &NodeArena, _root: NodeId, _options: u32) -> String 
 ///
 /// * `arena` - The node arena containing the AST
 /// * `root` - The root node ID
-/// * `_options` - Options for rendering (currently unused)
+/// * `options` - Options for rendering
 ///
 /// # Returns
 ///
 /// The Man page output as a String
-pub fn render_man(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
-    // TODO: Implement Man page renderer for Arena
-    String::from("<!-- Man page rendering not yet implemented for Arena -->")
+pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    render::man::render(arena, root, options)
 }
 
 #[cfg(test)]

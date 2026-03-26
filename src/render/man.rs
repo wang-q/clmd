@@ -1,22 +1,17 @@
-//! Man page renderer (deprecated)
-//!
-//! ⚠️ **DEPRECATED**: This module is deprecated. Use Arena-based rendering instead.
-//!
-//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
+//! Man page renderer
 
-use crate::iterator::{NodeWalker, WalkerEvent};
-use crate::node::{ListType, Node, NodeData, NodeType};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{NodeArena, NodeId};
+use crate::node::{ListType, NodeData, NodeType};
 
 /// Render a node tree as a Man page (groff format)
-pub fn render(root: &Rc<RefCell<Node>>, options: u32) -> String {
-    let mut renderer = ManRenderer::new(options);
+pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    let mut renderer = ManRenderer::new(arena, options);
     renderer.render(root)
 }
 
 /// Man page renderer state
-struct ManRenderer {
+struct ManRenderer<'a> {
+    arena: &'a NodeArena,
     #[allow(dead_code)]
     options: u32,
     output: String,
@@ -32,9 +27,10 @@ struct ManRenderer {
     font_stack: Vec<u8>,
 }
 
-impl ManRenderer {
-    fn new(options: u32) -> Self {
+impl<'a> ManRenderer<'a> {
+    fn new(arena: &'a NodeArena, options: u32) -> Self {
         ManRenderer {
+            arena,
             options,
             output: String::new(),
             beginning_of_line: true,
@@ -45,20 +41,12 @@ impl ManRenderer {
         }
     }
 
-    fn render(&mut self, root: &Rc<RefCell<Node>>) -> String {
+    fn render(&mut self, root: NodeId) -> String {
         // Add man page header
         self.writeln(".TH \"MANUAL\" \"1\" \"\" \"\" \"\"");
         self.writeln("");
 
-        let mut walker = NodeWalker::new(root.clone());
-
-        while let Some(event) = walker.next() {
-            if event.entering {
-                self.enter_node(&event);
-            } else {
-                self.exit_node(&event);
-            }
-        }
+        self.render_node(root, true);
 
         // Remove trailing whitespace and newlines
         while self.output.ends_with('\n') || self.output.ends_with(' ') {
@@ -71,8 +59,21 @@ impl ManRenderer {
         self.output.clone()
     }
 
-    fn enter_node(&mut self, event: &WalkerEvent) {
-        let node = event.node.borrow();
+    fn render_node(&mut self, node_id: NodeId, entering: bool) {
+        if entering {
+            self.enter_node(node_id);
+            let node = self.arena.get(node_id);
+            let mut child_opt = node.first_child;
+            while let Some(child_id) = child_opt {
+                self.render_node(child_id, true);
+                child_opt = self.arena.get(child_id).next;
+            }
+            self.exit_node(node_id);
+        }
+    }
+
+    fn enter_node(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
 
         // Add blank line before block elements if needed
         if self.need_blank_line
@@ -101,34 +102,30 @@ impl ManRenderer {
             NodeType::Item => {
                 self.write(".IP \"");
                 // Get the parent list to determine the marker
-                if let Some(parent_weak) = node.parent.borrow().as_ref() {
-                    if let Some(parent) = parent_weak.upgrade() {
-                        let parent_ref = parent.borrow();
-                        if let NodeData::List {
-                            list_type,
-                            delim,
-                            bullet_char,
-                            ..
-                        } = &parent_ref.data
-                        {
-                            match list_type {
-                                ListType::Bullet => {
-                                    self.write(&format!("{}  \"", bullet_char));
-                                }
-                                ListType::Ordered => {
-                                    let marker = match delim {
-                                        crate::node::DelimType::Period => "1.",
-                                        crate::node::DelimType::Paren => "1)",
-                                        _ => "1.",
-                                    };
-                                    self.write(&format!("{}  \"", marker));
-                                }
-                                _ => {
-                                    self.write("-  \"");
-                                }
+                if let Some(parent_id) = node.parent {
+                    let parent = self.arena.get(parent_id);
+                    if let NodeData::List {
+                        list_type,
+                        delim,
+                        bullet_char,
+                        ..
+                    } = &parent.data
+                    {
+                        match list_type {
+                            ListType::Bullet => {
+                                self.write(&format!("{}  \"", bullet_char));
                             }
-                        } else {
-                            self.write("-  \"");
+                            ListType::Ordered => {
+                                let marker = match delim {
+                                    crate::node::DelimType::Period => "1.",
+                                    crate::node::DelimType::Paren => "1)",
+                                    _ => "1.",
+                                };
+                                self.write(&format!("{}  \"", marker));
+                            }
+                            _ => {
+                                self.write("-  \"");
+                            }
                         }
                     } else {
                         self.write("-  \"");
@@ -139,7 +136,7 @@ impl ManRenderer {
                 self.writeln("4");
             }
             NodeType::CodeBlock => {
-                self.render_code_block(&node);
+                self.render_code_block(node_id);
                 self.need_blank_line = true;
             }
             NodeType::HtmlBlock => {
@@ -151,7 +148,7 @@ impl ManRenderer {
                 }
             }
             NodeType::Heading => {
-                self.render_heading(&node);
+                self.render_heading(node_id);
                 self.need_blank_line = true;
             }
             NodeType::ThematicBreak => {
@@ -213,8 +210,8 @@ impl ManRenderer {
         }
     }
 
-    fn exit_node(&mut self, event: &WalkerEvent) {
-        let node = event.node.borrow();
+    fn exit_node(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
 
         match node.node_type {
             NodeType::Document => {}
@@ -249,7 +246,8 @@ impl ManRenderer {
         }
     }
 
-    fn render_code_block(&mut self, node: &std::cell::Ref<Node>) {
+    fn render_code_block(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
         if let NodeData::CodeBlock { info, literal } = &node.data {
             self.in_verbatim = true;
 
@@ -272,7 +270,8 @@ impl ManRenderer {
         }
     }
 
-    fn render_heading(&mut self, node: &std::cell::Ref<Node>) {
+    fn render_heading(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
         if let NodeData::Heading { level, .. } = &node.data {
             match level {
                 1 => self.write(".SH "),
@@ -342,154 +341,163 @@ fn escape_man(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::{append_child, Node, NodeData, NodeType};
+    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_render_paragraph() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Hello world".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".PP"));
         assert!(man.contains("Hello world"));
     }
 
     #[test]
     fn test_render_emph() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let emph = Rc::new(RefCell::new(Node::new(NodeType::Emph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let emph = arena.alloc(Node::new(NodeType::Emph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "emphasized".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, emph.clone());
-        append_child(&emph, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, emph, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains("\\fIemphasized\\fR"));
     }
 
     #[test]
     fn test_render_strong() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let strong = Rc::new(RefCell::new(Node::new(NodeType::Strong)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let strong = arena.alloc(Node::new(NodeType::Strong));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "strong".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, strong.clone());
-        append_child(&strong, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, strong, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains("\\fBstrong\\fR"));
     }
 
     #[test]
     fn test_render_code() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let code = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let code = arena.alloc(Node::with_data(
             NodeType::Code,
             NodeData::Code {
                 literal: "code".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, code.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, code);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains("\\fCcode\\fR"));
     }
 
     #[test]
     fn test_render_heading() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let heading = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let heading = arena.alloc(Node::with_data(
             NodeType::Heading,
             NodeData::Heading {
                 level: 1,
                 content: "Heading".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, heading.clone());
+        TreeOps::append_child(&mut arena, root, heading);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".SH"));
     }
 
     #[test]
     fn test_render_heading2() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let heading = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let heading = arena.alloc(Node::with_data(
             NodeType::Heading,
             NodeData::Heading {
                 level: 2,
                 content: "Subheading".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, heading.clone());
+        TreeOps::append_child(&mut arena, root, heading);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".SS"));
     }
 
     #[test]
     fn test_render_blockquote() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let blockquote = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let blockquote = arena.alloc(Node::new(NodeType::BlockQuote));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Quote".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, blockquote.clone());
-        append_child(&blockquote, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, blockquote);
+        TreeOps::append_child(&mut arena, blockquote, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".RS"));
         assert!(man.contains(".RE"));
     }
 
     #[test]
     fn test_render_code_block() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let code_block = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let code_block = arena.alloc(Node::with_data(
             NodeType::CodeBlock,
             NodeData::CodeBlock {
                 info: "".to_string(),
                 literal: "fn main() {}".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, code_block.clone());
+        TreeOps::append_child(&mut arena, root, code_block);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".EX"));
         assert!(man.contains("fn main() {}"));
         assert!(man.contains(".EE"));
@@ -497,8 +505,9 @@ mod tests {
 
     #[test]
     fn test_render_bullet_list() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let list = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let list = arena.alloc(Node::with_data(
             NodeType::List,
             NodeData::List {
                 list_type: ListType::Bullet,
@@ -507,22 +516,22 @@ mod tests {
                 tight: true,
                 bullet_char: '-',
             },
-        )));
-        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        ));
+        let item = arena.alloc(Node::new(NodeType::Item));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Item".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, list.clone());
-        append_child(&list, item.clone());
-        append_child(&item, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, list);
+        TreeOps::append_child(&mut arena, list, item);
+        TreeOps::append_child(&mut arena, item, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains(".IP"));
     }
 
@@ -534,19 +543,20 @@ mod tests {
 
     #[test]
     fn test_escape_dot_at_start() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: ".dot at start".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&root, 0);
+        let man = render(&arena, root, 0);
         assert!(man.contains("\\&.dot"));
     }
 }

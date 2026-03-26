@@ -1,22 +1,17 @@
-//! LaTeX renderer (deprecated)
-//!
-//! ⚠️ **DEPRECATED**: This module is deprecated. Use Arena-based rendering instead.
-//!
-//! This module uses the old Rc<RefCell>-based AST. It will be removed in a future version.
+//! LaTeX renderer
 
-use crate::iterator::{NodeWalker, WalkerEvent};
-use crate::node::{ListType, Node, NodeData, NodeType};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::arena::{NodeArena, NodeId};
+use crate::node::{ListType, NodeData, NodeType};
 
 /// Render a node tree as LaTeX
-pub fn render(root: &Rc<RefCell<Node>>, options: u32) -> String {
-    let mut renderer = LatexRenderer::new(options);
+pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    let mut renderer = LatexRenderer::new(arena, options);
     renderer.render(root)
 }
 
 /// LaTeX renderer state
-struct LatexRenderer {
+struct LatexRenderer<'a> {
+    arena: &'a NodeArena,
     #[allow(dead_code)]
     options: u32,
     output: String,
@@ -25,9 +20,10 @@ struct LatexRenderer {
     need_blank_line: bool,
 }
 
-impl LatexRenderer {
-    fn new(options: u32) -> Self {
+impl<'a> LatexRenderer<'a> {
+    fn new(arena: &'a NodeArena, options: u32) -> Self {
         LatexRenderer {
+            arena,
             options,
             output: String::new(),
             beginning_of_line: true,
@@ -36,16 +32,8 @@ impl LatexRenderer {
         }
     }
 
-    fn render(&mut self, root: &Rc<RefCell<Node>>) -> String {
-        let mut walker = NodeWalker::new(root.clone());
-
-        while let Some(event) = walker.next() {
-            if event.entering {
-                self.enter_node(&event);
-            } else {
-                self.exit_node(&event);
-            }
-        }
+    fn render(&mut self, root: NodeId) -> String {
+        self.render_node(root, true);
 
         while self.output.ends_with('\n') || self.output.ends_with(' ') {
             self.output.pop();
@@ -55,8 +43,21 @@ impl LatexRenderer {
         self.output.clone()
     }
 
-    fn enter_node(&mut self, event: &WalkerEvent) {
-        let node = event.node.borrow();
+    fn render_node(&mut self, node_id: NodeId, entering: bool) {
+        if entering {
+            self.enter_node(node_id);
+            let node = self.arena.get(node_id);
+            let mut child_opt = node.first_child;
+            while let Some(child_id) = child_opt {
+                self.render_node(child_id, true);
+                child_opt = self.arena.get(child_id).next;
+            }
+            self.exit_node(node_id);
+        }
+    }
+
+    fn enter_node(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
 
         if self.need_blank_line
             && node.node_type.is_block()
@@ -95,13 +96,13 @@ impl LatexRenderer {
                 self.write("\\item ");
             }
             NodeType::CodeBlock => {
-                self.render_code_block(&node);
+                self.render_code_block(node_id);
                 self.need_blank_line = true;
             }
             NodeType::HtmlBlock => {}
             NodeType::Paragraph => {}
             NodeType::Heading => {
-                self.render_heading(&node);
+                self.render_heading(node_id);
                 self.need_blank_line = true;
             }
             NodeType::ThematicBreak => {
@@ -151,8 +152,8 @@ impl LatexRenderer {
         }
     }
 
-    fn exit_node(&mut self, event: &WalkerEvent) {
-        let node = event.node.borrow();
+    fn exit_node(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
 
         match node.node_type {
             NodeType::Document => {
@@ -196,7 +197,8 @@ impl LatexRenderer {
         }
     }
 
-    fn render_code_block(&mut self, node: &std::cell::Ref<Node>) {
+    fn render_code_block(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
         if let NodeData::CodeBlock { info, literal } = &node.data {
             if !info.is_empty() {
                 let lang = info.split_whitespace().next().unwrap_or("");
@@ -219,7 +221,8 @@ impl LatexRenderer {
         }
     }
 
-    fn render_heading(&mut self, node: &std::cell::Ref<Node>) {
+    fn render_heading(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
         if let NodeData::Heading { level, .. } = &node.data {
             let cmd = match level {
                 1 => "\\section*{",
@@ -277,162 +280,171 @@ fn escape_latex(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::{append_child, Node, NodeData, NodeType};
+    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_render_paragraph() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Hello world".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("Hello world"));
     }
 
     #[test]
     fn test_render_emph() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let emph = Rc::new(RefCell::new(Node::new(NodeType::Emph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let emph = arena.alloc(Node::new(NodeType::Emph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "emphasized".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, emph.clone());
-        append_child(&emph, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, emph, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\emph{emphasized}"));
     }
 
     #[test]
     fn test_render_strong() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let strong = Rc::new(RefCell::new(Node::new(NodeType::Strong)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let strong = arena.alloc(Node::new(NodeType::Strong));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "strong".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, strong.clone());
-        append_child(&strong, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, strong, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\textbf{strong}"));
     }
 
     #[test]
     fn test_render_code() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let code = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let code = arena.alloc(Node::with_data(
             NodeType::Code,
             NodeData::Code {
                 literal: "code".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, code.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, code);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\texttt{code}"));
     }
 
     #[test]
     fn test_render_heading() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let heading = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let heading = arena.alloc(Node::with_data(
             NodeType::Heading,
             NodeData::Heading {
                 level: 2,
                 content: "Heading".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, heading.clone());
+        TreeOps::append_child(&mut arena, root, heading);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\subsection*{"));
     }
 
     #[test]
     fn test_render_link() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let link = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let link = arena.alloc(Node::with_data(
             NodeType::Link,
             NodeData::Link {
                 url: "https://example.com".to_string(),
                 title: "".to_string(),
             },
-        )));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        ));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "link".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, para.clone());
-        append_child(&para, link.clone());
-        append_child(&link, text.clone());
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, link);
+        TreeOps::append_child(&mut arena, link, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\href{https://example.com}{link}"));
     }
 
     #[test]
     fn test_render_blockquote() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let blockquote = Rc::new(RefCell::new(Node::new(NodeType::BlockQuote)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let blockquote = arena.alloc(Node::new(NodeType::BlockQuote));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Quote".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, blockquote.clone());
-        append_child(&blockquote, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, blockquote);
+        TreeOps::append_child(&mut arena, blockquote, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\begin{quote}"));
         assert!(latex.contains("\\end{quote}"));
     }
 
     #[test]
     fn test_render_code_block() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let code_block = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let code_block = arena.alloc(Node::with_data(
             NodeType::CodeBlock,
             NodeData::CodeBlock {
                 info: "".to_string(),
                 literal: "fn main() {}".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, code_block.clone());
+        TreeOps::append_child(&mut arena, root, code_block);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\begin{verbatim}"));
         assert!(latex.contains("fn main() {}"));
         assert!(latex.contains("\\end{verbatim}"));
@@ -440,8 +452,9 @@ mod tests {
 
     #[test]
     fn test_render_bullet_list() {
-        let root = Rc::new(RefCell::new(Node::new(NodeType::Document)));
-        let list = Rc::new(RefCell::new(Node::new_with_data(
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::new(NodeType::Document));
+        let list = arena.alloc(Node::with_data(
             NodeType::List,
             NodeData::List {
                 list_type: ListType::Bullet,
@@ -450,22 +463,22 @@ mod tests {
                 tight: true,
                 bullet_char: '-',
             },
-        )));
-        let item = Rc::new(RefCell::new(Node::new(NodeType::Item)));
-        let para = Rc::new(RefCell::new(Node::new(NodeType::Paragraph)));
-        let text = Rc::new(RefCell::new(Node::new_with_data(
+        ));
+        let item = arena.alloc(Node::new(NodeType::Item));
+        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
                 literal: "Item".to_string(),
             },
-        )));
+        ));
 
-        append_child(&root, list.clone());
-        append_child(&list, item.clone());
-        append_child(&item, para.clone());
-        append_child(&para, text.clone());
+        TreeOps::append_child(&mut arena, root, list);
+        TreeOps::append_child(&mut arena, list, item);
+        TreeOps::append_child(&mut arena, item, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        let latex = render(&root, 0);
+        let latex = render(&arena, root, 0);
         assert!(latex.contains("\\begin{itemize}"));
         assert!(latex.contains("\\item"));
         assert!(latex.contains("\\end{itemize}"));

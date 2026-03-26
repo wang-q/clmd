@@ -372,7 +372,10 @@ impl<'a> HtmlRenderer<'a> {
                     }
                 }
             }
-            NodeType::Table | NodeType::TableHead | NodeType::TableRow | NodeType::TableCell => {}
+            NodeType::Table
+            | NodeType::TableHead
+            | NodeType::TableRow
+            | NodeType::TableCell => {}
             NodeType::Strikethrough => {
                 self.lit("</del>");
             }

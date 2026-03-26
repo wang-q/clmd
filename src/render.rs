@@ -1,15 +1,17 @@
-//! HTML rendering for Arena-based AST
+//! Rendering modules for Arena-based AST
 //!
-//! This module provides HTML output generation for documents parsed using the Arena-based parser.
+//! This module provides output generation for documents parsed using the Arena-based parser.
+//! Supported formats: HTML, XML, CommonMark, LaTeX, and Man page.
 //!
 //! # Overview
 //!
-//! The renderer traverses the AST and generates HTML output:
+//! Each renderer traverses the AST and generates output in its respective format:
 //!
-//! - **Block elements**: Paragraphs, headings, lists, code blocks, blockquotes
-//! - **Inline elements**: Emphasis, strong, links, images, code, entities
-//! - **Escaping**: HTML special characters are properly escaped
-//! - **URL safety**: Potentially dangerous URLs are filtered out
+//! - **HTML**: Web-ready markup
+//! - **XML**: Structured data representation
+//! - **CommonMark**: Round-trip Markdown format
+//! - **LaTeX**: Typesetting for academic documents
+//! - **Man**: Unix manual page format
 //!
 //! # Example
 //!
@@ -20,7 +22,11 @@
 //! assert_eq!(html, "<h1>Hello</h1>\n<p>World</p>");
 //! ```
 
+pub mod commonmark;
 pub mod html;
+pub mod latex;
+pub mod man;
+pub mod xml;
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType};
