@@ -253,8 +253,7 @@ fn test_commonmark_spec() {
     }
 
     // Assert on pass rate to prevent regressions
-    // Current pass rate is 94.2%, set threshold slightly below to allow for minor variations
-    const MIN_PASS_RATE: f64 = 0.94;
+    const MIN_PASS_RATE: f64 = 1.0;
     let pass_rate = passed as f64 / tests.len() as f64;
     assert!(
         pass_rate >= MIN_PASS_RATE,
