@@ -6,7 +6,10 @@ use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::inlines::unescape_string;
 use crate::lexer::{is_space_or_tab, CODE_INDENT};
-use crate::node::{DelimType, ListType, NodeData, NodeType};
+use crate::node_value::{
+    ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
+    NodeValue,
+};
 
 /// Result of trying to open a new block during block parsing.
 ///
@@ -42,7 +45,8 @@ impl<'a> BlockParser<'a> {
         all_matched: bool,
     ) -> NodeId {
         let mut current_container = container;
-        let mut maybe_lazy = self.arena.get(self.tip).node_type == NodeType::Paragraph;
+        let mut maybe_lazy =
+            matches!(self.arena.get(self.tip).value, NodeValue::Paragraph);
 
         loop {
             self.find_next_nonspace();
@@ -118,8 +122,10 @@ impl<'a> BlockParser<'a> {
 
     /// Check if we're inside a leaf block that doesn't allow nested blocks
     fn is_in_leaf_block(&self, container: NodeId) -> bool {
-        let container_type = self.arena.get(container).node_type;
-        matches!(container_type, NodeType::HtmlBlock | NodeType::CodeBlock)
+        matches!(
+            self.arena.get(container).value,
+            NodeValue::HtmlBlock(..) | NodeValue::CodeBlock(..)
+        )
     }
 
     /// Try to open an indented code block
@@ -130,7 +136,8 @@ impl<'a> BlockParser<'a> {
     ) -> BlockStartResult {
         if indented && !maybe_lazy && !self.blank {
             self.close_unmatched_blocks();
-            let code_block = self.add_child(NodeType::CodeBlock, self.offset);
+            let code_block = self
+                .add_child(NodeValue::CodeBlock(NodeCodeBlock::default()), self.offset);
             self.set_fence_info(code_block, '\0', 0, 0);
             self.advance_offset(CODE_INDENT, true);
             BlockStartResult::Done(code_block)
@@ -151,7 +158,7 @@ impl<'a> BlockParser<'a> {
         if self.peek_current().is_some_and(is_space_or_tab) {
             self.advance_offset(1, true);
         }
-        let block_quote = self.add_child(NodeType::BlockQuote, self.next_nonspace);
+        let block_quote = self.add_child(NodeValue::BlockQuote, self.next_nonspace);
         BlockStartResult::Opened(block_quote)
     }
 
@@ -178,19 +185,17 @@ impl<'a> BlockParser<'a> {
         self.advance_offset(level, false);
 
         let content = self.extract_atx_heading_content();
-        let heading = self.add_child(NodeType::Heading, self.next_nonspace);
+        let heading = self.add_child(
+            NodeValue::Heading(NodeHeading {
+                level: level as u8,
+                setext: false,
+                closed: true,
+            }),
+            self.next_nonspace,
+        );
 
-        {
-            let heading_mut = self.arena.get_mut(heading);
-            if let NodeData::Heading {
-                level: ref mut l,
-                content: ref mut c,
-            } = heading_mut.data
-            {
-                *l = level as u32;
-                *c = content;
-            }
-        }
+        // Store content in string_content for later inline processing
+        self.set_string_content(heading, content);
 
         self.advance_offset(self.current_line.len() - self.offset, false);
         BlockStartResult::Done(heading)
@@ -312,17 +317,18 @@ impl<'a> BlockParser<'a> {
 
         let info = unescape_string(rest.trim());
         self.close_unmatched_blocks();
-        let code_block = self.add_child(NodeType::CodeBlock, self.next_nonspace);
-
-        {
-            let code_mut = self.arena.get_mut(code_block);
-            if let NodeData::CodeBlock {
-                info: ref mut i, ..
-            } = code_mut.data
-            {
-                *i = info;
-            }
-        }
+        let code_block = self.add_child(
+            NodeValue::CodeBlock(NodeCodeBlock {
+                fenced: true,
+                fence_char: first_char as u8,
+                fence_length,
+                fence_offset: self.next_nonspace,
+                info: info.clone(),
+                literal: String::new(),
+                closed: false,
+            }),
+            self.next_nonspace,
+        );
 
         self.set_fence_info(code_block, first_char, fence_length, self.next_nonspace);
         self.advance_next_nonspace();
@@ -348,7 +354,8 @@ impl<'a> BlockParser<'a> {
         }
 
         // Don't start a new HTML block if we're already inside one
-        let in_html_block = self.arena.get(container).node_type == NodeType::HtmlBlock;
+        let in_html_block =
+            matches!(self.arena.get(container).value, NodeValue::HtmlBlock(..));
         if in_html_block {
             return BlockStartResult::None;
         }
@@ -357,7 +364,13 @@ impl<'a> BlockParser<'a> {
         if let Some(block_type) = self.scan_html_block_start(line, container, maybe_lazy)
         {
             self.close_unmatched_blocks();
-            let html_block = self.add_child(NodeType::HtmlBlock, self.offset);
+            let html_block = self.add_child(
+                NodeValue::HtmlBlock(NodeHtmlBlock {
+                    block_type,
+                    literal: String::new(),
+                }),
+                self.offset,
+            );
             self.set_html_block_type(html_block, block_type);
             BlockStartResult::Done(html_block)
         } else {
@@ -375,7 +388,7 @@ impl<'a> BlockParser<'a> {
             return BlockStartResult::None;
         }
 
-        if self.arena.get(container).node_type != NodeType::Paragraph {
+        if !matches!(self.arena.get(container).value, NodeValue::Paragraph) {
             return BlockStartResult::None;
         }
 
@@ -395,13 +408,14 @@ impl<'a> BlockParser<'a> {
         self.close_unmatched_blocks();
         {
             let container_mut = self.arena.get_mut(container);
-            container_mut.node_type = NodeType::Heading;
-            container_mut.data = NodeData::Heading {
-                level,
-                content: remaining_content.to_string(),
-            };
+            container_mut.set_value(NodeValue::Heading(NodeHeading {
+                level: level as u8,
+                setext: true,
+                closed: true,
+            }));
         }
         self.set_setext(container, true);
+        self.set_string_content(container, remaining_content);
         self.advance_offset(self.current_line.len() - self.offset, false);
 
         BlockStartResult::Done(container)
@@ -441,7 +455,9 @@ impl<'a> BlockParser<'a> {
             return BlockStartResult::None;
         }
 
-        if self.arena.get(container).node_type == NodeType::Paragraph && !all_matched {
+        if matches!(self.arena.get(container).value, NodeValue::Paragraph)
+            && !all_matched
+        {
             return BlockStartResult::None;
         }
 
@@ -451,7 +467,8 @@ impl<'a> BlockParser<'a> {
         }
 
         self.close_unmatched_blocks();
-        let thematic_break = self.add_child(NodeType::ThematicBreak, self.next_nonspace);
+        let thematic_break =
+            self.add_child(NodeValue::ThematicBreak, self.next_nonspace);
         self.advance_offset(self.current_line.len() - self.offset, false);
 
         BlockStartResult::Done(thematic_break)
@@ -463,7 +480,7 @@ impl<'a> BlockParser<'a> {
         indented: bool,
         container: NodeId,
     ) -> BlockStartResult {
-        if indented && self.arena.get(container).node_type != NodeType::List {
+        if indented && !matches!(self.arena.get(container).value, NodeValue::List(..)) {
             return BlockStartResult::None;
         }
 
@@ -481,35 +498,43 @@ impl<'a> BlockParser<'a> {
         self.close_unmatched_blocks();
 
         // Check if we can continue an existing list
-        let can_continue_list = self.arena.get(container).node_type == NodeType::List
-            && self.lists_match(container, list_type, delim, start, bullet_char);
+        let can_continue_list =
+            matches!(self.arena.get(container).value, NodeValue::List(..))
+                && self.lists_match(container, list_type, delim, start, bullet_char);
 
         let _list_container = if can_continue_list {
             container
         } else {
-            let new_list = self.add_child(NodeType::List, self.next_nonspace);
-            {
-                let list_mut = self.arena.get_mut(new_list);
-                if let NodeData::List {
-                    list_type: ref mut lt,
-                    delim: ref mut d,
-                    start: ref mut s,
-                    tight: ref mut t,
-                    bullet_char: ref mut bc,
-                } = list_mut.data
-                {
-                    *lt = list_type;
-                    *d = delim;
-                    *s = start;
-                    *t = true;
-                    *bc = bullet_char;
-                }
-            }
+            let new_list = self.add_child(
+                NodeValue::List(NodeList {
+                    list_type,
+                    marker_offset,
+                    padding,
+                    start: start as usize,
+                    delimiter: delim,
+                    bullet_char: bullet_char as u8,
+                    tight: true,
+                    is_task_list: false,
+                }),
+                self.next_nonspace,
+            );
             new_list
         };
 
         // Add list item
-        let item = self.add_child(NodeType::Item, self.next_nonspace);
+        let item = self.add_child(
+            NodeValue::Item(NodeList {
+                list_type: ListType::Bullet,
+                marker_offset,
+                padding,
+                start: 0,
+                delimiter: ListDelimType::Period,
+                bullet_char: 0,
+                tight: true,
+                is_task_list: false,
+            }),
+            self.next_nonspace,
+        );
         self.set_list_data(item, marker_offset, padding);
 
         BlockStartResult::Opened(item)
@@ -560,7 +585,7 @@ impl<'a> BlockParser<'a> {
         // Type 7: Complete HTML tag
         if line.starts_with('<')
             && !maybe_lazy
-            && self.arena.get(container).node_type != NodeType::Paragraph
+            && !matches!(self.arena.get(container).value, NodeValue::Paragraph)
             && self.is_valid_html_tag_type7(line)
         {
             return Some(7);
@@ -928,7 +953,7 @@ impl<'a> BlockParser<'a> {
     fn parse_list_marker(
         &mut self,
         container: NodeId,
-    ) -> Option<(ListType, DelimType, u32, usize, usize, char)> {
+    ) -> Option<(ListType, ListDelimType, u32, usize, usize, char)> {
         // Try bullet list marker first
         if let Some(result) = self.parse_bullet_marker(container) {
             return Some(result);
@@ -942,7 +967,7 @@ impl<'a> BlockParser<'a> {
     fn parse_bullet_marker(
         &mut self,
         container: NodeId,
-    ) -> Option<(ListType, DelimType, u32, usize, usize, char)> {
+    ) -> Option<(ListType, ListDelimType, u32, usize, usize, char)> {
         let rest = &self.current_line[self.next_nonspace..];
         let first_char = rest.chars().next()?;
         if !"*+-".contains(first_char) {
@@ -959,7 +984,7 @@ impl<'a> BlockParser<'a> {
         }
 
         // Check for non-blank content if interrupting paragraph
-        if self.arena.get(container).node_type == NodeType::Paragraph {
+        if matches!(self.arena.get(container).value, NodeValue::Paragraph) {
             let content_after = after_marker.trim_start();
             if content_after.is_empty() || content_after.starts_with('\n') {
                 return None;
@@ -995,7 +1020,7 @@ impl<'a> BlockParser<'a> {
 
         Some((
             ListType::Bullet,
-            DelimType::None,
+            ListDelimType::Period,
             0,
             self.indent,
             padding,
@@ -1007,7 +1032,7 @@ impl<'a> BlockParser<'a> {
     fn parse_ordered_marker(
         &mut self,
         container: NodeId,
-    ) -> Option<(ListType, DelimType, u32, usize, usize, char)> {
+    ) -> Option<(ListType, ListDelimType, u32, usize, usize, char)> {
         let rest = &self.current_line[self.next_nonspace..];
         let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
         if digits.is_empty() || digits.len() > 9 {
@@ -1032,12 +1057,13 @@ impl<'a> BlockParser<'a> {
         }
 
         // If interrupting paragraph, start must be 1
-        if self.arena.get(container).node_type == NodeType::Paragraph && start != 1 {
+        if matches!(self.arena.get(container).value, NodeValue::Paragraph) && start != 1
+        {
             return None;
         }
 
         // Check for non-blank content if interrupting paragraph
-        if self.arena.get(container).node_type == NodeType::Paragraph {
+        if matches!(self.arena.get(container).value, NodeValue::Paragraph) {
             let content_after = after_delim.trim_start();
             if content_after.is_empty() || content_after.starts_with('\n') {
                 return None;
@@ -1045,9 +1071,9 @@ impl<'a> BlockParser<'a> {
         }
 
         let delim = if delim_char == '.' {
-            DelimType::Period
+            ListDelimType::Period
         } else {
-            DelimType::Paren
+            ListDelimType::Paren
         };
 
         self.advance_next_nonspace();
@@ -1085,22 +1111,15 @@ impl<'a> BlockParser<'a> {
         &self,
         list: NodeId,
         list_type: ListType,
-        delim: DelimType,
+        delim: ListDelimType,
         _start: u32,
         bullet_char: char,
     ) -> bool {
-        let node = self.arena.get(list);
-        if let NodeData::List {
-            list_type: lt,
-            delim: d,
-            bullet_char: bc,
-            ..
-        } = &node.data
-        {
-            if list_type == ListType::Bullet && *lt == ListType::Bullet {
-                *bc == bullet_char
+        if let NodeValue::List(list_data) = &self.arena.get(list).value {
+            if list_type == ListType::Bullet && list_data.list_type == ListType::Bullet {
+                list_data.bullet_char == bullet_char as u8
             } else {
-                *lt == list_type && *d == delim
+                list_data.list_type == list_type && list_data.delimiter == delim
             }
         } else {
             false

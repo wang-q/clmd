@@ -6,7 +6,7 @@
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::lexer::{is_space_or_tab, CODE_INDENT};
-use crate::node::NodeType;
+use crate::node_value::NodeValue;
 
 impl<'a> BlockParser<'a> {
     /// Check which open blocks can continue on this line
@@ -53,23 +53,23 @@ impl<'a> BlockParser<'a> {
 
     /// Check if a container can continue on this line
     pub(crate) fn check_container_continuation(&mut self, container: NodeId) -> i32 {
-        let node_type = self.arena.get(container).node_type;
+        let node_value = &self.arena.get(container).value;
 
-        match node_type {
-            NodeType::BlockQuote => self.continue_block_quote(),
-            NodeType::List => self.continue_list(container),
-            NodeType::Item => self.continue_item(container),
-            NodeType::CodeBlock => self.continue_code_block(container),
-            NodeType::HtmlBlock => self.continue_html_block(container),
-            NodeType::Heading => {
+        match node_value {
+            NodeValue::BlockQuote => self.continue_block_quote(),
+            NodeValue::List(..) => self.continue_list(container),
+            NodeValue::Item(..) => self.continue_item(container),
+            NodeValue::CodeBlock(..) => self.continue_code_block(container),
+            NodeValue::HtmlBlock(..) => self.continue_html_block(container),
+            NodeValue::Heading(..) => {
                 // Headings can only contain one line
                 1
             }
-            NodeType::ThematicBreak => {
+            NodeValue::ThematicBreak => {
                 // Thematic breaks can only contain one line
                 1
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 if self.blank {
                     1
                 } else {

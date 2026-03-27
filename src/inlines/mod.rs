@@ -36,7 +36,7 @@ mod text;
 mod utils;
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::NodeValue;
+use crate::node_value::{NodeCode, NodeLink, NodeValue};
 use crate::{NodeData, NodeType};
 use autolinks::{match_email_autolink, match_url_autolink};
 use emphasis::{

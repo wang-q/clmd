@@ -477,6 +477,24 @@ impl NodeValue {
                 | NodeValue::Subtext
         )
     }
+
+    /// Convert to legacy NodeType (for backward compatibility during migration)
+    ///
+    /// # Deprecated
+    /// Use `NodeValue` directly instead of separate NodeType/NodeData.
+    #[deprecated(since = "0.1.0", note = "Use NodeValue directly instead")]
+    pub fn to_node_type(&self) -> NodeType {
+        NodeType::from(self)
+    }
+
+    /// Convert to legacy NodeData (for backward compatibility during migration)
+    ///
+    /// # Deprecated
+    /// Use `NodeValue` directly instead of separate NodeType/NodeData.
+    #[deprecated(since = "0.1.0", note = "Use NodeValue directly instead")]
+    pub fn to_node_data(&self) -> NodeData {
+        NodeData::from(self)
+    }
 }
 
 // =============================================================================
@@ -1222,6 +1240,54 @@ impl SourcePos {
     /// Create a SourcePos from LineColumns.
     pub fn from_line_columns(start: LineColumn, end: LineColumn) -> Self {
         Self { start, end }
+    }
+
+    /// Get the start line (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `start.line` instead")]
+    pub fn start_line(&self) -> usize {
+        self.start.line
+    }
+
+    /// Set the start line (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `start.line` instead")]
+    pub fn set_start_line(&mut self, line: usize) {
+        self.start.line = line;
+    }
+
+    /// Get the start column (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `start.column` instead")]
+    pub fn start_column(&self) -> usize {
+        self.start.column
+    }
+
+    /// Set the start column (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `start.column` instead")]
+    pub fn set_start_column(&mut self, column: usize) {
+        self.start.column = column;
+    }
+
+    /// Get the end line (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `end.line` instead")]
+    pub fn end_line(&self) -> usize {
+        self.end.line
+    }
+
+    /// Set the end line (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `end.line` instead")]
+    pub fn set_end_line(&mut self, line: usize) {
+        self.end.line = line;
+    }
+
+    /// Get the end column (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `end.column` instead")]
+    pub fn end_column(&self) -> usize {
+        self.end.column
+    }
+
+    /// Set the end column (for backward compatibility with old API)
+    #[deprecated(since = "0.1.0", note = "Use `end.column` instead")]
+    pub fn set_end_column(&mut self, column: usize) {
+        self.end.column = column;
     }
 }
 

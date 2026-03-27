@@ -7,8 +7,7 @@ use crate::arena::{NodeId, TreeOps};
 use crate::blocks::BlockParser;
 use crate::inlines::parse_reference;
 use crate::lexer::TAB_STOP;
-use crate::node_value::NodeValue;
-use crate::{NodeData, NodeType};
+use crate::node_value::{NodeCodeBlock, NodeHtmlBlock, NodeList, NodeValue};
 
 impl<'a> BlockParser<'a> {
     /// Add text to container
@@ -25,15 +24,18 @@ impl<'a> BlockParser<'a> {
         // Determine if this line makes the container last_line_blank
         // Based on commonmark.js: blank && !(block_quote || heading || thematicBreak ||
         //   (code_block && fenced) || (item && firstChild == null && startLine == lineNumber))
-        let container_type = self.arena.get(container).node_type;
+        let container_value = &self.arena.get(container).value;
         let last_line_blank = self.blank
-            && container_type != NodeType::BlockQuote
-            && container_type != NodeType::Heading
-            && container_type != NodeType::ThematicBreak
-            && container_type != NodeType::HtmlBlock
-            && !(container_type == NodeType::CodeBlock
+            && !matches!(
+                container_value,
+                NodeValue::BlockQuote
+                    | NodeValue::Heading(..)
+                    | NodeValue::ThematicBreak
+                    | NodeValue::HtmlBlock(..)
+            )
+            && !(matches!(container_value, NodeValue::CodeBlock(..))
                 && self.is_fenced_code_block(container))
-            && !(container_type == NodeType::Item
+            && !(matches!(container_value, NodeValue::Item(..))
                 && self.arena.get(container).first_child.is_none()
                 && self.get_start_line(container) == self.line_number);
 
@@ -55,7 +57,7 @@ impl<'a> BlockParser<'a> {
         let is_lazy = self.tip != self.last_matched_container
             && container == self.last_matched_container
             && !self.blank
-            && self.arena.get(self.tip).node_type == NodeType::Paragraph;
+            && matches!(self.arena.get(self.tip).value, NodeValue::Paragraph);
 
         if is_lazy {
             self.add_line();
@@ -63,9 +65,9 @@ impl<'a> BlockParser<'a> {
             // Not a lazy continuation
             self.close_unmatched_blocks();
 
-            let container_type = self.arena.get(container).node_type;
+            let container_value = &self.arena.get(container).value;
 
-            if container_type == NodeType::CodeBlock {
+            if matches!(container_value, NodeValue::CodeBlock(..)) {
                 // For fenced code blocks, check if this is a fence line (opening or closing)
                 // These lines should not be added to content
                 if self.is_fenced_code_block(container) {
@@ -98,8 +100,8 @@ impl<'a> BlockParser<'a> {
                     // to this code block. We track this by checking if the current line is the
                     // same line where the block was created.
                     let block_start_line =
-                        self.arena.get(container).source_pos.start_line;
-                    let is_first_line = self.line_number == block_start_line as usize;
+                        self.arena.get(container).source_pos.start_line as usize;
+                    let is_first_line = self.line_number == block_start_line;
 
                     // Also check if this line matches the opening fence pattern
                     let matches_fence_pattern = fence_offset < self.current_line.len()
@@ -129,7 +131,7 @@ impl<'a> BlockParser<'a> {
                     // Indented code block - always add line
                     self.add_line_to_node(container);
                 }
-            } else if container_type == NodeType::HtmlBlock {
+            } else if matches!(container_value, NodeValue::HtmlBlock(..)) {
                 // For HTML blocks type 1-5, check if this line ends the block
                 // If so, add the line first, then finalize
                 let should_end = self.check_html_block_end(container);
@@ -140,14 +142,16 @@ impl<'a> BlockParser<'a> {
             } else if self.blank {
                 // Do nothing for blank lines
             } else if self.accepts_lines(container) {
-                if container_type == NodeType::Heading && !self.is_setext(container) {
+                if matches!(container_value, NodeValue::Heading(..))
+                    && !self.is_setext(container)
+                {
                     self.chop_trailing_hashtags();
                 }
                 self.advance_next_nonspace();
                 self.add_line_to_node(container);
             } else {
                 // Create paragraph container for line
-                let new_para = self.add_child(NodeType::Paragraph, self.next_nonspace);
+                let new_para = self.add_child(NodeValue::Paragraph, self.next_nonspace);
                 self.advance_next_nonspace();
                 self.add_line_to_node(new_para);
                 // Update tip to the new paragraph
@@ -273,24 +277,20 @@ impl<'a> BlockParser<'a> {
     }
 
     /// Add a child to the tip
-    pub(crate) fn add_child(
-        &mut self,
-        block_type: NodeType,
-        start_column: usize,
-    ) -> NodeId {
+    pub(crate) fn add_child(&mut self, value: NodeValue, start_column: usize) -> NodeId {
         use crate::arena::Node;
 
         let doc = self.doc;
         let mut tip = self.tip;
 
         // If tip can't accept this child, finalize it and try its parent
-        while !self.can_contain(tip, block_type) {
+        while !self.can_contain(tip, &value) {
             let parent = self.arena.get(tip).parent.unwrap_or(doc);
             self.finalize_block(tip);
             tip = parent;
         }
 
-        let mut new_block = Node::with_value(block_type.into());
+        let mut new_block = Node::with_value(value);
         new_block.source_pos.start_line = self.line_number as u32;
         new_block.source_pos.start_column = start_column as u32;
 
@@ -317,19 +317,13 @@ impl<'a> BlockParser<'a> {
         self.set_open(block, false);
 
         // Finalize based on block type
-        let node_type = self.arena.get(block).node_type;
-        match node_type {
-            NodeType::CodeBlock => {
-                let is_fenced = self.is_fenced_code_block(block);
+        let node_value = self.arena.get(block).value.clone();
+        match &node_value {
+            NodeValue::CodeBlock(code_block) => {
+                let is_fenced = code_block.fenced;
                 if is_fenced {
                     // Get the current info string (set during block creation from fence line)
-                    let _current_info = {
-                        let block_ref = self.arena.get(block);
-                        match &block_ref.data {
-                            NodeData::CodeBlock { info, .. } => info.clone(),
-                            _ => String::new(),
-                        }
-                    };
+                    let _current_info = code_block.info.clone();
 
                     // For fenced code blocks, the info string was already set from the opening fence line
                     // We just need to process the content
@@ -361,26 +355,23 @@ impl<'a> BlockParser<'a> {
                 let content = self.get_string_content(block);
                 {
                     let block_mut = self.arena.get_mut(block);
-                    if let NodeData::CodeBlock {
-                        literal: ref mut l, ..
-                    } = block_mut.data
-                    {
-                        *l = content;
+                    if let NodeValue::CodeBlock(code) = &mut block_mut.value {
+                        code.literal = content;
                     }
                 }
             }
-            NodeType::HtmlBlock => {
+            NodeValue::HtmlBlock(..) => {
                 let content = self.get_string_content(block);
                 // Remove trailing newline only (like commonmark.js: replace(/\n$/, ''))
                 let content = content.strip_suffix('\n').unwrap_or(&content);
                 {
                     let block_mut = self.arena.get_mut(block);
-                    if let NodeData::HtmlBlock { literal: ref mut l } = block_mut.data {
-                        *l = content.to_string();
+                    if let NodeValue::HtmlBlock(html) = &mut block_mut.value {
+                        html.literal = content.to_string();
                     }
                 }
             }
-            NodeType::Heading => {
+            NodeValue::Heading(..) => {
                 // For ATX headings, content was already set during creation
                 // For Setext headings, content was also set during creation
                 // Only update from string_content if content is empty (fallback)
@@ -417,26 +408,25 @@ impl<'a> BlockParser<'a> {
                     // Update heading content if reference definitions were found
                     if has_reference_defs {
                         let block_mut = self.arena.get_mut(block);
-                        if let NodeData::Heading {
-                            content: ref mut c, ..
-                        } = block_mut.data
-                        {
-                            *c = content.trim().to_string();
+                        if let NodeValue::Heading(heading) = &mut block_mut.value {
+                            // Store content in string_content for inline processing
+                            self.set_string_content(block, content.trim().to_string());
                         }
                     }
                 } else {
                     let block_mut = self.arena.get_mut(block);
-                    if let NodeData::Heading {
-                        content: ref mut c, ..
-                    } = block_mut.data
-                    {
-                        if c.is_empty() && !string_content.is_empty() {
-                            *c = string_content.trim_end().to_string();
+                    if let NodeValue::Heading(..) = &block_mut.value {
+                        if !string_content.is_empty() {
+                            // Store content in string_content for inline processing
+                            self.set_string_content(
+                                block,
+                                string_content.trim_end().to_string(),
+                            );
                         }
                     }
                 }
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 let mut content = self.get_string_content(block);
 
                 // Process link reference definitions at the beginning of the paragraph
@@ -476,13 +466,7 @@ impl<'a> BlockParser<'a> {
                 // Update source_pos if we removed any reference definitions
                 if total_lines_removed > 0 {
                     let block_mut = self.arena.get_mut(block);
-                    let source_pos = block_mut.source_pos;
-                    block_mut.source_pos = crate::node::SourcePos {
-                        start_line: source_pos.start_line + total_lines_removed as u32,
-                        start_column: source_pos.start_column,
-                        end_line: source_pos.end_line,
-                        end_column: source_pos.end_column,
-                    };
+                    block_mut.source_pos.start_line += total_lines_removed as u32;
                 }
 
                 // Remove leading and trailing whitespace/newlines
@@ -493,17 +477,10 @@ impl<'a> BlockParser<'a> {
                     // Store empty content marker
                     self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
                 } else {
-                    let block_mut = self.arena.get_mut(block);
-                    if let NodeData::Text { literal: ref mut l } = block_mut.data {
-                        *l = content.to_string();
-                    } else {
-                        block_mut.data = NodeData::Text {
-                            literal: content.to_string(),
-                        };
-                    }
+                    self.set_string_content(block, content.to_string());
                 }
             }
-            NodeType::List => {
+            NodeValue::List(..) => {
                 // Determine tight/loose status
                 let mut tight = true;
                 let block_ref = self.arena.get(block);
@@ -541,11 +518,8 @@ impl<'a> BlockParser<'a> {
                 // block_ref is dropped here implicitly
                 {
                     let block_mut = self.arena.get_mut(block);
-                    if let NodeData::List {
-                        tight: ref mut t, ..
-                    } = block_mut.data
-                    {
-                        *t = tight;
+                    if let NodeValue::List(list_data) = &mut block_mut.value {
+                        list_data.tight = tight;
                     }
                 }
             }
@@ -582,8 +556,7 @@ impl<'a> BlockParser<'a> {
         }
 
         // Check if this is a paragraph marked as empty and remove it
-        let node_type = self.arena.get(node).node_type;
-        if node_type == NodeType::Paragraph {
+        if matches!(self.arena.get(node).value, NodeValue::Paragraph) {
             let content = self.get_string_content(node);
             if content == "__EMPTY_PARAGRAPH__" {
                 TreeOps::unlink(self.arena, node);
@@ -596,8 +569,8 @@ impl<'a> BlockParser<'a> {
     fn ends_with_blank_line(&self, node: NodeId) -> bool {
         // Check if this node has a next sibling and there's a gap between them
         if let Some(next) = self.arena.get(node).next {
-            let node_end_line = self.arena.get(node).source_pos.end_line;
-            let next_start_line = self.arena.get(next).source_pos.start_line;
+            let node_end_line = self.arena.get(node).source_pos.end_line as usize;
+            let next_start_line = self.arena.get(next).source_pos.start_line as usize;
             // If there's a gap between this node and the next, there's a blank line
             if node_end_line + 1 < next_start_line {
                 return true;
@@ -610,9 +583,10 @@ impl<'a> BlockParser<'a> {
         }
 
         // Recursively check last child for list/item containers
-        let node_type = self.arena.get(node).node_type;
-        if (node_type == NodeType::List || node_type == NodeType::Item)
-            && self.arena.get(node).last_child.is_some()
+        if matches!(
+            self.arena.get(node).value,
+            NodeValue::List(..) | NodeValue::Item(..)
+        ) && self.arena.get(node).last_child.is_some()
         {
             if let Some(last_child) = self.arena.get(node).last_child {
                 return self.ends_with_blank_line(last_child);
@@ -622,3 +596,5 @@ impl<'a> BlockParser<'a> {
         false
     }
 }
+
+use crate::node_value::SourcePos;

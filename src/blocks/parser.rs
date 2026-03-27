@@ -5,8 +5,7 @@
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::error::{ParseError, ParseResult, ParserLimits};
-use crate::node::{NodeData, NodeType};
-use crate::node_value::NodeValue;
+use crate::node_value::{NodeValue, SourcePos};
 use rustc_hash::FxHashMap;
 
 /// Block parser state using Arena allocation
@@ -268,10 +267,12 @@ impl<'a> BlockParser<'a> {
         self.last_matched_container = container;
 
         // Check if container is a leaf that accepts lines
-        let container_type = self.arena.get(container).node_type;
+        let container_value = &self.arena.get(container).value;
         let _accepts_lines = self.accepts_lines(container);
-        let is_leaf =
-            matches!(container_type, NodeType::Heading | NodeType::ThematicBreak);
+        let is_leaf = matches!(
+            container_value,
+            NodeValue::Heading(..) | NodeValue::ThematicBreak
+        );
 
         // Try new block starts if not a leaf block
         if !is_leaf {
@@ -331,29 +332,22 @@ impl<'a> BlockParser<'a> {
         node: NodeId,
         leaf_blocks: &mut Vec<(NodeId, String, usize)>,
     ) {
-        let node_type = self.arena.get(node).node_type;
+        let node_value = &self.arena.get(node).value;
 
         // Check if this is a leaf block that needs inline processing
-        match node_type {
-            NodeType::Paragraph => {
-                // For paragraphs, content is stored in NodeData::Text after finalization
-                let node_ref = self.arena.get(node);
-                let content = match &node_ref.data {
-                    NodeData::Text { literal } => literal.clone(),
-                    _ => self.get_string_content(node),
-                };
+        match node_value {
+            NodeValue::Paragraph => {
+                // For paragraphs, content is stored in string_content after finalization
+                let content = self.get_string_content(node);
                 let line = self.get_start_line(node);
                 if !content.is_empty() && content != "__EMPTY_PARAGRAPH__" {
                     leaf_blocks.push((node, content, line));
                 }
             }
-            NodeType::Heading => {
-                // For headings, content is stored in NodeData::Heading
-                let node_ref = self.arena.get(node);
-                let content = match &node_ref.data {
-                    NodeData::Heading { content, .. } => content.clone(),
-                    _ => self.get_string_content(node),
-                };
+            NodeValue::Heading(heading) => {
+                // For headings, get content from string_content
+                // The heading content will be processed by inlines
+                let content = self.get_string_content(node);
                 let line = self.get_start_line(node);
                 if !content.is_empty() {
                     leaf_blocks.push((node, content, line));

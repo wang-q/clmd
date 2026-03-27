@@ -6,27 +6,29 @@
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::lexer::TAB_STOP;
-use crate::node::NodeType;
+use crate::node_value::NodeValue;
 
 impl<'a> BlockParser<'a> {
     /// Check if parent can contain child
-    pub(crate) fn can_contain(&self, parent: NodeId, child_type: NodeType) -> bool {
-        let parent_type = self.arena.get(parent).node_type;
+    pub(crate) fn can_contain(&self, parent: NodeId, child_value: &NodeValue) -> bool {
+        let parent_value = &self.arena.get(parent).value;
 
-        match parent_type {
-            NodeType::Document | NodeType::BlockQuote => child_type != NodeType::Item,
-            NodeType::List => child_type == NodeType::Item,
-            NodeType::Item => child_type != NodeType::Item,
+        match parent_value {
+            NodeValue::Document | NodeValue::BlockQuote => {
+                !matches!(child_value, NodeValue::Item(..))
+            }
+            NodeValue::List(..) => matches!(child_value, NodeValue::Item(..)),
+            NodeValue::Item(..) => !matches!(child_value, NodeValue::Item(..)),
             _ => false,
         }
     }
 
     /// Check if block accepts lines
     pub(crate) fn accepts_lines(&self, block: NodeId) -> bool {
-        let block_type = self.arena.get(block).node_type;
+        let block_value = &self.arena.get(block).value;
         matches!(
-            block_type,
-            NodeType::Paragraph | NodeType::CodeBlock | NodeType::HtmlBlock
+            block_value,
+            NodeValue::Paragraph | NodeValue::CodeBlock(..) | NodeValue::HtmlBlock(..)
         )
     }
 
