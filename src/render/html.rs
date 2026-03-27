@@ -16,36 +16,73 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// HTML renderer state
 struct HtmlRenderer<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    options: u32,
     output: String,
     /// Stack for tracking whether we need to close a tag
     tag_stack: Vec<&'static str>,
-    /// Track if we need to add a newline before next block
-    need_blank_line: bool,
-    /// Track if we're at the beginning of a line
-    beginning_of_line: bool,
     /// Track if we're in a tight list
     tight_list_stack: Vec<bool>,
     /// Track footnotes for rendering at the end
     footnotes: Vec<(String, NodeId)>,
     /// Track if we're in a code block
     in_code_block: bool,
+    /// Track the last output character for cr() logic
+    last_out: char,
+    /// Counter to disable tag rendering (for image alt text)
+    disable_tags: i32,
+    /// Track if we're at the first child of a list item (for tight lists)
+    item_child_count: Vec<usize>,
 }
 
 impl<'a> HtmlRenderer<'a> {
-    fn new(arena: &'a NodeArena, options: u32) -> Self {
+    fn new(arena: &'a NodeArena, _options: u32) -> Self {
         HtmlRenderer {
             arena,
-            options,
             output: String::new(),
             tag_stack: Vec::new(),
-            need_blank_line: false,
-            beginning_of_line: true,
             tight_list_stack: Vec::new(),
             footnotes: Vec::new(),
             in_code_block: false,
+            last_out: '\n', // Initialize to newline like commonmark.js
+            disable_tags: 0,
+            item_child_count: Vec::new(),
         }
+    }
+
+    /// Output a newline if the last output wasn't already a newline
+    fn cr(&mut self) {
+        if self.last_out != '\n' {
+            self.output.push('\n');
+            self.last_out = '\n';
+        }
+    }
+
+    /// Output a literal string and track last character
+    fn lit(&mut self, s: &str) {
+        if s.is_empty() {
+            return;
+        }
+
+        self.output.push_str(s);
+        self.last_out = s.chars().last().unwrap_or('\n');
+    }
+
+    /// Check if we're currently inside a tight list
+    fn in_tight_list(&self) -> bool {
+        self.tight_list_stack.last().copied().unwrap_or(false)
+    }
+
+    /// Check if we're inside a list item and track block-level children
+    /// Returns true if we should add a newline before this block element
+    fn track_item_child(&mut self) -> bool {
+        let in_tight_list = self.in_tight_list();
+        if let Some(count) = self.item_child_count.last_mut() {
+            *count += 1;
+            // In tight lists, add newline before block elements after the first one
+            if in_tight_list && *count > 1 {
+                return true;
+            }
+        }
+        false
     }
 
     fn render(&mut self, root: NodeId) -> String {
@@ -56,8 +93,8 @@ impl<'a> HtmlRenderer<'a> {
             self.render_footnotes();
         }
 
-        // Remove trailing whitespace and newlines
-        while self.output.ends_with('\n') || self.output.ends_with(' ') {
+        // Remove trailing newline to match CommonMark spec test format
+        while self.output.ends_with('\n') {
             self.output.pop();
         }
 
@@ -87,142 +124,180 @@ impl<'a> HtmlRenderer<'a> {
     fn enter_node(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
 
-        // Add blank line before block elements if needed
-        if self.need_blank_line
-            && node.value.is_block()
-            && !matches!(
-                node.value,
-                NodeValue::Document | NodeValue::List(..) | NodeValue::Item(..)
-            )
-            && !self.in_code_block
-        {
-            self.output.push('\n');
-            self.beginning_of_line = true;
-            self.need_blank_line = false;
-        }
-
         match &node.value {
             NodeValue::Document => {}
             NodeValue::BlockQuote => {
-                self.write_line("<blockquote>");
+                // In tight list items, add newline before blockquote if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
+                self.lit("<blockquote>");
+                self.lit("\n");
                 self.tag_stack.push("blockquote");
+                // Push false to tight_list_stack to disable tight mode for blockquote contents
+                self.tight_list_stack.push(false);
             }
             NodeValue::List(NodeList {
-                tight, list_type, ..
+                tight,
+                list_type,
+                start,
+                ..
             }) => {
+                // Push tight status to stack
                 self.tight_list_stack.push(*tight);
+                self.cr(); // Add newline before list if needed (for nested lists)
                 match list_type {
                     ListType::Bullet => {
-                        self.write_line("<ul>");
+                        self.lit("<ul>");
                         self.tag_stack.push("ul");
                     }
                     ListType::Ordered => {
-                        self.write_line("<ol>");
+                        if *start != 1 {
+                            self.lit(&format!("<ol start=\"{}\">", start));
+                        } else {
+                            self.lit("<ol>");
+                        }
                         self.tag_stack.push("ol");
                     }
                 }
+                self.lit("\n");
             }
             NodeValue::Item(..) => {
-                self.write("<li");
-                let parent = node.parent.map(|id| self.arena.get(id));
-                let is_task_list = parent.map_or(false, |p| {
-                    if let NodeValue::List(NodeList { is_task_list, .. }) = &p.value {
-                        *is_task_list
-                    } else {
-                        false
-                    }
-                });
-
-                if is_task_list {
-                    self.write(" class=\"task-list-item\"");
-                }
-                self.write(">");
+                self.lit("<li>");
                 self.tag_stack.push("li");
+                // In loose lists, add newline after <li>, but not for empty items
+                let has_children = node.first_child.is_some();
+                if !self.in_tight_list() && has_children {
+                    self.lit("\n");
+                }
+                // Initialize child counter for this item
+                self.item_child_count.push(0);
             }
             NodeValue::CodeBlock(..) => {
+                // In tight list items, add newline before code block if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
                 self.render_code_block(node_id);
-                self.need_blank_line = true;
             }
             NodeValue::HtmlBlock(NodeHtmlBlock { literal, .. }) => {
-                self.write(literal);
-                self.need_blank_line = true;
+                // In tight list items, add newline before HTML block if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
+                // HTML blocks are always output as raw HTML
+                self.lit(literal);
+                self.lit("\n");
             }
             NodeValue::Paragraph => {
+                // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
-                    // In loose lists, add newline before paragraph
-                    if self.in_list_item() {
-                        self.write_line("");
-                    }
-                    self.write("<p>");
+                    // Track as item child in loose lists too
+                    self.track_item_child();
+                    self.lit("<p>");
                     self.tag_stack.push("p");
                 }
             }
             NodeValue::Heading(NodeHeading { level, .. }) => {
-                let tag = format!("h{}", level);
-                self.write(&format!("<{}>", tag));
-                self.tag_stack.push(Box::leak(tag.into_boxed_str()));
+                // In tight list items, add newline before heading
+                // The first heading in a list item should also have a newline
+                if !self.item_child_count.is_empty() {
+                    self.track_item_child();
+                    self.lit("\n");
+                }
+                self.lit(&format!("<h{}>", level));
+                self.tag_stack.push("h");
             }
             NodeValue::ThematicBreak => {
-                self.write_line("<hr />");
-                self.need_blank_line = true;
+                // In tight list items, add newline before thematic break if not first child
+                if self.track_item_child() {
+                    self.lit("\n");
+                } else {
+                    self.cr();
+                }
+                self.lit("<hr />");
+                self.lit("\n");
             }
             NodeValue::Text(literal) => {
+                // Track text nodes as item children in tight lists
+                // This ensures proper newline handling for subsequent block elements
+                if self.in_tight_list() && !self.item_child_count.is_empty() {
+                    self.track_item_child();
+                }
                 if self.in_code_block {
-                    self.write(literal);
+                    self.lit(literal);
                 } else {
-                    self.write(&escape_html(literal));
+                    self.lit(&escape_html(literal));
                 }
             }
             NodeValue::SoftBreak => {
                 if self.in_code_block {
-                    self.write("\n");
+                    self.lit("\n");
                 } else if self.in_tight_list() {
-                    self.write(" ");
+                    self.lit(" ");
                 } else {
-                    self.write_line("");
+                    self.lit("\n");
                 }
             }
             NodeValue::HardBreak => {
-                self.write_line("<br />");
+                self.lit("<br />");
+                self.lit("\n");
             }
             NodeValue::Code(NodeCode { literal, .. }) => {
-                self.write("<code>");
-                self.write(&escape_html(literal));
-                self.write("</code>");
+                self.lit("<code>");
+                self.lit(&escape_html(literal));
+                self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                self.write(literal);
+                self.lit(literal);
             }
             NodeValue::Emph => {
-                self.write("<em>");
+                self.lit("<em>");
             }
             NodeValue::Strong => {
-                self.write("<strong>");
+                self.lit("<strong>");
             }
             NodeValue::Link(NodeLink { url, title }) => {
-                self.write(&format!("<a href=\"{}\"", escape_href(url)));
-                if !title.is_empty() {
-                    self.write(&format!(" title=\"{}\"", escape_html(title)));
+                if self.disable_tags > 0 {
+                    // We're inside an image's alt text
+                    // Links in alt text are replaced by their link text
+                } else {
+                    self.lit("<a href=\"");
+                    self.lit(&escape_href(url));
+                    self.lit("\"");
+                    if !title.is_empty() {
+                        self.lit(" title=\"");
+                        self.lit(&escape_html(title));
+                        self.lit("\"");
+                    }
+                    self.lit(">");
                 }
-                self.write(">");
             }
             NodeValue::Image(NodeLink { url, title }) => {
-                self.write(&format!("<img src=\"{}\"", escape_href(url)));
-                // The alt text comes from the image's children
+                self.lit("<img src=\"");
+                self.lit(&escape_href(url));
+                self.lit("\" alt=\"");
+                // Collect alt text from children
                 let alt_text = self.collect_alt_text(node_id);
-                // Always include alt attribute, even if empty
-                self.write(&format!(" alt=\"{}\"", escape_html(&alt_text)));
+                self.lit(&escape_html(&alt_text));
                 if !title.is_empty() {
-                    self.write(&format!(" title=\"{}\"", escape_html(title)));
+                    self.lit("\" title=\"");
+                    self.lit(&escape_html(title));
                 }
-                self.write(" />");
+                self.lit("\" />");
             }
             NodeValue::Strikethrough => {
-                self.write("<del>");
+                self.lit("<del>");
             }
             NodeValue::TaskItem(NodeTaskItem { symbol, .. }) => {
                 let checked = symbol.is_some();
-                self.write(&format!(
+                self.lit(&format!(
                     "<input type=\"checkbox\" disabled=\"disabled\"{} />",
                     if checked { " checked=\"checked\"" } else { "" }
                 ));
@@ -232,7 +307,7 @@ impl<'a> HtmlRenderer<'a> {
                 if let Some(def_id) = self.find_footnote_def(name) {
                     self.footnotes.push((name.clone(), def_id));
                 }
-                self.write(&format!(
+                self.lit(&format!(
                     "<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"fnref-{}\">[{}]</a></sup>",
                     escape_html(name),
                     escape_html(name),
@@ -241,14 +316,17 @@ impl<'a> HtmlRenderer<'a> {
             }
             NodeValue::FootnoteDefinition(NodeFootnoteDefinition { name, .. }) => {
                 // Footnote definitions are rendered at the end
-                self.write(&format!("<li id=\"fn-{}\">", escape_html(name)));
+                self.lit(&format!("<li id=\"fn-{}\">", escape_html(name)));
                 self.tag_stack.push("li");
             }
             NodeValue::Table(NodeTable { alignments, .. }) => {
-                self.write_line("<table>");
+                self.lit("<table>");
+                self.lit("\n");
                 if !alignments.is_empty() {
-                    self.write_line("<thead>");
-                    self.write_line("<tr>");
+                    self.lit("<thead>");
+                    self.lit("\n");
+                    self.lit("<tr>");
+                    self.lit("\n");
                     for alignment in alignments {
                         let align_attr = match alignment {
                             TableAlignment::Left => " align=\"left\"",
@@ -256,22 +334,27 @@ impl<'a> HtmlRenderer<'a> {
                             TableAlignment::Right => " align=\"right\"",
                             TableAlignment::None => "",
                         };
-                        self.write_line(&format!("<th{}>", align_attr));
+                        self.lit(&format!("<th{}>", align_attr));
+                        self.lit("\n");
                         self.tag_stack.push("th");
                     }
                 }
             }
             NodeValue::TableRow(is_header) => {
                 if *is_header {
-                    self.write_line("</tr>");
-                    self.write_line("</thead>");
-                    self.write_line("<tbody>");
+                    self.lit("</tr>");
+                    self.lit("\n");
+                    self.lit("</thead>");
+                    self.lit("\n");
+                    self.lit("<tbody>");
+                    self.lit("\n");
                 } else {
-                    self.write_line("<tr>");
+                    self.lit("<tr>");
+                    self.lit("\n");
                 }
             }
             NodeValue::TableCell => {
-                self.write("<td>");
+                self.lit("<td>");
                 self.tag_stack.push("td");
             }
             _ => {}
@@ -284,64 +367,90 @@ impl<'a> HtmlRenderer<'a> {
         match &node.value {
             NodeValue::Document => {}
             NodeValue::BlockQuote => {
-                self.write_line("</blockquote>");
+                self.lit("</blockquote>");
+                self.lit("\n");
                 self.tag_stack.pop();
-                self.need_blank_line = true;
+                // Pop the false we pushed when entering blockquote
+                self.tight_list_stack.pop();
             }
             NodeValue::List(..) => {
-                self.tight_list_stack.pop();
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.write_line(&format!("</{}>", tag));
+                    self.lit(&format!("</{}>", tag));
+                    self.lit("\n");
                 }
-                self.need_blank_line = true;
+                // Pop tight status from stack
+                self.tight_list_stack.pop();
             }
             NodeValue::Item(..) => {
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.write_line(&format!("</{}>", tag));
+                    self.lit(&format!("</{}>", tag));
+                    self.lit("\n");
                 }
+                // Pop child counter for this item
+                self.item_child_count.pop();
             }
+            NodeValue::CodeBlock(..) => {}
+            NodeValue::HtmlBlock(..) => {}
             NodeValue::Paragraph => {
+                // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
                     if let Some(tag) = self.tag_stack.pop() {
-                        self.write_line(&format!("</{}>", tag));
+                        self.lit(&format!("</{}>", tag));
+                        self.lit("\n");
                     }
                 }
             }
             NodeValue::Heading(NodeHeading { level, .. }) => {
-                let tag = format!("h{}", level);
-                self.write_line(&format!("</{}>", tag));
+                self.lit(&format!("</h{}>", level));
+                self.lit("\n");
                 self.tag_stack.pop();
-                // Headings don't need extra blank line - write_line already adds newline
             }
+            NodeValue::ThematicBreak => {}
+            NodeValue::Text(..) => {}
+            NodeValue::SoftBreak => {}
+            NodeValue::HardBreak => {}
+            NodeValue::Code(..) => {}
+            NodeValue::HtmlInline(..) => {}
             NodeValue::Emph => {
-                self.write("</em>");
+                self.lit("</em>");
             }
             NodeValue::Strong => {
-                self.write("</strong>");
+                self.lit("</strong>");
             }
             NodeValue::Link(..) => {
-                self.write("</a>");
+                if self.disable_tags == 0 {
+                    self.lit("</a>");
+                }
+            }
+            NodeValue::Image(..) => {
+                // Image tag is already output in enter_node
+                // No need to do anything here
             }
             NodeValue::Strikethrough => {
-                self.write("</del>");
+                self.lit("</del>");
             }
             NodeValue::FootnoteDefinition(..) => {
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.write_line(&format!("</{}>", tag));
+                    self.lit(&format!("</{}>", tag));
+                    self.lit("\n");
                 }
-                self.write_line("</li>");
+                self.lit("</li>");
+                self.lit("\n");
             }
             NodeValue::Table(..) => {
-                self.write_line("</tbody>");
-                self.write_line("</table>");
-                self.need_blank_line = true;
+                self.lit("</tbody>");
+                self.lit("\n");
+                self.lit("</table>");
+                self.lit("\n");
             }
             NodeValue::TableRow(..) => {
-                self.write_line("</tr>");
+                self.lit("</tr>");
+                self.lit("\n");
             }
             NodeValue::TableCell => {
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.write_line(&format!("</{}>", tag));
+                    self.lit(&format!("</{}>", tag));
+                    self.lit("\n");
                 }
             }
             _ => {}
@@ -353,43 +462,49 @@ impl<'a> HtmlRenderer<'a> {
         if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
             self.in_code_block = true;
 
-            self.write("<pre><code");
+            self.lit("<pre><code");
             if !info.is_empty() {
                 let lang = info.split_whitespace().next().unwrap_or("");
                 if !lang.is_empty() {
-                    self.write(&format!(" class=\"language-{}\"", escape_html(lang)));
+                    self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
                 }
             }
-            self.write(">");
+            self.lit(">");
 
             // Write code content
-            self.write(&escape_html(literal));
+            self.lit(&escape_html(literal));
 
-            self.write_line("</code></pre>");
+            self.lit("</code></pre>");
+            self.lit("\n");
             self.in_code_block = false;
         }
     }
 
     fn render_footnotes(&mut self) {
-        self.write_line("<section class=\"footnotes\">");
-        self.write_line("<ol>");
+        self.lit("<section class=\"footnotes\">");
+        self.lit("\n");
+        self.lit("<ol>");
+        self.lit("\n");
 
         // Collect footnotes to avoid borrow issues
         let footnotes: Vec<(String, NodeId)> = self.footnotes.clone();
 
         for (name, def_id) in footnotes {
-            self.write(&format!("<li id=\"fn-{}\">", escape_html(&name)));
+            self.lit(&format!("<li id=\"fn-{}\">", escape_html(&name)));
             // Render footnote content
             self.render_node(def_id, true);
-            self.write(&format!(
+            self.lit(&format!(
                 " <a href=\"#fnref-{}\" class=\"footnote-backref\">↩</a>",
                 escape_html(&name)
             ));
-            self.write_line("</li>");
+            self.lit("</li>");
+            self.lit("\n");
         }
 
-        self.write_line("</ol>");
-        self.write_line("</section>");
+        self.lit("</ol>");
+        self.lit("\n");
+        self.lit("</section>");
+        self.lit("\n");
     }
 
     fn find_footnote_def(&self, _name: &str) -> Option<NodeId> {
@@ -427,26 +542,6 @@ impl<'a> HtmlRenderer<'a> {
                 }
             }
         }
-    }
-
-    fn write(&mut self, text: &str) {
-        self.output.push_str(text);
-        self.beginning_of_line = false;
-    }
-
-    fn write_line(&mut self, text: &str) {
-        self.output.push_str(text);
-        self.output.push('\n');
-        self.beginning_of_line = true;
-    }
-
-    fn in_tight_list(&self) -> bool {
-        self.tight_list_stack.last().copied().unwrap_or(false)
-    }
-
-    fn in_list_item(&self) -> bool {
-        // Check if we're inside a list item by looking at tag stack
-        self.tag_stack.iter().any(|tag| *tag == "li")
     }
 }
 
