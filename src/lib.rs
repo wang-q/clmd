@@ -47,9 +47,6 @@ pub mod iterator;
 /// Lexical analysis utilities
 pub mod lexer;
 
-/// Core node types and data structures (legacy)
-pub mod node;
-
 /// Unified node value types (new API, inspired by comrak)
 ///
 /// This module provides a unified `NodeValue` enum that combines node type and data,
@@ -115,9 +112,6 @@ pub use error::{
     ParseResult, ParserLimits, Position, ResolvedReference,
 };
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
-// Re-export legacy node types for backward compatibility during migration
-// These will be deprecated in favor of node_value types
-pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos as LegacySourcePos};
 pub use parser::Parser;
 
 // Re-export new node_value types

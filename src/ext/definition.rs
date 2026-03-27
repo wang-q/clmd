@@ -13,8 +13,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos};
-use crate::node_value::NodeValue;
+use crate::node_value::{NodeValue, SourcePos};
 
 /// A definition list entry
 #[derive(Debug, Clone)]
@@ -120,12 +119,8 @@ pub fn create_definition_list_node(
 
     {
         let node_ref = arena.get_mut(list_node);
-        node_ref.source_pos = SourcePos {
-            start_line,
-            start_column: 1,
-            end_line: start_line,
-            end_column: 1,
-        };
+        node_ref.source_pos =
+            SourcePos::new(start_line as usize, 1, start_line as usize, 1);
     }
 
     for entry in entries {
@@ -269,8 +264,8 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_definition_list_node(&mut arena, &entries, 1, 1);
         let node = arena.get(node_id);
-        // NodeValue::Raw maps to NodeType::None
-        assert_eq!(node.node_type, NodeType::None);
+        // NodeValue::Raw is used for definition list
+        assert!(matches!(node.value, NodeValue::Raw(..)));
     }
 
     #[test]

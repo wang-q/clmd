@@ -1,161 +1,35 @@
-//! Footnote extension for Markdown
+//! Footnote extension for CommonMark
 //!
-//! This module implements footnote parsing.
-//! Footnotes allow referencing additional content at the bottom of the document.
+//! This module provides support for footnotes, similar to Pandoc's footnote syntax.
 //!
-//! Syntax:
+//! # Syntax
+//!
 //! ```markdown
 //! Here is some text with a footnote[^1].
 //!
 //! [^1]: This is the footnote content.
 //! ```
 //!
-//! Or using inline footnotes:
+//! # Example
+//!
 //! ```markdown
-//! Here is some text with an inline footnote^[This is the footnote content.].
+//! You can write footnotes[^note1] in markdown.
+//!
+//! [^note1]: This is the footnote text.
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos};
-use crate::node_value::{NodeFootnoteDefinition, NodeFootnoteReference, NodeValue};
-use std::collections::HashMap;
+use crate::node_value::{
+    NodeFootnoteDefinition, NodeFootnoteReference, NodeValue, SourcePos,
+};
 
-/// A footnote reference in the text: [^label]
-#[derive(Debug, Clone)]
-pub struct FootnoteRef {
-    /// The footnote label/id
-    pub label: String,
-    /// The ordinal number (assigned during rendering)
-    pub ordinal: usize,
+/// Check if footnotes extension is enabled
+pub fn is_enabled(options: u32) -> bool {
+    // Footnotes are enabled when the 0x02 bit is set
+    (options & 0x02) != 0
 }
 
-/// A footnote definition block: [^label]: content
-#[derive(Debug, Clone)]
-pub struct FootnoteDef {
-    /// The footnote label/id
-    pub label: String,
-    /// The ordinal number (assigned during rendering)
-    pub ordinal: usize,
-    /// Number of references to this footnote
-    pub ref_count: usize,
-}
-
-/// Check if text contains a footnote reference
-pub fn contains_footnote_ref(text: &str) -> bool {
-    text.contains("[^")
-}
-
-/// Parse a footnote reference from text
-/// Returns Some(label) if found at the beginning
-pub fn parse_footnote_ref(text: &str) -> Option<(String, usize)> {
-    let trimmed = text.trim_start();
-
-    if let Some(start) = trimmed.find("[^") {
-        let after_bracket = start + 2;
-        if let Some(end) = trimmed[after_bracket..].find(']') {
-            let label = trimmed[after_bracket..after_bracket + end]
-                .trim()
-                .to_string();
-            if !label.is_empty() {
-                let full_len = after_bracket + end + 1 - start;
-                return Some((label, full_len));
-            }
-        }
-    }
-
-    None
-}
-
-/// Find all footnote references in text
-/// Returns vector of (start_pos, end_pos, label)
-pub fn find_footnote_refs(text: &str) -> Vec<(usize, usize, String)> {
-    let mut refs = Vec::new();
-    let mut chars = text.char_indices().peekable();
-
-    while let Some((pos, ch)) = chars.next() {
-        if ch == '[' {
-            if let Some(&(_, next_ch)) = chars.peek() {
-                if next_ch == '^' {
-                    chars.next(); // consume '^'
-                    let label_start = pos + 2;
-
-                    // Find closing bracket
-                    let mut label_end = label_start;
-                    let mut found_close = false;
-
-                    for (end_pos, end_ch) in chars.by_ref() {
-                        if end_ch == ']' {
-                            label_end = end_pos;
-                            found_close = true;
-                            break;
-                        }
-                    }
-
-                    if found_close && label_end > label_start {
-                        let label = text[label_start..label_end].trim().to_string();
-                        if !label.is_empty() {
-                            refs.push((pos, label_end + 1, label));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    refs
-}
-
-/// Check if a line is a footnote definition
-/// Format: [^label]: content
-pub fn is_footnote_def(line: &str) -> bool {
-    let trimmed = line.trim_start();
-
-    if let Some(start) = trimmed.find("[^") {
-        if start > 0 {
-            return false; // Must be at the start of the line
-        }
-
-        let after_bracket = start + 2;
-        if let Some(bracket_end) = trimmed[after_bracket..].find(']') {
-            let label = trimmed[after_bracket..after_bracket + bracket_end].trim();
-            if !label.is_empty() {
-                let after_label = after_bracket + bracket_end + 1;
-                if trimmed[after_label..].starts_with(':') {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
-}
-
-/// Parse a footnote definition line
-/// Returns (label, content, consumed_chars)
-pub fn parse_footnote_def(line: &str) -> Option<(String, String)> {
-    if !is_footnote_def(line) {
-        return None;
-    }
-
-    let trimmed = line.trim_start();
-    let start = trimmed.find("[^").unwrap();
-    let after_bracket = start + 2;
-    let bracket_end = trimmed[after_bracket..].find(']').unwrap();
-
-    let label = trimmed[after_bracket..after_bracket + bracket_end]
-        .trim()
-        .to_string();
-    let after_label = after_bracket + bracket_end + 1;
-
-    // Skip the colon and whitespace
-    let content_start = after_label + 1;
-    let content = trimmed[content_start..].trim().to_string();
-
-    Some((label, content))
-}
-
-/// Create a footnote reference node in the arena
-/// Returns the NodeId of the created node
+/// Create a footnote reference node
 pub fn create_footnote_ref_node(
     arena: &mut NodeArena,
     label: &str,
@@ -165,26 +39,25 @@ pub fn create_footnote_ref_node(
     let node = arena.alloc(Node::with_value(NodeValue::FootnoteReference(
         NodeFootnoteReference {
             name: label.to_string(),
-            ref_num: 0, // Will be assigned during rendering
-            ix: 0,
+            ref_num: 0, // Will be set during rendering
+            ix: 0,      // Will be set during rendering
         },
     )));
 
     {
         let node_ref = arena.get_mut(node);
-        node_ref.source_pos = SourcePos {
-            start_line: line,
-            start_column: col,
-            end_line: line,
-            end_column: col + label.len() as u32 + 4, // +4 for [^ and ]
-        };
+        node_ref.source_pos = SourcePos::new(
+            line as usize,
+            col as usize,
+            line as usize,
+            (col + label.len() as u32 + 4) as usize, // +4 for [^ and ]
+        );
     }
 
     node
 }
 
-/// Create a footnote definition node in the arena
-/// Returns the NodeId of the created node
+/// Create a footnote definition node
 pub fn create_footnote_def_node(
     arena: &mut NodeArena,
     label: &str,
@@ -195,144 +68,143 @@ pub fn create_footnote_def_node(
     let node = arena.alloc(Node::with_value(NodeValue::FootnoteDefinition(
         NodeFootnoteDefinition {
             name: label.to_string(),
-            total_references: 0,
+            total_references: 0, // Will be set during processing
         },
     )));
 
     {
         let node_ref = arena.get_mut(node);
-        node_ref.source_pos = SourcePos {
-            start_line: line,
-            start_column: col,
-            end_line: line,
-            end_column: col + label.len() as u32 + content.len() as u32 + 5, // +5 for [^, ], :, and space
-        };
+        node_ref.source_pos = SourcePos::new(
+            line as usize,
+            col as usize,
+            line as usize,
+            (col + label.len() as u32 + content.len() as u32 + 5) as usize, // +5 for [^, ], :, and space
+        );
     }
 
-    // Create text node for the content
-    if !content.is_empty() {
-        let text_node =
-            arena.alloc(Node::with_value(NodeValue::Text(content.to_string())));
-        TreeOps::append_child(arena, node, text_node);
-    }
+    // Create a paragraph for the content
+    let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    let text = arena.alloc(Node::with_value(NodeValue::Text(content.to_string())));
+    TreeOps::append_child(arena, para, text);
+    TreeOps::append_child(arena, node, para);
 
     node
 }
 
-/// Footnote registry for managing footnotes during parsing
-#[derive(Debug, Default)]
-pub struct FootnoteRegistry {
-    /// Map from label to footnote definition
-    pub defs: HashMap<String, FootnoteDef>,
-    /// Ordered list of labels
-    pub ordered_labels: Vec<String>,
-    /// Next ordinal to assign
-    next_ordinal: usize,
-}
-
-impl FootnoteRegistry {
-    /// Create a new footnote registry
-    pub fn new() -> Self {
-        Self {
-            defs: HashMap::new(),
-            ordered_labels: Vec::new(),
-            next_ordinal: 1,
-        }
-    }
-
-    /// Register a footnote definition
-    pub fn register_def(&mut self, label: &str) -> usize {
-        if let Some(def) = self.defs.get(label) {
-            return def.ordinal;
-        }
-
-        let ordinal = self.next_ordinal;
-        self.next_ordinal += 1;
-
-        self.defs.insert(
-            label.to_string(),
-            FootnoteDef {
-                label: label.to_string(),
-                ordinal,
-                ref_count: 0,
-            },
-        );
-        self.ordered_labels.push(label.to_string());
-
-        ordinal
-    }
-
-    /// Increment reference count for a footnote
-    pub fn add_ref(&mut self, label: &str) -> Option<usize> {
-        if let Some(def) = self.defs.get_mut(label) {
-            def.ref_count += 1;
-            Some(def.ordinal)
-        } else {
-            None
-        }
-    }
-
-    /// Get the ordinal for a label
-    pub fn get_ordinal(&self, label: &str) -> Option<usize> {
-        self.defs.get(label).map(|d| d.ordinal)
-    }
-
-    /// Check if a footnote is defined
-    pub fn is_defined(&self, label: &str) -> bool {
-        self.defs.contains_key(label)
-    }
-
-    /// Get all referenced footnotes in order
-    pub fn get_referenced_footnotes(&self) -> Vec<&FootnoteDef> {
-        self.ordered_labels
-            .iter()
-            .filter_map(|label| self.defs.get(label))
-            .filter(|def| def.ref_count > 0)
-            .collect()
-    }
-}
-
-/// Render footnote reference to HTML
-pub fn render_footnote_ref_html(_label: &str, ordinal: usize) -> String {
+/// Render footnote reference as HTML
+pub fn render_footnote_ref_html(label: &str, ref_num: usize) -> String {
     format!(
         "<sup class=\"footnote-ref\"><a href=\"#fn{}\" id=\"fnref{}\">[{}]</a></sup>",
-        ordinal, ordinal, ordinal
+        label, ref_num, label
     )
 }
 
-/// Render footnote definition to HTML
-pub fn render_footnote_def_html(ordinal: usize, content: &str) -> String {
-    format!(
-        "<li id=\"fn{}\">\n<p>{} <a href=\"#fnref{}\" class=\"footnote-backref\">↩</a></p>\n</li>",
-        ordinal, content, ordinal
-    )
-}
-
-/// Render footnote list to HTML
-pub fn render_footnote_list_html(items: &[String]) -> String {
-    if items.is_empty() {
+/// Render footnote definition as HTML
+pub fn render_footnote_def_html(label: &str, content: &str, ref_count: usize) -> String {
+    if ref_count == 0 {
         return String::new();
     }
 
-    let items_html = items.join("\n");
     format!(
-        r#"<section class="footnotes">
-<ol>
-{}
-</ol>
-</section>"#,
-        items_html
+        "<li id=\"fn{}\">\n<p>{} <a href=\"#fnref{}\" class=\"footnote-backref\">↩</a></p>\n</li>",
+        label, content, label
     )
 }
 
-/// Render footnote reference to CommonMark
-pub fn render_footnote_ref_commonmark(label: &str) -> String {
-    format!("[^{}]", label)
+/// Collect all footnote references in the document
+pub fn collect_footnote_refs(arena: &NodeArena, root: NodeId) -> Vec<(String, NodeId)> {
+    let mut refs = Vec::new();
+    collect_footnote_refs_recursive(arena, root, &mut refs);
+    refs
 }
 
-/// Render footnote definition to CommonMark
-pub fn render_footnote_def_commonmark(label: &str, content: &str) -> String {
-    format!("[^{}]: {}", label, content)
+fn collect_footnote_refs_recursive(
+    arena: &NodeArena,
+    node_id: NodeId,
+    refs: &mut Vec<(String, NodeId)>,
+) {
+    let node = arena.get(node_id);
+
+    if let NodeValue::FootnoteReference(ref footnote_ref) = node.value {
+        refs.push((footnote_ref.name.clone(), node_id));
+    }
+
+    // Recursively check children
+    if let Some(child_id) = node.first_child {
+        let mut current = Some(child_id);
+        while let Some(id) = current {
+            collect_footnote_refs_recursive(arena, id, refs);
+            current = arena.get(id).next;
+        }
+    }
+
+    // Check next sibling
+    if let Some(next_id) = node.next {
+        collect_footnote_refs_recursive(arena, next_id, refs);
+    }
+}
+
+/// Collect all footnote definitions in the document
+pub fn collect_footnote_defs(arena: &NodeArena, root: NodeId) -> Vec<(String, NodeId)> {
+    let mut defs = Vec::new();
+    collect_footnote_defs_recursive(arena, root, &mut defs);
+    defs
+}
+
+fn collect_footnote_defs_recursive(
+    arena: &NodeArena,
+    node_id: NodeId,
+    defs: &mut Vec<(String, NodeId)>,
+) {
+    let node = arena.get(node_id);
+
+    if let NodeValue::FootnoteDefinition(ref footnote_def) = node.value {
+        defs.push((footnote_def.name.clone(), node_id));
+    }
+
+    // Recursively check children
+    if let Some(child_id) = node.first_child {
+        let mut current = Some(child_id);
+        while let Some(id) = current {
+            collect_footnote_defs_recursive(arena, id, defs);
+            current = arena.get(id).next;
+        }
+    }
+
+    // Check next sibling
+    if let Some(next_id) = node.next {
+        collect_footnote_defs_recursive(arena, next_id, defs);
+    }
+}
+
+/// Get footnote content as string
+pub fn get_footnote_content(arena: &NodeArena, def_node: NodeId) -> String {
+    let mut content = String::new();
+
+    // Get first child (should be paragraph)
+    if let Some(para_id) = arena.get(def_node).first_child {
+        // Get first child of paragraph (should be text)
+        if let Some(text_id) = arena.get(para_id).first_child {
+            if let NodeValue::Text(ref text) = arena.get(text_id).value {
+                content = text.clone();
+            }
+        }
+    }
+
+    content
+}
+
+/// Count references to a footnote
+pub fn count_footnote_refs(refs: &[(String, NodeId)], label: &str) -> usize {
+    refs.iter().filter(|(l, _)| l == label).count()
+}
+
+/// Get all referenced footnote labels
+pub fn get_referenced_labels(refs: &[(String, NodeId)]) -> Vec<String> {
+    let mut labels: Vec<String> = refs.iter().map(|(l, _)| l.clone()).collect();
+    labels.sort();
+    labels.dedup();
+    labels
 }
 
 #[cfg(test)]
@@ -340,80 +212,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_contains_footnote_ref() {
-        assert!(contains_footnote_ref("Here is a footnote[^1]."));
-        assert!(contains_footnote_ref("Multiple[^a][^b] refs."));
-        assert!(!contains_footnote_ref("No footnote here."));
-        assert!(!contains_footnote_ref("Just [a link](url)."));
-    }
-
-    #[test]
-    fn test_parse_footnote_ref() {
-        let result = parse_footnote_ref("[^1]");
-        assert_eq!(result, Some(("1".to_string(), 4)));
-
-        let result = parse_footnote_ref("[^label]");
-        assert_eq!(result, Some(("label".to_string(), 8)));
-
-        let result = parse_footnote_ref("no ref");
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_find_footnote_refs() {
-        let refs = find_footnote_refs("Here[^1] are[^2] refs.");
-        assert_eq!(refs.len(), 2);
-        assert_eq!(refs[0], (4, 8, "1".to_string()));
-        // The second ref starts at position 12 (after "Here[^1] are")
-        assert_eq!(refs[1], (12, 16, "2".to_string()));
-    }
-
-    #[test]
-    fn test_is_footnote_def() {
-        assert!(is_footnote_def("[^1]: Footnote content."));
-        assert!(is_footnote_def("  [^label]: Indented definition."));
-        assert!(!is_footnote_def("Not a [^1]: definition."));
-        assert!(!is_footnote_def("[^1] just a reference"));
-        assert!(!is_footnote_def("[^]: Empty label"));
-    }
-
-    #[test]
-    fn test_parse_footnote_def() {
-        let result = parse_footnote_def("[^1]: This is the content.");
-        assert_eq!(
-            result,
-            Some(("1".to_string(), "This is the content.".to_string()))
-        );
-
-        let result = parse_footnote_def("[^label]: Multi word content here.");
-        assert_eq!(
-            result,
-            Some(("label".to_string(), "Multi word content here.".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_footnote_registry() {
-        let mut registry = FootnoteRegistry::new();
-
-        // Register definitions
-        let ord1 = registry.register_def("first");
-        let ord2 = registry.register_def("second");
-
-        assert_eq!(ord1, 1);
-        assert_eq!(ord2, 2);
-
-        // Add references
-        registry.add_ref("first");
-        registry.add_ref("first");
-        registry.add_ref("second");
-
-        assert_eq!(registry.defs["first"].ref_count, 2);
-        assert_eq!(registry.defs["second"].ref_count, 1);
-
-        // Get referenced footnotes
-        let referenced = registry.get_referenced_footnotes();
-        assert_eq!(referenced.len(), 2);
+    fn test_is_enabled() {
+        assert!(is_enabled(0x02));
+        assert!(!is_enabled(0));
+        assert!(is_enabled(0x02 | 0x01));
     }
 
     #[test]
@@ -421,13 +223,15 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_footnote_ref_node(&mut arena, "1", 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::FootnoteRef);
 
-        match &node.data {
-            NodeData::FootnoteRef { label, .. } => {
-                assert_eq!(label, "1");
-            }
-            _ => panic!("Expected FootnoteRef data"),
+        // Check it's a FootnoteReference node
+        assert!(matches!(node.value, NodeValue::FootnoteReference(..)));
+
+        // Check the label
+        if let NodeValue::FootnoteReference(ref footnote) = node.value {
+            assert_eq!(footnote.name, "1");
+        } else {
+            panic!("Expected FootnoteReference value");
         }
     }
 
@@ -436,13 +240,15 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_footnote_def_node(&mut arena, "1", "content", 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::FootnoteDef);
 
-        match &node.data {
-            NodeData::FootnoteDef { label, .. } => {
-                assert_eq!(label, "1");
-            }
-            _ => panic!("Expected FootnoteDef data"),
+        // Check it's a FootnoteDefinition node
+        assert!(matches!(node.value, NodeValue::FootnoteDefinition(..)));
+
+        // Check the label
+        if let NodeValue::FootnoteDefinition(ref footnote) = node.value {
+            assert_eq!(footnote.name, "1");
+        } else {
+            panic!("Expected FootnoteDefinition value");
         }
     }
 
@@ -456,18 +262,84 @@ mod tests {
 
     #[test]
     fn test_render_footnote_def_html() {
-        let html = render_footnote_def_html(1, "Footnote content.");
-        assert!(html.contains("id=\"fn1\""));
-        assert!(html.contains("Footnote content."));
-        assert!(html.contains("↩"));
+        let html = render_footnote_def_html("1", "content", 1);
+        assert!(html.contains("fn1"));
+        assert!(html.contains("content"));
+        assert!(html.contains("fnref1"));
     }
 
     #[test]
-    fn test_render_footnote_commonmark() {
-        assert_eq!(render_footnote_ref_commonmark("1"), "[^1]");
-        assert_eq!(
-            render_footnote_def_commonmark("1", "content"),
-            "[^1]: content"
-        );
+    fn test_render_footnote_def_html_zero_refs() {
+        let html = render_footnote_def_html("1", "content", 0);
+        assert!(html.is_empty());
+    }
+
+    #[test]
+    fn test_collect_footnote_refs() {
+        let mut arena = NodeArena::new();
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let ref1 = create_footnote_ref_node(&mut arena, "1", 1, 1);
+        let ref2 = create_footnote_ref_node(&mut arena, "2", 2, 1);
+
+        TreeOps::append_child(&mut arena, doc, ref1);
+        TreeOps::append_child(&mut arena, doc, ref2);
+
+        let refs = collect_footnote_refs(&arena, doc);
+        assert_eq!(refs.len(), 2);
+        assert_eq!(refs[0].0, "1");
+        assert_eq!(refs[1].0, "2");
+    }
+
+    #[test]
+    fn test_collect_footnote_defs() {
+        let mut arena = NodeArena::new();
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let def1 = create_footnote_def_node(&mut arena, "1", "content1", 1, 1);
+        let def2 = create_footnote_def_node(&mut arena, "2", "content2", 2, 1);
+
+        TreeOps::append_child(&mut arena, doc, def1);
+        TreeOps::append_child(&mut arena, doc, def2);
+
+        let defs = collect_footnote_defs(&arena, doc);
+        assert_eq!(defs.len(), 2);
+        assert_eq!(defs[0].0, "1");
+        assert_eq!(defs[1].0, "2");
+    }
+
+    #[test]
+    fn test_get_footnote_content() {
+        let mut arena = NodeArena::new();
+        let node_id = create_footnote_def_node(&mut arena, "1", "test content", 1, 1);
+
+        let content = get_footnote_content(&arena, node_id);
+        assert_eq!(content, "test content");
+    }
+
+    #[test]
+    fn test_count_footnote_refs() {
+        let refs = vec![
+            ("1".to_string(), 0),
+            ("1".to_string(), 1),
+            ("2".to_string(), 2),
+        ];
+
+        assert_eq!(count_footnote_refs(&refs, "1"), 2);
+        assert_eq!(count_footnote_refs(&refs, "2"), 1);
+        assert_eq!(count_footnote_refs(&refs, "3"), 0);
+    }
+
+    #[test]
+    fn test_get_referenced_labels() {
+        let refs = vec![
+            ("b".to_string(), 0),
+            ("a".to_string(), 1),
+            ("b".to_string(), 2),
+            ("c".to_string(), 3),
+        ];
+
+        let labels = get_referenced_labels(&refs);
+        assert_eq!(labels, vec!["a", "b", "c"]);
     }
 }

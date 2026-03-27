@@ -100,7 +100,7 @@ impl<'a> BlockParser<'a> {
                     // to this code block. We track this by checking if the current line is the
                     // same line where the block was created.
                     let block_start_line =
-                        self.arena.get(container).source_pos.start_line as usize;
+                        self.arena.get(container).source_pos.start.line;
                     let is_first_line = self.line_number == block_start_line;
 
                     // Also check if this line matches the opening fence pattern
@@ -291,8 +291,8 @@ impl<'a> BlockParser<'a> {
         }
 
         let mut new_block = Node::with_value(value);
-        new_block.source_pos.start_line = self.line_number as u32;
-        new_block.source_pos.start_column = start_column as u32;
+        new_block.source_pos.start.line = self.line_number;
+        new_block.source_pos.start.column = start_column;
 
         let new_block_id = self.arena.alloc(new_block);
         TreeOps::append_child(self.arena, tip, new_block_id);
@@ -309,8 +309,8 @@ impl<'a> BlockParser<'a> {
         // Set end position
         {
             let block_mut = self.arena.get_mut(block);
-            block_mut.source_pos.end_line = self.line_number.saturating_sub(1) as u32;
-            block_mut.source_pos.end_column = self.last_line_length as u32;
+            block_mut.source_pos.end.line = self.line_number.saturating_sub(1);
+            block_mut.source_pos.end.column = self.last_line_length;
         }
 
         // Mark as closed
@@ -466,7 +466,7 @@ impl<'a> BlockParser<'a> {
                 // Update source_pos if we removed any reference definitions
                 if total_lines_removed > 0 {
                     let block_mut = self.arena.get_mut(block);
-                    block_mut.source_pos.start_line += total_lines_removed as u32;
+                    block_mut.source_pos.start.line += total_lines_removed;
                 }
 
                 // Remove leading and trailing whitespace/newlines
@@ -569,8 +569,8 @@ impl<'a> BlockParser<'a> {
     fn ends_with_blank_line(&self, node: NodeId) -> bool {
         // Check if this node has a next sibling and there's a gap between them
         if let Some(next) = self.arena.get(node).next {
-            let node_end_line = self.arena.get(node).source_pos.end_line as usize;
-            let next_start_line = self.arena.get(next).source_pos.start_line as usize;
+            let node_end_line = self.arena.get(node).source_pos.end.line;
+            let next_start_line = self.arena.get(next).source_pos.start.line;
             // If there's a gap between this node and the next, there's a blank line
             if node_end_line + 1 < next_start_line {
                 return true;

@@ -155,6 +155,6 @@ impl<'a> BlockParser<'a> {
     }
 
     pub(crate) fn get_start_line(&self, node_id: NodeId) -> usize {
-        self.arena.get(node_id).source_pos.start_line as usize
+        self.arena.get(node_id).source_pos.start.line
     }
 }

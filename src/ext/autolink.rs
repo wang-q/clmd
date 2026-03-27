@@ -1,165 +1,105 @@
-//! Autolink extension for GitHub Flavored Markdown
+//! Autolink extension for automatically linking URLs and email addresses
 //!
-//! This module implements GFM autolink parsing.
+//! This module provides functionality to automatically detect and link URLs
+//! and email addresses in text content, similar to GFM autolinks.
 //!
-//! GFM enables the autolink extension, where absolute URIs and email addresses
-//! are automatically turned into links.
+//! # Example
 //!
-//! Syntax:
 //! ```markdown
-//! Visit www.example.com for more info.
+//! Visit https://example.com for more info.
+//! Contact us at support@example.com
+//! ```
 //!
-//! Contact us at email@example.com
-//!
-//! https://github.com/user/repo
+//! Will be rendered as:
+//! ```html
+//! <p>Visit <a href="https://example.com">https://example.com</a> for more info.
+//! Contact us at <a href="mailto:support@example.com">support@example.com</a></p>
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos};
-use crate::node_value::{NodeLink, NodeValue};
+use crate::node_value::{NodeLink, NodeValue, SourcePos};
 
 /// Regex patterns for URL detection (simplified)
-const URL_SCHEMES: &[&str] = &["http://", "https://", "ftp://"];
+/// In a full implementation, this would use more sophisticated pattern matching
+const URL_SCHEMES: &[&str] = &["http://", "https://", "ftp://", "mailto:"];
 
-/// Check if text contains a potential URL
-pub fn contains_url(text: &str) -> bool {
-    text.contains("www.")
-        || text.contains('@')
-        || URL_SCHEMES.iter().any(|s| text.contains(s))
+/// Check if text looks like a URL
+fn looks_like_url(text: &str) -> bool {
+    URL_SCHEMES.iter().any(|scheme| text.starts_with(scheme))
+        || (text.contains('.')
+            && text.contains("//")
+            && !text.contains(' ')
+            && text.len() > 4)
 }
 
-/// Check if a character is valid in a URL
-fn is_url_char(c: char) -> bool {
-    matches!(c,
-        'a'..='z' | 'A'..='Z' | '0'..='9' |
-        '-' | '_' | '.' | '~' | ':' | '/' | '?' | '#' |
-        '[' | ']' | '@' | '!' | '$' | '&' | '\'' |
-        '(' | ')' | '*' | '+' | ',' | ';' | '=' | '%'
-    )
+/// Check if text looks like an email address
+fn looks_like_email(text: &str) -> bool {
+    // Simple email validation: contains @ and a dot after @
+    if let Some(at_pos) = text.find('@') {
+        let after_at = &text[at_pos + 1..];
+        after_at.contains('.') && !text.contains(' ')
+    } else {
+        false
+    }
 }
 
-/// Check if a character is trailing punctuation that should be excluded
-fn is_trailing_punctuation(c: char) -> bool {
-    matches!(c, '.' | ',' | '!' | '?' | ';' | ':' | ')' | ']' | '}')
-}
-
-/// Find URLs in text and return their positions
-/// Returns vector of (start, end, url, is_email)
-pub fn find_urls(text: &str) -> Vec<(usize, usize, String, bool)> {
-    let mut urls = Vec::new();
+/// Find URL or email patterns in text and return positions
+pub fn find_autolinks(text: &str) -> Vec<(usize, usize, bool)> {
+    let mut results = Vec::new();
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
 
     while i < chars.len() {
-        // Check for scheme-based URLs (http://, https://, ftp://)
-        let remaining: String = chars[i..].iter().collect();
+        // Try to find start of potential URL/email
+        if chars[i].is_alphanumeric() || chars[i] == '/' {
+            // Look ahead for URL
+            let remaining: String = chars[i..].iter().collect();
 
-        for scheme in URL_SCHEMES {
-            if remaining.to_lowercase().starts_with(scheme) {
+            // Check for URLs
+            if looks_like_url(&remaining) {
+                // Find end of URL (whitespace or certain punctuation)
                 let start = i;
-                i += scheme.len();
-
-                // Find end of URL
-                while i < chars.len() && is_url_char(chars[i]) {
+                while i < chars.len()
+                    && !chars[i].is_whitespace()
+                    && chars[i] != '<'
+                    && chars[i] != '>'
+                    && chars[i] != '"'
+                {
                     i += 1;
                 }
-
-                // Back up if we ended on trailing punctuation
-                while i > start && is_trailing_punctuation(chars[i - 1]) {
+                // Trim trailing punctuation
+                while i > start && ".!?,:;".contains(chars[i - 1]) {
                     i -= 1;
                 }
-
                 if i > start {
-                    let url: String = chars[start..i].iter().collect();
-                    urls.push((start, i, url, false));
+                    results.push((start, i, false));
                 }
-                break;
+                continue;
             }
-        }
 
-        // Check for www URLs
-        if i < chars.len() && chars[i..].len() >= 4 {
-            let next_chars: String =
-                chars[i..i + 4.min(chars.len() - i)].iter().collect();
-            if next_chars.eq_ignore_ascii_case("www.") {
+            // Check for emails
+            if looks_like_email(&remaining) {
                 let start = i;
-                i += 4;
-
-                // Find end of URL
-                while i < chars.len() && is_url_char(chars[i]) {
+                while i < chars.len()
+                    && !chars[i].is_whitespace()
+                    && chars[i] != '<'
+                    && chars[i] != '>'
+                {
                     i += 1;
                 }
-
-                // Back up if we ended on trailing punctuation
-                while i > start && is_trailing_punctuation(chars[i - 1]) {
-                    i -= 1;
-                }
-
                 if i > start {
-                    let url: String = chars[start..i].iter().collect();
-                    urls.push((start, i, format!("https://{}", url), false));
+                    results.push((start, i, true));
                 }
                 continue;
             }
         }
-
-        // Check for email addresses
-        if i < chars.len() && chars[i].is_alphanumeric() {
-            if let Some((start, end, email)) = try_parse_email(&chars, i) {
-                urls.push((start, end, email, true));
-                i = end;
-                continue;
-            }
-        }
-
         i += 1;
     }
 
-    urls
+    results
 }
 
-/// Try to parse an email address at the given position
-fn try_parse_email(chars: &[char], start: usize) -> Option<(usize, usize, String)> {
-    let mut i = start;
-
-    // Local part (before @)
-    while i < chars.len()
-        && (chars[i].is_alphanumeric() || matches!(chars[i], '.' | '-' | '_'))
-    {
-        i += 1;
-    }
-
-    if i >= chars.len() || chars[i] != '@' {
-        return None;
-    }
-
-    let _at_pos = i;
-    i += 1; // Skip @
-
-    // Domain part
-    let domain_start = i;
-    while i < chars.len()
-        && (chars[i].is_alphanumeric() || matches!(chars[i], '.' | '-'))
-    {
-        i += 1;
-    }
-
-    // Must have at least one dot in domain
-    if i <= domain_start + 1 {
-        return None;
-    }
-
-    let domain: String = chars[domain_start..i].iter().collect();
-    if !domain.contains('.') {
-        return None;
-    }
-
-    let email: String = chars[start..i].iter().collect();
-    Some((start, i, email))
-}
-
-/// Create an autolink node in the arena
-/// Returns the NodeId of the created link node
+/// Create an autolink node
 pub fn create_autolink_node(
     arena: &mut NodeArena,
     url: &str,
@@ -168,26 +108,25 @@ pub fn create_autolink_node(
     col: u32,
 ) -> NodeId {
     let display_url = url.to_string();
-
-    let href = if is_email {
+    let actual_url = if is_email {
         format!("mailto:{}", url)
     } else {
         url.to_string()
     };
 
     let link_node = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
-        url: href,
+        url: actual_url,
         title: String::new(),
     })));
 
     {
         let node = arena.get_mut(link_node);
-        node.source_pos = SourcePos {
-            start_line: line,
-            start_column: col,
-            end_line: line,
-            end_column: col + display_url.len() as u32,
-        };
+        node.source_pos = SourcePos::new(
+            line as usize,
+            col as usize,
+            line as usize,
+            (col + display_url.len() as u32 + 4) as usize, // +4 for the ~~ delimiters
+        );
     }
 
     // Create text node for the display text
@@ -199,64 +138,80 @@ pub fn create_autolink_node(
 }
 
 /// Process text for autolinks and return a list of node IDs
-/// The nodes are allocated in the arena and returned as NodeIds
 pub fn process_autolinks(
     arena: &mut NodeArena,
     text: &str,
     line: u32,
     col: u32,
 ) -> Vec<NodeId> {
-    let urls = find_urls(text);
-    if urls.is_empty() {
-        // No URLs found, return single text node
-        let node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string())));
-        return vec![node];
+    let mut nodes = Vec::new();
+    let links = find_autolinks(text);
+
+    if links.is_empty() {
+        // No autolinks found, return single text node
+        nodes.push(arena.alloc(Node::with_value(NodeValue::Text(text.to_string()))));
+        return nodes;
     }
 
-    let mut nodes = Vec::new();
     let mut last_end = 0;
+    let chars: Vec<char> = text.chars().collect();
 
-    for (start, end, url, is_email) in urls {
-        // Add text before URL
+    for (start, end, is_email) in links {
+        // Add text before the link
         if start > last_end {
-            let before_text = &text[last_end..start];
-            let node =
-                arena.alloc(Node::with_value(NodeValue::Text(before_text.to_string())));
-            nodes.push(node);
+            let before: String = chars[last_end..start].iter().collect();
+            if !before.is_empty() {
+                nodes.push(arena.alloc(Node::with_value(NodeValue::Text(before))));
+            }
         }
 
-        // Add autolink node
+        // Add the link
+        let link_text: String = chars[start..end].iter().collect();
         let link_node =
-            create_autolink_node(arena, &url, is_email, line, col + start as u32);
+            create_autolink_node(arena, &link_text, is_email, line, col + start as u32);
         nodes.push(link_node);
 
         last_end = end;
     }
 
-    // Add remaining text after last URL
-    if last_end < text.len() {
-        let after_text = &text[last_end..];
-        let node =
-            arena.alloc(Node::with_value(NodeValue::Text(after_text.to_string())));
-        nodes.push(node);
+    // Add remaining text after last link
+    if last_end < chars.len() {
+        let after: String = chars[last_end..].iter().collect();
+        if !after.is_empty() {
+            nodes.push(arena.alloc(Node::with_value(NodeValue::Text(after))));
+        }
     }
 
     nodes
 }
 
-/// Render autolink to HTML
+/// Render autolink as HTML
 pub fn render_autolink_html(url: &str, is_email: bool) -> String {
-    let href = if is_email {
+    let actual_url = if is_email {
         format!("mailto:{}", url)
     } else {
         url.to_string()
     };
 
     format!(
-        "<a href=\"{}\">{}</a>",
-        crate::html_utils::escape_html(&href),
-        crate::html_utils::escape_html(url)
+        r#"<a href="{}">{}</a>"#,
+        escape_html(&actual_url),
+        escape_html(url)
     )
+}
+
+/// Simple HTML escaping
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// Check if autolinks extension is enabled
+pub fn is_enabled(options: u32) -> bool {
+    // Autolinks are enabled when the 0x01 bit is set
+    (options & 0x01) != 0
 }
 
 #[cfg(test)]
@@ -264,47 +219,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_contains_url() {
-        assert!(contains_url("Visit www.example.com"));
-        assert!(contains_url("Check https://github.com"));
-        assert!(contains_url("Email me@example.com"));
-        assert!(!contains_url("Just plain text"));
+    fn test_looks_like_url() {
+        assert!(looks_like_url("https://example.com"));
+        assert!(looks_like_url("http://example.com"));
+        assert!(looks_like_url("ftp://files.example.com"));
+        assert!(!looks_like_url("just text"));
+        assert!(!looks_like_url("example.com")); // No scheme
     }
 
     #[test]
-    fn test_find_http_url() {
-        let urls = find_urls("Visit https://github.com/user/repo for more info.");
-        assert_eq!(urls.len(), 1);
-        assert_eq!(urls[0].2, "https://github.com/user/repo");
-        assert!(!urls[0].3); // not email
+    fn test_looks_like_email() {
+        assert!(looks_like_email("test@example.com"));
+        assert!(looks_like_email("user.name@sub.domain.org"));
+        assert!(!looks_like_email("not an email"));
+        assert!(!looks_like_email("@example.com"));
+        assert!(!looks_like_email("test@"));
     }
 
     #[test]
-    fn test_find_www_url() {
-        let urls = find_urls("Visit www.example.com/page for more.");
-        assert_eq!(urls.len(), 1);
-        assert_eq!(urls[0].2, "https://www.example.com/page");
+    fn test_find_autolinks() {
+        let text = "Visit https://example.com for more info";
+        let links = find_autolinks(text);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].0, 6); // Start position
+        assert_eq!(links[0].1, 25); // End position
+        assert!(!links[0].2); // Not email
     }
 
     #[test]
-    fn test_find_email() {
-        let urls = find_urls("Contact email@example.com for help.");
-        assert_eq!(urls.len(), 1);
-        assert_eq!(urls[0].2, "email@example.com");
-        assert!(urls[0].3); // is email
+    fn test_find_email_autolinks() {
+        let text = "Contact support@example.com for help";
+        let links = find_autolinks(text);
+        assert_eq!(links.len(), 1);
+        assert!(links[0].2); // Is email
     }
 
     #[test]
-    fn test_find_multiple_urls() {
-        let urls = find_urls("Visit www.first.com and https://second.com.");
-        assert_eq!(urls.len(), 2);
-    }
-
-    #[test]
-    fn test_url_with_punctuation() {
-        let urls = find_urls("Visit www.example.com.");
-        assert_eq!(urls.len(), 1);
-        assert_eq!(urls[0].2, "https://www.example.com");
+    fn test_find_no_autolinks() {
+        let text = "Just some plain text without any links";
+        let links = find_autolinks(text);
+        assert!(links.is_empty());
     }
 
     #[test]
@@ -313,13 +267,15 @@ mod tests {
         let node_id =
             create_autolink_node(&mut arena, "https://example.com", false, 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::Link);
 
-        match &node.data {
-            NodeData::Link { url, .. } => {
-                assert_eq!(url, "https://example.com");
-            }
-            _ => panic!("Expected Link data"),
+        // Check it's a Link node
+        assert!(matches!(node.value, NodeValue::Link(..)));
+
+        // Check the URL
+        if let NodeValue::Link(ref link) = node.value {
+            assert_eq!(link.url, "https://example.com");
+        } else {
+            panic!("Expected Link value");
         }
     }
 
@@ -329,11 +285,11 @@ mod tests {
         let node_id = create_autolink_node(&mut arena, "test@example.com", true, 1, 1);
         let node = arena.get(node_id);
 
-        match &node.data {
-            NodeData::Link { url, .. } => {
-                assert_eq!(url, "mailto:test@example.com");
-            }
-            _ => panic!("Expected Link data"),
+        // Check the URL has mailto: prefix
+        if let NodeValue::Link(ref link) = node.value {
+            assert_eq!(link.url, "mailto:test@example.com");
+        } else {
+            panic!("Expected Link value");
         }
     }
 
@@ -344,9 +300,12 @@ mod tests {
             process_autolinks(&mut arena, "Visit https://example.com today", 1, 1);
         assert_eq!(nodes.len(), 3); // text, link, text
 
-        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
-        assert_eq!(arena.get(nodes[1]).node_type, NodeType::Link);
-        assert_eq!(arena.get(nodes[2]).node_type, NodeType::Text);
+        // Check first node is text
+        assert!(matches!(arena.get(nodes[0]).value, NodeValue::Text(..)));
+        // Check second node is link
+        assert!(matches!(arena.get(nodes[1]).value, NodeValue::Link(..)));
+        // Check third node is text
+        assert!(matches!(arena.get(nodes[2]).value, NodeValue::Text(..)));
     }
 
     #[test]
@@ -360,5 +319,20 @@ mod tests {
     fn test_render_email_html() {
         let html = render_autolink_html("test@example.com", true);
         assert!(html.contains("<a href=\"mailto:test@example.com\""));
+        assert!(html.contains(">test@example.com</a>"));
+    }
+
+    #[test]
+    fn test_escape_html() {
+        assert_eq!(escape_html("<script>"), "&lt;script&gt;");
+        assert_eq!(escape_html("\"quoted\""), "&quot;quoted&quot;");
+        assert_eq!(escape_html("A & B"), "A &amp; B");
+    }
+
+    #[test]
+    fn test_is_enabled() {
+        assert!(is_enabled(0x01));
+        assert!(!is_enabled(0));
+        assert!(is_enabled(0x01 | 0x02));
     }
 }

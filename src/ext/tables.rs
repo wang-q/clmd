@@ -12,8 +12,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::SourcePos;
-use crate::node_value::{NodeTable, NodeValue, TableAlignment};
+use crate::node_value::{NodeTable, NodeValue, SourcePos, TableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {
@@ -175,24 +174,14 @@ pub fn try_parse_table(
     })));
     {
         let table = arena.get_mut(table_node);
-        table.source_pos = SourcePos {
-            start_line: start_line as u32,
-            start_column: 1,
-            end_line: start_line as u32,
-            end_column: header_line.len() as u32,
-        };
+        table.source_pos = SourcePos::new(start_line, 1, start_line, header_line.len());
     }
 
     // Create table head
     let thead_node = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
     {
         let thead = arena.get_mut(thead_node);
-        thead.source_pos = SourcePos {
-            start_line: start_line as u32,
-            start_column: 1,
-            end_line: start_line as u32,
-            end_column: header_line.len() as u32,
-        };
+        thead.source_pos = SourcePos::new(start_line, 1, start_line, header_line.len());
     }
 
     // Create header row
@@ -232,12 +221,7 @@ pub fn try_parse_table(
         let row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
         {
             let r = arena.get_mut(row);
-            r.source_pos = SourcePos {
-                start_line: row_line_num as u32,
-                start_column: 1,
-                end_line: row_line_num as u32,
-                end_column: line.len() as u32,
-            };
+            r.source_pos = SourcePos::new(row_line_num, 1, row_line_num, line.len());
         }
 
         // Create cells for this row
@@ -271,8 +255,8 @@ pub fn try_parse_table(
     let last_line = lines[lines_consumed - 1];
     {
         let table = arena.get_mut(table_node);
-        table.source_pos.end_line = end_line as u32;
-        table.source_pos.end_column = last_line.len() as u32;
+        table.source_pos.end.line = end_line;
+        table.source_pos.end.column = last_line.len();
     }
 
     Some((table_node, lines_consumed))

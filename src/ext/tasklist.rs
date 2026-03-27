@@ -11,8 +11,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::SourcePos;
-use crate::node_value::{NodeTaskItem, NodeValue};
+use crate::node_value::{NodeTaskItem, NodeValue, SourcePos};
 
 /// Check if a string is a task list item marker
 /// Returns Some(checked) if it's a task item, None otherwise
@@ -71,12 +70,12 @@ pub fn create_task_item(
 
     {
         let node_ref = arena.get_mut(node);
-        node_ref.source_pos = SourcePos {
-            start_line: line,
-            start_column: col,
-            end_line: line,
-            end_column: col + content.len() as u32,
-        };
+        node_ref.source_pos = SourcePos::new(
+            line as usize,
+            col as usize,
+            line as usize,
+            (col + content.len() as u32) as usize,
+        );
     }
 
     // Create text node for the content

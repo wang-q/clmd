@@ -22,80 +22,7 @@
 //! TreeOps::append_child(&mut arena, root, paragraph);
 //! ```
 
-use crate::node::{NodeData, NodeType, SourcePos};
-use crate::node_value::NodeValue;
-
-/// Convert NodeType to default NodeData (for backward compatibility)
-fn node_type_to_data(node_type: NodeType) -> NodeData {
-    match node_type {
-        NodeType::Document => NodeData::Document,
-        NodeType::BlockQuote => NodeData::BlockQuote,
-        NodeType::List => NodeData::List {
-            list_type: crate::node::ListType::Bullet,
-            delim: crate::node::DelimType::Period,
-            start: 0,
-            tight: true,
-            bullet_char: '-',
-        },
-        NodeType::Item => NodeData::Item,
-        NodeType::CodeBlock => NodeData::CodeBlock {
-            info: String::new(),
-            literal: String::new(),
-        },
-        NodeType::HtmlBlock => NodeData::HtmlBlock {
-            literal: String::new(),
-        },
-        NodeType::Paragraph => NodeData::Paragraph,
-        NodeType::Heading => NodeData::Heading {
-            level: 1,
-            content: String::new(),
-        },
-        NodeType::ThematicBreak => NodeData::ThematicBreak,
-        NodeType::Text => NodeData::Text {
-            literal: String::new(),
-        },
-        NodeType::SoftBreak => NodeData::SoftBreak,
-        NodeType::LineBreak => NodeData::LineBreak,
-        NodeType::Code => NodeData::Code {
-            literal: String::new(),
-        },
-        NodeType::HtmlInline => NodeData::HtmlInline {
-            literal: String::new(),
-        },
-        NodeType::Emph => NodeData::Emph,
-        NodeType::Strong => NodeData::Strong,
-        NodeType::Link => NodeData::Link {
-            url: String::new(),
-            title: String::new(),
-        },
-        NodeType::Image => NodeData::Image {
-            url: String::new(),
-            title: String::new(),
-        },
-        NodeType::Strikethrough => NodeData::Strikethrough,
-        NodeType::TaskItem => NodeData::TaskItem { checked: false },
-        NodeType::FootnoteRef => NodeData::FootnoteRef {
-            label: String::new(),
-            ordinal: 0,
-        },
-        NodeType::FootnoteDef => NodeData::FootnoteDef {
-            label: String::new(),
-            ordinal: 0,
-            ref_count: 0,
-        },
-        NodeType::Table => NodeData::Table {
-            num_columns: 0,
-            alignments: vec![],
-        },
-        NodeType::TableRow => NodeData::TableRow,
-        NodeType::TableCell => NodeData::TableCell {
-            column_index: 0,
-            alignment: crate::node::TableAlignment::None,
-            is_header: false,
-        },
-        _ => NodeData::Document,
-    }
-}
+use crate::node_value::{NodeValue, SourcePos};
 
 /// Node ID type - index into the arena
 pub type NodeId = u32;
@@ -104,16 +31,9 @@ pub type NodeId = u32;
 pub const INVALID_NODE_ID: NodeId = u32::MAX;
 
 /// A node in the AST with arena-based references
-///
-/// This struct maintains both the new `NodeValue` API and backward-compatible
-/// `node_type`/`data` fields for gradual migration.
 pub struct Node {
-    /// The node value (new API)
+    /// The node value
     pub value: NodeValue,
-    /// Legacy node type (for backward compatibility)
-    pub node_type: NodeType,
-    /// Legacy node data (for backward compatibility)
-    pub data: NodeData,
     /// Source position information
     pub source_pos: SourcePos,
     /// Parent node ID
@@ -129,35 +49,10 @@ pub struct Node {
 }
 
 impl Node {
-    /// Create a new node with NodeValue (new API)
+    /// Create a new node with NodeValue
     pub fn with_value(value: NodeValue) -> Self {
-        let node_type = NodeType::from(&value);
-        let data = NodeData::from(&value);
-        Self {
-            value: value.clone(),
-            node_type,
-            data,
-            source_pos: SourcePos::default(),
-            parent: None,
-            first_child: None,
-            last_child: None,
-            next: None,
-            prev: None,
-        }
-    }
-
-    /// Create a new node with legacy NodeType
-    ///
-    /// # Deprecated
-    /// Use `with_value()` instead.
-    #[deprecated(since = "0.1.0", note = "Use `with_value()` instead")]
-    pub fn new(node_type: NodeType) -> Self {
-        let data = node_type_to_data(node_type);
-        let value = NodeValue::from(&data);
         Self {
             value,
-            node_type,
-            data,
             source_pos: SourcePos::default(),
             parent: None,
             first_child: None,
@@ -165,43 +60,6 @@ impl Node {
             next: None,
             prev: None,
         }
-    }
-
-    /// Create a new node with legacy NodeType and NodeData
-    ///
-    /// # Deprecated
-    /// Use `with_value()` instead.
-    #[deprecated(since = "0.1.0", note = "Use `with_value()` instead")]
-    pub fn with_data(node_type: NodeType, data: NodeData) -> Self {
-        let value = NodeValue::from(&data);
-        Self {
-            value,
-            node_type,
-            data,
-            source_pos: SourcePos::default(),
-            parent: None,
-            first_child: None,
-            last_child: None,
-            next: None,
-            prev: None,
-        }
-    }
-
-    /// Get a reference to the NodeValue
-    pub fn value(&self) -> &NodeValue {
-        &self.value
-    }
-
-    /// Get a mutable reference to the NodeValue
-    pub fn value_mut(&mut self) -> &mut NodeValue {
-        &mut self.value
-    }
-
-    /// Set the NodeValue
-    pub fn set_value(&mut self, value: NodeValue) {
-        self.value = value.clone();
-        self.node_type = NodeType::from(&value);
-        self.data = NodeData::from(&value);
     }
 }
 
@@ -209,7 +67,6 @@ impl std::fmt::Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Node")
             .field("value", &self.value)
-            .field("node_type", &self.node_type)
             .field("source_pos", &self.source_pos)
             .finish()
     }
@@ -303,18 +160,6 @@ impl NodeArena {
     /// Check if the arena is empty
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
-    }
-
-    /// Synchronize NodeValue with node_type and data for all nodes
-    ///
-    /// This method ensures that both the new NodeValue API and the legacy
-    /// node_type/data API are in sync for all nodes in the arena.
-    pub fn sync_node_values(&mut self) {
-        for node in &mut self.nodes {
-            // Sync value from node_type/data
-            let new_value = NodeValue::from(&node.data);
-            node.value = new_value;
-        }
     }
 }
 
@@ -525,7 +370,7 @@ mod tests {
 
         // Modify through try_get_mut
         if let Some(node_mut) = arena.try_get_mut(id) {
-            node_mut.set_value(NodeValue::BlockQuote);
+            node_mut.value = NodeValue::BlockQuote;
         }
 
         // Verify modification

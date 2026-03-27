@@ -15,7 +15,6 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType};
 use crate::node_value::NodeValue;
 
 /// Event type for tree iteration
@@ -240,7 +239,7 @@ pub fn consolidate_text_nodes(arena: &mut NodeArena, root: NodeId) {
         while let Some(event) = walker.next() {
             if event.entering {
                 let node = arena.get(event.node);
-                if node.node_type == NodeType::Text {
+                if matches!(node.value, NodeValue::Text(..)) {
                     text_nodes.push(event.node);
                 }
             }
@@ -257,18 +256,20 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
     let mut current = arena.get(node).next;
 
     while let Some(next_node_id) = current {
-        let next_type = arena.get(next_node_id).node_type;
-        if next_type != NodeType::Text {
+        let next_is_text = matches!(arena.get(next_node_id).value, NodeValue::Text(..));
+        if !next_is_text {
             break;
         }
 
         // Append next node's literal to current node
-        let next_literal = match &arena.get(next_node_id).data {
-            NodeData::Text { literal } => literal.clone(),
-            _ => String::new(),
-        };
+        let next_literal =
+            if let NodeValue::Text(literal) = &arena.get(next_node_id).value {
+                literal.clone()
+            } else {
+                String::new()
+            };
 
-        if let NodeData::Text { ref mut literal } = arena.get_mut(node).data {
+        if let NodeValue::Text(ref mut literal) = arena.get_mut(node).value {
             literal.push_str(&next_literal);
         }
 
@@ -284,19 +285,13 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_iterator_basic() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -329,12 +324,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -343,18 +333,18 @@ mod tests {
         let mut events = Vec::new();
 
         while let Some(event) = walker.next() {
-            let node_type = arena.get(event.node).node_type;
-            events.push((node_type, event.entering));
+            let value = &arena.get(event.node).value;
+            events.push((value.clone(), event.entering));
         }
 
         // Document(Enter) -> Paragraph(Enter) -> Text(Enter) -> Text(Exit) -> Paragraph(Exit) -> Document(Exit)
         assert_eq!(events.len(), 6);
-        assert_eq!(events[0], (NodeType::Document, true));
-        assert_eq!(events[1], (NodeType::Paragraph, true));
-        assert_eq!(events[2], (NodeType::Text, true));
-        assert_eq!(events[3], (NodeType::Text, false));
-        assert_eq!(events[4], (NodeType::Paragraph, false));
-        assert_eq!(events[5], (NodeType::Document, false));
+        assert!(matches!(events[0].0, NodeValue::Document) && events[0].1);
+        assert!(matches!(events[1].0, NodeValue::Paragraph) && events[1].1);
+        assert!(matches!(events[2].0, NodeValue::Text(..)) && events[2].1);
+        assert!(matches!(events[3].0, NodeValue::Text(..)) && !events[3].1);
+        assert!(matches!(events[4].0, NodeValue::Paragraph) && !events[4].1);
+        assert!(matches!(events[5].0, NodeValue::Document) && !events[5].1);
     }
 
     #[test]
@@ -384,20 +374,20 @@ mod tests {
         let mut events = Vec::new();
 
         while let Some(event) = walker.next() {
-            let node_type = arena.get(event.node).node_type;
-            events.push((node_type, event.entering));
+            let value = &arena.get(event.node).value;
+            events.push((value.clone(), event.entering));
         }
 
         // Document(Enter) -> Para1(Enter) -> Para1(Exit) -> Para2(Enter) -> Para2(Exit) -> Para3(Enter) -> Para3(Exit) -> Document(Exit)
         assert_eq!(events.len(), 8);
-        assert_eq!(events[0], (NodeType::Document, true));
-        assert_eq!(events[1], (NodeType::Paragraph, true));
-        assert_eq!(events[2], (NodeType::Paragraph, false));
-        assert_eq!(events[3], (NodeType::Paragraph, true));
-        assert_eq!(events[4], (NodeType::Paragraph, false));
-        assert_eq!(events[5], (NodeType::Paragraph, true));
-        assert_eq!(events[6], (NodeType::Paragraph, false));
-        assert_eq!(events[7], (NodeType::Document, false));
+        assert!(matches!(events[0].0, NodeValue::Document) && events[0].1);
+        assert!(matches!(events[1].0, NodeValue::Paragraph) && events[1].1);
+        assert!(matches!(events[2].0, NodeValue::Paragraph) && !events[2].1);
+        assert!(matches!(events[3].0, NodeValue::Paragraph) && events[3].1);
+        assert!(matches!(events[4].0, NodeValue::Paragraph) && !events[4].1);
+        assert!(matches!(events[5].0, NodeValue::Paragraph) && events[5].1);
+        assert!(matches!(events[6].0, NodeValue::Paragraph) && !events[6].1);
+        assert!(matches!(events[7].0, NodeValue::Document) && !events[7].1);
     }
 
     #[test]
@@ -408,12 +398,7 @@ mod tests {
         let list = arena.alloc(Node::with_value(NodeValue::List(Default::default())));
         let item = arena.alloc(Node::with_value(NodeValue::Item(Default::default())));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Text".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Text".to_string())));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, list);
@@ -425,24 +410,24 @@ mod tests {
         let mut events = Vec::new();
 
         while let Some(event) = walker.next() {
-            let node_type = arena.get(event.node).node_type;
-            events.push((node_type, event.entering));
+            let value = &arena.get(event.node).value;
+            events.push((value.clone(), event.entering));
         }
 
         // Should visit all nodes in depth-first order
         assert_eq!(events.len(), 12);
-        assert_eq!(events[0], (NodeType::Document, true));
-        assert_eq!(events[1], (NodeType::BlockQuote, true));
-        assert_eq!(events[2], (NodeType::List, true));
-        assert_eq!(events[3], (NodeType::Item, true));
-        assert_eq!(events[4], (NodeType::Paragraph, true));
-        assert_eq!(events[5], (NodeType::Text, true));
-        assert_eq!(events[6], (NodeType::Text, false));
-        assert_eq!(events[7], (NodeType::Paragraph, false));
-        assert_eq!(events[8], (NodeType::Item, false));
-        assert_eq!(events[9], (NodeType::List, false));
-        assert_eq!(events[10], (NodeType::BlockQuote, false));
-        assert_eq!(events[11], (NodeType::Document, false));
+        assert!(matches!(events[0].0, NodeValue::Document) && events[0].1);
+        assert!(matches!(events[1].0, NodeValue::BlockQuote) && events[1].1);
+        assert!(matches!(events[2].0, NodeValue::List(..)) && events[2].1);
+        assert!(matches!(events[3].0, NodeValue::Item(..)) && events[3].1);
+        assert!(matches!(events[4].0, NodeValue::Paragraph) && events[4].1);
+        assert!(matches!(events[5].0, NodeValue::Text(..)) && events[5].1);
+        assert!(matches!(events[6].0, NodeValue::Text(..)) && !events[6].1);
+        assert!(matches!(events[7].0, NodeValue::Paragraph) && !events[7].1);
+        assert!(matches!(events[8].0, NodeValue::Item(..)) && !events[8].1);
+        assert!(matches!(events[9].0, NodeValue::List(..)) && !events[9].1);
+        assert!(matches!(events[10].0, NodeValue::BlockQuote) && !events[10].1);
+        assert!(matches!(events[11].0, NodeValue::Document) && !events[11].1);
     }
 
     #[test]
@@ -459,12 +444,12 @@ mod tests {
 
         // Get first event (Document Enter)
         let event1 = walker.next().unwrap();
-        assert_eq!(arena.get(event1.node).node_type, NodeType::Document);
+        assert!(matches!(arena.get(event1.node).value, NodeValue::Document));
         assert!(event1.entering);
 
         // Get second event (Para1 Enter)
         let event2 = walker.next().unwrap();
-        assert_eq!(arena.get(event2.node).node_type, NodeType::Paragraph);
+        assert!(matches!(arena.get(event2.node).value, NodeValue::Paragraph));
         assert!(event2.entering);
 
         // Resume at para2, entering - this resets the iterator to para2
@@ -514,24 +499,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text1 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello ".to_string(),
-            },
-        ));
-        let text2 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "world".to_string(),
-            },
-        ));
-        let text3 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "!".to_string(),
-            },
-        ));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Hello ".to_string())));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("world".to_string())));
+        let text3 = arena.alloc(Node::with_value(NodeValue::Text("!".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text1);
@@ -541,7 +511,7 @@ mod tests {
         consolidate_text_nodes(&mut arena, root);
 
         // text1 should now contain "Hello world!"
-        if let NodeData::Text { literal } = &arena.get(text1).data {
+        if let NodeValue::Text(literal) = &arena.get(text1).value {
             assert_eq!(literal, "Hello world!");
         }
 
@@ -555,19 +525,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text1 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello".to_string(),
-            },
-        ));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
-        let text2 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "world".to_string(),
-            },
-        ));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("world".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text1);
@@ -577,14 +537,14 @@ mod tests {
         consolidate_text_nodes(&mut arena, root);
 
         // text1 and text2 should not be consolidated (separated by emph)
-        let text1_content = if let NodeData::Text { literal } = &arena.get(text1).data {
+        let text1_content = if let NodeValue::Text(literal) = &arena.get(text1).value {
             literal.clone()
         } else {
             String::new()
         };
         assert_eq!(text1_content, "Hello");
 
-        let text2_content = if let NodeData::Text { literal } = &arena.get(text2).data {
+        let text2_content = if let NodeValue::Text(literal) = &arena.get(text2).value {
             literal.clone()
         } else {
             String::new()
@@ -599,13 +559,13 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
         // First child: Heading
-        let heading = arena.alloc(Node::with_data(
-            NodeType::Heading,
-            NodeData::Heading {
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
+            crate::node_value::NodeHeading {
                 level: 1,
-                content: "Title".to_string(),
+                setext: false,
+                closed: false,
             },
-        ));
+        )));
         TreeOps::append_child(&mut arena, root, heading);
 
         // Second child: List with items
@@ -618,18 +578,8 @@ mod tests {
         TreeOps::append_child(&mut arena, list, item2);
 
         // Add text to items
-        let text1 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Item 1".to_string(),
-            },
-        ));
-        let text2 = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Item 2".to_string(),
-            },
-        ));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Item 1".to_string())));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Item 2".to_string())));
         TreeOps::append_child(&mut arena, item1, text1);
         TreeOps::append_child(&mut arena, item2, text2);
 

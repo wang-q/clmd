@@ -88,10 +88,10 @@ impl<'a> XmlRenderer<'a> {
         if self.options & crate::options::SOURCEPOS != 0 {
             self.output.push_str(&format!(
                 " sourcepos=\"{}:{}-{}:{}\"",
-                node.source_pos.start_line,
-                node.source_pos.start_column,
-                node.source_pos.end_line,
-                node.source_pos.end_column
+                node.source_pos.start.line,
+                node.source_pos.start.column,
+                node.source_pos.end.line,
+                node.source_pos.end.column
             ));
         }
 
@@ -434,10 +434,10 @@ mod tests {
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         {
             let p = arena.get_mut(para);
-            p.source_pos.start_line = 1;
-            p.source_pos.start_column = 1;
-            p.source_pos.end_line = 1;
-            p.source_pos.end_column = 10;
+            p.source_pos.start.line = 1;
+            p.source_pos.start.column = 1;
+            p.source_pos.end.line = 1;
+            p.source_pos.end.column = 10;
         }
 
         TreeOps::append_child(&mut arena, root, para);

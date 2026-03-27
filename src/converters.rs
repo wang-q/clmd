@@ -4,7 +4,7 @@
 //! different formats like DOCX (Word) and PDF.
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
 use std::io::Write;
 
 /// Export format options
@@ -120,25 +120,22 @@ impl DocxConverter {
         output: &mut Vec<u8>,
     ) -> Result<(), ConverterError> {
         let node = arena.get(node_id);
-        let node_type = node.node_type;
-        let data = node.data.clone();
+        let value = &node.value;
 
-        match node_type {
-            NodeType::Heading => {
-                if let NodeData::Heading { level, .. } = data {
-                    writeln!(output, "    <w:p>")?;
-                    writeln!(
-                        output,
-                        "      <w:pPr><w:pStyle w:val=\"Heading{}\"/></w:pPr>",
-                        level
-                    )?;
-                    writeln!(output, "      <w:r><w:t>")?;
-                    self.write_children_text(arena, node_id, output)?;
-                    writeln!(output, "</w:t></w:r>")?;
-                    writeln!(output, "    </w:p>")?;
-                }
+        match value {
+            NodeValue::Heading(heading) => {
+                writeln!(output, "    <w:p>")?;
+                writeln!(
+                    output,
+                    "      <w:pPr><w:pStyle w:val=\"Heading{}\"/></w:pPr>",
+                    heading.level
+                )?;
+                writeln!(output, "      <w:r><w:t>")?;
+                self.write_children_text(arena, node_id, output)?;
+                writeln!(output, "</w:t></w:r>")?;
+                writeln!(output, "    </w:p>")?;
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 writeln!(output, "    <w:p>")?;
                 writeln!(output, "      <w:r><w:t>")?;
                 self.write_children_text(arena, node_id, output)?;
@@ -186,9 +183,8 @@ impl DocxConverter {
         output: &mut Vec<u8>,
     ) -> Result<(), ConverterError> {
         let node = arena.get(node_id);
-        let data = node.data.clone();
-        match data {
-            NodeData::Text { literal } => {
+        match &node.value {
+            NodeValue::Text(literal) => {
                 let escaped = literal
                     .replace('&', "&amp;")
                     .replace('<', "&lt;")
@@ -265,18 +261,15 @@ impl PdfConverter {
         output: &mut Vec<u8>,
     ) -> Result<(), ConverterError> {
         let node = arena.get(node_id);
-        let node_type = node.node_type;
-        let data = node.data.clone();
+        let value = &node.value;
 
-        match node_type {
-            NodeType::Heading => {
-                if let NodeData::Heading { level, .. } = data {
-                    write!(output, "Heading {}: ", level)?;
-                    self.write_children_text(arena, node_id, output)?;
-                    writeln!(output)?;
-                }
+        match value {
+            NodeValue::Heading(heading) => {
+                write!(output, "Heading {}: ", heading.level)?;
+                self.write_children_text(arena, node_id, output)?;
+                writeln!(output)?;
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 self.write_children_text(arena, node_id, output)?;
                 writeln!(output)?;
                 writeln!(output)?;
@@ -322,9 +315,8 @@ impl PdfConverter {
         output: &mut Vec<u8>,
     ) -> Result<(), ConverterError> {
         let node = arena.get(node_id);
-        let data = node.data.clone();
-        match data {
-            NodeData::Text { literal } => {
+        match &node.value {
+            NodeValue::Text(literal) => {
                 output.extend_from_slice(literal.as_bytes());
             }
             _ => {
@@ -382,33 +374,27 @@ mod tests {
 
     fn create_test_document() -> (NodeArena, NodeId) {
         let mut arena = NodeArena::new();
-        let doc = arena.alloc(Node::new(NodeType::Document));
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
 
-        let heading = arena.alloc(Node::with_data(
-            NodeType::Heading,
-            NodeData::Heading {
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
+            crate::node_value::NodeHeading {
                 level: 1,
-                content: "Title".to_string(),
+                setext: false,
+                closed: false,
             },
-        ));
+        )));
 
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Test Document".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            "Test Document".to_string(),
+        )));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, doc, heading);
 
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
-        let para_text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "This is a test paragraph.".to_string(),
-            },
-        ));
+        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
+            "This is a test paragraph.".to_string(),
+        )));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, doc, para);
 

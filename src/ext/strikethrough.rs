@@ -9,8 +9,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::SourcePos;
-use crate::node_value::NodeValue;
+use crate::node_value::{NodeValue, SourcePos};
 
 /// The tilde character used for strikethrough
 pub const STRIKETHROUGH_DELIM: char = '~';
@@ -74,12 +73,12 @@ pub fn create_strikethrough_node(
 
     {
         let node_ref = arena.get_mut(node);
-        node_ref.source_pos = SourcePos {
-            start_line,
-            start_column: start_col,
-            end_line: start_line,
-            end_column: start_col + text.len() as u32 + 4, // +4 for the ~~ delimiters
-        };
+        node_ref.source_pos = SourcePos::new(
+            start_line as usize,
+            start_col as usize,
+            start_line as usize,
+            (start_col + text.len() as u32 + 4) as usize, // +4 for the ~~ delimiters
+        );
     }
 
     // Create text node for the content

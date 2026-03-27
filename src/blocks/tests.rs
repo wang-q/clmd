@@ -2,14 +2,16 @@
 
 use crate::arena::NodeArena;
 use crate::blocks::BlockParser;
-use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
 
 #[test]
 fn test_parser_creation() {
     let mut arena = NodeArena::new();
     let parser = BlockParser::new(&mut arena);
-    assert_eq!(parser.arena.get(parser.doc).node_type, NodeType::Document);
-    assert_eq!(parser.arena.get(parser.tip).node_type, NodeType::Document);
+    let doc = parser.doc;
+    let tip = parser.tip;
+    assert!(matches!(arena.get(doc).value, NodeValue::Document));
+    assert!(matches!(arena.get(tip).value, NodeValue::Document));
 }
 
 #[test]
@@ -26,10 +28,10 @@ fn test_parse_simple_paragraph() {
     let doc = BlockParser::parse(&mut arena, "Hello world");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(
-        arena.get(first_child.unwrap()).node_type,
-        NodeType::Paragraph
-    );
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::Paragraph
+    ));
 
     // After inline processing, paragraph content is stored in child nodes
     let para = arena.get(first_child.unwrap());
@@ -37,10 +39,10 @@ fn test_parse_simple_paragraph() {
     assert!(child.is_some(), "Paragraph should have child nodes");
 
     let content = arena.get(child.unwrap());
-    if let NodeData::Text { literal } = &content.data {
+    if let NodeValue::Text(literal) = &content.value {
         assert_eq!(literal, "Hello world");
     } else {
-        panic!("Expected Text data");
+        panic!("Expected Text value");
     }
 }
 
@@ -50,10 +52,10 @@ fn test_parse_block_quote() {
     let doc = BlockParser::parse(&mut arena, "> Quote line");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(
-        arena.get(first_child.unwrap()).node_type,
-        NodeType::BlockQuote
-    );
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::BlockQuote
+    ));
 }
 
 #[test]
@@ -62,7 +64,10 @@ fn test_parse_heading() {
     let doc = BlockParser::parse(&mut arena, "## Heading");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::Heading);
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::Heading(_)
+    ));
 }
 
 #[test]
@@ -72,10 +77,10 @@ fn test_parse_fenced_code_block() {
     let doc = BlockParser::parse(&mut arena, input);
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(
-        arena.get(first_child.unwrap()).node_type,
-        NodeType::CodeBlock
-    );
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::CodeBlock(_)
+    ));
 }
 
 #[test]
@@ -84,10 +89,10 @@ fn test_parse_thematic_break() {
     let doc = BlockParser::parse(&mut arena, "---");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(
-        arena.get(first_child.unwrap()).node_type,
-        NodeType::ThematicBreak
-    );
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::ThematicBreak
+    ));
 }
 
 #[test]
@@ -96,7 +101,10 @@ fn test_parse_bullet_list() {
     let doc = BlockParser::parse(&mut arena, "* Item 1\n* Item 2");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::List);
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::List(_)
+    ));
 }
 
 #[test]
@@ -105,7 +113,10 @@ fn test_parse_ordered_list() {
     let doc = BlockParser::parse(&mut arena, "1. Item 1\n2. Item 2");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::List);
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::List(_)
+    ));
 }
 
 #[test]
@@ -114,10 +125,10 @@ fn test_parse_nested_block_quote() {
     let doc = BlockParser::parse(&mut arena, "> Outer\n> > Inner");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(
-        arena.get(first_child.unwrap()).node_type,
-        NodeType::BlockQuote
-    );
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::BlockQuote
+    ));
 }
 
 #[test]
@@ -126,7 +137,10 @@ fn test_parse_setext_heading() {
     let doc = BlockParser::parse(&mut arena, "Heading\n===");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert_eq!(arena.get(first_child.unwrap()).node_type, NodeType::Heading);
+    assert!(matches!(
+        arena.get(first_child.unwrap()).value,
+        NodeValue::Heading(_)
+    ));
 }
 
 #[test]
@@ -141,9 +155,8 @@ fn test_remove_link_reference_definitions() {
     assert!(first_child.is_some(), "Document should have a first child");
 
     let first_child_ref = arena.get(first_child.unwrap());
-    assert_eq!(
-        first_child_ref.node_type,
-        NodeType::Paragraph,
+    assert!(
+        matches!(first_child_ref.value, NodeValue::Paragraph),
         "First child should be a paragraph"
     );
 
@@ -156,15 +169,15 @@ fn test_remove_link_reference_definitions() {
     );
 
     let content_ref = arena.get(para_content.unwrap());
-    match &content_ref.data {
-        NodeData::Text { literal } => {
+    match &content_ref.value {
+        NodeValue::Text(literal) => {
             assert_eq!(
                 literal, "Some text",
                 "Paragraph content should be 'Some text'"
             );
         }
         _ => {
-            panic!("Expected Text node, got {:?}", content_ref.data);
+            panic!("Expected Text node, got {:?}", content_ref.value);
         }
     }
 }

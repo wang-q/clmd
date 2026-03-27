@@ -408,11 +408,11 @@ impl<'a> BlockParser<'a> {
         self.close_unmatched_blocks();
         {
             let container_mut = self.arena.get_mut(container);
-            container_mut.set_value(NodeValue::Heading(NodeHeading {
+            container_mut.value = NodeValue::Heading(NodeHeading {
                 level: level as u8,
                 setext: true,
                 closed: true,
-            }));
+            });
         }
         self.set_setext(container, true);
         self.set_string_content(container, remaining_content);
