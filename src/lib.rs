@@ -142,19 +142,27 @@ pub use render::{
 // Re-export the options module from config
 pub use config::options as config_options;
 
+// Legacy option flags for internal use (not public API)
+const OPT_SOURCEPOS: u32 = 1 << 0;
+const OPT_HARDBREAKS: u32 = 1 << 1;
+const OPT_NOBREAKS: u32 = 1 << 2;
+const OPT_VALIDATE_UTF8: u32 = 1 << 3;
+const OPT_SMART: u32 = 1 << 4;
+const OPT_UNSAFE: u32 = 1 << 5;
+
 /// Convert new Options to legacy u32 flags for parsing.
 /// This is a temporary bridge until all components use the new system.
 fn options_to_u32_for_parse(options: &Options) -> u32 {
-    let mut legacy_options = options::DEFAULT;
+    let mut legacy_options = 0;
 
     if options.get(&config_options::SOURCEPOS) {
-        legacy_options |= options::SOURCEPOS;
+        legacy_options |= OPT_SOURCEPOS;
     }
     if options.get(&config_options::SMART) {
-        legacy_options |= options::SMART;
+        legacy_options |= OPT_SMART;
     }
     if options.get(&config_options::VALIDATE_UTF8) {
-        legacy_options |= options::VALIDATE_UTF8;
+        legacy_options |= OPT_VALIDATE_UTF8;
     }
 
     legacy_options
@@ -163,19 +171,19 @@ fn options_to_u32_for_parse(options: &Options) -> u32 {
 /// Convert new Options to legacy u32 flags for rendering.
 /// This is a temporary bridge until all components use the new system.
 fn options_to_u32_for_render(options: &Options) -> u32 {
-    let mut legacy_options = options::DEFAULT;
+    let mut legacy_options = 0;
 
     if options.get(&config_options::SOURCEPOS) {
-        legacy_options |= options::SOURCEPOS;
+        legacy_options |= OPT_SOURCEPOS;
     }
     if options.get(&config_options::HARDBREAKS) {
-        legacy_options |= options::HARDBREAKS;
+        legacy_options |= OPT_HARDBREAKS;
     }
     if options.get(&config_options::NOBREAKS) {
-        legacy_options |= options::NOBREAKS;
+        legacy_options |= OPT_NOBREAKS;
     }
     if options.get(&config_options::UNSAFE) {
-        legacy_options |= options::UNSAFE;
+        legacy_options |= OPT_UNSAFE;
     }
 
     legacy_options
@@ -213,7 +221,9 @@ impl Document {
     ///
     /// A `ParseResult` containing the parsed document or an error
     pub fn parse(input: &str) -> ParseResult<Self> {
-        Self::parse_with_options(input, options::DEFAULT)
+        let mut arena = NodeArena::new();
+        let root = blocks::BlockParser::parse(&mut arena, input);
+        Ok(Document { arena, root })
     }
 
     /// Parse a Markdown document with custom options
@@ -226,9 +236,10 @@ impl Document {
     /// # Returns
     ///
     /// A `ParseResult` containing the parsed document or an error
-    pub fn parse_with_options(input: &str, options: u32) -> ParseResult<Self> {
+    pub fn parse_with_options(input: &str, options: &Options) -> ParseResult<Self> {
+        let legacy_options = options_to_u32_for_parse(options);
         let mut arena = NodeArena::new();
-        let root = blocks::BlockParser::parse_with_options(&mut arena, input, options);
+        let root = blocks::BlockParser::parse_with_options(&mut arena, input, legacy_options);
         Ok(Document { arena, root })
     }
 
@@ -247,7 +258,7 @@ impl Document {
         let root = blocks::BlockParser::parse_with_limits(
             &mut arena,
             input,
-            options::DEFAULT,
+            0,
             limits,
         )?;
         Ok(Document { arena, root })
@@ -259,7 +270,7 @@ impl Document {
     ///
     /// The HTML output as a String
     pub fn to_html(&self) -> String {
-        render::html::render(&self.arena, self.root, options::DEFAULT)
+        render::html::render(&self.arena, self.root, 0)
     }
 
     /// Render the document to HTML with custom options
@@ -271,8 +282,9 @@ impl Document {
     /// # Returns
     ///
     /// The HTML output as a String
-    pub fn to_html_with_options(&self, options: u32) -> String {
-        render::html::render(&self.arena, self.root, options)
+    pub fn to_html_with_options(&self, options: &Options) -> String {
+        let legacy_options = options_to_u32_for_render(options);
+        render::html::render(&self.arena, self.root, legacy_options)
     }
 
     /// Render the document to XML
@@ -281,7 +293,7 @@ impl Document {
     ///
     /// The XML output as a String
     pub fn to_xml(&self) -> String {
-        render::xml::render(&self.arena, self.root, options::DEFAULT)
+        render::xml::render(&self.arena, self.root, 0)
     }
 
     /// Render the document to CommonMark
@@ -290,7 +302,7 @@ impl Document {
     ///
     /// The CommonMark output as a String
     pub fn to_commonmark(&self) -> String {
-        render::commonmark::render(&self.arena, self.root, options::DEFAULT)
+        render::commonmark::render(&self.arena, self.root, 0)
     }
 
     /// Render the document to LaTeX
@@ -299,7 +311,7 @@ impl Document {
     ///
     /// The LaTeX output as a String
     pub fn to_latex(&self) -> String {
-        render::latex::render(&self.arena, self.root, options::DEFAULT)
+        render::latex::render(&self.arena, self.root, 0)
     }
 
     /// Get the root node ID
@@ -378,222 +390,9 @@ impl Document {
     }
 }
 
-/// Legacy options for parsing and rendering (deprecated, use `config::options` instead).
+/// Convert Markdown to HTML.
 ///
-/// # Deprecated
-///
-/// These bit-flag options are deprecated in favor of the type-safe `DataKey` system
-/// in [`config::options`](crate::config::options).
-///
-/// # Migration Guide
-///
-/// Instead of:
-/// ```rust,ignore
-/// use clmd::{markdown_to_html, options};
-/// let html = markdown_to_html("Hello", options::SMART | options::HARDBREAKS);
-/// ```
-///
-/// Use:
-/// ```rust,ignore
-/// use clmd::config::options::{Options, SMART, HARDBREAKS};
-/// let mut options = Options::new();
-/// options.set(&SMART, true);
-/// options.set(&HARDBREAKS, true);
-/// let html = markdown_to_html_with_options("Hello", &options);
-/// ```
-pub mod options {
-    /// Default options (no flags set).
-    pub const DEFAULT: u32 = 0;
-
-    /// Include a `data-sourcepos` attribute on all block elements.
-    pub const SOURCEPOS: u32 = 1 << 0;
-
-    /// Render `softbreak` elements as hard line breaks.
-    pub const HARDBREAKS: u32 = 1 << 1;
-
-    /// Render `softbreak` elements as spaces.
-    pub const NOBREAKS: u32 = 1 << 2;
-
-    /// Validate UTF-8 in the input before parsing.
-    pub const VALIDATE_UTF8: u32 = 1 << 3;
-
-    /// Convert straight quotes to curly, `---` to em dashes, `--` to en dashes.
-    pub const SMART: u32 = 1 << 4;
-
-    /// Render raw HTML and unsafe links.
-    pub const UNSAFE: u32 = 1 << 5;
-}
-
-/// Simple interface: convert Markdown to HTML
-///
-/// # Arguments
-///
-/// * `text` - The Markdown text to convert
-/// * `options` - Options for parsing and rendering (e.g., `options::SMART`)
-///
-/// # Returns
-///
-/// The HTML output as a String
-///
-/// # Example
-///
-/// ```
-/// use clmd::markdown_to_html;
-/// use clmd::options;
-///
-/// let html = markdown_to_html("Hello *world*", options::DEFAULT);
-/// assert_eq!(html, "<p>Hello <em>world</em></p>");
-/// ```
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `markdown_to_html_with_options` with the new Options API instead"
-)]
-pub fn markdown_to_html(text: &str, options: u32) -> String {
-    let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
-
-    render::html::render(&arena, doc, options)
-}
-
-/// Parse a CommonMark document
-///
-/// This is a lower-level API that gives you direct access to the arena and root node.
-/// For a higher-level interface, use [`Document::parse`](crate::Document::parse).
-///
-/// # Arguments
-///
-/// * `text` - The Markdown text to parse
-/// * `options` - Options for parsing (use `options::DEFAULT` for default behavior)
-///
-/// # Returns
-///
-/// A tuple of (`NodeArena`, `NodeId`) where:
-/// - `NodeArena` contains all the parsed AST nodes
-/// - `NodeId` is the ID of the root document node
-///
-/// # Example
-///
-/// ```
-/// use clmd::{parse_document, render_html, options};
-///
-/// let (arena, root) = parse_document("# Hello\n\nWorld", options::DEFAULT);
-/// let html = render_html(&arena, root, options::DEFAULT);
-/// assert!(html.contains("<h1>Hello</h1>"));
-/// ```
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `parse_document_with_options` with the new Options API instead"
-)]
-pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
-    let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
-
-    (arena, doc)
-}
-
-/// Render an Arena-based AST to HTML
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `_options` - Options for rendering (currently unused)
-///
-/// # Returns
-///
-/// The HTML output as a String
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `format_html_with_options` with the new Options API instead"
-)]
-pub fn render_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    render::html::render(arena, root, options)
-}
-
-/// Render an Arena-based AST to XML
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Options for rendering
-///
-/// # Returns
-///
-/// The XML output as a String
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `format_xml_with_options` with the new Options API instead"
-)]
-pub fn render_xml(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    render::xml::render(arena, root, options)
-}
-
-/// Render an Arena-based AST as CommonMark
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Options for rendering
-///
-/// # Returns
-///
-/// The CommonMark output as a String
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `format_commonmark_with_options` with the new Options API instead"
-)]
-pub fn render_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    render::commonmark::render(arena, root, options)
-}
-
-/// Render an Arena-based AST as LaTeX
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Options for rendering
-///
-/// # Returns
-///
-/// The LaTeX output as a String
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `format_latex_with_options` with the new Options API instead"
-)]
-pub fn render_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    render::latex::render(arena, root, options)
-}
-
-/// Render an Arena-based AST as a Man page (groff format)
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Options for rendering
-///
-/// # Returns
-///
-/// The Man page output as a String
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `format_man_with_options` with the new Options API instead"
-)]
-pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    render::man::render(arena, root, options)
-}
-
-// =============================================================================
-// New API with DataKey-based Options
-// =============================================================================
-
-/// Convert Markdown to HTML using the new Options system.
-///
-/// This is the recommended way to convert Markdown to HTML when using
-/// the new type-safe configuration system.
+/// This is the primary interface for converting Markdown to HTML.
 ///
 /// # Arguments
 ///
@@ -607,49 +406,47 @@ pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// # Example
 ///
 /// ```
-/// use clmd::{markdown_to_html_with_options, config::options::Options};
-/// use clmd::config::options::{SMART, ENABLE_TABLES};
-///
-/// let mut options = Options::new();
-/// options.set(&SMART, true);
-/// options.set(&ENABLE_TABLES, true);
-///
-/// let html = markdown_to_html_with_options("Hello *world*", &options);
-/// assert_eq!(html, "<p>Hello <em>world</em></p>");
-/// ```
-pub fn markdown_to_html_with_options(text: &str, options: &Options) -> String {
-    let legacy_options = options_to_u32_for_parse(options);
-    markdown_to_html(text, legacy_options)
-}
-
-/// Convert Markdown to CommonMark using the new Options system.
-///
-/// # Arguments
-///
-/// * `text` - The Markdown text to convert
-/// * `options` - Configuration options using the `Options` struct
-///
-/// # Returns
-///
-/// The CommonMark output as a String
-///
-/// # Example
-///
-/// ```
-/// use clmd::{markdown_to_commonmark_with_options, config::options::Options};
+/// use clmd::{markdown_to_html, config::options::Options};
 ///
 /// let options = Options::new();
-/// let cm = markdown_to_commonmark_with_options("Hello *world*", &options);
+/// let html = markdown_to_html("Hello *world*", &options);
+/// assert_eq!(html, "<p>Hello <em>world</em></p>");
+/// ```
+pub fn markdown_to_html(text: &str, options: &Options) -> String {
+    let legacy_options = options_to_u32_for_parse(options);
+    let mut arena = NodeArena::new();
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, legacy_options);
+    let render_options = options_to_u32_for_render(options);
+    render::html::render(&arena, doc, render_options)
+}
+
+/// Convert Markdown to CommonMark.
+///
+/// # Arguments
+///
+/// * `text` - The Markdown text to convert
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_commonmark, config::options::Options};
+///
+/// let options = Options::new();
+/// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```
-pub fn markdown_to_commonmark_with_options(text: &str, _options: &Options) -> String {
+pub fn markdown_to_commonmark(text: &str, _options: &Options) -> String {
     let mut arena = NodeArena::new();
-    let doc =
-        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
-    render::commonmark::render(&arena, doc, options::DEFAULT)
+    let doc = blocks::BlockParser::parse(&mut arena, text);
+    render::commonmark::render(&arena, doc, 0)
 }
 
-/// Convert Markdown to XML using the new Options system.
+/// Convert Markdown to XML.
 ///
 /// # Arguments
 ///
@@ -663,20 +460,19 @@ pub fn markdown_to_commonmark_with_options(text: &str, _options: &Options) -> St
 /// # Example
 ///
 /// ```
-/// use clmd::{markdown_to_xml_with_options, config::options::Options};
+/// use clmd::{markdown_to_xml, config::options::Options};
 ///
 /// let options = Options::new();
-/// let xml = markdown_to_xml_with_options("Hello *world*", &options);
+/// let xml = markdown_to_xml("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
 /// ```
-pub fn markdown_to_xml_with_options(text: &str, _options: &Options) -> String {
+pub fn markdown_to_xml(text: &str, _options: &Options) -> String {
     let mut arena = NodeArena::new();
-    let doc =
-        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
-    render::xml::render(&arena, doc, options::DEFAULT)
+    let doc = blocks::BlockParser::parse(&mut arena, text);
+    render::xml::render(&arena, doc, 0)
 }
 
-/// Parse a Markdown document and return the AST with new Options system.
+/// Parse a Markdown document and return the AST.
 ///
 /// # Arguments
 ///
@@ -690,26 +486,20 @@ pub fn markdown_to_xml_with_options(text: &str, _options: &Options) -> String {
 /// # Example
 ///
 /// ```
-/// use clmd::{parse_document_with_options, config::options::Options};
-/// use clmd::config::options::ENABLE_TABLES;
+/// use clmd::{parse_document, config::options::Options};
 ///
-/// let mut options = Options::new();
-/// options.set(&ENABLE_TABLES, true);
-///
-/// let (arena, root) = parse_document_with_options("| a | b |\n|---|---|\n| c | d |", &options);
+/// let options = Options::new();
+/// let (arena, root) = parse_document("Hello *world*", &options);
 /// // Now you can traverse and manipulate the AST
 /// ```
-pub fn parse_document_with_options(
-    text: &str,
-    options: &Options,
-) -> (NodeArena, NodeId) {
+pub fn parse_document(text: &str, options: &Options) -> (NodeArena, NodeId) {
     let legacy_options = options_to_u32_for_parse(options);
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, legacy_options);
     (arena, doc)
 }
 
-/// Format an existing AST to HTML using the new Options system.
+/// Format an existing AST to HTML.
 ///
 /// # Arguments
 ///
@@ -724,22 +514,18 @@ pub fn parse_document_with_options(
 /// # Example
 ///
 /// ```
-/// use clmd::{parse_document_with_options, format_html_with_options, config::options::Options};
+/// use clmd::{parse_document, format_html, config::options::Options};
 ///
 /// let options = Options::new();
-/// let (arena, root) = parse_document_with_options("Hello *world*", &options);
-/// let html = format_html_with_options(&arena, root, &options);
+/// let (arena, root) = parse_document("Hello *world*", &options);
+/// let html = format_html(&arena, root, &options);
 /// ```
-pub fn format_html_with_options(
-    arena: &NodeArena,
-    root: NodeId,
-    options: &Options,
-) -> String {
+pub fn format_html(arena: &NodeArena, root: NodeId, options: &Options) -> String {
     let legacy_options = options_to_u32_for_render(options);
     render::html::render(arena, root, legacy_options)
 }
 
-/// Format an existing AST to CommonMark using the new Options system.
+/// Format an existing AST to CommonMark.
 ///
 /// # Arguments
 ///
@@ -750,15 +536,11 @@ pub fn format_html_with_options(
 /// # Returns
 ///
 /// The CommonMark output as a String
-pub fn format_commonmark_with_options(
-    arena: &NodeArena,
-    root: NodeId,
-    _options: &Options,
-) -> String {
-    render::commonmark::render(arena, root, options::DEFAULT)
+pub fn format_commonmark(arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    render::commonmark::render(arena, root, 0)
 }
 
-/// Format an existing AST to XML using the new Options system.
+/// Format an existing AST to XML.
 ///
 /// # Arguments
 ///
@@ -769,12 +551,8 @@ pub fn format_commonmark_with_options(
 /// # Returns
 ///
 /// The XML output as a String
-pub fn format_xml_with_options(
-    arena: &NodeArena,
-    root: NodeId,
-    _options: &Options,
-) -> String {
-    render::xml::render(arena, root, options::DEFAULT)
+pub fn format_xml(arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    render::xml::render(arena, root, 0)
 }
 
 #[cfg(test)]
@@ -783,38 +561,44 @@ mod tests {
 
     #[test]
     fn test_markdown_to_html_basic() {
-        let html = markdown_to_html("Hello world", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("Hello world", &options);
         assert_eq!(html, "<p>Hello world</p>");
     }
 
     #[test]
     fn test_markdown_to_html_heading() {
-        let html = markdown_to_html("# Heading 1\n\n## Heading 2", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options);
         assert!(html.contains("<h1>"));
         assert!(html.contains("<h2>"));
     }
 
     #[test]
     fn test_markdown_to_html_emphasis() {
-        let html = markdown_to_html("*italic* and **bold**", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("*italic* and **bold**", &options);
         assert!(html.contains("<p>"));
     }
 
     #[test]
     fn test_markdown_to_html_link() {
-        let html = markdown_to_html("[link](https://example.com)", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("[link](https://example.com)", &options);
         assert!(html.contains("<a href=\"https://example.com\">"));
     }
 
     #[test]
     fn test_markdown_to_html_code_inline() {
-        let html = markdown_to_html("Use `code` here", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("Use `code` here", &options);
         assert!(html.contains("<code>code</code>"));
     }
 
     #[test]
     fn test_markdown_to_html_code_block() {
-        let html = markdown_to_html("```rust\nfn main() {}\n```", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("```rust\nfn main() {}\n```", &options);
         println!("Code block HTML: {:?}", html);
         assert!(html.contains("<pre>"), "Expected <pre> in {}", html);
         assert!(
@@ -831,7 +615,8 @@ mod tests {
 
     #[test]
     fn test_markdown_to_html_blockquote() {
-        let html = markdown_to_html("> Quote", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("> Quote", &options);
         println!("Blockquote HTML: {:?}", html);
         assert!(
             html.contains("<blockquote>"),
@@ -843,7 +628,8 @@ mod tests {
 
     #[test]
     fn test_markdown_to_html_list() {
-        let html = markdown_to_html("- Item 1\n- Item 2", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("- Item 1\n- Item 2", &options);
         println!("List HTML: {:?}", html);
         assert!(html.contains("<ul>"), "Expected <ul> in {}", html);
         assert!(html.contains("Item 1"), "Expected Item 1 in {}", html);
@@ -852,7 +638,8 @@ mod tests {
 
     #[test]
     fn test_markdown_to_html_ordered_list() {
-        let html = markdown_to_html("1. First\n2. Second", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("1. First\n2. Second", &options);
         assert!(html.contains("<ol>"));
         assert!(html.contains("First"));
         assert!(html.contains("Second"));
@@ -860,87 +647,69 @@ mod tests {
 
     #[test]
     fn test_markdown_to_html_thematic_break() {
-        let html = markdown_to_html("---", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("---", &options);
         assert_eq!(html, "<hr />");
     }
 
     #[test]
     fn test_markdown_to_html_image() {
-        let html = markdown_to_html("![alt text](image.png)", options::DEFAULT);
+        let options = Options::new();
+        let html = markdown_to_html("![alt text](image.png)", &options);
         assert!(html.contains("<img src=\"image.png\""));
     }
 
     #[test]
     fn test_parse_and_render_roundtrip() {
+        let options = Options::new();
         let input = "# Title\n\nParagraph with text.";
-        let (arena, doc) = parse_document(input, options::DEFAULT);
-        let html = render_html(&arena, doc, options::DEFAULT);
+        let (arena, doc) = parse_document(input, &options);
+        let html = format_html(&arena, doc, &options);
         assert!(html.contains("<h1>"));
         assert!(html.contains("Paragraph"));
     }
 
-    // Tests for new API with Options
     #[test]
-    fn test_markdown_to_html_with_options_basic() {
-        use config::options::Options;
-
-        let options = Options::new();
-        let html = markdown_to_html_with_options("Hello world", &options);
-        assert!(html.contains("<p>"));
-        assert!(html.contains("Hello world"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_with_options_smart() {
-        use config::options::{Options, SMART};
+    fn test_markdown_to_html_with_smart() {
+        use config::options::SMART;
 
         let mut options = Options::new();
         options.set(&SMART, true);
 
-        let html = markdown_to_html_with_options("\"Hello\"", &options);
+        let html = markdown_to_html("\"Hello\"", &options);
         // Smart quotes should convert " to curly quotes
         assert!(html.contains("<p>"));
     }
 
     #[test]
-    fn test_markdown_to_commonmark_with_options() {
-        use config::options::Options;
-
+    fn test_markdown_to_commonmark() {
         let options = Options::new();
-        let cm = markdown_to_commonmark_with_options("Hello *world*", &options);
+        let cm = markdown_to_commonmark("Hello *world*", &options);
         assert!(cm.contains("Hello"));
         assert!(cm.contains("world"));
     }
 
     #[test]
-    fn test_markdown_to_xml_with_options() {
-        use config::options::Options;
-
+    fn test_markdown_to_xml() {
         let options = Options::new();
-        let xml = markdown_to_xml_with_options("Hello *world*", &options);
+        let xml = markdown_to_xml("Hello *world*", &options);
         assert!(xml.contains("<document>"));
         assert!(xml.contains("<paragraph>"));
     }
 
     #[test]
-    fn test_parse_document_with_options() {
-        use config::options::{Options, ENABLE_TABLES};
-
-        let mut options = Options::new();
-        options.set(&ENABLE_TABLES, true);
-
-        let (arena, root) = parse_document_with_options("Hello *world*", &options);
+    fn test_parse_document() {
+        let options = Options::new();
+        let (arena, root) = parse_document("Hello *world*", &options);
         assert!(!arena.is_empty());
         assert!(arena.is_valid(root)); // Root should be a valid node ID
     }
 
     #[test]
-    fn test_format_html_with_options() {
-        use config::options::Options;
-
+    fn test_format_html() {
         let options = Options::new();
-        let (arena, root) = parse_document_with_options("Hello *world*", &options);
-        let html = format_html_with_options(&arena, root, &options);
+        let (arena, root) = parse_document("Hello *world*", &options);
+        let html = format_html(&arena, root, &options);
         assert!(html.contains("<p>"));
         assert!(html.contains("<em>"));
     }

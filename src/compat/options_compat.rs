@@ -47,9 +47,9 @@ impl ParserOptions {
     /// Create parser options from old-style u32 options
     pub fn from_u32(options: u32) -> Self {
         let mut opts = Self::new();
-        opts.set_sourcepos((options & crate::options::SOURCEPOS) != 0);
-        opts.set_smart((options & crate::options::SMART) != 0);
-        opts.set_unsafe((options & crate::options::UNSAFE) != 0);
+        opts.set_sourcepos((options & crate::OPT_SOURCEPOS) != 0);
+        opts.set_smart((options & crate::OPT_SMART) != 0);
+        opts.set_unsafe((options & crate::OPT_UNSAFE) != 0);
         opts
     }
 
@@ -57,13 +57,13 @@ impl ParserOptions {
     pub fn to_u32(&self) -> u32 {
         let mut result = 0u32;
         if self.get_sourcepos() {
-            result |= crate::options::SOURCEPOS;
+            result |= crate::OPT_SOURCEPOS;
         }
         if self.get_smart() {
-            result |= crate::options::SMART;
+            result |= crate::OPT_SMART;
         }
         if self.get_unsafe() {
-            result |= crate::options::UNSAFE;
+            result |= crate::OPT_UNSAFE;
         }
         result
     }
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn test_parser_options_from_u32() {
         let options =
-            ParserOptions::from_u32(crate::options::SOURCEPOS | crate::options::SMART);
+            ParserOptions::from_u32(crate::OPT_SOURCEPOS | crate::OPT_SMART);
 
         assert!(options.get_sourcepos());
         assert!(options.get_smart());
@@ -236,9 +236,9 @@ mod tests {
         options.set_sourcepos(true).set_smart(true);
 
         let u32_opts = options.to_u32();
-        assert!((u32_opts & crate::options::SOURCEPOS) != 0);
-        assert!((u32_opts & crate::options::SMART) != 0);
-        assert!((u32_opts & crate::options::UNSAFE) == 0);
+        assert!((u32_opts & crate::OPT_SOURCEPOS) != 0);
+        assert!((u32_opts & crate::OPT_SMART) != 0);
+        assert!((u32_opts & crate::OPT_UNSAFE) == 0);
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_round_trip_conversion() {
-        let original = crate::options::SOURCEPOS | crate::options::SMART;
+        let original = crate::OPT_SOURCEPOS | crate::OPT_SMART;
         let options = ParserOptions::from_u32(original);
         let converted = options.to_u32();
         assert_eq!(original, converted);

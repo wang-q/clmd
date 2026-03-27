@@ -2,11 +2,11 @@
 //!
 //! Tests for HTML entity parsing based on CommonMark spec.
 
-use clmd::{markdown_to_html_with_options, Options};
+use clmd::{markdown_to_html, Options};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html_with_options(input, &Options::default())
+    markdown_to_html(input, &Options::default())
 }
 
 /// Test basic named entities are converted to characters

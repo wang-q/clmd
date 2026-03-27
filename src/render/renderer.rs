@@ -13,10 +13,10 @@ use crate::arena::{NodeArena, NodeId};
 /// # Example
 ///
 /// ```
-/// use clmd::{Renderer, NodeArena, NodeId, options};
+/// use clmd::{Renderer, NodeArena, NodeId};
 ///
 /// fn render_document<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
-///     renderer.render(arena, root, options::DEFAULT)
+///     renderer.render(arena, root, 0)
 /// }
 /// ```
 pub trait Renderer {
@@ -48,10 +48,11 @@ pub use super::xml;
 /// # Example
 ///
 /// ```
-/// use clmd::{parse_document, render_to_html, options};
+/// use clmd::{parse_document, render_to_html, config::options::Options};
 ///
-/// let (arena, doc) = parse_document("# Hello", options::DEFAULT);
-/// let html = render_to_html(&arena, doc, options::DEFAULT);
+/// let options = Options::new();
+/// let (arena, doc) = parse_document("# Hello", &options);
+/// let html = render_to_html(&arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
 pub fn render_to_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -117,10 +118,11 @@ pub enum OutputFormat {
 /// # Example
 ///
 /// ```
-/// use clmd::{parse_document, render, OutputFormat, options};
+/// use clmd::{parse_document, render, OutputFormat, config::options::Options};
 ///
-/// let (arena, doc) = parse_document("# Hello", options::DEFAULT);
-/// let html = render(OutputFormat::Html, &arena, doc, options::DEFAULT);
+/// let options = Options::new();
+/// let (arena, doc) = parse_document("# Hello", &options);
+/// let html = render(OutputFormat::Html, &arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
 pub fn render(

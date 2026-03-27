@@ -303,7 +303,7 @@ impl<'a> BlockParser<'a> {
         self.collect_leaf_blocks(self.doc, &mut leaf_blocks);
 
         // Check if smart punctuation is enabled
-        let smart = (self.options & crate::options::SMART) != 0;
+        let smart = (self.options & crate::OPT_SMART) != 0;
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {

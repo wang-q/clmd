@@ -13,7 +13,7 @@ use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
 #[cfg(feature = "pulldown-cmark")]
 use pulldown_cmark::{html, Parser};
 
-use clmd::{markdown_to_html as clmd_to_html, options as clmd_options};
+use clmd::{markdown_to_html as clmd_to_html, Options as ClmdOptions};
 use std::env;
 use std::fs;
 
@@ -27,7 +27,8 @@ fn main() {
     let input = fs::read_to_string(&args[1]).expect("Failed to read file");
 
     // Run clmd benchmark
-    let _ = clmd_to_html(&input, clmd_options::DEFAULT);
+    let clmd_opts = ClmdOptions::default();
+    let _ = clmd_to_html(&input, &clmd_opts);
 
     // Run comrak benchmark (if enabled)
     #[cfg(feature = "comrak")]

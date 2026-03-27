@@ -18,10 +18,10 @@
 //! # Example
 //!
 //! ```
-//! use clmd::{parse_document, render_html, options};
+//! use clmd::{parse_document, format_html, Options};
 //!
-//! let (arena, doc) = parse_document("# Heading\n\nParagraph", options::DEFAULT);
-//! let html = render_html(&arena, doc, options::DEFAULT);
+//! let (arena, doc) = parse_document("# Heading\n\nParagraph", &Options::default());
+//! let html = format_html(&arena, doc, &Options::default());
 //! assert!(html.contains("<h1>Heading</h1>"));
 //! assert!(html.contains("<p>Paragraph</p>"));
 //! ```

@@ -33,17 +33,18 @@ cargo build --release
 ### Basic Usage
 
 ```rust
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html, config::options::Options};
 
 // Simple conversion
-let html = markdown_to_html("Hello *world*", options::DEFAULT);
+let options = Options::new();
+let html = markdown_to_html("Hello *world*", &options);
 assert_eq!(html, "<p>Hello <em>world</em></p>");
 ```
 
 ### Advanced Usage
 
 ```rust
-use clmd::{Document, options};
+use clmd::{Document, config::options::Options};
 
 // Parse with default options
 let doc = Document::parse("# Title\n\nSome **bold** text").unwrap();
@@ -55,20 +56,23 @@ let latex = doc.to_latex();
 let commonmark = doc.to_commonmark();
 
 // With custom options
-let html = doc.to_html_with_options(options::SMART | options::SOURCEPOS);
+let mut options = Options::new();
+options.set(&clmd::config_options::SMART, true);
+options.set(&clmd::config_options::SOURCEPOS, true);
+let html = doc.to_html_with_options(&options);
 ```
 
 ### Options
 
 ```rust
-use clmd::options;
+use clmd::config::options::{Options, SOURCEPOS, HARDBREAKS, NOBREAKS, SMART, UNSAFE};
 
-options::DEFAULT       // Default options
-options::SOURCEPOS     // Include data-sourcepos attributes
-options::HARDBREAKS    // Render soft breaks as hard line breaks
-options::NOBREAKS      // Render soft breaks as spaces
-options::SMART         // Enable smart punctuation
-options::UNSAFE        // Allow raw HTML and unsafe links
+let mut options = Options::new();
+options.set(&SOURCEPOS, true);    // Include data-sourcepos attributes
+options.set(&HARDBREAKS, true);   // Render soft breaks as hard line breaks
+options.set(&NOBREAKS, true);     // Render soft breaks as spaces
+options.set(&SMART, true);        // Enable smart punctuation
+options.set(&UNSAFE, true);       // Allow raw HTML and unsafe links
 ```
 
 ### Parser Limits

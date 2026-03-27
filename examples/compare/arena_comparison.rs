@@ -2,6 +2,7 @@
 //!
 //! This example tests the performance of the Arena-based implementation.
 
+use clmd::{markdown_to_html, Options};
 use std::time::Instant;
 
 fn main() {
@@ -32,12 +33,13 @@ Another paragraph with `inline code` and a [link](https://example.com).
 "#;
 
     let iterations = 1000;
+    let options = Options::default();
 
     // Test Arena version
     println!("Testing Arena version...");
     let start = Instant::now();
     for _ in 0..iterations {
-        let html = clmd::markdown_to_html(input, 0);
+        let html = markdown_to_html(input, &options);
         // Prevent optimization
         std::hint::black_box(html);
     }
@@ -51,7 +53,7 @@ Another paragraph with `inline code` and a [link](https://example.com).
     // Output sample
     println!("\n---------------------------------------------");
     println!("Sample output:");
-    let html = clmd::markdown_to_html(input, 0);
+    let html = markdown_to_html(input, &options);
     println!("{}", &html[..html.len().min(500)]);
     if html.len() > 500 {
         println!("... (truncated)");

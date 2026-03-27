@@ -20,10 +20,10 @@
 //! # Example
 //!
 //! ```
-//! use clmd::{parse_document, render_html, options};
+//! use clmd::{parse_document, format_html, Options};
 //!
-//! let (arena, doc) = parse_document("Hello *world*", options::DEFAULT);
-//! let html = render_html(&arena, doc, options::DEFAULT);
+//! let (arena, doc) = parse_document("Hello *world*", &Options::default());
+//! let html = format_html(&arena, doc, &Options::default());
 //! assert_eq!(html, "<p>Hello <em>world</em></p>");
 //! ```
 

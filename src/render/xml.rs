@@ -24,10 +24,11 @@ use crate::node_value::{
 /// # Example
 ///
 /// ```
-/// use clmd::{parse_document, render_xml, options};
+/// use clmd::{parse_document, render_to_xml, config::options::Options};
 ///
-/// let (arena, doc) = parse_document("# Hello", options::DEFAULT);
-/// let xml = render_xml(&arena, doc, options::DEFAULT);
+/// let options = Options::new();
+/// let (arena, doc) = parse_document("# Hello", &options);
+/// let xml = render_to_xml(&arena, doc, 0);
 /// assert!(xml.contains("<heading level=\"1\">"));
 /// ```
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -85,7 +86,7 @@ impl<'a> XmlRenderer<'a> {
         self.output.push_str(tag_name);
 
         // Add source position
-        if self.options & crate::options::SOURCEPOS != 0 {
+        if self.options & crate::OPT_SOURCEPOS != 0 {
             self.output.push_str(&format!(
                 " sourcepos=\"{}:{}-{}:{}\"",
                 node.source_pos.start.line,
@@ -442,7 +443,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, para);
 
-        let xml = render(&arena, root, crate::options::SOURCEPOS);
+        let xml = render(&arena, root, crate::OPT_SOURCEPOS);
         assert!(xml.contains("sourcepos=\"1:1-1:10\""));
     }
 

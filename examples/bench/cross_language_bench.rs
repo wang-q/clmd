@@ -7,7 +7,7 @@
 //!   cargo build --release --example cross_language_bench
 //!   ./target/release/examples/cross_language_bench <markdown-file>
 
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html, Options};
 use std::env;
 use std::fs;
 
@@ -20,6 +20,8 @@ fn main() {
 
     let input = fs::read_to_string(&args[1]).expect("Failed to read file");
 
+    let options = Options::default();
+
     // Run once (hyperfine will handle iterations)
-    let _ = markdown_to_html(&input, options::DEFAULT);
+    let _ = markdown_to_html(&input, &options);
 }

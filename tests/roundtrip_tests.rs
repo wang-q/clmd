@@ -3,13 +3,13 @@
 //! Tests for Markdown -> HTML -> Markdown roundtrip consistency.
 //! Based on cmark's roundtrip_tests.py.
 
-use clmd::{markdown_to_html_with_options, Options};
+use clmd::{markdown_to_html, Options};
 use clmd::html_to_md;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html_with_options(input, &Options::default())
+    markdown_to_html(input, &Options::default())
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set

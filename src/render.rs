@@ -16,9 +16,10 @@
 //! # Example
 //!
 //! ```
-//! use clmd::{markdown_to_html, options};
+//! use clmd::{markdown_to_html, config::options::Options};
 //!
-//! let html = markdown_to_html("# Hello\n\nWorld", options::DEFAULT);
+//! let options = Options::new();
+//! let html = markdown_to_html("# Hello\n\nWorld", &options);
 //! assert_eq!(html, "<h1>Hello</h1>\n<p>World</p>");
 //! ```
 

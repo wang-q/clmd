@@ -3,11 +3,11 @@
 //! This module tests boundary conditions and edge cases that may not be
 //! covered by the standard CommonMark spec tests.
 
-use clmd::{markdown_to_html_with_options, options, Options, Parser, ParserLimits};
+use clmd::{markdown_to_html, Options, Parser, ParserLimits};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html_with_options(input, &Options::default())
+    markdown_to_html(input, &Options::default())
 }
 
 /// Test empty input handling
@@ -152,7 +152,7 @@ fn test_unmatched_backticks() {
 #[test]
 fn test_input_too_large() {
     let parser =
-        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_input_size(100));
+        Parser::with_limits(0, ParserLimits::new().max_input_size(100));
 
     let large_input = "a".repeat(101);
     let result = parser.parse(&large_input);
@@ -164,7 +164,7 @@ fn test_input_too_large() {
 #[test]
 fn test_line_too_long() {
     let parser =
-        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_line_length(50));
+        Parser::with_limits(0, ParserLimits::new().max_line_length(50));
 
     let long_line = "a".repeat(100);
     let input = format!("{}\n", long_line);
@@ -205,7 +205,7 @@ fn test_line_endings() {
 #[test]
 fn test_extreme_nesting() {
     let parser =
-        Parser::with_limits(options::DEFAULT, ParserLimits::new().max_nesting_depth(10));
+        Parser::with_limits(0, ParserLimits::new().max_nesting_depth(10));
 
     // Create input that exceeds nesting depth
     let mut input = String::new();
@@ -273,7 +273,7 @@ fn test_smart_punctuation() {
     let html_default = md_to_html(input);
     let mut opts = Options::default();
     opts.set(&SMART, true);
-    let html_smart = markdown_to_html_with_options(input, &opts);
+    let html_smart = markdown_to_html(input, &opts);
 
     // Smart punctuation should convert quotes and dashes
     assert_ne!(

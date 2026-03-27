@@ -1,10 +1,10 @@
-use clmd::{markdown_to_html_with_options, Options};
+use clmd::{markdown_to_html, Options};
 use std::collections::HashMap;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html_with_options(input, &Options::default())
+    markdown_to_html(input, &Options::default())
 }
 
 /// Helper function to convert markdown to HTML with smart punctuation
@@ -12,7 +12,7 @@ fn md_to_html_smart(input: &str) -> String {
     use clmd::config::options::SMART;
     let mut opts = Options::default();
     opts.set(&SMART, true);
-    markdown_to_html_with_options(input, &opts)
+    markdown_to_html(input, &opts)
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
