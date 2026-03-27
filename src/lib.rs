@@ -1,6 +1,3 @@
-/// Abbreviation support (not yet implemented)
-pub mod abbreviation;
-
 /// Arena-based memory management for AST nodes
 ///
 /// This module provides the core data structures for efficient node allocation
@@ -12,12 +9,6 @@ pub mod error;
 
 /// AST traversal and visitor patterns
 pub mod ast;
-
-/// HTML attributes handling
-pub mod attributes;
-
-/// Autolink detection (URLs and email addresses)
-pub mod autolink;
 
 /// Block-level parsing for CommonMark documents
 ///
@@ -34,11 +25,8 @@ pub mod config;
 /// Document converters (HTML, LaTeX, etc.)
 pub mod converters;
 
-/// Definition lists support
-pub mod definition;
-
-/// Footnotes support
-pub mod footnotes;
+/// Markdown extensions (GFM and others)
+pub mod ext;
 
 /// HTML to Markdown conversion
 pub mod html_to_md;
@@ -77,23 +65,8 @@ pub mod render;
 /// Text sequence utilities
 pub mod sequence;
 
-/// Strikethrough text support
-pub mod strikethrough;
-
-/// Tables support (GitHub Flavored Markdown)
-pub mod tables;
-
-/// Task lists support (GitHub Flavored Markdown)
-pub mod tasklist;
-
 /// Test utilities
 pub mod test_utils;
-
-/// Table of contents generation
-pub mod toc;
-
-/// YAML front matter support
-pub mod yaml_front_matter;
 
 pub use arena::{Node, NodeArena, NodeId, TreeOps};
 pub use error::{ParseError, ParseResult, ParserLimits, Position};
