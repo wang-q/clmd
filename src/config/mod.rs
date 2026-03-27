@@ -18,5 +18,7 @@
 //! ```
 
 pub mod data_key;
+pub mod options;
 
 pub use data_key::{DataHolder, DataKey, DataSet, MutableDataSet};
+pub use options::{ListStyleType, Options, ParseOptions, RenderOptions};

@@ -66,10 +66,20 @@ pub mod sequence;
 pub mod test_utils;
 
 pub use arena::{Node, NodeArena, NodeId, TreeOps};
+pub use config::{
+    DataHolder, DataKey, DataSet, MutableDataSet, Options, ParseOptions, RenderOptions,
+};
 pub use error::{ParseError, ParseResult, ParserLimits, Position};
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
 pub use parser::Parser;
+
+/// Configuration options for parsing and rendering.
+///
+/// This module provides predefined `DataKey` constants for all available options.
+/// See [`config::options`](crate::config::options) for the full list.
+// Re-export the options module from config
+pub use config::options as config_options;
 
 /// A parsed Markdown document
 ///
@@ -213,27 +223,49 @@ impl Document {
     }
 }
 
-/// Options for parsing and rendering
+/// Legacy options for parsing and rendering (deprecated, use `config::options` instead).
+///
+/// # Deprecated
+///
+/// These bit-flag options are deprecated in favor of the type-safe `DataKey` system
+/// in [`config::options`](crate::config::options).
+///
+/// # Migration Guide
+///
+/// Instead of:
+/// ```rust,ignore
+/// use clmd::{markdown_to_html, options};
+/// let html = markdown_to_html("Hello", options::SMART | options::HARDBREAKS);
+/// ```
+///
+/// Use:
+/// ```rust,ignore
+/// use clmd::config::options::{Options, SMART, HARDBREAKS};
+/// let mut options = Options::new();
+/// options.set(&SMART, true);
+/// options.set(&HARDBREAKS, true);
+/// let html = markdown_to_html_with_options("Hello", &options);
+/// ```
 pub mod options {
-    /// Default options
+    /// Default options (no flags set).
     pub const DEFAULT: u32 = 0;
 
-    /// Include a `data-sourcepos` attribute on all block elements
+    /// Include a `data-sourcepos` attribute on all block elements.
     pub const SOURCEPOS: u32 = 1 << 0;
 
-    /// Render `softbreak` elements as hard line breaks
+    /// Render `softbreak` elements as hard line breaks.
     pub const HARDBREAKS: u32 = 1 << 1;
 
-    /// Render `softbreak` elements as spaces
+    /// Render `softbreak` elements as spaces.
     pub const NOBREAKS: u32 = 1 << 2;
 
-    /// Validate UTF-8 in the input before parsing
+    /// Validate UTF-8 in the input before parsing.
     pub const VALIDATE_UTF8: u32 = 1 << 3;
 
-    /// Convert straight quotes to curly, `---` to em dashes, `--` to en dashes
+    /// Convert straight quotes to curly, `---` to em dashes, `--` to en dashes.
     pub const SMART: u32 = 1 << 4;
 
-    /// Render raw HTML and unsafe links
+    /// Render raw HTML and unsafe links.
     pub const UNSAFE: u32 = 1 << 5;
 }
 

@@ -4,7 +4,9 @@
 //! over standard String operations for typical Markdown parsing scenarios.
 
 use clmd::sequence::BasedSequence;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput, BenchmarkId};
+use criterion::{
+    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
+};
 
 // Sample Markdown text for testing
 const SAMPLE_TEXT: &str = r#"# Heading 1
@@ -45,7 +47,8 @@ fn bench_slicing(c: &mut Criterion) {
         b.iter(|| {
             let text = black_box(text);
             let lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
-            let _result: Vec<String> = lines.iter()
+            let _result: Vec<String> = lines
+                .iter()
                 .map(|line| {
                     if line.len() > 10 {
                         line[0..10].to_string()
@@ -63,7 +66,8 @@ fn bench_slicing(c: &mut Criterion) {
             let text = black_box(text);
             let seq = BasedSequence::new(text);
             let lines: Vec<BasedSequence> = seq.lines().collect();
-            let _result: Vec<BasedSequence> = lines.iter()
+            let _result: Vec<BasedSequence> = lines
+                .iter()
                 .map(|line| {
                     if line.len() > 10 {
                         line.sub_sequence(0, 10)
@@ -207,7 +211,8 @@ fn bench_parsing_simulation(c: &mut Criterion) {
                 let trimmed = line.trim();
                 if trimmed.starts_with("#") {
                     // Heading
-                    let level = trimmed.as_str().chars().take_while(|&c| c == '#').count();
+                    let level =
+                        trimmed.as_str().chars().take_while(|&c| c == '#').count();
                     let content = trimmed.sub_sequence(level, trimmed.len()).trim();
                     results.push(("heading", level, content.as_str().to_string()));
                 } else if trimmed.starts_with("-") {

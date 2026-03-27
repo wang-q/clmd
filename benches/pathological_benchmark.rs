@@ -3,7 +3,9 @@
 //! Stress tests with extreme inputs to test parser robustness.
 
 use clmd::{markdown_to_html, options};
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput, BenchmarkId};
+use criterion::{
+    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
+};
 
 // Nested emphasis stress test
 fn bench_nested_emphasis(c: &mut Criterion) {
@@ -12,9 +14,11 @@ fn bench_nested_emphasis(c: &mut Criterion) {
     for depth in [10, 50, 100, 200] {
         let input = "*".repeat(depth) + "text" + &"*".repeat(depth);
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(depth), &input, |b, input| {
-            b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(depth),
+            &input,
+            |b, input| b.iter(|| markdown_to_html(black_box(input), options::DEFAULT)),
+        );
     }
 
     group.finish();
@@ -32,9 +36,11 @@ fn bench_many_link_defs(c: &mut Criterion) {
         input.push_str("[link0]");
 
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(count), &input, |b, input| {
-            b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &input,
+            |b, input| b.iter(|| markdown_to_html(black_box(input), options::DEFAULT)),
+        );
     }
 
     group.finish();
@@ -52,9 +58,11 @@ fn bench_deep_nested_lists(c: &mut Criterion) {
         }
 
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(depth), &input, |b, input| {
-            b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(depth),
+            &input,
+            |b, input| b.iter(|| markdown_to_html(black_box(input), options::DEFAULT)),
+        );
     }
 
     group.finish();
@@ -69,9 +77,11 @@ fn bench_long_inline_code(c: &mut Criterion) {
         let input = format!("`{}`", code);
 
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(length), &input, |b, input| {
-            b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(length),
+            &input,
+            |b, input| b.iter(|| markdown_to_html(black_box(input), options::DEFAULT)),
+        );
     }
 
     group.finish();
@@ -85,9 +95,11 @@ fn bench_many_backticks(c: &mut Criterion) {
         let input = "`".repeat(count * 10);
 
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(count), &input, |b, input| {
-            b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(count),
+            &input,
+            |b, input| b.iter(|| markdown_to_html(black_box(input), options::DEFAULT)),
+        );
     }
 
     group.finish();
