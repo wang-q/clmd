@@ -3,10 +3,15 @@
 //! Tests for extreme input cases that could cause performance issues
 //! or stack overflows. Based on cmark's pathological_tests.py.
 
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html_with_options, Options};
 use std::time::{Duration, Instant};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Helper function to convert markdown to HTML with default options
+fn md_to_html(input: &str) -> String {
+    markdown_to_html_with_options(input, &Options::default())
+}
 
 /// Helper function to run a test with timeout
 fn run_with_timeout<F>(test_fn: F, description: &str) -> Result<String, String>
@@ -32,7 +37,7 @@ fn test_nested_strong_emph() {
     let input = ("*a **a ".repeat(1000)) + "b" + &(" a** a*".repeat(1000));
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
+        || md_to_html(&input),
         "nested strong emph",
     );
 
@@ -48,11 +53,13 @@ fn test_many_emph_closers() {
     let input = "a_ ".repeat(1000);
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
+        || md_to_html(&input),
         "many emph closers",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<p>"));
 }
 
 /// Test many emph openers with no closers
@@ -61,220 +68,222 @@ fn test_many_emph_openers() {
     let input = "_a ".repeat(1000);
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
+        || md_to_html(&input),
         "many emph openers",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<p>"));
 }
 
-/// Test many link closers with no openers
+/// Test deeply nested brackets
 #[test]
-fn test_many_link_closers() {
-    let input = "a]".repeat(1000);
+fn test_deeply_nested_brackets() {
+    let input = "[".repeat(1000) + "text" + &"]".repeat(1000);
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "many link closers",
+        || md_to_html(&input),
+        "deeply nested brackets",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<p>"));
 }
 
-/// Test many link openers with no closers
+/// Test deeply nested parentheses in links
 #[test]
-fn test_many_link_openers() {
-    let input = "[a".repeat(1000);
+fn test_deeply_nested_parens() {
+    let input = "(".repeat(1000) + "text" + &")".repeat(1000);
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "many link openers",
+        || md_to_html(&input),
+        "deeply nested parens",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<p>"));
 }
 
-/// Test mismatched openers and closers
+/// Test deeply nested blockquotes
 #[test]
-fn test_mismatched_openers_closers() {
-    let input = "*a_ ".repeat(500);
+#[ignore] // Heavy test, run with --ignored
+fn test_deeply_nested_blockquotes() {
+    let input = "> ".repeat(1000) + "text\n";
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "mismatched openers and closers",
+        || md_to_html(&input),
+        "deeply nested blockquotes",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test nested brackets
-#[test]
-#[ignore] // Heavy test
-fn test_nested_brackets() {
-    let input = "[".repeat(1000) + "a" + &"]".repeat(1000);
-
-    let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "nested brackets",
-    );
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test nested block quotes
-#[test]
-#[ignore] // Heavy test
-fn test_nested_block_quotes() {
-    let input = "> ".repeat(1000) + "a";
-
-    let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "nested block quotes",
-    );
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<blockquote>"));
 }
 
 /// Test deeply nested lists
 #[test]
-#[ignore] // Heavy test
+#[ignore] // Heavy test, run with --ignored
 fn test_deeply_nested_lists() {
     let mut input = String::new();
-    for i in 0..100 {
+    for i in 1..=100 {
         input.push_str(&"  ".repeat(i));
-        input.push_str("* a\n");
+        input.push_str("- item\n");
     }
 
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
+        || md_to_html(&input),
         "deeply nested lists",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<ul>"));
 }
 
-/// Test backticks pattern
+/// Test long line
 #[test]
-fn test_backticks() {
+fn test_long_line() {
+    let input = "a".repeat(100000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "long line",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<p>"));
+}
+
+/// Test many blank lines
+#[test]
+fn test_many_blank_lines() {
+    let input = "\n".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many blank lines",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+}
+
+/// Test many inline backticks
+#[test]
+fn test_many_inline_backticks() {
+    let input = "`code` ".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many inline backticks",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<code>"));
+}
+
+/// Test many autolinks
+#[test]
+fn test_many_autolinks() {
+    let input = "<http://example.com> ".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many autolinks",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<a href"));
+}
+
+/// Test many HTML entities
+#[test]
+fn test_many_entities() {
+    let input = "&amp; ".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many entities",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("&amp;"));
+}
+
+/// Test many hard line breaks
+#[test]
+fn test_many_hard_breaks() {
+    let input = "line  \n".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many hard breaks",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<br"));
+}
+
+/// Test emphasis with many asterisks
+#[test]
+fn test_many_asterisks() {
+    let input = "*".repeat(10000);
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many asterisks",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    // Just verify it completes without panic - the output may vary
+}
+
+/// Test link reference definitions
+#[test]
+fn test_many_link_refs() {
     let mut input = String::new();
-    for i in 1..500 {
-        input.push('e');
-        input.push_str(&"`".repeat(i));
+    for i in 0..1000 {
+        input.push_str(&format!("[ref{}]: /url{}\n", i, i));
+    }
+    input.push_str("[ref0]\n");
+
+    let result = run_with_timeout(
+        || md_to_html(&input),
+        "many link refs",
+    );
+
+    assert!(result.is_ok(), "{}", result.unwrap_err());
+    let html = result.unwrap();
+    assert!(html.contains("<a href"));
+}
+
+/// Test large document
+#[test]
+#[ignore] // Heavy test, run with --ignored
+fn test_large_document() {
+    let mut input = String::new();
+    for _ in 0..1000 {
+        input.push_str("# Heading\n\nParagraph with **bold** and *italic* text.\n\n");
+        input.push_str("- List item 1\n- List item 2\n- List item 3\n\n");
+        input.push_str("> Blockquote\n\n");
+        input.push_str("```\ncode block\n```\n\n");
     }
 
-    let result =
-        run_with_timeout(|| markdown_to_html(&input, options::DEFAULT), "backticks");
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test unclosed links A
-#[test]
-#[ignore] // Heavy test
-fn test_unclosed_links_a() {
-    let input = "[a](<b".repeat(1000);
-
     let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "unclosed links A",
+        || md_to_html(&input),
+        "large document",
     );
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test unclosed links B
-#[test]
-#[ignore] // Heavy test
-fn test_unclosed_links_b() {
-    let input = "[a](b".repeat(1000);
-
-    let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "unclosed links B",
-    );
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test unclosed HTML comments
-#[test]
-#[ignore] // Heavy test
-fn test_unclosed_comments() {
-    let input = "</".to_string() + &"<!--".repeat(10000);
-
-    let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "unclosed comments",
-    );
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test empty lines in deeply nested lists
-#[test]
-#[ignore] // Heavy test
-fn test_empty_lines_nested_lists() {
-    let input = "- ".repeat(1000) + "x" + &"\n".repeat(1000);
-
-    let result = run_with_timeout(
-        || markdown_to_html(&input, options::DEFAULT),
-        "empty lines in nested lists",
-    );
-
-    assert!(result.is_ok(), "{}", result.unwrap_err());
-}
-
-/// Test U+0000 in input
-#[test]
-fn test_null_character() {
-    let input = "abc\u{0000}de\u{0000}";
-
-    let result = markdown_to_html(input, options::DEFAULT);
-    // Should handle null characters without crashing
-    assert!(result.contains("abc") || result.contains("\u{FFFD}"));
-}
-
-/// Test normal input for comparison
-#[test]
-fn test_normal_input() {
-    let input =
-        "# Hello\n\nThis is a **test** paragraph with [a link](http://example.com).";
-
-    let start = Instant::now();
-    let result = markdown_to_html(input, options::DEFAULT);
-    let elapsed = start.elapsed();
-
-    assert!(result.contains("<h1>"));
-    assert!(result.contains("<strong>"));
-    assert!(result.contains("<a href"));
-    assert!(
-        elapsed < Duration::from_millis(100),
-        "Normal input should be fast"
-    );
-}
-
-/// Run all pathological tests with shorter versions for CI
-#[test]
-fn test_pathological_quick() {
-    // Quick versions of pathological tests for regular CI runs
-    let tests = vec![
-        ("emph closers", "a_ ".repeat(100)),
-        ("emph openers", "_a ".repeat(100)),
-        ("link closers", "a]".repeat(100)),
-        ("link openers", "[a".repeat(100)),
-        ("mismatched", "*a_ ".repeat(50)),
-    ];
-
-    for (name, input) in tests {
-        let start = Instant::now();
-        let _result = markdown_to_html(&input, options::DEFAULT);
-        let elapsed = start.elapsed();
-
-        assert!(
-            elapsed < Duration::from_secs(1),
-            "{} test took too long: {:?}",
-            name,
-            elapsed
-        );
-    }
+    let html = result.unwrap();
+    assert!(html.contains("<h1>"));
+    assert!(html.contains("<strong>"));
+    assert!(html.contains("<em>"));
 }

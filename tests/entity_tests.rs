@@ -2,7 +2,15 @@
 //!
 //! Tests for HTML entity parsing based on CommonMark spec.
 
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{markdown_to_html, options};
+
+/// Helper function to convert markdown to HTML with default options
+fn md_to_html(input: &str) -> String {
+    markdown_to_html(input, options::DEFAULT)
+}
 
 /// Test basic named entities are converted to characters
 #[test]
@@ -16,7 +24,7 @@ fn test_basic_named_entities_converted() {
 
     for (entity, expected_char) in test_cases {
         let input = entity.to_string();
-        let result = markdown_to_html(&input, options::DEFAULT);
+        let result = md_to_html(&input);
         // The entity should be converted to its character
         assert!(
             result.contains(expected_char) || result.contains(entity),
@@ -35,7 +43,7 @@ fn test_decimal_numeric_references_converted() {
 
     for (entity, expected_char) in test_cases {
         let input = entity.to_string();
-        let result = markdown_to_html(&input, options::DEFAULT);
+        let result = md_to_html(&input);
         assert!(
             result.contains(expected_char),
             "Entity {} should produce {}, got: {}",
@@ -53,7 +61,7 @@ fn test_hexadecimal_numeric_references_converted() {
 
     for (entity, expected_char) in test_cases {
         let input = entity.to_string();
-        let result = markdown_to_html(&input, options::DEFAULT);
+        let result = md_to_html(&input);
         assert!(
             result.contains(expected_char),
             "Entity {} should produce {}, got: {}",
@@ -78,7 +86,7 @@ fn test_common_named_entities_converted() {
 
     for (entity, expected_char) in test_cases {
         let input = entity.to_string();
-        let result = markdown_to_html(&input, options::DEFAULT);
+        let result = md_to_html(&input);
         assert!(
             result.contains(expected_char),
             "Entity {} should produce {}, got: {}",
@@ -93,7 +101,7 @@ fn test_common_named_entities_converted() {
 #[test]
 fn test_invalid_entities_handled() {
     // Invalid entities - the & may be escaped to &amp;
-    let result = markdown_to_html("&notanentity;", options::DEFAULT);
+    let result = md_to_html("&notanentity;");
     // Should either preserve the entity or escape the &
     assert!(
         result.contains("&notanentity;") || result.contains("&amp;notanentity;"),
@@ -102,14 +110,14 @@ fn test_invalid_entities_handled() {
     );
 
     // Malformed numeric references
-    let result = markdown_to_html("&#;", options::DEFAULT);
+    let result = md_to_html("&#;");
     assert!(
         result.contains("&#;") || result.contains("&amp;#;"),
         "Malformed entity should be handled, got: {}",
         result
     );
 
-    let result = markdown_to_html("&#x;", options::DEFAULT);
+    let result = md_to_html("&#x;");
     assert!(
         result.contains("&#x;") || result.contains("&amp;#x;"),
         "Malformed entity should be handled, got: {}",
@@ -122,7 +130,7 @@ fn test_invalid_entities_handled() {
 fn test_entities_in_context() {
     // In code blocks, entities should be preserved
     let code_input = "```\n&amp;\n```";
-    let code_result = markdown_to_html(code_input, options::DEFAULT);
+    let code_result = md_to_html(code_input);
     assert!(
         code_result.contains("&amp;"),
         "Entities in code blocks should be preserved, got: {}",
@@ -131,7 +139,7 @@ fn test_entities_in_context() {
 
     // In inline code
     let inline_code = "`&amp;`";
-    let inline_result = markdown_to_html(inline_code, options::DEFAULT);
+    let inline_result = md_to_html(inline_code);
     assert!(
         inline_result.contains("&amp;"),
         "Entities in inline code should be preserved, got: {}",
@@ -140,7 +148,7 @@ fn test_entities_in_context() {
 
     // In regular text - entities are converted
     let text = "This is &amp; that";
-    let text_result = markdown_to_html(text, options::DEFAULT);
+    let text_result = md_to_html(text);
     assert!(
         text_result.contains("&") || text_result.contains("&amp;"),
         "Entities in text should be handled, got: {}",
@@ -152,7 +160,7 @@ fn test_entities_in_context() {
 #[test]
 fn test_multiple_entities() {
     let input = "&lt;div&gt; &amp; &quot;test&quot;";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     // Entities should be converted or preserved
     assert!(result.contains("<") || result.contains("&lt;"));
     assert!(result.contains(">") || result.contains("&gt;"));
@@ -164,27 +172,27 @@ fn test_multiple_entities() {
 #[test]
 fn test_entity_case_sensitivity() {
     // Lowercase should work
-    let lower = markdown_to_html("&amp;", options::DEFAULT);
+    let lower = md_to_html("&amp;");
     assert!(lower.contains("&") || lower.contains("&amp;"));
 
     // Uppercase may or may not work depending on implementation
     // Just verify it doesn't panic
-    let _upper = markdown_to_html("&AMP;", options::DEFAULT);
+    let _upper = md_to_html("&AMP;");
 }
 
 /// Test entities at boundaries
 #[test]
 fn test_entity_boundaries() {
     // Entity at start
-    let result = markdown_to_html("&amp; test", options::DEFAULT);
+    let result = md_to_html("&amp; test");
     assert!(result.contains("&") || result.contains("&amp;"));
 
     // Entity at end
-    let result = markdown_to_html("test &amp;", options::DEFAULT);
+    let result = md_to_html("test &amp;");
     assert!(result.contains("&") || result.contains("&amp;"));
 
     // Entity alone
-    let result = markdown_to_html("&amp;", options::DEFAULT);
+    let result = md_to_html("&amp;");
     assert!(result.contains("&") || result.contains("&amp;"));
 }
 
@@ -193,7 +201,7 @@ fn test_entity_boundaries() {
 fn test_special_characters_escaped() {
     // These are literal characters, not entities
     let input = "<div> & \"test\"";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     // They should be escaped in HTML output
     assert!(result.contains("&lt;") || result.contains("<"));
     assert!(result.contains("&gt;") || result.contains(">"));

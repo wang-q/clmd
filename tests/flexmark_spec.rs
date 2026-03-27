@@ -1,5 +1,13 @@
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{markdown_to_html, options};
 use std::fs;
+
+/// Helper function to convert markdown to HTML with default options
+fn md_to_html(input: &str) -> String {
+    markdown_to_html(input, options::DEFAULT)
+}
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
 macro_rules! test_log {
@@ -143,7 +151,7 @@ fn run_spec_tests(spec_file: &str, module_name: &str) {
     let mut failures: Vec<(String, usize, String, String, String)> = Vec::new();
 
     for example in &examples {
-        let result = markdown_to_html(&example.input, options::DEFAULT);
+        let result = md_to_html(&example.input);
 
         if result == example.expected_html {
             passed += 1;

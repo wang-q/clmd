@@ -1,6 +1,19 @@
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{markdown_to_html, options};
 use std::collections::HashMap;
 use std::fs;
+
+/// Helper function to convert markdown to HTML with default options
+fn md_to_html(input: &str) -> String {
+    markdown_to_html(input, options::DEFAULT)
+}
+
+/// Helper function to convert markdown to HTML with smart punctuation
+fn md_to_html_smart(input: &str) -> String {
+    markdown_to_html(input, options::SMART)
+}
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
 macro_rules! test_log {
@@ -132,7 +145,7 @@ fn test_commonmark_spec() {
     let mut first_passed: Option<(usize, String)> = None;
 
     for test in &tests {
-        let result = markdown_to_html(&test.markdown, options::DEFAULT);
+        let result = md_to_html(&test.markdown);
 
         // Try exact match first
         if result == test.html {
@@ -216,7 +229,7 @@ fn test_commonmark_spec() {
 
     // Also collect all failures, not just first 10
     for test in &tests {
-        let result = markdown_to_html(&test.markdown, options::DEFAULT);
+        let result = md_to_html(&test.markdown);
         if result != test.html {
             let expected_normalized = normalize_html(&test.html);
             let result_normalized = normalize_html(&result);
@@ -277,7 +290,7 @@ fn test_regression() {
     let mut failed = 0;
 
     for test in &tests {
-        let result = markdown_to_html(&test.markdown, options::DEFAULT);
+        let result = md_to_html(&test.markdown);
 
         if result == test.html {
             passed += 1;
@@ -323,7 +336,7 @@ fn test_smart_punct() {
 
     for test in &tests {
         // Smart punctuation requires SMART option
-        let result = markdown_to_html(&test.markdown, options::SMART);
+        let result = md_to_html_smart(&test.markdown);
 
         if result == test.html {
             passed += 1;
@@ -361,28 +374,28 @@ fn test_specific_examples() {
     // Test a few specific examples to verify basic functionality
 
     // Example 1: Thematic breaks
-    let result = markdown_to_html("***\n---\n___\n", options::DEFAULT);
+    let result = md_to_html("***\n---\n___\n");
     assert!(
         result.contains("<hr"),
         "Thematic breaks should produce <hr> tags"
     );
 
     // Example 2: Basic paragraph
-    let result = markdown_to_html("Hello world\n", options::DEFAULT);
+    let result = md_to_html("Hello world\n");
     assert!(result.contains("<p>"), "Should produce paragraph tags");
 
     // Example 3: ATX heading
-    let result = markdown_to_html("# Heading\n", options::DEFAULT);
+    let result = md_to_html("# Heading\n");
     assert!(result.contains("<h1>"), "Should produce h1 tag");
 
     // Debug test for ATX heading issue #79
-    let result = markdown_to_html("## \n#\n### ###", options::DEFAULT);
+    let result = md_to_html("## \n#\n### ###");
     test_log!("ATX heading test #79 result: {:?}", result);
     test_log!("Expected: {:?}", "<h2></h2>\n<h1></h1>\n<h3></h3>");
 
     // Debug test for Setext heading issue #91
     let input = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     test_log!("\nSetext heading test #91 result: {:?}", result);
     test_log!(
         "Expected: {:?}",
@@ -391,28 +404,28 @@ fn test_specific_examples() {
 
     // Simpler test case
     let input2 = "<a title=\"a lot\n---\nof dashes\"/>";
-    let result2 = markdown_to_html(input2, options::DEFAULT);
+    let result2 = md_to_html(input2);
     test_log!("\nSimpler test result: {:?}", result2);
 
     // Even simpler test case - just the heading part
     let input3 = "<a title=\"a lot\n---";
-    let result3 = markdown_to_html(input3, options::DEFAULT);
+    let result3 = md_to_html(input3);
     test_log!("\nEven simpler test result: {:?}", result3);
 
     // Test without newline
     let input4 = "<a title=\"a lot";
-    let result4 = markdown_to_html(input4, options::DEFAULT);
+    let result4 = md_to_html(input4);
     test_log!("\nWithout newline test result: {:?}", result4);
 
     // Test fenced code block #126
     let input5 = "```";
-    let result5 = markdown_to_html(input5, options::DEFAULT);
+    let result5 = md_to_html(input5);
     test_log!("\nFenced code block #126 result: {:?}", result5);
     test_log!("Expected: {:?}", "<pre><code></code></pre>");
 
     // Test fenced code block with content
     let input6 = "```\nfoo\n```";
-    let result6 = markdown_to_html(input6, options::DEFAULT);
+    let result6 = md_to_html(input6);
     test_log!("\nFenced code block with content result: {:?}", result6);
     test_log!("Expected: {:?}", "<pre><code>foo\n</code></pre>");
 }

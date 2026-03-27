@@ -1,4 +1,12 @@
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{markdown_to_html, options};
+
+/// Helper function to convert markdown to HTML with default options
+fn md_to_html(input: &str) -> String {
+    markdown_to_html(input, options::DEFAULT)
+}
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
 macro_rules! test_log {
@@ -12,7 +20,7 @@ macro_rules! test_log {
 #[test]
 fn test_basic_link_reference() {
     let input = "[foo]\n\n[foo]: /bar\n";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     test_log!("Input: {:?}", input);
     test_log!("Output: {:?}", result);
     assert!(
@@ -25,7 +33,7 @@ fn test_basic_link_reference() {
 #[test]
 fn test_link_reference_with_title() {
     let input = "[foo]\n\n[foo]: /bar \"title\"\n";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     test_log!("Input: {:?}", input);
     test_log!("Output: {:?}", result);
     assert!(
@@ -38,7 +46,7 @@ fn test_link_reference_with_title() {
 #[test]
 fn test_inline_link() {
     let input = "[foo](/bar)\n";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     test_log!("Input: {:?}", input);
     test_log!("Output: {:?}", result);
     assert!(
@@ -51,7 +59,7 @@ fn test_inline_link() {
 #[test]
 fn test_inline_link_with_title() {
     let input = "[foo](/bar \"title\")\n";
-    let result = markdown_to_html(input, options::DEFAULT);
+    let result = md_to_html(input);
     test_log!("Input: {:?}", input);
     test_log!("Output: {:?}", result);
     assert!(

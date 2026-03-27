@@ -3,6 +3,9 @@
 //! Tests for Markdown -> HTML -> Markdown roundtrip consistency.
 //! Based on cmark's roundtrip_tests.py.
 
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{html_to_md, markdown_to_html, options};
 use std::fs;
 

@@ -1,4 +1,8 @@
 // Test specific emphasis cases
+
+// Allow deprecated API usage in tests until all tests are migrated
+#![allow(deprecated)]
+
 use clmd::{markdown_to_html, options};
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
