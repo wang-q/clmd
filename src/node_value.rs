@@ -467,6 +467,7 @@ impl NodeValue {
     }
 
     /// Check if this node type can accept lines of text.
+    #[allow(dead_code)]
     pub(crate) fn accepts_lines(&self) -> bool {
         matches!(
             self,

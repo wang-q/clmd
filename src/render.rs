@@ -31,11 +31,9 @@ pub mod xml;
 
 // Re-export renderer types
 pub use renderer::{
-    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer, StreamingRenderer,
-    XmlRenderer,
+    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer,
+    StreamingRenderer, XmlRenderer,
 };
-
-use crate::arena::{NodeArena, NodeId};
 
 /// Escape HTML special characters
 pub fn escape_html(text: &str) -> String {

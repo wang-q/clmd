@@ -111,8 +111,8 @@ pub use config::{
     DataHolder, DataKey, DataSet, MutableDataSet, Options, ParseOptions, RenderOptions,
 };
 pub use error::{
-    BrokenLinkCallback, BrokenLinkReference, DefaultBrokenLinkCallback, ParseError, ParseResult,
-    ParserLimits, Position, ResolvedReference,
+    BrokenLinkCallback, BrokenLinkReference, DefaultBrokenLinkCallback, ParseError,
+    ParseResult, ParserLimits, Position, ResolvedReference,
 };
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos as LegacySourcePos};
@@ -135,8 +135,8 @@ pub use plugins::{
 
 // Re-export renderer types
 pub use render::{
-    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer, StreamingRenderer,
-    XmlRenderer,
+    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer,
+    StreamingRenderer, XmlRenderer,
 };
 
 /// Configuration options for parsing and rendering.
@@ -531,9 +531,10 @@ pub fn markdown_to_html_with_options(text: &str, options: &Options) -> String {
 /// let cm = markdown_to_commonmark_with_options("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```
-pub fn markdown_to_commonmark_with_options(text: &str, options: &Options) -> String {
+pub fn markdown_to_commonmark_with_options(text: &str, _options: &Options) -> String {
     let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    let doc =
+        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
     render::commonmark::render(&arena, doc, options::DEFAULT)
 }
 
@@ -557,9 +558,10 @@ pub fn markdown_to_commonmark_with_options(text: &str, options: &Options) -> Str
 /// let xml = markdown_to_xml_with_options("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
 /// ```
-pub fn markdown_to_xml_with_options(text: &str, options: &Options) -> String {
+pub fn markdown_to_xml_with_options(text: &str, _options: &Options) -> String {
     let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    let doc =
+        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
     render::xml::render(&arena, doc, options::DEFAULT)
 }
 
@@ -586,10 +588,14 @@ pub fn markdown_to_xml_with_options(text: &str, options: &Options) -> String {
 /// let (arena, root) = parse_document_with_options("| a | b |\n|---|---|\n| c | d |", &options);
 /// // Now you can traverse and manipulate the AST
 /// ```
-pub fn parse_document_with_options(text: &str, _options: &Options) -> (NodeArena, NodeId) {
+pub fn parse_document_with_options(
+    text: &str,
+    _options: &Options,
+) -> (NodeArena, NodeId) {
     // TODO: Actually use options when parser supports them
     let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    let doc =
+        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
     (arena, doc)
 }
 
@@ -614,7 +620,11 @@ pub fn parse_document_with_options(text: &str, _options: &Options) -> (NodeArena
 /// let (arena, root) = parse_document_with_options("Hello *world*", &options);
 /// let html = format_html_with_options(&arena, root, &options);
 /// ```
-pub fn format_html_with_options(arena: &NodeArena, root: NodeId, options: &Options) -> String {
+pub fn format_html_with_options(
+    arena: &NodeArena,
+    root: NodeId,
+    options: &Options,
+) -> String {
     let mut legacy_options = options::DEFAULT;
 
     if options.get(&config_options::SOURCEPOS) {
@@ -663,7 +673,11 @@ pub fn format_commonmark_with_options(
 /// # Returns
 ///
 /// The XML output as a String
-pub fn format_xml_with_options(arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+pub fn format_xml_with_options(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &Options,
+) -> String {
     render::xml::render(arena, root, options::DEFAULT)
 }
 

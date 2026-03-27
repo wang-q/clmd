@@ -53,7 +53,10 @@ impl Plugins {
     }
 
     /// Set the syntax highlighter
-    pub fn set_syntax_highlighter(&mut self, adapter: Box<dyn SyntaxHighlighterAdapter>) {
+    pub fn set_syntax_highlighter(
+        &mut self,
+        adapter: Box<dyn SyntaxHighlighterAdapter>,
+    ) {
         self.syntax_highlighter = Some(adapter);
     }
 
@@ -82,7 +85,10 @@ impl Plugins {
     }
 
     /// Get a code fence renderer for a specific language
-    pub fn codefence_renderer(&self, language: &str) -> Option<&dyn CodefenceRendererAdapter> {
+    pub fn codefence_renderer(
+        &self,
+        language: &str,
+    ) -> Option<&dyn CodefenceRendererAdapter> {
         self.codefence_renderers.get(language).map(|b| b.as_ref())
     }
 
@@ -121,7 +127,10 @@ impl std::fmt::Debug for Plugins {
         f.debug_struct("Plugins")
             .field("has_syntax_highlighter", &self.syntax_highlighter.is_some())
             .field("has_heading_adapter", &self.heading_adapter.is_some())
-            .field("codefence_renderers", &self.codefence_renderers.keys().collect::<Vec<_>>())
+            .field(
+                "codefence_renderers",
+                &self.codefence_renderers.keys().collect::<Vec<_>>(),
+            )
             .field("has_link_url_rewriter", &self.link_url_rewriter.is_some())
             .field("has_image_url_rewriter", &self.image_url_rewriter.is_some())
             .finish()
@@ -416,7 +425,10 @@ mod tests {
         assert!(plugins.codefence_renderer("other").is_none());
 
         let renderer = plugins.codefence_renderer("test").unwrap();
-        assert_eq!(renderer.render("hello", "test"), Some("<test>hello</test>".to_string()));
+        assert_eq!(
+            renderer.render("hello", "test"),
+            Some("<test>hello</test>".to_string())
+        );
     }
 
     #[test]

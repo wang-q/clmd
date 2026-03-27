@@ -22,7 +22,11 @@ pub struct BrokenLinkReference {
 
 impl BrokenLinkReference {
     /// Create a new broken link reference
-    pub fn new(normalized: impl Into<String>, original: impl Into<String>, position: Position) -> Self {
+    pub fn new(
+        normalized: impl Into<String>,
+        original: impl Into<String>,
+        position: Position,
+    ) -> Self {
         Self {
             normalized: normalized.into(),
             original: original.into(),
@@ -683,7 +687,8 @@ mod tests {
         assert_eq!(resolved.url, "https://example.com");
         assert_eq!(resolved.title, None);
 
-        let resolved_with_title = ResolvedReference::with_title("https://example.com", "Example");
+        let resolved_with_title =
+            ResolvedReference::with_title("https://example.com", "Example");
         assert_eq!(resolved_with_title.url, "https://example.com");
         assert_eq!(resolved_with_title.title, Some("Example".to_string()));
     }
@@ -699,7 +704,10 @@ mod tests {
     fn test_custom_broken_link_callback() {
         struct WikiLinkResolver;
         impl BrokenLinkCallback for WikiLinkResolver {
-            fn resolve(&self, broken_link: &BrokenLinkReference) -> Option<ResolvedReference> {
+            fn resolve(
+                &self,
+                broken_link: &BrokenLinkReference,
+            ) -> Option<ResolvedReference> {
                 if broken_link.normalized.starts_with("wiki:") {
                     let page = &broken_link.normalized[5..];
                     Some(ResolvedReference::new(format!("/wiki/{}", page)))
@@ -712,7 +720,8 @@ mod tests {
         let resolver = WikiLinkResolver;
 
         // Should resolve wiki links
-        let wiki_link = BrokenLinkReference::new("wiki:home", "wiki:home", Position::start());
+        let wiki_link =
+            BrokenLinkReference::new("wiki:home", "wiki:home", Position::start());
         let resolved = resolver.resolve(&wiki_link);
         assert!(resolved.is_some());
         assert_eq!(resolved.unwrap().url, "/wiki/home");

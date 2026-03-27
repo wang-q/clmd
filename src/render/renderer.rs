@@ -62,7 +62,12 @@ pub trait Renderer {
     /// # Returns
     ///
     /// The rendered output as a String
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, options: &Options) -> String;
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &Options,
+    ) -> String;
 
     /// Get the name of this renderer.
     fn name(&self) -> &'static str;
@@ -105,7 +110,12 @@ impl Renderer for HtmlRenderer {
         self.render_with_options(arena, root, &options)
     }
 
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _options: &Options,
+    ) -> String {
         crate::render::html::render(arena, root, crate::options::DEFAULT)
     }
 
@@ -153,7 +163,12 @@ impl Renderer for CommonMarkRenderer {
         self.render_with_options(arena, root, &options)
     }
 
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _options: &Options,
+    ) -> String {
         crate::render::commonmark::render(arena, root, crate::options::DEFAULT)
     }
 
@@ -201,7 +216,12 @@ impl Renderer for XmlRenderer {
         self.render_with_options(arena, root, &options)
     }
 
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _options: &Options,
+    ) -> String {
         crate::render::xml::render(arena, root, crate::options::DEFAULT)
     }
 
@@ -233,7 +253,12 @@ impl Renderer for LatexRenderer {
         self.render_with_options(arena, root, &options)
     }
 
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _options: &Options,
+    ) -> String {
         crate::render::latex::render(arena, root, crate::options::DEFAULT)
     }
 
@@ -265,7 +290,12 @@ impl Renderer for ManRenderer {
         self.render_with_options(arena, root, &options)
     }
 
-    fn render_with_options(&self, arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    fn render_with_options(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _options: &Options,
+    ) -> String {
         crate::render::man::render(arena, root, crate::options::DEFAULT)
     }
 
@@ -467,11 +497,11 @@ mod tests {
     fn test_html_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = HtmlRenderer::new();
-        
+
         let html = renderer.render(&arena, doc);
         assert!(html.contains("<h1>Hello</h1>"));
         assert!(html.contains("<p>World</p>"));
-        
+
         assert_eq!(renderer.name(), "HTML");
         assert_eq!(renderer.mime_type(), "text/html");
     }
@@ -480,11 +510,11 @@ mod tests {
     fn test_commonmark_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = CommonMarkRenderer::new();
-        
+
         let cm = renderer.render(&arena, doc);
         assert!(cm.contains("# Hello"));
         assert!(cm.contains("World"));
-        
+
         assert_eq!(renderer.name(), "CommonMark");
         assert_eq!(renderer.mime_type(), "text/markdown");
     }
@@ -493,12 +523,12 @@ mod tests {
     fn test_xml_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = XmlRenderer::new();
-        
+
         let xml = renderer.render(&arena, doc);
         assert!(xml.contains("<document>"));
         assert!(xml.contains("<heading"));
         assert!(xml.contains("<paragraph>"));
-        
+
         assert_eq!(renderer.name(), "XML");
         assert_eq!(renderer.mime_type(), "application/xml");
     }
@@ -507,10 +537,10 @@ mod tests {
     fn test_latex_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = LatexRenderer::new();
-        
+
         let latex = renderer.render(&arena, doc);
         assert!(latex.contains("\\section"));
-        
+
         assert_eq!(renderer.name(), "LaTeX");
     }
 
@@ -518,10 +548,10 @@ mod tests {
     fn test_man_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = ManRenderer::new();
-        
+
         let man = renderer.render(&arena, doc);
         assert!(man.contains(".SH"));
-        
+
         assert_eq!(renderer.name(), "Man");
     }
 
@@ -529,10 +559,10 @@ mod tests {
     fn test_streaming_html_renderer() {
         let (arena, doc) = create_test_document();
         let renderer = HtmlRenderer::new();
-        
+
         let mut output = String::new();
         renderer.render_to(&mut output, &arena, doc).unwrap();
-        
+
         assert!(output.contains("<h1>Hello</h1>"));
         assert!(output.contains("<p>World</p>"));
     }
@@ -540,15 +570,19 @@ mod tests {
     #[test]
     fn test_renderer_trait_object() {
         let (arena, doc) = create_test_document();
-        
-        fn render_with_renderer<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
+
+        fn render_with_renderer<R: Renderer>(
+            renderer: &R,
+            arena: &NodeArena,
+            root: NodeId,
+        ) -> String {
             renderer.render(arena, root)
         }
-        
+
         let html_renderer = HtmlRenderer::new();
         let html = render_with_renderer(&html_renderer, &arena, doc);
         assert!(html.contains("<h1>"));
-        
+
         let cm_renderer = CommonMarkRenderer::new();
         let cm = render_with_renderer(&cm_renderer, &arena, doc);
         assert!(cm.contains("# Hello"));
@@ -559,7 +593,7 @@ mod tests {
         let (arena, doc) = create_test_document();
         let renderer = HtmlRenderer::new();
         let options = Options::new();
-        
+
         let html = renderer.render_with_options(&arena, doc, &options);
         assert!(html.contains("<h1>Hello</h1>"));
     }
