@@ -5,7 +5,7 @@
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::error::{ParseError, ParseResult, ParserLimits};
-use crate::node_value::{NodeValue, SourcePos};
+use crate::node_value::NodeValue;
 use rustc_hash::FxHashMap;
 
 /// Block parser state using Arena allocation
@@ -344,7 +344,7 @@ impl<'a> BlockParser<'a> {
                     leaf_blocks.push((node, content, line));
                 }
             }
-            NodeValue::Heading(heading) => {
+            NodeValue::Heading(_heading) => {
                 // For headings, get content from string_content
                 // The heading content will be processed by inlines
                 let content = self.get_string_content(node);

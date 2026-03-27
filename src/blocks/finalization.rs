@@ -7,7 +7,7 @@ use crate::arena::{NodeId, TreeOps};
 use crate::blocks::BlockParser;
 use crate::inlines::parse_reference;
 use crate::lexer::TAB_STOP;
-use crate::node_value::{NodeCodeBlock, NodeHtmlBlock, NodeList, NodeValue};
+use crate::node_value::NodeValue;
 
 impl<'a> BlockParser<'a> {
     /// Add text to container
@@ -408,7 +408,7 @@ impl<'a> BlockParser<'a> {
                     // Update heading content if reference definitions were found
                     if has_reference_defs {
                         let block_mut = self.arena.get_mut(block);
-                        if let NodeValue::Heading(heading) = &mut block_mut.value {
+                        if let NodeValue::Heading(_heading) = &mut block_mut.value {
                             // Store content in string_content for inline processing
                             self.set_string_content(block, content.trim().to_string());
                         }
@@ -596,5 +596,3 @@ impl<'a> BlockParser<'a> {
         false
     }
 }
-
-use crate::node_value::SourcePos;

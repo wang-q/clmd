@@ -16,6 +16,7 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// HTML renderer state
 struct HtmlRenderer<'a> {
     arena: &'a NodeArena,
+    #[allow(dead_code)]
     options: u32,
     output: String,
     /// Stack for tracking whether we need to close a tag
@@ -377,7 +378,7 @@ impl<'a> HtmlRenderer<'a> {
         self.write_line("</section>");
     }
 
-    fn find_footnote_def(&self, name: &str) -> Option<NodeId> {
+    fn find_footnote_def(&self, _name: &str) -> Option<NodeId> {
         // This is a simplified implementation
         // In a real implementation, we'd search the arena for the footnote definition
         None

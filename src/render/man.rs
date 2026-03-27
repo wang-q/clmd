@@ -2,8 +2,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::node_value::{
-    ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList,
-    NodeValue,
+    ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeList, NodeValue,
 };
 
 /// Render a node tree as a Man page (groff format)
