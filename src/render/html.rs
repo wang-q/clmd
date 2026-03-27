@@ -508,9 +508,15 @@ impl<'a> HtmlRenderer<'a> {
         self.lit("\n");
     }
 
-    fn find_footnote_def(&self, _name: &str) -> Option<NodeId> {
-        // This is a simplified implementation
-        // In a real implementation, we'd search the arena for the footnote definition
+    fn find_footnote_def(&self, name: &str) -> Option<NodeId> {
+        // Search the arena for the footnote definition with matching name
+        for (id, node) in self.arena.iter() {
+            if let NodeValue::FootnoteDefinition(def) = &node.value {
+                if def.name == name {
+                    return Some(id);
+                }
+            }
+        }
         None
     }
 

@@ -76,13 +76,8 @@ pub struct Subject<'a> {
 }
 
 /// Static empty refmap for Subject::new
-static EMPTY_REFMAP: std::sync::OnceLock<FxHashMap<String, (String, String)>> =
-    std::sync::OnceLock::new();
-
-/// Get or initialize the empty refmap
-fn get_empty_refmap() -> &'static FxHashMap<String, (String, String)> {
-    EMPTY_REFMAP.get_or_init(FxHashMap::default)
-}
+static EMPTY_REFMAP: once_cell::sync::Lazy<FxHashMap<String, (String, String)>> =
+    once_cell::sync::Lazy::new(FxHashMap::default);
 
 impl<'a> Subject<'a> {
     /// Create a new subject from a string
@@ -96,7 +91,7 @@ impl<'a> Subject<'a> {
             delimiters: None,
             brackets: None,
             no_link_openers: false,
-            refmap: get_empty_refmap(),
+            refmap: &EMPTY_REFMAP,
             smart: false,
         }
     }

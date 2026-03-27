@@ -36,10 +36,7 @@ where
 fn test_nested_strong_emph() {
     let input = ("*a **a ".repeat(1000)) + "b" + &(" a** a*".repeat(1000));
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "nested strong emph",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "nested strong emph");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -52,10 +49,7 @@ fn test_nested_strong_emph() {
 fn test_many_emph_closers() {
     let input = "a_ ".repeat(1000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many emph closers",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many emph closers");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -67,10 +61,7 @@ fn test_many_emph_closers() {
 fn test_many_emph_openers() {
     let input = "_a ".repeat(1000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many emph openers",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many emph openers");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -82,10 +73,7 @@ fn test_many_emph_openers() {
 fn test_deeply_nested_brackets() {
     let input = "[".repeat(1000) + "text" + &"]".repeat(1000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "deeply nested brackets",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "deeply nested brackets");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -97,10 +85,7 @@ fn test_deeply_nested_brackets() {
 fn test_deeply_nested_parens() {
     let input = "(".repeat(1000) + "text" + &")".repeat(1000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "deeply nested parens",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "deeply nested parens");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -113,10 +98,7 @@ fn test_deeply_nested_parens() {
 fn test_deeply_nested_blockquotes() {
     let input = "> ".repeat(1000) + "text\n";
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "deeply nested blockquotes",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "deeply nested blockquotes");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -133,10 +115,7 @@ fn test_deeply_nested_lists() {
         input.push_str("- item\n");
     }
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "deeply nested lists",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "deeply nested lists");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -148,10 +127,7 @@ fn test_deeply_nested_lists() {
 fn test_long_line() {
     let input = "a".repeat(100000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "long line",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "long line");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -163,10 +139,7 @@ fn test_long_line() {
 fn test_many_blank_lines() {
     let input = "\n".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many blank lines",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many blank lines");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
 }
@@ -176,10 +149,7 @@ fn test_many_blank_lines() {
 fn test_many_inline_backticks() {
     let input = "`code` ".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many inline backticks",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many inline backticks");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -191,10 +161,7 @@ fn test_many_inline_backticks() {
 fn test_many_autolinks() {
     let input = "<http://example.com> ".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many autolinks",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many autolinks");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -206,10 +173,7 @@ fn test_many_autolinks() {
 fn test_many_entities() {
     let input = "&amp; ".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many entities",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many entities");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -221,10 +185,7 @@ fn test_many_entities() {
 fn test_many_hard_breaks() {
     let input = "line  \n".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many hard breaks",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many hard breaks");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -236,10 +197,7 @@ fn test_many_hard_breaks() {
 fn test_many_asterisks() {
     let input = "*".repeat(10000);
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many asterisks",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many asterisks");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     // Just verify it completes without panic - the output may vary
@@ -254,10 +212,7 @@ fn test_many_link_refs() {
     }
     input.push_str("[ref0]\n");
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "many link refs",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "many link refs");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();
@@ -276,10 +231,7 @@ fn test_large_document() {
         input.push_str("```\ncode block\n```\n\n");
     }
 
-    let result = run_with_timeout(
-        || md_to_html(&input),
-        "large document",
-    );
+    let result = run_with_timeout(|| md_to_html(&input), "large document");
 
     assert!(result.is_ok(), "{}", result.unwrap_err());
     let html = result.unwrap();

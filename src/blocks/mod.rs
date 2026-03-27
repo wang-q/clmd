@@ -26,6 +26,9 @@
 //! assert!(html.contains("<p>Paragraph</p>"));
 //! ```
 
+/// Marker string used to indicate an empty paragraph in the string content.
+pub(crate) const EMPTY_PARAGRAPH_MARKER: &str = "__EMPTY_PARAGRAPH__";
+
 mod info;
 pub use info::BlockInfo;
 

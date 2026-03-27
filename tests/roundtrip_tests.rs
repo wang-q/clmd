@@ -3,8 +3,8 @@
 //! Tests for Markdown -> HTML -> Markdown roundtrip consistency.
 //! Based on cmark's roundtrip_tests.py.
 
-use clmd::{markdown_to_html, Options};
 use clmd::html_to_md;
+use clmd::{markdown_to_html, Options};
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
@@ -136,7 +136,10 @@ fn test_roundtrip_preserves_structure() {
 fn test_roundtrip_empty_input() {
     let html = md_to_html("");
     let roundtrip = html_to_md::convert(&html);
-    assert!(roundtrip.is_empty(), "Empty input should produce empty roundtrip");
+    assert!(
+        roundtrip.is_empty(),
+        "Empty input should produce empty roundtrip"
+    );
 }
 
 #[test]

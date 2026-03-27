@@ -235,6 +235,31 @@ impl NodeArena {
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
+
+    /// Returns an iterator over all nodes in the arena.
+    ///
+    /// The iterator yields `(NodeId, &Node)` tuples.
+    pub fn iter(&self) -> impl Iterator<Item = (NodeId, &Node)> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| (i as NodeId, node))
+    }
+
+    /// Returns a mutable iterator over all nodes in the arena.
+    ///
+    /// The iterator yields `(NodeId, &mut Node)` tuples.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
+        self.nodes
+            .iter_mut()
+            .enumerate()
+            .map(|(i, node)| (i as NodeId, node))
+    }
+
+    /// Shrinks the capacity of the arena to match the current number of nodes.
+    pub fn shrink_to_fit(&mut self) {
+        self.nodes.shrink_to_fit();
+    }
 }
 
 impl Default for NodeArena {

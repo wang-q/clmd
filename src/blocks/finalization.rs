@@ -475,7 +475,10 @@ impl<'a> BlockParser<'a> {
                 // If paragraph is empty after removing reference definitions, mark it for deletion
                 if has_reference_defs && content.is_empty() {
                     // Store empty content marker
-                    self.set_string_content(block, "__EMPTY_PARAGRAPH__".to_string());
+                    self.set_string_content(
+                        block,
+                        super::EMPTY_PARAGRAPH_MARKER.to_string(),
+                    );
                 } else {
                     self.set_string_content(block, content.to_string());
                 }
@@ -558,7 +561,7 @@ impl<'a> BlockParser<'a> {
         // Check if this is a paragraph marked as empty and remove it
         if matches!(self.arena.get(node).value, NodeValue::Paragraph) {
             let content = self.get_string_content(node);
-            if content == "__EMPTY_PARAGRAPH__" {
+            if content == super::EMPTY_PARAGRAPH_MARKER {
                 TreeOps::unlink(self.arena, node);
             }
         }

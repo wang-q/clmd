@@ -59,7 +59,9 @@ fn parse_flexmark_spec(content: &str) -> Vec<SpecExample> {
 
             // Collect expected HTML output
             let mut expected_html = String::new();
-            while i < lines.len() && !lines[i].starts_with("````````````````````````````````") {
+            while i < lines.len()
+                && !lines[i].starts_with("````````````````````````````````")
+            {
                 if !expected_html.is_empty() {
                     expected_html.push('\n');
                 }

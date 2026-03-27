@@ -57,12 +57,11 @@ impl Parser {
             });
         }
 
-        // Handle CRLF line endings with single-pass replacement
-        let normalized_input = if text.contains('\r') {
-            text.replace("\r\n", "\n").replace('\r', "\n")
-        } else {
-            text.to_string()
-        };
+        // Handle CRLF line endings - normalize all \r to \n in a single pass
+        let normalized_input: String = text
+            .chars()
+            .map(|c| if c == '\r' { '\n' } else { c })
+            .collect();
 
         // Create arena and parse blocks
         // BlockParser already handles inline processing during finalization

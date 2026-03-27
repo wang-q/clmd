@@ -260,9 +260,8 @@ impl<'a> BlockParser<'a> {
         };
         self.last_matched_container = container;
 
-        // Check if container is a leaf that accepts lines
+        // Check if container is a leaf block
         let container_value = &self.arena.get(container).value;
-        let _accepts_lines = self.accepts_lines(container);
         let is_leaf = matches!(
             container_value,
             NodeValue::Heading(..) | NodeValue::ThematicBreak
@@ -334,7 +333,7 @@ impl<'a> BlockParser<'a> {
                 // For paragraphs, content is stored in string_content after finalization
                 let content = self.get_string_content(node);
                 let line = self.get_start_line(node);
-                if !content.is_empty() && content != "__EMPTY_PARAGRAPH__" {
+                if !content.is_empty() && content != super::EMPTY_PARAGRAPH_MARKER {
                     leaf_blocks.push((node, content, line));
                 }
             }

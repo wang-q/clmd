@@ -12,11 +12,7 @@ fn md_to_html(input: &str) -> String {
 /// Test basic named entities are converted to characters
 #[test]
 fn test_basic_named_entities_converted() {
-    let test_cases = vec![
-        ("&amp;", "&"),
-        ("&lt;", "<"),
-        ("&gt;", ">"),
-    ];
+    let test_cases = vec![("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">")];
 
     for (input, expected) in test_cases {
         let result = md_to_html(input);

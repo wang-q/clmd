@@ -143,11 +143,18 @@ pub use render::{
 pub use config::options as config_options;
 
 // Legacy option flags for internal use (not public API)
+// These are deprecated in favor of the new Options API.
+#[allow(deprecated)]
 const OPT_SOURCEPOS: u32 = 1 << 0;
+#[allow(deprecated)]
 const OPT_HARDBREAKS: u32 = 1 << 1;
+#[allow(deprecated)]
 const OPT_NOBREAKS: u32 = 1 << 2;
+#[allow(deprecated)]
 const OPT_VALIDATE_UTF8: u32 = 1 << 3;
+#[allow(deprecated)]
 const OPT_SMART: u32 = 1 << 4;
+#[allow(deprecated)]
 const OPT_UNSAFE: u32 = 1 << 5;
 
 /// Convert new Options to legacy u32 flags for parsing.
@@ -239,7 +246,8 @@ impl Document {
     pub fn parse_with_options(input: &str, options: &Options) -> ParseResult<Self> {
         let legacy_options = options_to_u32_for_parse(options);
         let mut arena = NodeArena::new();
-        let root = blocks::BlockParser::parse_with_options(&mut arena, input, legacy_options);
+        let root =
+            blocks::BlockParser::parse_with_options(&mut arena, input, legacy_options);
         Ok(Document { arena, root })
     }
 
@@ -255,12 +263,7 @@ impl Document {
     /// A `ParseResult` containing the parsed document or an error
     pub fn parse_with_limits(input: &str, limits: ParserLimits) -> ParseResult<Self> {
         let mut arena = NodeArena::new();
-        let root = blocks::BlockParser::parse_with_limits(
-            &mut arena,
-            input,
-            0,
-            limits,
-        )?;
+        let root = blocks::BlockParser::parse_with_limits(&mut arena, input, 0, limits)?;
         Ok(Document { arena, root })
     }
 
@@ -440,10 +443,12 @@ pub fn markdown_to_html(text: &str, options: &Options) -> String {
 /// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```
-pub fn markdown_to_commonmark(text: &str, _options: &Options) -> String {
+pub fn markdown_to_commonmark(text: &str, options: &Options) -> String {
+    let legacy_options = options_to_u32_for_parse(options);
     let mut arena = NodeArena::new();
-    let doc = blocks::BlockParser::parse(&mut arena, text);
-    render::commonmark::render(&arena, doc, 0)
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, legacy_options);
+    let render_options = options_to_u32_for_render(options);
+    render::commonmark::render(&arena, doc, render_options)
 }
 
 /// Convert Markdown to XML.

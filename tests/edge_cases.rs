@@ -151,8 +151,7 @@ fn test_unmatched_backticks() {
 /// Test parser limits - input too large
 #[test]
 fn test_input_too_large() {
-    let parser =
-        Parser::with_limits(0, ParserLimits::new().max_input_size(100));
+    let parser = Parser::with_limits(0, ParserLimits::new().max_input_size(100));
 
     let large_input = "a".repeat(101);
     let result = parser.parse(&large_input);
@@ -163,8 +162,7 @@ fn test_input_too_large() {
 /// Test parser limits - line too long
 #[test]
 fn test_line_too_long() {
-    let parser =
-        Parser::with_limits(0, ParserLimits::new().max_line_length(50));
+    let parser = Parser::with_limits(0, ParserLimits::new().max_line_length(50));
 
     let long_line = "a".repeat(100);
     let input = format!("{}\n", long_line);
@@ -204,8 +202,7 @@ fn test_line_endings() {
 /// Test extreme nesting depth
 #[test]
 fn test_extreme_nesting() {
-    let parser =
-        Parser::with_limits(0, ParserLimits::new().max_nesting_depth(10));
+    let parser = Parser::with_limits(0, ParserLimits::new().max_nesting_depth(10));
 
     // Create input that exceeds nesting depth
     let mut input = String::new();
