@@ -31,8 +31,8 @@ pub mod xml;
 
 // Re-export renderer types
 pub use renderer::{
-    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer,
-    StreamingRenderer, XmlRenderer,
+    render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
+    render_to_xml, OutputFormat, Renderer,
 };
 
 /// Escape HTML special characters

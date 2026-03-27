@@ -1,23 +1,14 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node::{DelimType, ListType, NodeData, NodeType};
-use crate::node_value::NodeValue;
+use crate::node_value::{
+    ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
+    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTaskItem,
+    NodeValue,
+};
 
 /// Render a node tree as CommonMark
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    let mut renderer = CommonMarkRenderer::new(arena, options);
-    renderer.render(root)
-}
-
-/// Render a node tree as CommonMark with NodeValue support
-///
-/// This function synchronizes NodeValue for all nodes before rendering,
-/// allowing the use of the new NodeValue-based API.
-pub fn render_with_value(arena: &mut NodeArena, root: NodeId, options: u32) -> String {
-    // Sync NodeValue for all nodes
-    arena.sync_node_values();
-
     let mut renderer = CommonMarkRenderer::new(arena, options);
     renderer.render(root)
 }
@@ -86,10 +77,10 @@ impl<'a> CommonMarkRenderer<'a> {
 
         // Add blank line before block elements if needed
         if self.need_blank_line
-            && node.node_type.is_block()
+            && node.value.is_block()
             && !matches!(
-                node.node_type,
-                NodeType::Document | NodeType::List | NodeType::Item
+                node.value,
+                NodeValue::Document | NodeValue::List(..) | NodeValue::Item(..)
             )
         {
             self.output.push('\n');
@@ -98,117 +89,96 @@ impl<'a> CommonMarkRenderer<'a> {
             self.need_blank_line = false;
         }
 
-        match node.node_type {
-            NodeType::Document => {}
-            NodeType::BlockQuote => {
+        match &node.value {
+            NodeValue::Document => {}
+            NodeValue::BlockQuote => {
                 self.list_prefixes.push("> ".to_string());
                 self.beginning_of_line = true;
             }
-            NodeType::List => {
-                if let NodeData::List { tight, .. } = &node.data {
-                    self.tight_list_stack.push(*tight);
-                }
+            NodeValue::List(NodeList { tight, .. }) => {
+                self.tight_list_stack.push(*tight);
                 // Don't add blank line before first list
                 if !self.output.is_empty() && !self.output.ends_with('\n') {
                     self.output.push('\n');
                 }
             }
-            NodeType::Item => {
+            NodeValue::Item(..) => {
                 let prefix = self.format_list_item_prefix(node_id);
                 self.list_prefixes.push(prefix);
                 self.beginning_of_line = true;
             }
-            NodeType::CodeBlock => {
+            NodeValue::CodeBlock(..) => {
                 self.render_code_block(node_id);
                 self.need_blank_line = true;
             }
-            NodeType::HtmlBlock => {
-                self.render_html_block(node_id);
+            NodeValue::HtmlBlock(NodeHtmlBlock { literal, .. }) => {
+                self.render_html_block(literal);
                 self.need_blank_line = true;
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 // In tight lists, don't add blank line before paragraph
                 if !self.in_tight_list() && !self.output.is_empty() {
                     self.need_blank_line = true;
                 }
             }
-            NodeType::Heading => {
+            NodeValue::Heading(..) => {
                 self.render_heading(node_id);
                 self.need_blank_line = true;
             }
-            NodeType::ThematicBreak => {
+            NodeValue::ThematicBreak => {
                 self.write_line("***");
                 self.need_blank_line = true;
             }
-            NodeType::Text => {
-                if let NodeData::Text { literal } = &node.data {
-                    self.write_inline(&escape_markdown(&literal));
-                }
+            NodeValue::Text(literal) => {
+                self.write_inline(&escape_markdown(literal));
             }
-            NodeType::SoftBreak => {
+            NodeValue::SoftBreak => {
                 if self.in_tight_list() {
                     self.write_inline(" ");
                 } else {
                     self.write_line("");
                 }
             }
-            NodeType::LineBreak => {
+            NodeValue::HardBreak => {
                 self.write_inline("  ");
                 self.write_line("");
             }
-            NodeType::Code => {
-                if let NodeData::Code { literal } = &node.data {
-                    let backticks = get_backtick_sequence(&literal);
-                    self.write_inline(&backticks);
-                    self.write_inline(&literal);
-                    self.write_inline(&backticks);
-                }
+            NodeValue::Code(NodeCode { literal, .. }) => {
+                let backticks = get_backtick_sequence(literal);
+                self.write_inline(&backticks);
+                self.write_inline(literal);
+                self.write_inline(&backticks);
             }
-            NodeType::HtmlInline => {
-                if let NodeData::HtmlInline { literal } = &node.data {
-                    self.write_inline(&literal);
-                }
+            NodeValue::HtmlInline(literal) => {
+                self.write_inline(literal);
             }
-            NodeType::Emph => {
+            NodeValue::Emph => {
                 self.write_inline("*");
             }
-            NodeType::Strong => {
+            NodeValue::Strong => {
                 self.write_inline("**");
             }
-            NodeType::Link => {
+            NodeValue::Link(..) => {
                 self.write_inline("[");
             }
-            NodeType::Image => {
+            NodeValue::Image(..) => {
                 self.write_inline("![");
             }
-            NodeType::Strikethrough => {
+            NodeValue::Strikethrough => {
                 self.write_inline("~~");
             }
-            NodeType::TaskItem => {
-                if let NodeData::TaskItem { checked } = &node.data {
-                    if *checked {
-                        self.write_inline("[x] ");
-                    } else {
-                        self.write_inline("[ ] ");
-                    }
+            NodeValue::TaskItem(NodeTaskItem { symbol, .. }) => {
+                if symbol.is_some() {
+                    self.write_inline("[x] ");
+                } else {
+                    self.write_inline("[ ] ");
                 }
             }
-            NodeType::FootnoteRef => {
-                if let NodeData::FootnoteRef { label, .. } = &node.data {
-                    self.write_inline(&format!("[^{}]", label));
-                }
+            NodeValue::FootnoteReference(NodeFootnoteReference { name, .. }) => {
+                self.write_inline(&format!("[^{}]", name));
             }
-            NodeType::FootnoteDef => {
-                if let NodeData::FootnoteDef { label, .. } = &node.data {
-                    self.write_inline(&format!("[^{}]: ", label));
-                }
-            }
-            NodeType::Table
-            | NodeType::TableHead
-            | NodeType::TableRow
-            | NodeType::TableCell => {
-                // Table rendering in CommonMark is complex and may not be fully supported
-                // For now, we skip table rendering in CommonMark output
+            NodeValue::FootnoteDefinition(NodeFootnoteDefinition { name, .. }) => {
+                self.write_inline(&format!("[^{}]: ", name));
             }
             _ => {}
         }
@@ -217,69 +187,59 @@ impl<'a> CommonMarkRenderer<'a> {
     fn exit_node(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
 
-        match node.node_type {
-            NodeType::Document => {}
-            NodeType::BlockQuote => {
+        match &node.value {
+            NodeValue::Document => {}
+            NodeValue::BlockQuote => {
                 self.list_prefixes.pop();
                 self.need_blank_line = true;
             }
-            NodeType::List => {
+            NodeValue::List(..) => {
                 self.tight_list_stack.pop();
                 self.need_blank_line = true;
             }
-            NodeType::Item => {
+            NodeValue::Item(..) => {
                 self.list_prefixes.pop();
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 if !self.in_tight_list() {
                     self.write_line("");
                 }
             }
-            NodeType::Emph => {
+            NodeValue::Emph => {
                 self.write_inline("*");
             }
-            NodeType::Strong => {
+            NodeValue::Strong => {
                 self.write_inline("**");
             }
-            NodeType::Link => {
-                if let NodeData::Link { url, title } = &node.data {
-                    self.write_inline("](");
-                    self.write_inline(&escape_link_url(&url));
-                    if !title.is_empty() {
-                        self.write_inline(&format!(" \"{}\"", escape_string(&title)));
-                    }
-                    self.write_inline(")");
+            NodeValue::Link(NodeLink { url, title }) => {
+                self.write_inline("](");
+                self.write_inline(&escape_link_url(url));
+                if !title.is_empty() {
+                    self.write_inline(&format!(" \"{}\"", escape_string(title)));
                 }
+                self.write_inline(")");
             }
-            NodeType::Image => {
-                if let NodeData::Image { url, title } = &node.data {
-                    self.write_inline("](");
-                    self.write_inline(&escape_link_url(&url));
-                    if !title.is_empty() {
-                        self.write_inline(&format!(" \"{}\"", escape_string(&title)));
-                    }
-                    self.write_inline(")");
+            NodeValue::Image(NodeLink { url, title }) => {
+                self.write_inline("](");
+                self.write_inline(&escape_link_url(url));
+                if !title.is_empty() {
+                    self.write_inline(&format!(" \"{}\"", escape_string(title)));
                 }
+                self.write_inline(")");
             }
-            NodeType::Strikethrough => {
+            NodeValue::Strikethrough => {
                 self.write_inline("~~");
             }
-            NodeType::TaskItem => {
+            NodeValue::TaskItem(..) => {
                 // Task item marker is already written in enter_node
             }
-            NodeType::FootnoteRef => {
+            NodeValue::FootnoteReference(..) => {
                 // Footnote ref is already written in enter_node
             }
-            NodeType::FootnoteDef => {
+            NodeValue::FootnoteDefinition(..) => {
                 // Footnote def is already written in enter_node
                 self.write_line("");
                 self.need_blank_line = true;
-            }
-            NodeType::Table
-            | NodeType::TableHead
-            | NodeType::TableRow
-            | NodeType::TableCell => {
-                // Table rendering in CommonMark - skip
             }
             _ => {}
         }
@@ -287,7 +247,7 @@ impl<'a> CommonMarkRenderer<'a> {
 
     fn render_code_block(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeData::CodeBlock { info, literal } = &node.data {
+        if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
             // Determine fence length (must be longer than any backtick sequence in content)
             let mut fence_len = 3;
             for seq in literal.split('\n') {
@@ -324,30 +284,23 @@ impl<'a> CommonMarkRenderer<'a> {
         }
     }
 
-    fn render_html_block(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-        if let NodeData::HtmlBlock { literal } = &node.data {
-            for line in literal.lines() {
-                self.write_line(line);
-            }
+    fn render_html_block(&mut self, literal: &str) {
+        for line in literal.lines() {
+            self.write_line(line);
         }
     }
 
     fn render_heading(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeData::Heading { level, content } = &node.data {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.value {
             // Use ATX style headings
             let hashes: String = std::iter::repeat('#').take(*level as usize).collect();
             self.write_inline(&hashes);
             self.write_inline(" ");
 
             // Render heading content by walking children
-            // For now, just output the content field if available
-            if !content.is_empty() {
-                self.write_line(content);
-            } else {
-                self.write_line("");
-            }
+            // For now, just output a newline (content will be added by children)
+            self.write_line("");
         }
     }
 
@@ -356,28 +309,26 @@ impl<'a> CommonMarkRenderer<'a> {
         let node = self.arena.get(node_id);
         if let Some(parent_id) = node.parent {
             let parent = self.arena.get(parent_id);
-            if let NodeData::List {
+            if let NodeValue::List(NodeList {
                 list_type,
-                delim,
+                delimiter,
                 start,
                 bullet_char,
                 ..
-            } = &parent.data
+            }) = &parent.value
             {
                 match list_type {
                     ListType::Bullet => {
-                        return format!("{} ", bullet_char);
+                        return format!("{} ", *bullet_char as char);
                     }
                     ListType::Ordered => {
-                        let marker = match delim {
-                            DelimType::Period => format!("{}.", start),
-                            DelimType::Paren => format!("{})", start),
-                            _ => format!("{}.", start),
+                        let marker = match delimiter {
+                            ListDelimType::Period => format!("{}.", start),
+                            ListDelimType::Paren => format!("{})", start),
                         };
                         // Pad to 4 characters for alignment
                         return format!("{:4}", marker);
                     }
-                    _ => {}
                 }
             }
         }
@@ -475,19 +426,14 @@ fn get_backtick_sequence(content: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_render_paragraph() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello world".to_string(),
-            },
-        ));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("Hello world".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -502,12 +448,8 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "emphasized".to_string(),
-            },
-        ));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("emphasized".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -523,12 +465,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let strong = arena.alloc(Node::with_value(NodeValue::Strong));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "strong".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("strong".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -543,12 +480,10 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let code = arena.alloc(Node::with_data(
-            NodeType::Code,
-            NodeData::Code {
-                literal: "code".to_string(),
-            },
-        ));
+        let code = arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+            num_backticks: 1,
+            literal: "code".to_string(),
+        })));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
@@ -562,12 +497,10 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let code = arena.alloc(Node::with_data(
-            NodeType::Code,
-            NodeData::Code {
-                literal: "code `with` backticks".to_string(),
-            },
-        ));
+        let code = arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+            num_backticks: 1,
+            literal: "code `with` backticks".to_string(),
+        })));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
@@ -580,13 +513,11 @@ mod tests {
     fn test_render_heading() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::node_value::NodeHeading {
-                level: 2,
-                setext: false,
-                closed: false,
-            },
-        )));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
         let text = arena.alloc(Node::with_value(NodeValue::Text("Heading".to_string())));
 
         TreeOps::append_child(&mut arena, root, heading);
@@ -603,19 +534,11 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let link = arena.alloc(Node::with_data(
-            NodeType::Link,
-            NodeData::Link {
-                url: "https://example.com".to_string(),
-                title: "".to_string(),
-            },
-        ));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "link".to_string(),
-            },
-        ));
+        let link = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+            url: "https://example.com".to_string(),
+            title: "".to_string(),
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("link".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -630,19 +553,11 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let image = arena.alloc(Node::with_data(
-            NodeType::Image,
-            NodeData::Image {
-                url: "image.png".to_string(),
-                title: "".to_string(),
-            },
-        ));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "alt".to_string(),
-            },
-        ));
+        let image = arena.alloc(Node::with_value(NodeValue::Image(NodeLink {
+            url: "image.png".to_string(),
+            title: "".to_string(),
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("alt".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, image);
@@ -658,12 +573,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Quote".to_string(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quote".to_string())));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -677,13 +587,16 @@ mod tests {
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let code_block = arena.alloc(Node::with_data(
-            NodeType::CodeBlock,
-            NodeData::CodeBlock {
+        let code_block =
+            arena.alloc(Node::with_value(NodeValue::CodeBlock(NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
                 info: "rust".to_string(),
                 literal: "fn main() {}".to_string(),
-            },
-        ));
+                closed: true,
+            })));
 
         TreeOps::append_child(&mut arena, root, code_block);
 

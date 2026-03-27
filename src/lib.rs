@@ -137,8 +137,8 @@ pub use plugins::{
 
 // Re-export renderer types
 pub use render::{
-    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer,
-    StreamingRenderer, XmlRenderer,
+    render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
+    render_to_xml, OutputFormat, Renderer,
 };
 
 /// Configuration options for parsing and rendering.

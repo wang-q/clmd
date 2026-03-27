@@ -1,600 +1,186 @@
-//! Unified renderer trait and implementations
+//! Renderer trait and utilities
 //!
-//! This module provides a common trait for all renderers, allowing for
-//! consistent rendering interfaces across different output formats.
-//!
-//! # Example
-//!
-//! ```
-//! use clmd::render::renderer::{Renderer, HtmlRenderer};
-//! use clmd::arena::NodeArena;
-//! use clmd::blocks::BlockParser;
-//!
-//! let mut arena = NodeArena::new();
-//! let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-//!
-//! let renderer = HtmlRenderer::new();
-//! let html = renderer.render(&arena, doc);
-//! assert!(html.contains("<h1>Hello</h1>"));
-//! ```
+//! This module provides a common interface for all renderers in the clmd crate.
+//! All renderers use the `NodeValue` enum from `node_value` module for AST representation.
 
 use crate::arena::{NodeArena, NodeId};
-use crate::config::options::Options;
-use std::fmt::Write;
 
-/// A unified trait for rendering AST to various output formats.
+/// Common trait for all renderers
 ///
-/// This trait provides a common interface for all renderers, making it
-/// easy to switch between output formats or implement custom renderers.
+/// This trait defines the interface that all renderers must implement.
+/// Renderers convert the AST (represented using `NodeValue`) into various output formats.
 ///
 /// # Example
 ///
 /// ```
-/// use clmd::render::renderer::Renderer;
-/// use clmd::arena::{NodeArena, NodeId};
-/// use clmd::blocks::BlockParser;
+/// use clmd::{Renderer, NodeArena, NodeId, options};
 ///
-/// fn render_with_any_renderer<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
-///     renderer.render(arena, root)
+/// fn render_document<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
+///     renderer.render(arena, root, options::DEFAULT)
 /// }
 /// ```
 pub trait Renderer {
-    /// Render the AST starting from the given root node.
+    /// Render the document tree to a string
     ///
     /// # Arguments
     ///
     /// * `arena` - The node arena containing the AST
-    /// * `root` - The root node ID to start rendering from
-    ///
-    /// # Returns
-    ///
-    /// The rendered output as a String
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String;
-
-    /// Render the AST with options.
-    ///
-    /// # Arguments
-    ///
-    /// * `arena` - The node arena containing the AST
-    /// * `root` - The root node ID to start rendering from
+    /// * `root` - The root node ID
     /// * `options` - Rendering options
     ///
     /// # Returns
     ///
     /// The rendered output as a String
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> String;
-
-    /// Get the name of this renderer.
-    fn name(&self) -> &'static str;
-
-    /// Get the MIME type of the output format.
-    fn mime_type(&self) -> &'static str;
+    fn render(&self, arena: &NodeArena, root: NodeId, options: u32) -> String;
 }
 
-/// HTML renderer implementing the Renderer trait.
+pub use super::commonmark;
+/// Re-export all renderers
+pub use super::html;
+pub use super::latex;
+pub use super::man;
+pub use super::xml;
+
+/// Render to HTML format
 ///
-/// This renderer generates HTML output from the AST.
+/// This is a convenience function that uses the HTML renderer.
 ///
 /// # Example
 ///
 /// ```
-/// use clmd::render::renderer::{Renderer, HtmlRenderer};
-/// use clmd::arena::NodeArena;
-/// use clmd::blocks::BlockParser;
+/// use clmd::{parse_document, render_to_html, options};
 ///
-/// let mut arena = NodeArena::new();
-/// let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-///
-/// let renderer = HtmlRenderer::new();
-/// let html = renderer.render(&arena, doc);
-/// assert!(html.contains("<h1>Hello</h1>"));
+/// let (arena, doc) = parse_document("# Hello", options::DEFAULT);
+/// let html = render_to_html(&arena, doc, options::DEFAULT);
+/// assert!(html.contains("<h1>"));
 /// ```
-#[derive(Debug, Default, Clone)]
-pub struct HtmlRenderer;
-
-impl HtmlRenderer {
-    /// Create a new HTML renderer.
-    pub fn new() -> Self {
-        Self
-    }
+pub fn render_to_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    html::render(arena, root, options)
 }
 
-impl Renderer for HtmlRenderer {
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let options = Options::new();
-        self.render_with_options(arena, root, &options)
-    }
-
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _options: &Options,
-    ) -> String {
-        crate::render::html::render(arena, root, crate::options::DEFAULT)
-    }
-
-    fn name(&self) -> &'static str {
-        "HTML"
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "text/html"
-    }
-}
-
-/// CommonMark renderer implementing the Renderer trait.
+/// Render to XML format
 ///
-/// This renderer generates CommonMark (Markdown) output from the AST,
-/// useful for round-trip conversion.
+/// This is a convenience function that uses the XML renderer.
+pub fn render_to_xml(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    xml::render(arena, root, options)
+}
+
+/// Render to CommonMark format
+///
+/// This is a convenience function that uses the CommonMark renderer.
+pub fn render_to_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    commonmark::render(arena, root, options)
+}
+
+/// Render to LaTeX format
+///
+/// This is a convenience function that uses the LaTeX renderer.
+pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    latex::render(arena, root, options)
+}
+
+/// Render to Man page format
+///
+/// This is a convenience function that uses the Man page renderer.
+pub fn render_to_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
+    man::render(arena, root, options)
+}
+
+/// Available output formats
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputFormat {
+    /// HTML output
+    Html,
+    /// XML output (for debugging)
+    Xml,
+    /// CommonMark output
+    CommonMark,
+    /// LaTeX output
+    Latex,
+    /// Man page output
+    Man,
+}
+
+/// Render to the specified format
+///
+/// # Arguments
+///
+/// * `format` - The desired output format
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Rendering options
+///
+/// # Returns
+///
+/// The rendered output as a String
 ///
 /// # Example
 ///
 /// ```
-/// use clmd::render::renderer::{Renderer, CommonMarkRenderer};
-/// use clmd::arena::NodeArena;
-/// use clmd::blocks::BlockParser;
+/// use clmd::{parse_document, render, OutputFormat, options};
 ///
-/// let mut arena = NodeArena::new();
-/// let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-///
-/// let renderer = CommonMarkRenderer::new();
-/// let cm = renderer.render(&arena, doc);
-/// assert!(cm.contains("# Hello"));
+/// let (arena, doc) = parse_document("# Hello", options::DEFAULT);
+/// let html = render(OutputFormat::Html, &arena, doc, options::DEFAULT);
+/// assert!(html.contains("<h1>"));
 /// ```
-#[derive(Debug, Default, Clone)]
-pub struct CommonMarkRenderer;
-
-impl CommonMarkRenderer {
-    /// Create a new CommonMark renderer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Renderer for CommonMarkRenderer {
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let options = Options::new();
-        self.render_with_options(arena, root, &options)
-    }
-
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _options: &Options,
-    ) -> String {
-        crate::render::commonmark::render(arena, root, crate::options::DEFAULT)
-    }
-
-    fn name(&self) -> &'static str {
-        "CommonMark"
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "text/markdown"
-    }
-}
-
-/// XML renderer implementing the Renderer trait.
-///
-/// This renderer generates XML output from the AST, following the
-/// CommonMark DTD.
-///
-/// # Example
-///
-/// ```
-/// use clmd::render::renderer::{Renderer, XmlRenderer};
-/// use clmd::arena::NodeArena;
-/// use clmd::blocks::BlockParser;
-///
-/// let mut arena = NodeArena::new();
-/// let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-///
-/// let renderer = XmlRenderer::new();
-/// let xml = renderer.render(&arena, doc);
-/// assert!(xml.contains("<document>"));
-/// ```
-#[derive(Debug, Default, Clone)]
-pub struct XmlRenderer;
-
-impl XmlRenderer {
-    /// Create a new XML renderer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Renderer for XmlRenderer {
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let options = Options::new();
-        self.render_with_options(arena, root, &options)
-    }
-
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _options: &Options,
-    ) -> String {
-        crate::render::xml::render(arena, root, crate::options::DEFAULT)
-    }
-
-    fn name(&self) -> &'static str {
-        "XML"
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/xml"
-    }
-}
-
-/// LaTeX renderer implementing the Renderer trait.
-///
-/// This renderer generates LaTeX output from the AST.
-#[derive(Debug, Default, Clone)]
-pub struct LatexRenderer;
-
-impl LatexRenderer {
-    /// Create a new LaTeX renderer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Renderer for LatexRenderer {
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let options = Options::new();
-        self.render_with_options(arena, root, &options)
-    }
-
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _options: &Options,
-    ) -> String {
-        crate::render::latex::render(arena, root, crate::options::DEFAULT)
-    }
-
-    fn name(&self) -> &'static str {
-        "LaTeX"
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/x-latex"
-    }
-}
-
-/// Man page renderer implementing the Renderer trait.
-///
-/// This renderer generates Unix manual page output from the AST.
-#[derive(Debug, Default, Clone)]
-pub struct ManRenderer;
-
-impl ManRenderer {
-    /// Create a new Man page renderer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Renderer for ManRenderer {
-    fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let options = Options::new();
-        self.render_with_options(arena, root, &options)
-    }
-
-    fn render_with_options(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _options: &Options,
-    ) -> String {
-        crate::render::man::render(arena, root, crate::options::DEFAULT)
-    }
-
-    fn name(&self) -> &'static str {
-        "Man"
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/x-troff-man"
-    }
-}
-
-/// A streaming renderer that writes output incrementally.
-///
-/// This trait is useful for rendering large documents without
-/// keeping the entire output in memory.
-///
-/// # Example
-///
-/// ```
-/// use clmd::render::renderer::{StreamingRenderer, HtmlRenderer};
-/// use clmd::arena::NodeArena;
-/// use clmd::blocks::BlockParser;
-///
-/// let mut arena = NodeArena::new();
-/// let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-///
-/// let renderer = HtmlRenderer::new();
-/// let mut output = String::new();
-/// renderer.render_to(&mut output, &arena, doc).unwrap();
-/// ```
-pub trait StreamingRenderer: Renderer {
-    /// Render the AST to a writer.
-    ///
-    /// # Arguments
-    ///
-    /// * `writer` - The writer to write output to
-    /// * `arena` - The node arena containing the AST
-    /// * `root` - The root node ID to start rendering from
-    ///
-    /// # Returns
-    ///
-    /// Result indicating success or an IO error
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error>;
-
-    /// Render the AST to a writer with options.
-    ///
-    /// # Arguments
-    ///
-    /// * `writer` - The writer to write output to
-    /// * `arena` - The node arena containing the AST
-    /// * `root` - The root node ID to start rendering from
-    /// * `options` - Rendering options
-    ///
-    /// # Returns
-    ///
-    /// Result indicating success or an IO error
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error>;
-}
-
-impl StreamingRenderer for HtmlRenderer {
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error> {
-        let options = Options::new();
-        self.render_to_with_options(writer, arena, root, &options)
-    }
-
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error> {
-        let output = self.render_with_options(arena, root, options);
-        writer.write_str(&output)
-    }
-}
-
-impl StreamingRenderer for CommonMarkRenderer {
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error> {
-        let options = Options::new();
-        self.render_to_with_options(writer, arena, root, &options)
-    }
-
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error> {
-        let output = self.render_with_options(arena, root, options);
-        writer.write_str(&output)
-    }
-}
-
-impl StreamingRenderer for XmlRenderer {
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error> {
-        let options = Options::new();
-        self.render_to_with_options(writer, arena, root, &options)
-    }
-
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error> {
-        let output = self.render_with_options(arena, root, options);
-        writer.write_str(&output)
-    }
-}
-
-impl StreamingRenderer for LatexRenderer {
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error> {
-        let options = Options::new();
-        self.render_to_with_options(writer, arena, root, &options)
-    }
-
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error> {
-        let output = self.render_with_options(arena, root, options);
-        writer.write_str(&output)
-    }
-}
-
-impl StreamingRenderer for ManRenderer {
-    fn render_to<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-    ) -> Result<(), std::fmt::Error> {
-        let options = Options::new();
-        self.render_to_with_options(writer, arena, root, &options)
-    }
-
-    fn render_to_with_options<W: Write>(
-        &self,
-        writer: &mut W,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &Options,
-    ) -> Result<(), std::fmt::Error> {
-        let output = self.render_with_options(arena, root, options);
-        writer.write_str(&output)
+pub fn render(
+    format: OutputFormat,
+    arena: &NodeArena,
+    root: NodeId,
+    options: u32,
+) -> String {
+    match format {
+        OutputFormat::Html => render_to_html(arena, root, options),
+        OutputFormat::Xml => render_to_xml(arena, root, options),
+        OutputFormat::CommonMark => render_to_commonmark(arena, root, options),
+        OutputFormat::Latex => render_to_latex(arena, root, options),
+        OutputFormat::Man => render_to_man(arena, root, options),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::BlockParser;
+    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::node_value::NodeValue;
 
-    fn create_test_document() -> (NodeArena, NodeId) {
+    #[test]
+    fn test_output_format_enum() {
+        assert_eq!(OutputFormat::Html as u8, 0);
+        assert_eq!(OutputFormat::Xml as u8, 1);
+        assert_eq!(OutputFormat::CommonMark as u8, 2);
+        assert_eq!(OutputFormat::Latex as u8, 3);
+        assert_eq!(OutputFormat::Man as u8, 4);
+    }
+
+    #[test]
+    fn test_render_to_html() {
         let mut arena = NodeArena::new();
-        let doc = BlockParser::parse(&mut arena, "# Hello\n\nWorld");
-        (arena, doc)
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
+
+        let html = render_to_html(&arena, root, 0);
+        assert!(html.contains("<p>Hello</p>"));
     }
 
     #[test]
-    fn test_html_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = HtmlRenderer::new();
+    fn test_render_dispatch() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
 
-        let html = renderer.render(&arena, doc);
-        assert!(html.contains("<h1>Hello</h1>"));
-        assert!(html.contains("<p>World</p>"));
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
 
-        assert_eq!(renderer.name(), "HTML");
-        assert_eq!(renderer.mime_type(), "text/html");
-    }
+        let html = render(OutputFormat::Html, &arena, root, 0);
+        assert!(html.contains("<p>Hello</p>"));
 
-    #[test]
-    fn test_commonmark_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = CommonMarkRenderer::new();
-
-        let cm = renderer.render(&arena, doc);
-        assert!(cm.contains("# Hello"));
-        assert!(cm.contains("World"));
-
-        assert_eq!(renderer.name(), "CommonMark");
-        assert_eq!(renderer.mime_type(), "text/markdown");
-    }
-
-    #[test]
-    fn test_xml_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = XmlRenderer::new();
-
-        let xml = renderer.render(&arena, doc);
-        assert!(xml.contains("<document>"));
-        assert!(xml.contains("<heading"));
+        let xml = render(OutputFormat::Xml, &arena, root, 0);
         assert!(xml.contains("<paragraph>"));
-
-        assert_eq!(renderer.name(), "XML");
-        assert_eq!(renderer.mime_type(), "application/xml");
-    }
-
-    #[test]
-    fn test_latex_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = LatexRenderer::new();
-
-        let latex = renderer.render(&arena, doc);
-        assert!(latex.contains("\\section"));
-
-        assert_eq!(renderer.name(), "LaTeX");
-    }
-
-    #[test]
-    fn test_man_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = ManRenderer::new();
-
-        let man = renderer.render(&arena, doc);
-        assert!(man.contains(".SH"));
-
-        assert_eq!(renderer.name(), "Man");
-    }
-
-    #[test]
-    fn test_streaming_html_renderer() {
-        let (arena, doc) = create_test_document();
-        let renderer = HtmlRenderer::new();
-
-        let mut output = String::new();
-        renderer.render_to(&mut output, &arena, doc).unwrap();
-
-        assert!(output.contains("<h1>Hello</h1>"));
-        assert!(output.contains("<p>World</p>"));
-    }
-
-    #[test]
-    fn test_renderer_trait_object() {
-        let (arena, doc) = create_test_document();
-
-        fn render_with_renderer<R: Renderer>(
-            renderer: &R,
-            arena: &NodeArena,
-            root: NodeId,
-        ) -> String {
-            renderer.render(arena, root)
-        }
-
-        let html_renderer = HtmlRenderer::new();
-        let html = render_with_renderer(&html_renderer, &arena, doc);
-        assert!(html.contains("<h1>"));
-
-        let cm_renderer = CommonMarkRenderer::new();
-        let cm = render_with_renderer(&cm_renderer, &arena, doc);
-        assert!(cm.contains("# Hello"));
-    }
-
-    #[test]
-    fn test_renderer_with_options() {
-        let (arena, doc) = create_test_document();
-        let renderer = HtmlRenderer::new();
-        let options = Options::new();
-
-        let html = renderer.render_with_options(&arena, doc, &options);
-        assert!(html.contains("<h1>Hello</h1>"));
     }
 }

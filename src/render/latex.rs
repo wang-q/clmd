@@ -1,7 +1,9 @@
 //! LaTeX renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node::{ListType, NodeData, NodeType};
+use crate::node_value::{
+    ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue,
+};
 
 /// Render a node tree as LaTeX
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -60,10 +62,10 @@ impl<'a> LatexRenderer<'a> {
         let node = self.arena.get(node_id);
 
         if self.need_blank_line
-            && node.node_type.is_block()
+            && node.value.is_block()
             && !matches!(
-                node.node_type,
-                NodeType::Document | NodeType::List | NodeType::Item
+                node.value,
+                NodeValue::Document | NodeValue::List(..) | NodeValue::Item(..)
             )
         {
             self.output.push('\n');
@@ -71,82 +73,71 @@ impl<'a> LatexRenderer<'a> {
             self.need_blank_line = false;
         }
 
-        match node.node_type {
-            NodeType::Document => {
+        match &node.value {
+            NodeValue::Document => {
                 self.writeln("\\begin{document}");
             }
-            NodeType::BlockQuote => {
+            NodeValue::BlockQuote => {
                 self.writeln("\\begin{quote}");
             }
-            NodeType::List => {
-                if let NodeData::List { list_type, .. } = &node.data {
-                    match list_type {
-                        ListType::Bullet => {
-                            self.writeln("\\begin{itemize}");
-                        }
-                        ListType::Ordered => {
-                            self.writeln("\\begin{enumerate}");
-                        }
-                        _ => {}
+            NodeValue::List(NodeList { list_type, .. }) => {
+                match list_type {
+                    ListType::Bullet => {
+                        self.writeln("\\begin{itemize}");
                     }
-                    self.list_stack.push(*list_type);
+                    ListType::Ordered => {
+                        self.writeln("\\begin{enumerate}");
+                    }
                 }
+                self.list_stack.push(*list_type);
             }
-            NodeType::Item => {
+            NodeValue::Item(..) => {
                 self.write("\\item ");
             }
-            NodeType::CodeBlock => {
+            NodeValue::CodeBlock(..) => {
                 self.render_code_block(node_id);
                 self.need_blank_line = true;
             }
-            NodeType::HtmlBlock => {}
-            NodeType::Paragraph => {}
-            NodeType::Heading => {
+            NodeValue::HtmlBlock(..) => {}
+            NodeValue::Paragraph => {}
+            NodeValue::Heading(..) => {
                 self.render_heading(node_id);
                 self.need_blank_line = true;
             }
-            NodeType::ThematicBreak => {
+            NodeValue::ThematicBreak => {
                 self.writeln("\\hrule");
                 self.need_blank_line = true;
             }
-            NodeType::Text => {
-                if let NodeData::Text { literal } = &node.data {
-                    self.write(&escape_latex(literal));
-                }
+            NodeValue::Text(literal) => {
+                self.write(&escape_latex(literal));
             }
-            NodeType::SoftBreak => {
+            NodeValue::SoftBreak => {
                 self.write(" ");
             }
-            NodeType::LineBreak => {
+            NodeValue::HardBreak => {
                 self.writeln("\\\\");
             }
-            NodeType::Code => {
-                if let NodeData::Code { literal } = &node.data {
-                    self.write("\\texttt{");
-                    self.write(&escape_latex(literal));
-                    self.write("}");
-                }
+            NodeValue::Code(NodeCode { literal, .. }) => {
+                self.write("\\texttt{");
+                self.write(&escape_latex(literal));
+                self.write("}");
             }
-            NodeType::HtmlInline => {}
-            NodeType::Emph => {
+            NodeValue::HtmlInline(..) => {}
+            NodeValue::Emph => {
                 self.write("\\emph{");
             }
-            NodeType::Strong => {
+            NodeValue::Strong => {
                 self.write("\\textbf{");
             }
-            NodeType::Link => {
-                if let NodeData::Link { url, .. } = &node.data {
-                    self.write("\\href{");
-                    self.write(&escape_latex(url));
-                    self.write("}{");
-                }
+            NodeValue::Link(NodeLink { url, .. }) => {
+                self.write("\\href{");
+                self.write(&escape_latex(url));
+                self.write("}{");
             }
-            NodeType::Image => {
-                if let NodeData::Image { url, .. } = &node.data {
-                    self.write("\\includegraphics{");
-                    self.write(&escape_latex(url));
-                    self.write("}");
-                }
+            NodeValue::Image(NodeLink { url, .. }) => {
+                self.write("\\includegraphics{");
+                self.write(&escape_latex(url));
+                self.write("}");
             }
             _ => {}
         }
@@ -155,15 +146,15 @@ impl<'a> LatexRenderer<'a> {
     fn exit_node(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
 
-        match node.node_type {
-            NodeType::Document => {
+        match &node.value {
+            NodeValue::Document => {
                 self.writeln("\\end{document}");
             }
-            NodeType::BlockQuote => {
+            NodeValue::BlockQuote => {
                 self.writeln("\\end{quote}");
                 self.need_blank_line = true;
             }
-            NodeType::List => {
+            NodeValue::List(..) => {
                 if let Some(list_type) = self.list_stack.pop() {
                     match list_type {
                         ListType::Bullet => {
@@ -172,25 +163,24 @@ impl<'a> LatexRenderer<'a> {
                         ListType::Ordered => {
                             self.writeln("\\end{enumerate}");
                         }
-                        _ => {}
                     }
                 }
                 self.need_blank_line = true;
             }
-            NodeType::Item => {
+            NodeValue::Item(..) => {
                 self.writeln("");
             }
-            NodeType::Paragraph => {
+            NodeValue::Paragraph => {
                 self.writeln("");
                 self.writeln("");
             }
-            NodeType::Emph => {
+            NodeValue::Emph => {
                 self.write("}");
             }
-            NodeType::Strong => {
+            NodeValue::Strong => {
                 self.write("}");
             }
-            NodeType::Link => {
+            NodeValue::Link(..) => {
                 self.write("}");
             }
             _ => {}
@@ -199,7 +189,7 @@ impl<'a> LatexRenderer<'a> {
 
     fn render_code_block(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeData::CodeBlock { info, literal } = &node.data {
+        if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
             if !info.is_empty() {
                 let lang = info.split_whitespace().next().unwrap_or("");
                 self.write("\\begin{lstlisting}[language=");
@@ -223,7 +213,7 @@ impl<'a> LatexRenderer<'a> {
 
     fn render_heading(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeData::Heading { level, .. } = &node.data {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.value {
             let cmd = match level {
                 1 => "\\section*{",
                 2 => "\\subsection*{",
@@ -281,19 +271,14 @@ fn escape_latex(text: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node::{NodeData, NodeType};
 
     #[test]
     fn test_render_paragraph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Hello world".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("Hello world".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -305,15 +290,11 @@ mod tests {
     #[test]
     fn test_render_emph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let emph = arena.alloc(Node::new(NodeType::Emph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "emphasized".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("emphasized".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -326,15 +307,10 @@ mod tests {
     #[test]
     fn test_render_strong() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let strong = arena.alloc(Node::new(NodeType::Strong));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "strong".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("strong".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -347,14 +323,12 @@ mod tests {
     #[test]
     fn test_render_code() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let code = arena.alloc(Node::with_data(
-            NodeType::Code,
-            NodeData::Code {
-                literal: "code".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let code = arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+            num_backticks: 1,
+            literal: "code".to_string(),
+        })));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
@@ -366,14 +340,12 @@ mod tests {
     #[test]
     fn test_render_heading() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let heading = arena.alloc(Node::with_data(
-            NodeType::Heading,
-            NodeData::Heading {
-                level: 2,
-                content: "Heading".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
 
         TreeOps::append_child(&mut arena, root, heading);
 
@@ -384,21 +356,13 @@ mod tests {
     #[test]
     fn test_render_link() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let link = arena.alloc(Node::with_data(
-            NodeType::Link,
-            NodeData::Link {
-                url: "https://example.com".to_string(),
-                title: "".to_string(),
-            },
-        ));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "link".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+            url: "https://example.com".to_string(),
+            title: "".to_string(),
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("link".to_string())));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -411,15 +375,10 @@ mod tests {
     #[test]
     fn test_render_blockquote() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let blockquote = arena.alloc(Node::new(NodeType::BlockQuote));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Quote".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quote".to_string())));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -433,14 +392,17 @@ mod tests {
     #[test]
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let code_block = arena.alloc(Node::with_data(
-            NodeType::CodeBlock,
-            NodeData::CodeBlock {
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let code_block =
+            arena.alloc(Node::with_value(NodeValue::CodeBlock(NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
                 info: "".to_string(),
                 literal: "fn main() {}".to_string(),
-            },
-        ));
+                closed: true,
+            })));
 
         TreeOps::append_child(&mut arena, root, code_block);
 
@@ -453,25 +415,20 @@ mod tests {
     #[test]
     fn test_render_bullet_list() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let list = arena.alloc(Node::with_data(
-            NodeType::List,
-            NodeData::List {
-                list_type: ListType::Bullet,
-                delim: crate::node::DelimType::None,
-                start: 0,
-                tight: true,
-                bullet_char: '-',
-            },
-        ));
-        let item = arena.alloc(Node::new(NodeType::Item));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Item".to_string(),
-            },
-        ));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            delimiter: crate::node_value::ListDelimType::Period,
+            start: 1,
+            tight: true,
+            bullet_char: b'-',
+            marker_offset: 0,
+            padding: 2,
+            is_task_list: false,
+        })));
+        let item = arena.alloc(Node::with_value(NodeValue::Item(NodeList::default())));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Item".to_string())));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
