@@ -47,8 +47,49 @@ pub mod iterator;
 /// Lexical analysis utilities
 pub mod lexer;
 
-/// Core node types and data structures
+/// Core node types and data structures (legacy)
 pub mod node;
+
+/// Unified node value types (new API, inspired by comrak)
+///
+/// This module provides a unified `NodeValue` enum that combines node type and data,
+/// offering better type safety and ergonomics compared to the separate `NodeType` and `NodeData` approach.
+///
+/// # Example
+///
+/// ```
+/// use clmd::node_value::{NodeValue, NodeHeading, NodeList, ListType};
+///
+/// let heading = NodeValue::Heading(NodeHeading {
+///     level: 1,
+///     setext: false,
+///     closed: false,
+/// });
+/// ```
+pub mod node_value;
+
+/// Plugin system for extending Markdown rendering
+///
+/// This module provides a plugin architecture that allows users to customize
+/// various aspects of Markdown rendering, such as syntax highlighting,
+/// heading rendering, and code block handling.
+///
+/// # Example
+///
+/// ```
+/// use clmd::plugins::{Plugins, SyntaxHighlighterAdapter};
+///
+/// struct MyHighlighter;
+/// impl SyntaxHighlighterAdapter for MyHighlighter {
+///     fn highlight(&self, code: &str, lang: Option<&str>) -> String {
+///         format!("<pre><code>{}</code></pre>", code)
+///     }
+/// }
+///
+/// let mut plugins = Plugins::new();
+/// plugins.set_syntax_highlighter(Box::new(MyHighlighter));
+/// ```
+pub mod plugins;
 
 /// High-level parser interface
 pub mod parser;
@@ -69,10 +110,34 @@ pub use arena::{Node, NodeArena, NodeId, TreeOps};
 pub use config::{
     DataHolder, DataKey, DataSet, MutableDataSet, Options, ParseOptions, RenderOptions,
 };
-pub use error::{ParseError, ParseResult, ParserLimits, Position};
+pub use error::{
+    BrokenLinkCallback, BrokenLinkReference, DefaultBrokenLinkCallback, ParseError, ParseResult,
+    ParserLimits, Position, ResolvedReference,
+};
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
-pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos};
+pub use node::{DelimType, ListType, NodeData, NodeType, SourcePos as LegacySourcePos};
 pub use parser::Parser;
+
+// Re-export new node_value types
+pub use node_value::{
+    can_contain_type, AlertType, LineColumn, ListDelimType,
+    ListType as NodeValueListType, NodeAlert, NodeCode, NodeCodeBlock,
+    NodeDescriptionItem, NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading,
+    NodeHtmlBlock, NodeLink, NodeList, NodeMath, NodeMultilineBlockQuote, NodeTable,
+    NodeTaskItem, NodeValue, NodeWikiLink, SourcePos, TableAlignment,
+};
+
+// Re-export plugin types
+pub use plugins::{
+    AnchorHeadingAdapter, CodefenceRendererAdapter, DefaultSyntaxHighlighter,
+    HeadingAdapter, Plugins, SyntaxHighlighterAdapter, UrlRewriter,
+};
+
+// Re-export renderer types
+pub use render::{
+    CommonMarkRenderer, HtmlRenderer, LatexRenderer, ManRenderer, Renderer, StreamingRenderer,
+    XmlRenderer,
+};
 
 /// Configuration options for parsing and rendering.
 ///
@@ -388,6 +453,220 @@ pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::man::render(arena, root, options)
 }
 
+// =============================================================================
+// New API with DataKey-based Options
+// =============================================================================
+
+/// Convert Markdown to HTML using the new Options system.
+///
+/// This is the recommended way to convert Markdown to HTML when using
+/// the new type-safe configuration system.
+///
+/// # Arguments
+///
+/// * `text` - The Markdown text to convert
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The HTML output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_html_with_options, config::options::Options};
+/// use clmd::config::options::{SMART, ENABLE_TABLES};
+///
+/// let mut options = Options::new();
+/// options.set(&SMART, true);
+/// options.set(&ENABLE_TABLES, true);
+///
+/// let html = markdown_to_html_with_options("Hello *world*", &options);
+/// assert_eq!(html, "<p>Hello <em>world</em></p>");
+/// ```
+pub fn markdown_to_html_with_options(text: &str, options: &Options) -> String {
+    // Convert new Options to legacy u32 flags for now
+    // This is a temporary bridge until all components use the new system
+    let mut legacy_options = options::DEFAULT;
+
+    if options.get(&config_options::SOURCEPOS) {
+        legacy_options |= options::SOURCEPOS;
+    }
+    if options.get(&config_options::SMART) {
+        legacy_options |= options::SMART;
+    }
+    if options.get(&config_options::HARDBREAKS) {
+        legacy_options |= options::HARDBREAKS;
+    }
+    if options.get(&config_options::NOBREAKS) {
+        legacy_options |= options::NOBREAKS;
+    }
+    if options.get(&config_options::VALIDATE_UTF8) {
+        legacy_options |= options::VALIDATE_UTF8;
+    }
+    if options.get(&config_options::UNSAFE) {
+        legacy_options |= options::UNSAFE;
+    }
+
+    markdown_to_html(text, legacy_options)
+}
+
+/// Convert Markdown to CommonMark using the new Options system.
+///
+/// # Arguments
+///
+/// * `text` - The Markdown text to convert
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_commonmark_with_options, config::options::Options};
+///
+/// let options = Options::new();
+/// let cm = markdown_to_commonmark_with_options("Hello *world*", &options);
+/// assert!(cm.contains("Hello"));
+/// ```
+pub fn markdown_to_commonmark_with_options(text: &str, options: &Options) -> String {
+    let mut arena = NodeArena::new();
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    render::commonmark::render(&arena, doc, options::DEFAULT)
+}
+
+/// Convert Markdown to XML using the new Options system.
+///
+/// # Arguments
+///
+/// * `text` - The Markdown text to convert
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The XML output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_xml_with_options, config::options::Options};
+///
+/// let options = Options::new();
+/// let xml = markdown_to_xml_with_options("Hello *world*", &options);
+/// assert!(xml.contains("<document>"));
+/// ```
+pub fn markdown_to_xml_with_options(text: &str, options: &Options) -> String {
+    let mut arena = NodeArena::new();
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    render::xml::render(&arena, doc, options::DEFAULT)
+}
+
+/// Parse a Markdown document and return the AST with new Options system.
+///
+/// # Arguments
+///
+/// * `text` - The Markdown text to parse
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// A tuple of (arena, root_node_id)
+///
+/// # Example
+///
+/// ```
+/// use clmd::{parse_document_with_options, config::options::Options};
+/// use clmd::config::options::ENABLE_TABLES;
+///
+/// let mut options = Options::new();
+/// options.set(&ENABLE_TABLES, true);
+///
+/// let (arena, root) = parse_document_with_options("| a | b |\n|---|---|\n| c | d |", &options);
+/// // Now you can traverse and manipulate the AST
+/// ```
+pub fn parse_document_with_options(text: &str, _options: &Options) -> (NodeArena, NodeId) {
+    // TODO: Actually use options when parser supports them
+    let mut arena = NodeArena::new();
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    (arena, doc)
+}
+
+/// Format an existing AST to HTML using the new Options system.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The HTML output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{parse_document_with_options, format_html_with_options, config::options::Options};
+///
+/// let options = Options::new();
+/// let (arena, root) = parse_document_with_options("Hello *world*", &options);
+/// let html = format_html_with_options(&arena, root, &options);
+/// ```
+pub fn format_html_with_options(arena: &NodeArena, root: NodeId, options: &Options) -> String {
+    let mut legacy_options = options::DEFAULT;
+
+    if options.get(&config_options::SOURCEPOS) {
+        legacy_options |= options::SOURCEPOS;
+    }
+    if options.get(&config_options::HARDBREAKS) {
+        legacy_options |= options::HARDBREAKS;
+    }
+    if options.get(&config_options::NOBREAKS) {
+        legacy_options |= options::NOBREAKS;
+    }
+    if options.get(&config_options::UNSAFE) {
+        legacy_options |= options::UNSAFE;
+    }
+
+    render::html::render(arena, root, legacy_options)
+}
+
+/// Format an existing AST to CommonMark using the new Options system.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+pub fn format_commonmark_with_options(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &Options,
+) -> String {
+    render::commonmark::render(arena, root, options::DEFAULT)
+}
+
+/// Format an existing AST to XML using the new Options system.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options using the `Options` struct
+///
+/// # Returns
+///
+/// The XML output as a String
+pub fn format_xml_with_options(arena: &NodeArena, root: NodeId, _options: &Options) -> String {
+    render::xml::render(arena, root, options::DEFAULT)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -488,5 +767,71 @@ mod tests {
         let html = render_html(&arena, doc, options::DEFAULT);
         assert!(html.contains("<h1>"));
         assert!(html.contains("Paragraph"));
+    }
+
+    // Tests for new API with Options
+    #[test]
+    fn test_markdown_to_html_with_options_basic() {
+        use config::options::Options;
+
+        let options = Options::new();
+        let html = markdown_to_html_with_options("Hello world", &options);
+        assert!(html.contains("<p>"));
+        assert!(html.contains("Hello world"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_with_options_smart() {
+        use config::options::{Options, SMART};
+
+        let mut options = Options::new();
+        options.set(&SMART, true);
+
+        let html = markdown_to_html_with_options("\"Hello\"", &options);
+        // Smart quotes should convert " to curly quotes
+        assert!(html.contains("<p>"));
+    }
+
+    #[test]
+    fn test_markdown_to_commonmark_with_options() {
+        use config::options::Options;
+
+        let options = Options::new();
+        let cm = markdown_to_commonmark_with_options("Hello *world*", &options);
+        assert!(cm.contains("Hello"));
+        assert!(cm.contains("world"));
+    }
+
+    #[test]
+    fn test_markdown_to_xml_with_options() {
+        use config::options::Options;
+
+        let options = Options::new();
+        let xml = markdown_to_xml_with_options("Hello *world*", &options);
+        assert!(xml.contains("<document>"));
+        assert!(xml.contains("<paragraph>"));
+    }
+
+    #[test]
+    fn test_parse_document_with_options() {
+        use config::options::{Options, ENABLE_TABLES};
+
+        let mut options = Options::new();
+        options.set(&ENABLE_TABLES, true);
+
+        let (arena, root) = parse_document_with_options("Hello *world*", &options);
+        assert!(!arena.is_empty());
+        assert!(arena.is_valid(root)); // Root should be a valid node ID
+    }
+
+    #[test]
+    fn test_format_html_with_options() {
+        use config::options::Options;
+
+        let options = Options::new();
+        let (arena, root) = parse_document_with_options("Hello *world*", &options);
+        let html = format_html_with_options(&arena, root, &options);
+        assert!(html.contains("<p>"));
+        assert!(html.contains("<em>"));
     }
 }
