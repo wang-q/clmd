@@ -76,26 +76,100 @@ impl std::fmt::Debug for Node {
 #[derive(Debug)]
 pub struct NodeArena {
     nodes: Vec<Node>,
+    /// Maximum number of nodes allowed (0 = unlimited)
+    max_nodes: usize,
+    /// Total allocations counter
+    total_allocations: usize,
 }
 
 impl NodeArena {
     /// Create a new empty arena
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self {
+            nodes: Vec::new(),
+            max_nodes: 0,
+            total_allocations: 0,
+        }
     }
 
     /// Create a new arena with capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(capacity),
+            max_nodes: 0,
+            total_allocations: 0,
+        }
+    }
+
+    /// Create a new arena with memory limits
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - Initial capacity for the arena
+    /// * `max_nodes` - Maximum number of nodes allowed (0 = unlimited)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::NodeArena;
+    ///
+    /// let arena = NodeArena::with_limits(100, 10000);
+    /// ```
+    pub fn with_limits(capacity: usize, max_nodes: usize) -> Self {
+        Self {
+            nodes: Vec::with_capacity(capacity),
+            max_nodes,
+            total_allocations: 0,
         }
     }
 
     /// Allocate a new node and return its ID
+    ///
+    /// # Panics
+    ///
+    /// Panics if the maximum node limit is reached (when configured).
     pub fn alloc(&mut self, node: Node) -> NodeId {
+        // Check memory limit
+        if self.max_nodes > 0 && self.nodes.len() >= self.max_nodes {
+            panic!(
+                "Arena node limit exceeded: {} nodes (max: {})",
+                self.nodes.len(),
+                self.max_nodes
+            );
+        }
+
         let id = self.nodes.len() as NodeId;
         self.nodes.push(node);
+        self.total_allocations += 1;
         id
+    }
+
+    /// Get memory usage statistics
+    ///
+    /// Returns a tuple of (current_nodes, total_allocations, memory_estimate_bytes)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::NodeArena;
+    ///
+    /// let arena = NodeArena::new();
+    /// let (nodes, allocs, memory) = arena.memory_stats();
+    /// ```
+    pub fn memory_stats(&self) -> (usize, usize, usize) {
+        let node_size = std::mem::size_of::<Node>();
+        let memory_estimate = self.nodes.len() * node_size;
+        (self.nodes.len(), self.total_allocations, memory_estimate)
+    }
+
+    /// Get the maximum node limit (0 = unlimited)
+    pub fn max_nodes(&self) -> usize {
+        self.max_nodes
+    }
+
+    /// Set the maximum node limit (0 = unlimited)
+    pub fn set_max_nodes(&mut self, max_nodes: usize) {
+        self.max_nodes = max_nodes;
     }
 
     /// Get a reference to a node by ID
@@ -398,5 +472,77 @@ mod tests {
         } else {
             panic!("Expected Heading");
         }
+    }
+
+    #[test]
+    fn test_memory_stats() {
+        let mut arena = NodeArena::new();
+
+        // Initially empty
+        let (nodes, allocs, memory) = arena.memory_stats();
+        assert_eq!(nodes, 0);
+        assert_eq!(allocs, 0);
+        assert_eq!(memory, 0);
+
+        // Allocate some nodes
+        arena.alloc(Node::with_value(NodeValue::Document));
+        arena.alloc(Node::with_value(NodeValue::Paragraph));
+        arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        let (nodes, allocs, memory) = arena.memory_stats();
+        assert_eq!(nodes, 3);
+        assert_eq!(allocs, 3);
+        assert!(memory > 0);
+    }
+
+    #[test]
+    fn test_arena_with_limits() {
+        let mut arena = NodeArena::with_limits(10, 5);
+
+        assert_eq!(arena.max_nodes(), 5);
+
+        // Should be able to allocate up to 5 nodes
+        for _ in 0..5 {
+            arena.alloc(Node::with_value(NodeValue::Paragraph));
+        }
+
+        assert_eq!(arena.len(), 5);
+
+        // 6th allocation should panic
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut arena = NodeArena::with_limits(10, 5);
+            for _ in 0..6 {
+                arena.alloc(Node::with_value(NodeValue::Paragraph));
+            }
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_set_max_nodes() {
+        let mut arena = NodeArena::new();
+        assert_eq!(arena.max_nodes(), 0); // Unlimited
+
+        arena.set_max_nodes(100);
+        assert_eq!(arena.max_nodes(), 100);
+    }
+
+    #[test]
+    fn test_total_allocations_counter() {
+        let mut arena = NodeArena::new();
+
+        // Allocate and verify counter
+        arena.alloc(Node::with_value(NodeValue::Document));
+        let (_, allocs, _) = arena.memory_stats();
+        assert_eq!(allocs, 1);
+
+        arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let (_, allocs, _) = arena.memory_stats();
+        assert_eq!(allocs, 2);
+
+        // Counter should keep increasing even if nodes are unlinked
+        arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let (_, allocs, _) = arena.memory_stats();
+        assert_eq!(allocs, 3);
     }
 }

@@ -444,6 +444,10 @@ pub mod options {
 /// let html = markdown_to_html("Hello *world*", options::DEFAULT);
 /// assert_eq!(html, "<p>Hello <em>world</em></p>");
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `markdown_to_html_with_options` with the new Options API instead"
+)]
 pub fn markdown_to_html(text: &str, options: u32) -> String {
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
@@ -476,6 +480,10 @@ pub fn markdown_to_html(text: &str, options: u32) -> String {
 /// let html = render_html(&arena, root, options::DEFAULT);
 /// assert!(html.contains("<h1>Hello</h1>"));
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `parse_document_with_options` with the new Options API instead"
+)]
 pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);
@@ -494,6 +502,10 @@ pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
 /// # Returns
 ///
 /// The HTML output as a String
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `format_html_with_options` with the new Options API instead"
+)]
 pub fn render_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::html::render(arena, root, options)
 }
@@ -509,6 +521,10 @@ pub fn render_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// # Returns
 ///
 /// The XML output as a String
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `format_xml_with_options` with the new Options API instead"
+)]
 pub fn render_xml(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::xml::render(arena, root, options)
 }
@@ -524,6 +540,10 @@ pub fn render_xml(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// # Returns
 ///
 /// The CommonMark output as a String
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `format_commonmark_with_options` with the new Options API instead"
+)]
 pub fn render_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::commonmark::render(arena, root, options)
 }
@@ -539,6 +559,10 @@ pub fn render_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> Strin
 /// # Returns
 ///
 /// The LaTeX output as a String
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `format_latex_with_options` with the new Options API instead"
+)]
 pub fn render_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::latex::render(arena, root, options)
 }
@@ -554,6 +578,10 @@ pub fn render_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// # Returns
 ///
 /// The Man page output as a String
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `format_man_with_options` with the new Options API instead"
+)]
 pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
     render::man::render(arena, root, options)
 }

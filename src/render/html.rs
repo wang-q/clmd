@@ -1,7 +1,7 @@
 //! HTML renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::html_utils::escape_html;
+use crate::html_utils::{escape_html, is_safe_url};
 use crate::node_value::{
     ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
     NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem, NodeValue,
@@ -547,14 +547,35 @@ impl<'a> HtmlRenderer<'a> {
 }
 
 /// Escape URL for use in href attribute
+///
+/// This function performs two important security checks:
+/// 1. Validates the URL scheme to prevent javascript: and other unsafe protocols
+/// 2. Escapes special HTML characters to prevent XSS attacks
+///
+/// # Arguments
+///
+/// * `url` - The URL to escape
+///
+/// # Returns
+///
+/// The escaped URL string, or "#" if the URL is considered unsafe
 fn escape_href(url: &str) -> String {
-    let mut result = String::with_capacity(url.len());
+    // First check if the URL is safe (prevents javascript: and other unsafe protocols)
+    if !is_safe_url(url) {
+        return "#".to_string();
+    }
+
+    // Escape special HTML characters for attribute context
+    // This is more comprehensive than basic HTML escaping
+    let mut result = String::with_capacity(url.len() * 2);
     for c in url.chars() {
         match c {
             '&' => result.push_str("&amp;"),
             '"' => result.push_str("&quot;"),
             '<' => result.push_str("&lt;"),
             '>' => result.push_str("&gt;"),
+            '\'' => result.push_str("&#x27;"),
+            '`' => result.push_str("&#x60;"), // Backtick can be used in IE attribute injection
             _ => result.push(c),
         }
     }
@@ -762,5 +783,90 @@ mod tests {
 
         let html = render(&arena, root, 0);
         assert!(html.contains("<hr />"));
+    }
+
+    // Security tests for XSS prevention
+    #[test]
+    fn test_escape_href_blocks_javascript() {
+        // javascript: protocol should be blocked
+        let result = escape_href("javascript:alert('xss')");
+        assert_eq!(result, "#");
+
+        // Case variations
+        let result = escape_href("JAVASCRIPT:alert('xss')");
+        assert_eq!(result, "#");
+
+        let result = escape_href("JavaScript:alert('xss')");
+        assert_eq!(result, "#");
+    }
+
+    #[test]
+    fn test_escape_href_blocks_vbscript() {
+        let result = escape_href("vbscript:msgbox('xss')");
+        assert_eq!(result, "#");
+    }
+
+    #[test]
+    fn test_escape_href_blocks_file_protocol() {
+        let result = escape_href("file:///etc/passwd");
+        assert_eq!(result, "#");
+    }
+
+    #[test]
+    fn test_escape_href_allows_safe_urls() {
+        // HTTP/HTTPS should be allowed
+        let result = escape_href("https://example.com");
+        assert_eq!(result, "https://example.com");
+
+        let result = escape_href("http://example.com/path?query=value");
+        assert_eq!(result, "http://example.com/path?query=value");
+    }
+
+    #[test]
+    fn test_escape_href_escapes_special_chars() {
+        // Special characters should be escaped
+        let result = escape_href("https://example.com?a=1&b=2");
+        assert_eq!(result, "https://example.com?a=1&amp;b=2");
+
+        let result = escape_href("https://example.com/<script>");
+        assert_eq!(result, "https://example.com/&lt;script&gt;");
+
+        let result = escape_href("https://example.com/\"quoted\"");
+        assert_eq!(result, "https://example.com/&quot;quoted&quot;");
+
+        // Single quotes and backticks should be escaped for attribute context
+        let result = escape_href("https://example.com/path'");
+        assert_eq!(result, "https://example.com/path&#x27;");
+
+        let result = escape_href("https://example.com/`backtick`");
+        assert_eq!(result, "https://example.com/&#x60;backtick&#x60;");
+    }
+
+    #[test]
+    fn test_render_link_with_unsafe_url() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+            url: "javascript:alert('xss')".to_string(),
+            title: "".to_string(),
+        })));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("click me".to_string())));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, link);
+        TreeOps::append_child(&mut arena, link, text);
+
+        let html = render(&arena, root, 0);
+        // Unsafe URL should be replaced with "#"
+        assert!(
+            html.contains("href=\"#\""),
+            "Unsafe URL should be replaced with #"
+        );
+        assert!(
+            !html.contains("javascript:"),
+            "javascript: should not appear in output"
+        );
     }
 }

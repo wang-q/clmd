@@ -425,9 +425,182 @@ pub fn scan_delims(input: &str, pos: usize, c: char) -> (DelimScanResult, usize)
     )
 }
 
-/// Process emphasis delimiters
+/// Check if a delimiter can be used as a closer
+fn is_valid_closer(delim: &DelimInfo) -> bool {
+    let (_, _, _, can_close, _, num_delims, processed) = *delim;
+    !processed && can_close && num_delims > 0
+}
+
+/// Check the odd match rule for emphasis
+/// This rule prevents matching when:
+/// - One delimiter can open AND the other can close
+/// - Neither delimiter count is a multiple of 3
+/// - The sum of delimiter counts IS a multiple of 3
+fn check_odd_match(
+    closer_can_open: bool,
+    opener_can_close: bool,
+    closer_orig_delims: usize,
+    opener_orig_delims: usize,
+) -> bool {
+    (closer_can_open || opener_can_close)
+        && closer_orig_delims % 3 != 0
+        && (opener_orig_delims + closer_orig_delims) % 3 == 0
+}
+
+/// Find a matching opener for a closer in the new process_emphasis implementation
+fn find_matching_opener_simple(
+    delims: &[DelimInfo],
+    closer_idx: usize,
+    start_idx: usize,
+    closer_char: char,
+    closer_can_open: bool,
+    closer_orig_delims: usize,
+) -> Option<usize> {
+    for j in (start_idx..closer_idx).rev() {
+        let (
+            _,
+            opener_char,
+            opener_can_open,
+            opener_can_close,
+            opener_orig_delims,
+            opener_num_delims,
+            opener_processed,
+        ) = delims[j];
+
+        // Skip already processed delimiters or delimiters with no remaining count
+        if opener_processed || opener_num_delims == 0 {
+            continue;
+        }
+
+        if !opener_can_open || opener_char != closer_char {
+            continue;
+        }
+
+        // Check odd match rule
+        if !check_odd_match(
+            closer_can_open,
+            opener_can_close,
+            closer_orig_delims,
+            opener_orig_delims,
+        ) {
+            return Some(j);
+        }
+    }
+    None
+}
+
+/// Calculate how many delimiters to use for emphasis
+fn calculate_delimiters_to_use(opener_count: usize, closer_count: usize) -> usize {
+    if opener_count >= 2 && closer_count >= 2 {
+        2 // Strong emphasis
+    } else {
+        1 // Regular emphasis
+    }
+}
+
+/// Process a single emphasis match
+fn process_emphasis_match(
+    arena: &mut NodeArena,
+    delims: &mut SmallVec<[DelimInfo; 32]>,
+    opener_idx: usize,
+    closer_idx: usize,
+) {
+    let opener_count = delims[opener_idx].5;
+    let closer_count = delims[closer_idx].5;
+    let use_delims = calculate_delimiters_to_use(opener_count, closer_count);
+
+    process_emphasis_pair(arena, delims, opener_idx, closer_idx, use_delims);
+
+    // Update delimiter counts
+    delims[opener_idx].5 -= use_delims;
+    delims[closer_idx].5 -= use_delims;
+
+    // Mark delimiters between opener and closer as processed (inside emphasis)
+    for k in (opener_idx + 1)..closer_idx {
+        delims[k].5 = 0;
+    }
+
+    // Remove processed delimiters from vector if count is 0
+    // Remove closer first (higher index) to avoid index shifting issues
+    let closer_removed = if delims[closer_idx].5 == 0 {
+        delims.remove(closer_idx);
+        true
+    } else {
+        false
+    };
+
+    // Adjust opener_idx if closer was removed
+    let adjusted_opener_idx = if closer_removed && opener_idx > closer_idx {
+        opener_idx - 1
+    } else {
+        opener_idx
+    };
+
+    if delims[adjusted_opener_idx].5 == 0 {
+        delims.remove(adjusted_opener_idx);
+    }
+}
+
+/// Process a single closer delimiter
+/// Returns true if a match was found and processing should restart
+fn process_closer(
+    arena: &mut NodeArena,
+    delims: &mut SmallVec<[DelimInfo; 32]>,
+    closer_idx: usize,
+    start_idx: usize,
+) -> bool {
+    let (_, closer_char, closer_can_open, _, closer_orig_delims, _, _) =
+        delims[closer_idx];
+
+    // Find matching opener
+    let opener_idx = find_matching_opener_simple(
+        delims,
+        closer_idx,
+        start_idx,
+        closer_char,
+        closer_can_open,
+        closer_orig_delims,
+    );
+
+    match closer_char {
+        '*' | '_' => {
+            if let Some(opener_idx) = opener_idx {
+                process_emphasis_match(arena, delims, opener_idx, closer_idx);
+                true // Restart processing
+            } else {
+                false // No match, continue to next closer
+            }
+        }
+        '\'' | '"' => {
+            process_smart_quotes(arena, delims, opener_idx, closer_idx, closer_char);
+            // Mark both opener and closer as processed for smart quotes
+            if let Some(opener_idx) = opener_idx {
+                delims[opener_idx].6 = true;
+            }
+            delims[closer_idx].6 = true;
+            false // Continue to next closer
+        }
+        _ => false, // Unknown delimiter type
+    }
+}
+
+/// Main emphasis processing function
 /// Based on commonmark.js processEmphasis function and cmark implementation
-/// stack_bottom_marker: if provided, only process delimiters after this one (identified by (inl_text, orig_delims))
+///
+/// # Arguments
+///
+/// * `arena` - The node arena for creating emphasis nodes
+/// * `delimiters` - The delimiter stack to process
+/// * `stack_bottom_marker` - If provided, only process delimiters after this one
+///
+/// # Algorithm
+///
+/// 1. Collect all delimiters into a vector
+/// 2. Find the starting index based on stack_bottom_marker
+/// 3. Process closers from left to right
+/// 4. For each closer, find a matching opener
+/// 5. Create emphasis nodes for matches
+/// 6. Rebuild the delimiter stack
 pub fn process_emphasis(
     arena: &mut NodeArena,
     delimiters: &mut Option<Box<Delimiter>>,
@@ -439,148 +612,28 @@ pub fn process_emphasis(
     // Find the starting index based on stack_bottom_marker
     let start_idx = find_start_index(&delims, stack_bottom_marker);
 
-    // Process closers from left to right, starting from start_idx
-    // Use a loop that restarts from start_idx when a match is found
-    // This ensures that delimiters with updated counts are reprocessed
+    // Process closers from left to right
+    // Restart from start_idx when a match is found to handle updated counts
     let mut progress = true;
     while progress {
         progress = false;
         let mut closer_idx = start_idx;
+
         while closer_idx < delims.len() {
-            let (
-                _closer_inl,
-                closer_char,
-                closer_can_open,
-                closer_can_close,
-                closer_orig_delims,
-                closer_num_delims,
-                closer_processed,
-            ) = delims[closer_idx];
-
-            // Skip already processed delimiters
-            if closer_processed {
+            // Skip invalid closers
+            if !is_valid_closer(&delims[closer_idx]) {
                 closer_idx += 1;
                 continue;
             }
 
-            if !closer_can_close || closer_num_delims == 0 {
-                closer_idx += 1;
-                continue;
+            // Process this closer
+            if process_closer(arena, &mut delims, closer_idx, start_idx) {
+                // Match found, restart processing from start_idx
+                progress = true;
+                break;
             }
 
-            // Look for matching opener by searching backwards from closer
-            let mut opener_idx = None;
-            for j in (start_idx..closer_idx).rev() {
-                let (
-                    _,
-                    opener_char,
-                    opener_can_open,
-                    opener_can_close,
-                    opener_orig_delims,
-                    opener_num_delims,
-                    opener_processed,
-                ) = delims[j];
-
-                // Skip already processed delimiters or delimiters with no remaining count
-                if opener_processed || opener_num_delims == 0 {
-                    continue;
-                }
-
-                if !opener_can_open || opener_char != closer_char {
-                    continue;
-                }
-
-                // Check odd match rule
-                let odd_match = (closer_can_open || opener_can_close)
-                    && closer_orig_delims % 3 != 0
-                    && (opener_orig_delims + closer_orig_delims) % 3 == 0;
-
-                if !odd_match {
-                    opener_idx = Some(j);
-                    break;
-                }
-            }
-
-            match closer_char {
-                '*' | '_' => {
-                    if let Some(opener_idx) = opener_idx {
-                        // Get the current delimiter counts (may have been reduced by previous matches)
-                        let current_opener_num_delims = delims[opener_idx].5;
-                        let current_closer_num_delims = closer_num_delims;
-
-                        // Calculate number of delimiters to use
-                        let use_delims = if current_opener_num_delims >= 2
-                            && current_closer_num_delims >= 2
-                        {
-                            2
-                        } else {
-                            1
-                        };
-
-                        process_emphasis_pair(
-                            arena,
-                            &mut delims,
-                            opener_idx,
-                            closer_idx,
-                            use_delims,
-                        );
-
-                        // Update delimiter counts
-                        delims[opener_idx].5 -= use_delims;
-                        delims[closer_idx].5 -= use_delims;
-
-                        // IMPORTANT: Set num_delims to 0 for all delimiters between opener and closer
-                        // These delimiters are now inside the emphasis node and should not be
-                        // processed as emphasis anymore
-                        for k in (opener_idx + 1)..closer_idx {
-                            delims[k].5 = 0;
-                        }
-
-                        // Remove processed delimiters from vector if count is 0
-                        // Remove closer first (higher index) to avoid index shifting issues
-                        let closer_removed = if delims[closer_idx].5 == 0 {
-                            delims.remove(closer_idx);
-                            true
-                        } else {
-                            false
-                        };
-
-                        // Adjust opener_idx if closer was removed and opener was after closer
-                        let adjusted_opener_idx =
-                            if closer_removed && opener_idx > closer_idx {
-                                opener_idx - 1
-                            } else {
-                                opener_idx
-                            };
-
-                        if delims[adjusted_opener_idx].5 == 0 {
-                            delims.remove(adjusted_opener_idx);
-                        }
-
-                        // Restart from start_idx to reprocess delimiters with updated counts
-                        progress = true;
-                        break;
-                    } else {
-                        closer_idx += 1;
-                    }
-                }
-                '\'' | '"' => {
-                    process_smart_quotes(
-                        arena,
-                        &delims,
-                        opener_idx,
-                        closer_idx,
-                        closer_char,
-                    );
-                    // Mark both opener and closer as processed for smart quotes
-                    if let Some(opener_idx) = opener_idx {
-                        delims[opener_idx].6 = true;
-                    }
-                    delims[closer_idx].6 = true;
-                    closer_idx += 1;
-                }
-                _ => closer_idx += 1,
-            }
+            closer_idx += 1;
         }
     }
 

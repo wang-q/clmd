@@ -509,6 +509,300 @@ fn test_setext_heading_edge_cases() {
     }
 }
 
+/// Test Setext heading with blank lines
+#[test]
+fn test_setext_heading_blank_lines() {
+    // Setext heading requires no blank line between text and underline
+    let input = "text\n\n=";
+    let html = markdown_to_html(input, options::DEFAULT);
+    // Should NOT be a heading - blank line breaks it
+    assert!(
+        !html.contains("<h1>") && !html.contains("<h2>"),
+        "Setext heading with blank line should NOT be a heading: {}",
+        html
+    );
+    assert!(html.contains("<p>"), "Should be paragraphs: {}", html);
+}
+
+/// Test Setext heading with indentation
+#[test]
+fn test_setext_heading_indentation() {
+    let cases = vec![
+        // Indented underline should still work (up to 3 spaces)
+        ("text\n =", "<h1>"),
+        ("text\n  =", "<h1>"),
+        ("text\n   =", "<h1>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Setext heading '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+
+    // Too much indentation (4+ spaces) - check that it's NOT a heading
+    let input = "text\n    =";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(
+        !html.contains("<h1>") && !html.contains("<h2>"),
+        "Over-indented setext '{}' should NOT be a heading in {}",
+        input,
+        html
+    );
+}
+
+/// Test Setext heading with interrupted paragraph
+#[test]
+fn test_setext_heading_interrupted_paragraph() {
+    // List interrupts paragraph, so setext underline after list doesn't apply
+    let input = "paragraph\n- list item\n=";
+    let html = markdown_to_html(input, options::DEFAULT);
+    // The = should NOT create a heading because the paragraph was interrupted
+    assert!(
+        !html.contains("<h1>") && !html.contains("<h2>"),
+        "Setext heading after list should NOT be a heading: {}",
+        html
+    );
+}
+
+/// Test Setext heading with long underline
+#[test]
+fn test_setext_heading_long_underline() {
+    let cases = vec![
+        ("text\n=================", "<h1>"),
+        ("text\n-----------------", "<h2>"),
+        // Note: Underlines with spaces between markers may not be valid setext headings
+        // depending on the parser implementation
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Setext heading '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test Setext heading with empty content
+#[test]
+fn test_setext_heading_empty_content() {
+    let cases = vec![
+        // Empty content before underline
+        ("\n=", "<p>"),
+        ("   \n=", "<p>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Empty setext '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test Setext heading with inline content
+#[test]
+fn test_setext_heading_inline_content() {
+    let input = "text *emph* **strong** `code`\n===";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(html.contains("<h1>"), "Should be h1: {}", html);
+    assert!(html.contains("<em>"), "Should contain emphasis: {}", html);
+    assert!(html.contains("<strong>"), "Should contain strong: {}", html);
+    assert!(html.contains("<code>"), "Should contain code: {}", html);
+}
+
+/// Test HTML block type 1 (script, pre, style)
+#[test]
+fn test_html_block_type1() {
+    let cases = vec![
+        ("<script>\nalert(1)\n</script>", "<script>"),
+        ("<pre>\ncode\n</pre>", "<pre>"),
+        ("<style>\nbody{}\n</style>", "<style>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "HTML block '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test HTML block type 2 (comment)
+#[test]
+fn test_html_block_type2() {
+    let input = "<!--\ncomment\n-->";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(
+        html.contains("<!--"),
+        "Should contain comment start: {}",
+        html
+    );
+    assert!(html.contains("-->"), "Should contain comment end: {}", html);
+}
+
+/// Test HTML block type 6 (block elements)
+#[test]
+fn test_html_block_type6() {
+    let cases = vec![
+        ("<div>\ncontent\n</div>", "<div>"),
+        ("<table>\n<tr><td>cell</td></tr>\n</table>", "<table>"),
+        ("<blockquote>\nquote\n</blockquote>", "<blockquote>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "HTML block '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test HTML block with blank line termination
+#[test]
+fn test_html_block_blank_line_termination() {
+    // Type 6 HTML block ends at blank line
+    let input = "<div>\ncontent\n\nparagraph";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(html.contains("<div>"), "Should contain div: {}", html);
+    assert!(
+        html.contains("<p>"),
+        "Should contain paragraph after blank line: {}",
+        html
+    );
+}
+
+/// Test HTML block with inline markdown
+#[test]
+fn test_html_block_inline_markdown() {
+    // Inside HTML block, markdown is not parsed
+    let input = "<div>\n*not emphasis*\n</div>";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(
+        html.contains("*not emphasis*"),
+        "Should NOT parse emphasis inside HTML block: {}",
+        html
+    );
+    assert!(
+        !html.contains("<em>"),
+        "Should NOT contain em tag: {}",
+        html
+    );
+}
+
+/// Test incomplete HTML block
+#[test]
+fn test_incomplete_html_block() {
+    let cases = vec![
+        // Unclosed tags
+        ("<div>\ncontent", "<div>"),
+        ("<table>\n<tr>", "<table>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Incomplete HTML '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test HTML block type 7 (miscellaneous)
+#[test]
+fn test_html_block_type7() {
+    // Type 7 requires the tag to be on its own line with specific formatting
+    let cases = vec![
+        ("<custom>\ncontent\n</custom>", "<custom>"),
+        ("<my-element>\ntext\n</my-element>", "<my-element>"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "HTML block type 7 '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test HTML block with attributes
+#[test]
+fn test_html_block_with_attributes() {
+    let cases = vec![
+        (r#"<div class="test">content</div>"#, r#"class="test""#),
+        (r#"<div id="main" class="container">content</div>"#, "<div"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "HTML with attributes '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test self-closing HTML tags
+#[test]
+fn test_self_closing_html_tags() {
+    let cases = vec![
+        ("<hr />", "<hr"),
+        ("<br/>", "<br"),
+        ("<img src=\"test.png\" />", "<img"),
+    ];
+
+    for (input, expected) in cases {
+        let html = markdown_to_html(input, options::DEFAULT);
+        assert!(
+            html.contains(expected),
+            "Self-closing tag '{}' should contain '{}' in {}",
+            input,
+            expected,
+            html
+        );
+    }
+}
+
+/// Test nested HTML blocks
+#[test]
+fn test_nested_html_blocks() {
+    let input = "<div>\n<p>paragraph</p>\n</div>";
+    let html = markdown_to_html(input, options::DEFAULT);
+    assert!(html.contains("<div>"), "Should contain outer div: {}", html);
+    assert!(html.contains("<p>"), "Should contain inner p: {}", html);
+}
+
 /// Test blockquote with nested elements
 #[test]
 fn test_blockquote_nesting() {
