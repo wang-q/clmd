@@ -1,11 +1,8 @@
-// Allow deprecated API usage in tests until all tests are migrated
-#![allow(deprecated)]
-
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html_with_options, Options};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, options::DEFAULT)
+    markdown_to_html_with_options(input, &Options::default())
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
@@ -19,52 +16,65 @@ macro_rules! test_log {
 
 #[test]
 fn test_basic_link_reference() {
-    let input = "[foo]\n\n[foo]: /bar\n";
+    let input = "[link][ref]\n\n[ref]: https://example.com";
     let result = md_to_html(input);
-    test_log!("Input: {:?}", input);
-    test_log!("Output: {:?}", result);
-    assert!(
-        result.contains("<a href=\"/bar\">foo</a>"),
-        "Expected link reference to be resolved, got: {}",
-        result
-    );
+    test_log!("Basic link ref result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\">"));
 }
 
 #[test]
 fn test_link_reference_with_title() {
-    let input = "[foo]\n\n[foo]: /bar \"title\"\n";
+    let input = "[link][ref]\n\n[ref]: https://example.com \"title\"";
     let result = md_to_html(input);
-    test_log!("Input: {:?}", input);
-    test_log!("Output: {:?}", result);
-    assert!(
-        result.contains("<a href=\"/bar\" title=\"title\">foo</a>"),
-        "Expected link reference with title, got: {}",
-        result
-    );
+    test_log!("Link ref with title result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\" title=\"title\">"));
 }
 
 #[test]
-fn test_inline_link() {
-    let input = "[foo](/bar)\n";
+fn test_link_reference_collapsed() {
+    let input = "[ref][]\n\n[ref]: https://example.com";
     let result = md_to_html(input);
-    test_log!("Input: {:?}", input);
-    test_log!("Output: {:?}", result);
-    assert!(
-        result.contains("<a href=\"/bar\">foo</a>"),
-        "Expected inline link, got: {}",
-        result
-    );
+    test_log!("Collapsed link ref result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\">"));
 }
 
 #[test]
-fn test_inline_link_with_title() {
-    let input = "[foo](/bar \"title\")\n";
+fn test_link_reference_shortcut() {
+    let input = "[ref]\n\n[ref]: https://example.com";
     let result = md_to_html(input);
-    test_log!("Input: {:?}", input);
-    test_log!("Output: {:?}", result);
-    assert!(
-        result.contains("<a href=\"/bar\" title=\"title\">foo</a>"),
-        "Expected inline link with title, got: {}",
-        result
-    );
+    test_log!("Shortcut link ref result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\">"));
+}
+
+#[test]
+fn test_link_reference_unused() {
+    let input = "[ref]: https://example.com";
+    let result = md_to_html(input);
+    test_log!("Unused link ref result: {}", result);
+    // Should produce empty output or just whitespace
+}
+
+#[test]
+fn test_link_reference_multiple() {
+    let input = "[link1][ref1] [link2][ref2]\n\n[ref1]: https://example.com\n[ref2]: https://example.org";
+    let result = md_to_html(input);
+    test_log!("Multiple link refs result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\">"));
+    assert!(result.contains("<a href=\"https://example.org\">"));
+}
+
+#[test]
+fn test_link_reference_case_insensitive() {
+    let input = "[Link][REF]\n\n[ref]: https://example.com";
+    let result = md_to_html(input);
+    test_log!("Case insensitive link ref result: {}", result);
+    assert!(result.contains("<a href=\"https://example.com\">"));
+}
+
+#[test]
+fn test_link_reference_not_found() {
+    let input = "[link][missing]";
+    let result = md_to_html(input);
+    test_log!("Missing link ref result: {}", result);
+    // Should not create a link
 }

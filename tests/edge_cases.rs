@@ -3,10 +3,7 @@
 //! This module tests boundary conditions and edge cases that may not be
 //! covered by the standard CommonMark spec tests.
 
-// Allow deprecated API usage in tests until all tests are migrated
-#![allow(deprecated)]
-
-use clmd::{markdown_to_html, markdown_to_html_with_options, options, Options, Parser, ParserLimits};
+use clmd::{markdown_to_html_with_options, options, Options, Parser, ParserLimits};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {

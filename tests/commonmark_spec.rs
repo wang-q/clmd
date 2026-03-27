@@ -1,18 +1,18 @@
-// Allow deprecated API usage in tests until all tests are migrated
-#![allow(deprecated)]
-
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html_with_options, Options};
 use std::collections::HashMap;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, options::DEFAULT)
+    markdown_to_html_with_options(input, &Options::default())
 }
 
 /// Helper function to convert markdown to HTML with smart punctuation
 fn md_to_html_smart(input: &str) -> String {
-    markdown_to_html(input, options::SMART)
+    use clmd::config::options::SMART;
+    let mut opts = Options::default();
+    opts.set(&SMART, true);
+    markdown_to_html_with_options(input, &opts)
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set

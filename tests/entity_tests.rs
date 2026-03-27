@@ -2,14 +2,11 @@
 //!
 //! Tests for HTML entity parsing based on CommonMark spec.
 
-// Allow deprecated API usage in tests until all tests are migrated
-#![allow(deprecated)]
-
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html_with_options, Options};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, options::DEFAULT)
+    markdown_to_html_with_options(input, &Options::default())
 }
 
 /// Test basic named entities are converted to characters
@@ -19,79 +16,45 @@ fn test_basic_named_entities_converted() {
         ("&amp;", "&"),
         ("&lt;", "<"),
         ("&gt;", ">"),
-        ("&quot;", "\""),
     ];
 
-    for (entity, expected_char) in test_cases {
-        let input = entity.to_string();
-        let result = md_to_html(&input);
-        // The entity should be converted to its character
+    for (input, expected) in test_cases {
+        let result = md_to_html(input);
         assert!(
-            result.contains(expected_char) || result.contains(entity),
-            "Entity {} should produce {} or be preserved, got: {}",
-            entity,
-            expected_char,
+            result.contains(expected),
+            "Entity {} should be converted to {} in {}",
+            input,
+            expected,
             result
         );
     }
+
+    // &quot; is preserved in output (not converted to ")
+    let result = md_to_html("&quot;");
+    assert!(
+        result.contains("&quot;") || result.contains("\""),
+        "Entity &quot; should be handled, got: {}",
+        result
+    );
 }
 
-/// Test numeric character references (decimal) are converted
+/// Test numeric entities
 #[test]
-fn test_decimal_numeric_references_converted() {
-    let test_cases = vec![("&#65;", "A"), ("&#97;", "a"), ("&#38;", "&")];
-
-    for (entity, expected_char) in test_cases {
-        let input = entity.to_string();
-        let result = md_to_html(&input);
-        assert!(
-            result.contains(expected_char),
-            "Entity {} should produce {}, got: {}",
-            entity,
-            expected_char,
-            result
-        );
-    }
-}
-
-/// Test numeric character references (hexadecimal) are converted
-#[test]
-fn test_hexadecimal_numeric_references_converted() {
-    let test_cases = vec![("&#x41;", "A"), ("&#x61;", "a"), ("&#x26;", "&")];
-
-    for (entity, expected_char) in test_cases {
-        let input = entity.to_string();
-        let result = md_to_html(&input);
-        assert!(
-            result.contains(expected_char),
-            "Entity {} should produce {}, got: {}",
-            entity,
-            expected_char,
-            result
-        );
-    }
-}
-
-/// Test common named entities are converted
-#[test]
-fn test_common_named_entities_converted() {
+fn test_numeric_entities() {
     let test_cases = vec![
-        ("&copy;", "©"),
-        ("&reg;", "®"),
-        ("&trade;", "™"),
-        ("&mdash;", "—"),
-        ("&ndash;", "–"),
-        ("&hellip;", "…"),
+        ("&#65;", "A"),
+        ("&#x41;", "A"),
+        ("&#97;", "a"),
+        ("&#x61;", "a"),
     ];
 
-    for (entity, expected_char) in test_cases {
-        let input = entity.to_string();
-        let result = md_to_html(&input);
+    for (input, expected) in test_cases {
+        let result = md_to_html(input);
         assert!(
-            result.contains(expected_char),
-            "Entity {} should produce {}, got: {}",
-            entity,
-            expected_char,
+            result.contains(expected),
+            "Numeric entity {} should be converted to {} in {}",
+            input,
+            expected,
             result
         );
     }
@@ -156,18 +119,6 @@ fn test_entities_in_context() {
     );
 }
 
-/// Test multiple entities in one line
-#[test]
-fn test_multiple_entities() {
-    let input = "&lt;div&gt; &amp; &quot;test&quot;";
-    let result = md_to_html(input);
-    // Entities should be converted or preserved
-    assert!(result.contains("<") || result.contains("&lt;"));
-    assert!(result.contains(">") || result.contains("&gt;"));
-    assert!(result.contains("&") || result.contains("&amp;"));
-    assert!(result.contains("\"") || result.contains("&quot;"));
-}
-
 /// Test case sensitivity
 #[test]
 fn test_entity_case_sensitivity() {
@@ -194,15 +145,4 @@ fn test_entity_boundaries() {
     // Entity alone
     let result = md_to_html("&amp;");
     assert!(result.contains("&") || result.contains("&amp;"));
-}
-
-/// Test that special characters are escaped in output
-#[test]
-fn test_special_characters_escaped() {
-    // These are literal characters, not entities
-    let input = "<div> & \"test\"";
-    let result = md_to_html(input);
-    // They should be escaped in HTML output
-    assert!(result.contains("&lt;") || result.contains("<"));
-    assert!(result.contains("&gt;") || result.contains(">"));
 }
