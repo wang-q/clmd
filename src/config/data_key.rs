@@ -271,12 +271,12 @@ mod tests {
         let key: DataKey<bool> = DataKey::with_default("enabled", false);
 
         // Should return default when not set
-        assert_eq!(data.get(&key), false);
+        assert!(!data.get(&key));
 
         // After setting, should return set value
         let mut data2 = MutableDataSet::new();
         data2.set(&key, true);
-        assert_eq!(data2.get(&key), true);
+        assert!(data2.get(&key));
     }
 
     #[test]
@@ -299,7 +299,7 @@ mod tests {
         data.set(&string_key, "test".to_string());
         data.set(&int_key, 42);
 
-        assert_eq!(data.get(&bool_key), true);
+        assert!(data.get(&bool_key));
         assert_eq!(data.get(&string_key), "test".to_string());
         assert_eq!(data.get(&int_key), 42);
     }

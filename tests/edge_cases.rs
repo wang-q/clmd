@@ -44,7 +44,7 @@ fn test_whitespace_only() {
 fn test_long_lines() {
     // Create a very long paragraph
     let long_text = "a".repeat(10000);
-    let input = format!("{}", long_text);
+    let input = long_text.clone();
     let html = md_to_html(&input);
     assert!(html.contains("<p>"), "Long line should produce paragraph");
     assert!(

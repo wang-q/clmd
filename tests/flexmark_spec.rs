@@ -16,6 +16,7 @@ macro_rules! test_log {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct SpecExample {
     section: String,
     number: usize,
@@ -86,8 +87,8 @@ fn parse_flexmark_spec(content: &str) -> Vec<SpecExample> {
 fn run_flexmark_tests(module_name: &str, filename: &str) {
     // Flexmark tests require specific extensions to be enabled
     // For now, just verify the parser can handle the input without crashing
-    let spec_content =
-        fs::read_to_string(filename).expect(&format!("Failed to read {}", filename));
+    let spec_content = fs::read_to_string(filename)
+        .unwrap_or_else(|_| panic!("Failed to read {}", filename));
 
     let examples = parse_flexmark_spec(&spec_content);
     test_log!("Found {} {} test examples", examples.len(), module_name);

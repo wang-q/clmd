@@ -544,10 +544,10 @@ mod tests {
     #[test]
     fn test_default_options() {
         let options = Options::new();
-        assert_eq!(options.get(&SOURCEPOS), false);
-        assert_eq!(options.get(&SMART), false);
-        assert_eq!(options.get(&HARDBREAKS), false);
-        assert_eq!(options.get(&ENABLE_TABLES), false);
+        assert!(!options.get(&SOURCEPOS));
+        assert!(!options.get(&SMART));
+        assert!(!options.get(&HARDBREAKS));
+        assert!(!options.get(&ENABLE_TABLES));
     }
 
     #[test]
@@ -557,9 +557,9 @@ mod tests {
         options.set(&SMART, true);
         options.set(&ENABLE_TABLES, true);
 
-        assert_eq!(options.get(&SOURCEPOS), true);
-        assert_eq!(options.get(&SMART), true);
-        assert_eq!(options.get(&ENABLE_TABLES), true);
+        assert!(options.get(&SOURCEPOS));
+        assert!(options.get(&SMART));
+        assert!(options.get(&ENABLE_TABLES));
     }
 
     #[test]
@@ -577,8 +577,8 @@ mod tests {
         options.set(&SOURCEPOS, true);
         options.set(&SMART, true);
 
-        assert_eq!(options.get(&SOURCEPOS), true);
-        assert_eq!(options.get(&SMART), true);
+        assert!(options.get(&SOURCEPOS));
+        assert!(options.get(&SMART));
     }
 
     #[test]
@@ -587,8 +587,8 @@ mod tests {
         options.set(&HARDBREAKS, true);
         options.set(&UNSAFE, false);
 
-        assert_eq!(options.get(&HARDBREAKS), true);
-        assert_eq!(options.get(&UNSAFE), false);
+        assert!(options.get(&HARDBREAKS));
+        assert!(!options.get(&UNSAFE));
     }
 
     #[test]
@@ -617,8 +617,8 @@ mod tests {
         options.set(&ENABLE_TABLES, true);
         options.set(&ENABLE_STRIKETHROUGH, true);
 
-        assert_eq!(options.get(&SOURCEPOS), true);
-        assert_eq!(options.get(&HARDBREAKS), true);
-        assert_eq!(options.get(&ENABLE_TABLES), true);
+        assert!(options.get(&SOURCEPOS));
+        assert!(options.get(&HARDBREAKS));
+        assert!(options.get(&ENABLE_TABLES));
     }
 }
