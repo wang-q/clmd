@@ -129,18 +129,13 @@ fn collect_footnote_refs_recursive(
         refs.push((footnote_ref.name.clone(), node_id));
     }
 
-    // Recursively check children
+    // Recursively check children (first_child loop already handles siblings via next)
     if let Some(child_id) = node.first_child {
         let mut current = Some(child_id);
         while let Some(id) = current {
             collect_footnote_refs_recursive(arena, id, refs);
             current = arena.get(id).next;
         }
-    }
-
-    // Check next sibling
-    if let Some(next_id) = node.next {
-        collect_footnote_refs_recursive(arena, next_id, refs);
     }
 }
 
@@ -162,18 +157,13 @@ fn collect_footnote_defs_recursive(
         defs.push((footnote_def.name.clone(), node_id));
     }
 
-    // Recursively check children
+    // Recursively check children (first_child loop already handles siblings via next)
     if let Some(child_id) = node.first_child {
         let mut current = Some(child_id);
         while let Some(id) = current {
             collect_footnote_defs_recursive(arena, id, defs);
             current = arena.get(id).next;
         }
-    }
-
-    // Check next sibling
-    if let Some(next_id) = node.next {
-        collect_footnote_defs_recursive(arena, next_id, defs);
     }
 }
 

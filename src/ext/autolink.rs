@@ -36,8 +36,13 @@ fn looks_like_url(text: &str) -> bool {
 fn looks_like_email(text: &str) -> bool {
     // Simple email validation: contains @ and a dot after @
     if let Some(at_pos) = text.find('@') {
+        // Must have at least one character before @
+        if at_pos == 0 {
+            return false;
+        }
         let after_at = &text[at_pos + 1..];
-        after_at.contains('.') && !text.contains(' ')
+        // Must have at least one character after @ and contain a dot
+        !after_at.is_empty() && after_at.contains('.') && !text.contains(' ')
     } else {
         false
     }
@@ -52,48 +57,42 @@ pub fn find_autolinks(text: &str) -> Vec<(usize, usize, bool)> {
     while i < chars.len() {
         // Try to find start of potential URL/email
         if chars[i].is_alphanumeric() || chars[i] == '/' {
-            // Look ahead for URL
-            let remaining: String = chars[i..].iter().collect();
+            // Find the end of the current word (whitespace or certain punctuation)
+            let word_start = i;
+            while i < chars.len()
+                && !chars[i].is_whitespace()
+                && chars[i] != '<'
+                && chars[i] != '>'
+                && chars[i] != '"'
+            {
+                i += 1;
+            }
+            let word_end = i;
+
+            // Get the word
+            let word: String = chars[word_start..word_end].iter().collect();
 
             // Check for URLs
-            if looks_like_url(&remaining) {
-                // Find end of URL (whitespace or certain punctuation)
-                let start = i;
-                while i < chars.len()
-                    && !chars[i].is_whitespace()
-                    && chars[i] != '<'
-                    && chars[i] != '>'
-                    && chars[i] != '"'
-                {
-                    i += 1;
-                }
+            if looks_like_url(&word) {
                 // Trim trailing punctuation
-                while i > start && ".!?,:;".contains(chars[i - 1]) {
-                    i -= 1;
+                let mut end = word_end;
+                while end > word_start && ".!?,:;".contains(chars[end - 1]) {
+                    end -= 1;
                 }
-                if i > start {
-                    results.push((start, i, false));
+                if end > word_start {
+                    results.push((word_start, end, false));
                 }
                 continue;
             }
 
             // Check for emails
-            if looks_like_email(&remaining) {
-                let start = i;
-                while i < chars.len()
-                    && !chars[i].is_whitespace()
-                    && chars[i] != '<'
-                    && chars[i] != '>'
-                {
-                    i += 1;
-                }
-                if i > start {
-                    results.push((start, i, true));
-                }
+            if looks_like_email(&word) {
+                results.push((word_start, word_end, true));
                 continue;
             }
+        } else {
+            i += 1;
         }
-        i += 1;
     }
 
     results
