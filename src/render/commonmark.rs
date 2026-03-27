@@ -9,6 +9,18 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
     renderer.render(root)
 }
 
+/// Render a node tree as CommonMark with NodeValue support
+///
+/// This function synchronizes NodeValue for all nodes before rendering,
+/// allowing the use of the new NodeValue-based API.
+pub fn render_with_value(arena: &mut NodeArena, root: NodeId, options: u32) -> String {
+    // Sync NodeValue for all nodes
+    arena.sync_node_values();
+    
+    let mut renderer = CommonMarkRenderer::new(arena, options);
+    renderer.render(root)
+}
+
 /// CommonMark renderer state
 struct CommonMarkRenderer<'a> {
     arena: &'a NodeArena,

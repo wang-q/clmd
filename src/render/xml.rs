@@ -32,6 +32,18 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
     renderer.render(root)
 }
 
+/// Render an Arena-based AST to XML with NodeValue support
+///
+/// This function synchronizes NodeValue for all nodes before rendering,
+/// allowing the use of the new NodeValue-based API.
+pub fn render_with_value(arena: &mut NodeArena, root: NodeId, options: u32) -> String {
+    // Sync NodeValue for all nodes
+    arena.sync_node_values();
+    
+    let mut renderer = XmlRenderer::new(arena, options);
+    renderer.render(root)
+}
+
 struct XmlRenderer<'a> {
     arena: &'a NodeArena,
     options: u32,

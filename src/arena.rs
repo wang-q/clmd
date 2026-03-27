@@ -23,6 +23,7 @@
 //! ```
 
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::NodeValue;
 
 /// Node ID type - index into the arena
 pub type NodeId = u32;
@@ -34,6 +35,8 @@ pub const INVALID_NODE_ID: NodeId = u32::MAX;
 pub struct Node {
     pub node_type: NodeType,
     pub data: NodeData,
+    /// Optional NodeValue for new API compatibility
+    pub value: Option<NodeValue>,
     pub source_pos: SourcePos,
     pub parent: Option<NodeId>,
     pub first_child: Option<NodeId>,
@@ -126,6 +129,7 @@ impl Node {
         Self {
             node_type,
             data,
+            value: None,
             source_pos: SourcePos::default(),
             parent: None,
             first_child: None,
@@ -140,6 +144,7 @@ impl Node {
         Self {
             node_type,
             data,
+            value: None,
             source_pos: SourcePos::default(),
             parent: None,
             first_child: None,
@@ -147,6 +152,143 @@ impl Node {
             next: None,
             prev: None,
         }
+    }
+
+    /// Create a new node with NodeValue (new API)
+    pub fn with_value(value: NodeValue) -> Self {
+        let node_type = value_to_node_type(&value);
+        let data = value_to_node_data(&value);
+        Self {
+            node_type,
+            data,
+            value: Some(value),
+            source_pos: SourcePos::default(),
+            parent: None,
+            first_child: None,
+            last_child: None,
+            next: None,
+            prev: None,
+        }
+    }
+
+    /// Get the NodeValue if set
+    pub fn value(&self) -> Option<&NodeValue> {
+        self.value.as_ref()
+    }
+
+    /// Get the mutable NodeValue if set
+    pub fn value_mut(&mut self) -> Option<&mut NodeValue> {
+        self.value.as_mut()
+    }
+
+    /// Set the NodeValue
+    pub fn set_value(&mut self, value: NodeValue) {
+        self.value = Some(value);
+        // Update legacy fields for compatibility
+        self.node_type = value_to_node_type(self.value.as_ref().unwrap());
+        self.data = value_to_node_data(self.value.as_ref().unwrap());
+    }
+}
+
+/// Convert NodeValue to NodeType for backward compatibility
+fn value_to_node_type(value: &NodeValue) -> NodeType {
+    match value {
+        NodeValue::Document => NodeType::Document,
+        NodeValue::BlockQuote => NodeType::BlockQuote,
+        NodeValue::List(..) => NodeType::List,
+        NodeValue::Item(..) => NodeType::Item,
+        NodeValue::CodeBlock(..) => NodeType::CodeBlock,
+        NodeValue::HtmlBlock(..) => NodeType::HtmlBlock,
+        NodeValue::Paragraph => NodeType::Paragraph,
+        NodeValue::Heading(..) => NodeType::Heading,
+        NodeValue::ThematicBreak => NodeType::ThematicBreak,
+        NodeValue::Table(..) => NodeType::Table,
+        NodeValue::TableRow(..) => NodeType::TableRow,
+        NodeValue::TableCell => NodeType::TableCell,
+        NodeValue::Text(..) => NodeType::Text,
+        NodeValue::SoftBreak => NodeType::SoftBreak,
+        NodeValue::HardBreak => NodeType::LineBreak,
+        NodeValue::Code(..) => NodeType::Code,
+        NodeValue::HtmlInline(..) => NodeType::HtmlInline,
+        NodeValue::Emph => NodeType::Emph,
+        NodeValue::Strong => NodeType::Strong,
+        NodeValue::Link(..) => NodeType::Link,
+        NodeValue::Image(..) => NodeType::Image,
+        NodeValue::Strikethrough => NodeType::Strikethrough,
+        NodeValue::TaskItem(..) => NodeType::TaskItem,
+        NodeValue::FootnoteReference(..) => NodeType::FootnoteRef,
+        NodeValue::FootnoteDefinition(..) => NodeType::FootnoteDef,
+        _ => NodeType::None,
+    }
+}
+
+/// Convert NodeValue to NodeData for backward compatibility
+fn value_to_node_data(value: &NodeValue) -> NodeData {
+    match value {
+        NodeValue::Document => NodeData::Document,
+        NodeValue::BlockQuote => NodeData::BlockQuote,
+        NodeValue::List(list) => NodeData::List {
+            list_type: list.list_type.into(),
+            delim: list.delimiter.into(),
+            start: list.start as u32,
+            tight: list.tight,
+            bullet_char: list.bullet_char as char,
+        },
+        NodeValue::Item(..) => NodeData::Item,
+        NodeValue::CodeBlock(code) => NodeData::CodeBlock {
+            info: code.info.clone(),
+            literal: code.literal.clone(),
+        },
+        NodeValue::HtmlBlock(html) => NodeData::HtmlBlock {
+            literal: html.literal.clone(),
+        },
+        NodeValue::Paragraph => NodeData::Paragraph,
+        NodeValue::Heading(heading) => NodeData::Heading {
+            level: heading.level as u32,
+            content: String::new(), // Content is in children
+        },
+        NodeValue::ThematicBreak => NodeData::ThematicBreak,
+        NodeValue::Table(table) => NodeData::Table {
+            num_columns: table.num_columns,
+            alignments: table.alignments.iter().map(|a| (*a).into()).collect(),
+        },
+        NodeValue::TableRow(..) => NodeData::TableRow,
+        NodeValue::TableCell => NodeData::TableCell {
+            column_index: 0,
+            alignment: crate::node::TableAlignment::None,
+            is_header: false,
+        },
+        NodeValue::Text(text) => NodeData::Text { literal: text.clone() },
+        NodeValue::SoftBreak => NodeData::SoftBreak,
+        NodeValue::HardBreak => NodeData::LineBreak,
+        NodeValue::Code(code) => NodeData::Code {
+            literal: code.literal.clone(),
+        },
+        NodeValue::HtmlInline(html) => NodeData::HtmlInline { literal: html.clone() },
+        NodeValue::Emph => NodeData::Emph,
+        NodeValue::Strong => NodeData::Strong,
+        NodeValue::Link(link) => NodeData::Link {
+            url: link.url.clone(),
+            title: link.title.clone(),
+        },
+        NodeValue::Image(link) => NodeData::Image {
+            url: link.url.clone(),
+            title: link.title.clone(),
+        },
+        NodeValue::Strikethrough => NodeData::Strikethrough,
+        NodeValue::TaskItem(task) => NodeData::TaskItem {
+            checked: task.symbol.is_some(),
+        },
+        NodeValue::FootnoteReference(footnote) => NodeData::FootnoteRef {
+            label: footnote.name.clone(),
+            ordinal: footnote.ref_num as usize,
+        },
+        NodeValue::FootnoteDefinition(footnote) => NodeData::FootnoteDef {
+            label: footnote.name.clone(),
+            ordinal: 0,
+            ref_count: footnote.total_references as usize,
+        },
+        _ => NodeData::None,
     }
 }
 
@@ -248,6 +390,143 @@ impl NodeArena {
     /// Check if the arena is empty
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
+    }
+
+    /// Synchronize NodeValue for all nodes from their node_type and data
+    ///
+    /// This method iterates through all nodes and creates corresponding NodeValue
+    /// from the existing node_type and data fields. This is useful for migrating
+    /// from the old API to the new NodeValue-based API.
+    pub fn sync_node_values(&mut self) {
+        for node in &mut self.nodes {
+            if node.value.is_none() {
+                node.value = Some(node_to_value(&node.node_type, &node.data));
+            }
+        }
+    }
+
+    /// Get a node with NodeValue, syncing if necessary
+    pub fn get_with_value(&mut self, id: NodeId) -> &Node {
+        self.sync_node_value(id);
+        self.get(id)
+    }
+
+    /// Sync NodeValue for a single node
+    fn sync_node_value(&mut self, id: NodeId) {
+        if let Some(node) = self.nodes.get_mut(id as usize) {
+            if node.value.is_none() {
+                node.value = Some(node_to_value(&node.node_type, &node.data));
+            }
+        }
+    }
+}
+
+/// Convert NodeType and NodeData to NodeValue
+fn node_to_value(node_type: &NodeType, data: &NodeData) -> NodeValue {
+    use crate::node_value::{
+        NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading,
+        NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem,
+    };
+
+    match (node_type, data) {
+        (NodeType::Document, _) => NodeValue::Document,
+        (NodeType::BlockQuote, _) => NodeValue::BlockQuote,
+        (NodeType::List, NodeData::List { list_type, delim, start, tight, bullet_char }) => {
+            NodeValue::List(NodeList {
+                list_type: (*list_type).into(),
+                marker_offset: 0,
+                padding: 0,
+                start: *start as usize,
+                delimiter: (*delim).into(),
+                bullet_char: *bullet_char as u8,
+                tight: *tight,
+                is_task_list: false,
+            })
+        }
+        (NodeType::Item, _) => NodeValue::Item(NodeList::default()),
+        (NodeType::CodeBlock, NodeData::CodeBlock { info, literal }) => {
+            NodeValue::CodeBlock(NodeCodeBlock {
+                fenced: !info.is_empty(),
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: info.clone(),
+                literal: literal.clone(),
+                closed: true,
+            })
+        }
+        (NodeType::HtmlBlock, NodeData::HtmlBlock { literal }) => {
+            NodeValue::HtmlBlock(NodeHtmlBlock {
+                block_type: 0,
+                literal: literal.clone(),
+            })
+        }
+        (NodeType::Paragraph, _) => NodeValue::Paragraph,
+        (NodeType::Heading, NodeData::Heading { level, content: _ }) => {
+            NodeValue::Heading(NodeHeading {
+                level: *level as u8,
+                setext: false,
+                closed: true,
+            })
+        }
+        (NodeType::ThematicBreak, _) => NodeValue::ThematicBreak,
+        (NodeType::Table, NodeData::Table { num_columns, alignments }) => {
+            NodeValue::Table(NodeTable {
+                alignments: alignments.iter().map(|a| (*a).into()).collect(),
+                num_columns: *num_columns,
+                num_rows: 0,
+                num_nonempty_cells: 0,
+            })
+        }
+        (NodeType::TableHead, _) => NodeValue::TableRow(true),
+        (NodeType::TableRow, _) => NodeValue::TableRow(false),
+        (NodeType::TableCell, _) => NodeValue::TableCell,
+        (NodeType::Text, NodeData::Text { literal }) => NodeValue::Text(literal.clone()),
+        (NodeType::SoftBreak, _) => NodeValue::SoftBreak,
+        (NodeType::LineBreak, _) => NodeValue::HardBreak,
+        (NodeType::Code, NodeData::Code { literal }) => {
+            NodeValue::Code(NodeCode {
+                num_backticks: 1,
+                literal: literal.clone(),
+            })
+        }
+        (NodeType::HtmlInline, NodeData::HtmlInline { literal }) => {
+            NodeValue::HtmlInline(literal.clone())
+        }
+        (NodeType::Emph, _) => NodeValue::Emph,
+        (NodeType::Strong, _) => NodeValue::Strong,
+        (NodeType::Link, NodeData::Link { url, title }) => {
+            NodeValue::Link(NodeLink {
+                url: url.clone(),
+                title: title.clone(),
+            })
+        }
+        (NodeType::Image, NodeData::Image { url, title }) => {
+            NodeValue::Image(NodeLink {
+                url: url.clone(),
+                title: title.clone(),
+            })
+        }
+        (NodeType::Strikethrough, _) => NodeValue::Strikethrough,
+        (NodeType::TaskItem, NodeData::TaskItem { checked }) => {
+            NodeValue::TaskItem(NodeTaskItem {
+                symbol: if *checked { Some('x') } else { None },
+            })
+        }
+        (NodeType::FootnoteRef, NodeData::FootnoteRef { label, ordinal }) => {
+            NodeValue::FootnoteReference(NodeFootnoteReference {
+                name: label.clone(),
+                ref_num: *ordinal as u32,
+                ix: *ordinal as u32,
+            })
+        }
+        (NodeType::FootnoteDef, NodeData::FootnoteDef { label, ordinal: _, ref_count }) => {
+            NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
+                name: label.clone(),
+                total_references: *ref_count as u32,
+            })
+        }
+        _ => NodeValue::Raw(String::new()),
     }
 }
 

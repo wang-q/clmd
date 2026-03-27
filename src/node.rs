@@ -1,7 +1,25 @@
-//! AST node definitions for CommonMark documents
+//! AST node definitions for CommonMark documents (Deprecated)
+//!
+//! **Deprecated**: This module is deprecated in favor of [`node_value`](crate::node_value).
+//! Please use the new `NodeValue` enum which provides better type safety and ergonomics.
 //!
 //! This module defines the node types and structures used to represent
 //! a CommonMark document as an Abstract Syntax Tree (AST).
+//!
+//! # Migration
+//!
+//! Instead of using `NodeType` and `NodeData` separately:
+//! ```rust,ignore
+//! // Old API (deprecated)
+//! use clmd::node::{NodeType, NodeData};
+//! let node = Node::new(NodeType::Paragraph);
+//! ```
+//!
+//! Use the unified `NodeValue`:
+//! ```rust
+//! use clmd::node_value::NodeValue;
+//! let value = NodeValue::Paragraph;
+//! ```
 //!
 //! # Node Structure
 //!
@@ -18,6 +36,10 @@
 //! let mut arena = NodeArena::new();
 //! let node = arena.alloc(Node::new(NodeType::Paragraph));
 //! ```
+#![deprecated(
+    since = "0.2.0",
+    note = "Use the `node_value` module instead. The `NodeValue` enum provides better type safety and ergonomics."
+)]
 
 /// Node types in the CommonMark AST
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

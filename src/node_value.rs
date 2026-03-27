@@ -479,6 +479,300 @@ impl NodeValue {
     }
 }
 
+// =============================================================================
+// Compatibility conversions from node.rs types
+// =============================================================================
+
+use crate::node::{self, NodeData, NodeType};
+
+impl From<NodeType> for NodeValue {
+    fn from(node_type: NodeType) -> Self {
+        match node_type {
+            NodeType::Document => NodeValue::Document,
+            NodeType::BlockQuote => NodeValue::BlockQuote,
+            NodeType::List => NodeValue::List(NodeList::default()),
+            NodeType::Item => NodeValue::Item(NodeList::default()),
+            NodeType::CodeBlock => {
+                NodeValue::CodeBlock(NodeCodeBlock {
+                    fenced: false,
+                    fence_char: 0,
+                    fence_length: 0,
+                    fence_offset: 0,
+                    info: String::new(),
+                    literal: String::new(),
+                    closed: false,
+                })
+            }
+            NodeType::HtmlBlock => {
+                NodeValue::HtmlBlock(NodeHtmlBlock {
+                    block_type: 0,
+                    literal: String::new(),
+                })
+            }
+            NodeType::Paragraph => NodeValue::Paragraph,
+            NodeType::Heading => {
+                NodeValue::Heading(NodeHeading {
+                    level: 1,
+                    setext: false,
+                    closed: false,
+                })
+            }
+            NodeType::ThematicBreak => NodeValue::ThematicBreak,
+            NodeType::Table => NodeValue::Table(NodeTable::default()),
+            NodeType::TableHead => NodeValue::TableRow(true),
+            NodeType::TableRow => NodeValue::TableRow(false),
+            NodeType::TableCell => NodeValue::TableCell,
+            NodeType::Text => NodeValue::Text(String::new()),
+            NodeType::SoftBreak => NodeValue::SoftBreak,
+            NodeType::LineBreak => NodeValue::HardBreak,
+            NodeType::Code => NodeValue::Code(NodeCode::default()),
+            NodeType::HtmlInline => NodeValue::HtmlInline(String::new()),
+            NodeType::Emph => NodeValue::Emph,
+            NodeType::Strong => NodeValue::Strong,
+            NodeType::Link => {
+                NodeValue::Link(NodeLink {
+                    url: String::new(),
+                    title: String::new(),
+                })
+            }
+            NodeType::Image => {
+                NodeValue::Image(NodeLink {
+                    url: String::new(),
+                    title: String::new(),
+                })
+            }
+            NodeType::Strikethrough => NodeValue::Strikethrough,
+            NodeType::TaskItem => NodeValue::TaskItem(NodeTaskItem::default()),
+            NodeType::FootnoteRef => {
+                NodeValue::FootnoteReference(NodeFootnoteReference::default())
+            }
+            NodeType::FootnoteDef => {
+                NodeValue::FootnoteDefinition(NodeFootnoteDefinition::default())
+            }
+            NodeType::CustomBlock | NodeType::CustomInline | NodeType::None => {
+                NodeValue::Raw(String::new())
+            }
+        }
+    }
+}
+
+impl From<&NodeData> for NodeValue {
+    fn from(data: &NodeData) -> Self {
+        match data {
+            NodeData::Document => NodeValue::Document,
+            NodeData::BlockQuote => NodeValue::BlockQuote,
+            NodeData::List {
+                list_type,
+                delim,
+                start,
+                tight,
+                bullet_char,
+            } => {
+                NodeValue::List(NodeList {
+                    list_type: (*list_type).into(),
+                    marker_offset: 0,
+                    padding: 0,
+                    start: *start as usize,
+                    delimiter: (*delim).into(),
+                    bullet_char: *bullet_char as u8,
+                    tight: *tight,
+                    is_task_list: false,
+                })
+            }
+            NodeData::Item => NodeValue::Item(NodeList::default()),
+            NodeData::CodeBlock { info, literal } => {
+                NodeValue::CodeBlock(NodeCodeBlock {
+                    fenced: !info.is_empty(),
+                    fence_char: b'`',
+                    fence_length: 3,
+                    fence_offset: 0,
+                    info: info.clone(),
+                    literal: literal.clone(),
+                    closed: true,
+                })
+            }
+            NodeData::HtmlBlock { literal } => {
+                NodeValue::HtmlBlock(NodeHtmlBlock {
+                    block_type: 0,
+                    literal: literal.clone(),
+                })
+            }
+            NodeData::CustomBlock { on_enter, on_exit } => {
+                NodeValue::Raw(format!("{}{}", on_enter, on_exit))
+            }
+            NodeData::Paragraph => NodeValue::Paragraph,
+            NodeData::Heading { level, content } => {
+                NodeValue::Heading(NodeHeading {
+                    level: *level as u8,
+                    setext: false,
+                    closed: true,
+                })
+            }
+            NodeData::ThematicBreak => NodeValue::ThematicBreak,
+            NodeData::Table {
+                num_columns,
+                alignments,
+            } => {
+                NodeValue::Table(NodeTable {
+                    alignments: alignments.iter().map(|a| (*a).into()).collect(),
+                    num_columns: *num_columns,
+                    num_rows: 0,
+                    num_nonempty_cells: 0,
+                })
+            }
+            NodeData::TableHead => NodeValue::TableRow(true),
+            NodeData::TableRow => NodeValue::TableRow(false),
+            NodeData::TableCell {
+                column_index: _,
+                alignment,
+                is_header,
+            } => {
+                // Note: TableCell doesn't have metadata in NodeValue, so we just return the type
+                NodeValue::TableCell
+            }
+            NodeData::Text { literal } => NodeValue::Text(literal.clone()),
+            NodeData::SoftBreak => NodeValue::SoftBreak,
+            NodeData::LineBreak => NodeValue::HardBreak,
+            NodeData::Code { literal } => {
+                NodeValue::Code(NodeCode {
+                    num_backticks: 1,
+                    literal: literal.clone(),
+                })
+            }
+            NodeData::HtmlInline { literal } => NodeValue::HtmlInline(literal.clone()),
+            NodeData::CustomInline { on_enter, on_exit } => {
+                NodeValue::Raw(format!("{}{}", on_enter, on_exit))
+            }
+            NodeData::Emph => NodeValue::Emph,
+            NodeData::Strong => NodeValue::Strong,
+            NodeData::Strikethrough => NodeValue::Strikethrough,
+            NodeData::Link { url, title } => {
+                NodeValue::Link(NodeLink {
+                    url: url.clone(),
+                    title: title.clone(),
+                })
+            }
+            NodeData::Image { url, title } => {
+                NodeValue::Image(NodeLink {
+                    url: url.clone(),
+                    title: title.clone(),
+                })
+            }
+            NodeData::TaskItem { checked } => {
+                NodeValue::TaskItem(NodeTaskItem {
+                    symbol: if *checked { Some('x') } else { None },
+                })
+            }
+            NodeData::FootnoteRef { label, ordinal } => {
+                NodeValue::FootnoteReference(NodeFootnoteReference {
+                    name: label.clone(),
+                    ref_num: *ordinal as u32,
+                    ix: *ordinal as u32,
+                })
+            }
+            NodeData::FootnoteDef {
+                label,
+                ordinal,
+                ref_count,
+            } => {
+                NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
+                    name: label.clone(),
+                    total_references: *ref_count as u32,
+                })
+            }
+            NodeData::None => NodeValue::Raw(String::new()),
+        }
+    }
+}
+
+// Helper type conversions
+impl From<node::ListType> for ListType {
+    fn from(list_type: node::ListType) -> Self {
+        match list_type {
+            node::ListType::Bullet => ListType::Bullet,
+            node::ListType::Ordered => ListType::Ordered,
+            node::ListType::None => ListType::Bullet, // Default to bullet
+        }
+    }
+}
+
+impl From<node::DelimType> for ListDelimType {
+    fn from(delim: node::DelimType) -> Self {
+        match delim {
+            node::DelimType::Period => ListDelimType::Period,
+            node::DelimType::Paren => ListDelimType::Paren,
+            node::DelimType::None => ListDelimType::Period, // Default to period
+        }
+    }
+}
+
+impl From<node::TableAlignment> for TableAlignment {
+    fn from(alignment: node::TableAlignment) -> Self {
+        match alignment {
+            node::TableAlignment::None => TableAlignment::None,
+            node::TableAlignment::Left => TableAlignment::Left,
+            node::TableAlignment::Center => TableAlignment::Center,
+            node::TableAlignment::Right => TableAlignment::Right,
+        }
+    }
+}
+
+impl From<node::SourcePos> for SourcePos {
+    fn from(pos: node::SourcePos) -> Self {
+        SourcePos {
+            start: LineColumn {
+                line: pos.start_line as usize,
+                column: pos.start_column as usize,
+            },
+            end: LineColumn {
+                line: pos.end_line as usize,
+                column: pos.end_column as usize,
+            },
+        }
+    }
+}
+
+// Reverse conversions (from node_value to node types)
+impl From<ListType> for node::ListType {
+    fn from(list_type: ListType) -> Self {
+        match list_type {
+            ListType::Bullet => node::ListType::Bullet,
+            ListType::Ordered => node::ListType::Ordered,
+        }
+    }
+}
+
+impl From<ListDelimType> for node::DelimType {
+    fn from(delim: ListDelimType) -> Self {
+        match delim {
+            ListDelimType::Period => node::DelimType::Period,
+            ListDelimType::Paren => node::DelimType::Paren,
+        }
+    }
+}
+
+impl From<TableAlignment> for node::TableAlignment {
+    fn from(alignment: TableAlignment) -> Self {
+        match alignment {
+            TableAlignment::None => node::TableAlignment::None,
+            TableAlignment::Left => node::TableAlignment::Left,
+            TableAlignment::Center => node::TableAlignment::Center,
+            TableAlignment::Right => node::TableAlignment::Right,
+        }
+    }
+}
+
+impl From<SourcePos> for node::SourcePos {
+    fn from(pos: SourcePos) -> Self {
+        node::SourcePos {
+            start_line: pos.start.line as u32,
+            start_column: pos.start.column as u32,
+            end_line: pos.end.line as u32,
+            end_column: pos.end.column as u32,
+        }
+    }
+}
+
 /// Metadata for a list.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct NodeList {
@@ -1143,5 +1437,267 @@ mod tests {
 
         let unchecked = NodeTaskItem { symbol: None };
         assert_eq!(unchecked.symbol, None);
+    }
+
+    // =============================================================================
+    // Migration tests from node.rs to node_value.rs
+    // =============================================================================
+
+    #[test]
+    fn test_node_type_to_value_conversion() {
+        use crate::node::NodeType;
+
+        // Test block types
+        assert!(matches!(
+            NodeValue::from(NodeType::Document),
+            NodeValue::Document
+        ));
+        assert!(matches!(
+            NodeValue::from(NodeType::BlockQuote),
+            NodeValue::BlockQuote
+        ));
+        assert!(matches!(
+            NodeValue::from(NodeType::Paragraph),
+            NodeValue::Paragraph
+        ));
+        assert!(matches!(
+            NodeValue::from(NodeType::Heading),
+            NodeValue::Heading(_)
+        ));
+
+        // Test inline types
+        assert!(matches!(
+            NodeValue::from(NodeType::Text),
+            NodeValue::Text(_)
+        ));
+        assert!(matches!(
+            NodeValue::from(NodeType::Emph),
+            NodeValue::Emph
+        ));
+        assert!(matches!(
+            NodeValue::from(NodeType::Strong),
+            NodeValue::Strong
+        ));
+    }
+
+    #[test]
+    fn test_node_data_to_value_conversion() {
+        use crate::node::{NodeData, NodeType};
+
+        // Test text data
+        let text_data = NodeData::Text {
+            literal: "Hello".to_string(),
+        };
+        let value = NodeValue::from(&text_data);
+        assert!(matches!(value, NodeValue::Text(ref s) if s == "Hello"));
+
+        // Test heading data
+        let heading_data = NodeData::Heading {
+            level: 2,
+            content: "Title".to_string(),
+        };
+        let value = NodeValue::from(&heading_data);
+        if let NodeValue::Heading(heading) = value {
+            assert_eq!(heading.level, 2);
+        } else {
+            panic!("Expected Heading");
+        }
+
+        // Test code block data
+        let code_data = NodeData::CodeBlock {
+            info: "rust".to_string(),
+            literal: "fn main() {}".to_string(),
+        };
+        let value = NodeValue::from(&code_data);
+        if let NodeValue::CodeBlock(code) = value {
+            assert_eq!(code.info, "rust");
+            assert_eq!(code.literal, "fn main() {}");
+        } else {
+            panic!("Expected CodeBlock");
+        }
+
+        // Test link data
+        let link_data = NodeData::Link {
+            url: "https://example.com".to_string(),
+            title: "Example".to_string(),
+        };
+        let value = NodeValue::from(&link_data);
+        if let NodeValue::Link(link) = value {
+            assert_eq!(link.url, "https://example.com");
+            assert_eq!(link.title, "Example");
+        } else {
+            panic!("Expected Link");
+        }
+    }
+
+    #[test]
+    fn test_list_type_conversion() {
+        use crate::node;
+
+        let bullet: ListType = node::ListType::Bullet.into();
+        assert!(matches!(bullet, ListType::Bullet));
+
+        let ordered: ListType = node::ListType::Ordered.into();
+        assert!(matches!(ordered, ListType::Ordered));
+    }
+
+    #[test]
+    fn test_delim_type_conversion() {
+        use crate::node;
+
+        let period: ListDelimType = node::DelimType::Period.into();
+        assert!(matches!(period, ListDelimType::Period));
+
+        let paren: ListDelimType = node::DelimType::Paren.into();
+        assert!(matches!(paren, ListDelimType::Paren));
+    }
+
+    #[test]
+    fn test_table_alignment_conversion() {
+        use crate::node;
+
+        let none: TableAlignment = node::TableAlignment::None.into();
+        assert!(matches!(none, TableAlignment::None));
+
+        let left: TableAlignment = node::TableAlignment::Left.into();
+        assert!(matches!(left, TableAlignment::Left));
+
+        let center: TableAlignment = node::TableAlignment::Center.into();
+        assert!(matches!(center, TableAlignment::Center));
+
+        let right: TableAlignment = node::TableAlignment::Right.into();
+        assert!(matches!(right, TableAlignment::Right));
+    }
+
+    #[test]
+    fn test_source_pos_conversion() {
+        use crate::node;
+
+        let old_pos = node::SourcePos {
+            start_line: 1,
+            start_column: 2,
+            end_line: 3,
+            end_column: 4,
+        };
+        let new_pos: SourcePos = old_pos.into();
+
+        assert_eq!(new_pos.start.line, 1);
+        assert_eq!(new_pos.start.column, 2);
+        assert_eq!(new_pos.end.line, 3);
+        assert_eq!(new_pos.end.column, 4);
+    }
+
+    #[test]
+    fn test_reverse_list_type_conversion() {
+        let bullet: crate::node::ListType = ListType::Bullet.into();
+        assert!(matches!(bullet, crate::node::ListType::Bullet));
+
+        let ordered: crate::node::ListType = ListType::Ordered.into();
+        assert!(matches!(ordered, crate::node::ListType::Ordered));
+    }
+
+    #[test]
+    fn test_reverse_delim_type_conversion() {
+        let period: crate::node::DelimType = ListDelimType::Period.into();
+        assert!(matches!(period, crate::node::DelimType::Period));
+
+        let paren: crate::node::DelimType = ListDelimType::Paren.into();
+        assert!(matches!(paren, crate::node::DelimType::Paren));
+    }
+
+    #[test]
+    fn test_reverse_table_alignment_conversion() {
+        let none: crate::node::TableAlignment = TableAlignment::None.into();
+        assert!(matches!(none, crate::node::TableAlignment::None));
+
+        let left: crate::node::TableAlignment = TableAlignment::Left.into();
+        assert!(matches!(left, crate::node::TableAlignment::Left));
+    }
+
+    #[test]
+    fn test_reverse_source_pos_conversion() {
+        let new_pos = SourcePos::new(1, 2, 3, 4);
+        let old_pos: crate::node::SourcePos = new_pos.into();
+
+        assert_eq!(old_pos.start_line, 1);
+        assert_eq!(old_pos.start_column, 2);
+        assert_eq!(old_pos.end_line, 3);
+        assert_eq!(old_pos.end_column, 4);
+    }
+
+    // =============================================================================
+    // Tests migrated from node.rs
+    // =============================================================================
+
+    #[test]
+    fn test_list_type_variants_migrated() {
+        assert_ne!(ListType::Bullet, ListType::Ordered);
+    }
+
+    #[test]
+    fn test_delim_type_variants_migrated() {
+        assert_ne!(ListDelimType::Period, ListDelimType::Paren);
+    }
+
+    #[test]
+    fn test_node_value_list_metadata_migrated() {
+        let list = NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        };
+
+        if let NodeValue::List(list_data) = NodeValue::List(list) {
+            assert_eq!(list_data.list_type, ListType::Bullet);
+            assert_eq!(list_data.bullet_char, b'-');
+            assert_eq!(list_data.start, 1);
+            assert!(list_data.tight);
+        } else {
+            panic!("Expected List");
+        }
+    }
+
+    #[test]
+    fn test_node_value_heading_metadata_migrated() {
+        let heading = NodeHeading {
+            level: 2,
+            setext: false,
+            closed: true,
+        };
+
+        if let NodeValue::Heading(heading_data) = NodeValue::Heading(heading) {
+            assert_eq!(heading_data.level, 2);
+            assert!(!heading_data.setext);
+            assert!(heading_data.closed);
+        } else {
+            panic!("Expected Heading");
+        }
+    }
+
+    #[test]
+    fn test_node_value_code_block_metadata_migrated() {
+        let code = NodeCodeBlock {
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            info: "rust".to_string(),
+            literal: "fn main() {}".to_string(),
+            closed: true,
+        };
+
+        if let NodeValue::CodeBlock(code_data) = NodeValue::CodeBlock(code) {
+            assert!(code_data.fenced);
+            assert_eq!(code_data.fence_char, b'`');
+            assert_eq!(code_data.info, "rust");
+            assert_eq!(code_data.literal, "fn main() {}");
+        } else {
+            panic!("Expected CodeBlock");
+        }
     }
 }
