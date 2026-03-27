@@ -35,20 +35,8 @@ pub use renderer::{
     render_to_xml, OutputFormat, Renderer,
 };
 
-/// Escape HTML special characters
-pub fn escape_html(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            _ => result.push(c),
-        }
-    }
-    result
-}
+// Re-export escape_html from html_utils for backward compatibility
+pub use crate::html_utils::escape_html;
 
 #[cfg(test)]
 mod tests {

@@ -264,21 +264,76 @@ impl Document {
     }
 
     /// Get the root node ID
+    ///
+    /// # Returns
+    ///
+    /// The `NodeId` of the document root node
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::Document;
+    ///
+    /// let doc = Document::parse("Hello world").unwrap();
+    /// let root = doc.root();
+    /// ```
     pub fn root(&self) -> NodeId {
         self.root
     }
 
     /// Get a reference to the arena
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `NodeArena` containing all AST nodes
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::Document;
+    ///
+    /// let doc = Document::parse("Hello world").unwrap();
+    /// let arena = doc.arena();
+    /// ```
     pub fn arena(&self) -> &NodeArena {
         &self.arena
     }
 
     /// Get a mutable reference to the arena
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `NodeArena` containing all AST nodes
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::Document;
+    ///
+    /// let mut doc = Document::parse("Hello world").unwrap();
+    /// let arena = doc.arena_mut();
+    /// ```
     pub fn arena_mut(&mut self) -> &mut NodeArena {
         &mut self.arena
     }
 
     /// Consume the document and return the arena and root node
+    ///
+    /// This is useful when you need to take ownership of the parsed AST
+    /// for further processing or manipulation.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the `NodeArena` and the root `NodeId`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::Document;
+    ///
+    /// let doc = Document::parse("Hello world").unwrap();
+    /// let (arena, root) = doc.into_parts();
+    /// ```
     pub fn into_parts(self) -> (NodeArena, NodeId) {
         (self.arena, self.root)
     }
@@ -359,14 +414,29 @@ pub fn markdown_to_html(text: &str, options: u32) -> String {
 
 /// Parse a CommonMark document
 ///
+/// This is a lower-level API that gives you direct access to the arena and root node.
+/// For a higher-level interface, use [`Document::parse`](crate::Document::parse).
+///
 /// # Arguments
 ///
 /// * `text` - The Markdown text to parse
-/// * `options` - Options for parsing
+/// * `options` - Options for parsing (use `options::DEFAULT` for default behavior)
 ///
 /// # Returns
 ///
-/// A tuple of (arena, document_node_id)
+/// A tuple of (`NodeArena`, `NodeId`) where:
+/// - `NodeArena` contains all the parsed AST nodes
+/// - `NodeId` is the ID of the root document node
+///
+/// # Example
+///
+/// ```
+/// use clmd::{parse_document, render_html, options};
+///
+/// let (arena, root) = parse_document("# Hello\n\nWorld", options::DEFAULT);
+/// let html = render_html(&arena, root, options::DEFAULT);
+/// assert!(html.contains("<h1>Hello</h1>"));
+/// ```
 pub fn parse_document(text: &str, options: u32) -> (NodeArena, NodeId) {
     let mut arena = NodeArena::new();
     let doc = blocks::BlockParser::parse_with_options(&mut arena, text, options);

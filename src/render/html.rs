@@ -1,6 +1,7 @@
 //! HTML renderer
 
 use crate::arena::{NodeArena, NodeId};
+use crate::html_utils::escape_html;
 use crate::node_value::{
     ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
     NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem, NodeValue,
@@ -543,21 +544,6 @@ impl<'a> HtmlRenderer<'a> {
             }
         }
     }
-}
-
-/// Escape HTML special characters
-fn escape_html(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            _ => result.push(c),
-        }
-    }
-    result
 }
 
 /// Escape URL for use in href attribute
