@@ -130,8 +130,9 @@ impl<'a> Iterator for ArenaNodeIterator<'a> {
 }
 
 impl<'a> ArenaNodeIterator<'a> {
-    /// Original next method, renamed to avoid conflict with Iterator trait
-    pub fn next_event(&mut self) -> EventType {
+    /// Internal method to advance the iterator and return the event type.
+    /// Used by both the public next() method and Iterator::next().
+    fn next_event(&mut self) -> EventType {
         if self.event_type == EventType::None {
             // First call - start at root
             self.current = Some(self.root);

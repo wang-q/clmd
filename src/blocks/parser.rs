@@ -46,12 +46,8 @@ pub struct BlockParser<'a> {
     pub last_line_length: usize,
     /// Reference map for link references: label -> (url, title)
     pub refmap: FxHashMap<String, (String, String)>,
-    /// Block info for each node
-    pub(crate) block_info: Vec<Option<BlockInfo>>,
-    /// Map from node ID to block_info index
-    pub(crate) node_to_index: FxHashMap<NodeId, usize>,
-    /// Next available index in block_info
-    pub next_index: usize,
+    /// Block info for each node (NodeId -> BlockInfo)
+    pub(crate) block_info: FxHashMap<NodeId, BlockInfo>,
     /// Options for parsing
     pub options: u32,
     /// Parser limits for input validation
@@ -101,9 +97,7 @@ impl<'a> BlockParser<'a> {
             all_closed: true,
             last_line_length: 0,
             refmap: FxHashMap::default(),
-            block_info: Vec::with_capacity(64),
-            node_to_index: FxHashMap::default(),
-            next_index: 0,
+            block_info: FxHashMap::default(),
             options,
             limits,
             nesting_depth: 0,

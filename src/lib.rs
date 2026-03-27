@@ -142,6 +142,45 @@ pub use render::{
 // Re-export the options module from config
 pub use config::options as config_options;
 
+/// Convert new Options to legacy u32 flags for parsing.
+/// This is a temporary bridge until all components use the new system.
+fn options_to_u32_for_parse(options: &Options) -> u32 {
+    let mut legacy_options = options::DEFAULT;
+
+    if options.get(&config_options::SOURCEPOS) {
+        legacy_options |= options::SOURCEPOS;
+    }
+    if options.get(&config_options::SMART) {
+        legacy_options |= options::SMART;
+    }
+    if options.get(&config_options::VALIDATE_UTF8) {
+        legacy_options |= options::VALIDATE_UTF8;
+    }
+
+    legacy_options
+}
+
+/// Convert new Options to legacy u32 flags for rendering.
+/// This is a temporary bridge until all components use the new system.
+fn options_to_u32_for_render(options: &Options) -> u32 {
+    let mut legacy_options = options::DEFAULT;
+
+    if options.get(&config_options::SOURCEPOS) {
+        legacy_options |= options::SOURCEPOS;
+    }
+    if options.get(&config_options::HARDBREAKS) {
+        legacy_options |= options::HARDBREAKS;
+    }
+    if options.get(&config_options::NOBREAKS) {
+        legacy_options |= options::NOBREAKS;
+    }
+    if options.get(&config_options::UNSAFE) {
+        legacy_options |= options::UNSAFE;
+    }
+
+    legacy_options
+}
+
 /// A parsed Markdown document
 ///
 /// This type provides a high-level API for parsing and rendering Markdown.
@@ -551,29 +590,7 @@ pub fn render_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// assert_eq!(html, "<p>Hello <em>world</em></p>");
 /// ```
 pub fn markdown_to_html_with_options(text: &str, options: &Options) -> String {
-    // Convert new Options to legacy u32 flags for now
-    // This is a temporary bridge until all components use the new system
-    let mut legacy_options = options::DEFAULT;
-
-    if options.get(&config_options::SOURCEPOS) {
-        legacy_options |= options::SOURCEPOS;
-    }
-    if options.get(&config_options::SMART) {
-        legacy_options |= options::SMART;
-    }
-    if options.get(&config_options::HARDBREAKS) {
-        legacy_options |= options::HARDBREAKS;
-    }
-    if options.get(&config_options::NOBREAKS) {
-        legacy_options |= options::NOBREAKS;
-    }
-    if options.get(&config_options::VALIDATE_UTF8) {
-        legacy_options |= options::VALIDATE_UTF8;
-    }
-    if options.get(&config_options::UNSAFE) {
-        legacy_options |= options::UNSAFE;
-    }
-
+    let legacy_options = options_to_u32_for_parse(options);
     markdown_to_html(text, legacy_options)
 }
 
@@ -656,12 +673,11 @@ pub fn markdown_to_xml_with_options(text: &str, _options: &Options) -> String {
 /// ```
 pub fn parse_document_with_options(
     text: &str,
-    _options: &Options,
+    options: &Options,
 ) -> (NodeArena, NodeId) {
-    // TODO: Actually use options when parser supports them
+    let legacy_options = options_to_u32_for_parse(options);
     let mut arena = NodeArena::new();
-    let doc =
-        blocks::BlockParser::parse_with_options(&mut arena, text, options::DEFAULT);
+    let doc = blocks::BlockParser::parse_with_options(&mut arena, text, legacy_options);
     (arena, doc)
 }
 
@@ -691,21 +707,7 @@ pub fn format_html_with_options(
     root: NodeId,
     options: &Options,
 ) -> String {
-    let mut legacy_options = options::DEFAULT;
-
-    if options.get(&config_options::SOURCEPOS) {
-        legacy_options |= options::SOURCEPOS;
-    }
-    if options.get(&config_options::HARDBREAKS) {
-        legacy_options |= options::HARDBREAKS;
-    }
-    if options.get(&config_options::NOBREAKS) {
-        legacy_options |= options::NOBREAKS;
-    }
-    if options.get(&config_options::UNSAFE) {
-        legacy_options |= options::UNSAFE;
-    }
-
+    let legacy_options = options_to_u32_for_render(options);
     render::html::render(arena, root, legacy_options)
 }
 

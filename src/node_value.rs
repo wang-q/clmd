@@ -451,7 +451,7 @@ impl NodeValue {
             NodeValue::Highlight => "highlight",
             NodeValue::Insert => "insert",
             NodeValue::FrontMatter(_) => "frontmatter",
-            NodeValue::TaskItem { .. } => "taskitem",
+            NodeValue::TaskItem(..) => "taskitem",
             NodeValue::Superscript => "superscript",
             NodeValue::FootnoteReference(..) => "footnote_reference",
             NodeValue::MultilineBlockQuote(_) => "multiline_block_quote",

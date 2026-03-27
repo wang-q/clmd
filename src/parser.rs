@@ -15,10 +15,6 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
 use crate::error::{ParseError, ParseResult, ParserLimits};
-use crate::inlines::parse_inlines_with_options;
-use crate::node_value::NodeValue;
-use crate::options;
-use rustc_hash::FxHashMap;
 
 /// Parser for CommonMark documents using Arena allocation
 pub struct Parser {
@@ -69,81 +65,23 @@ impl Parser {
         };
 
         // Create arena and parse blocks
+        // BlockParser already handles inline processing during finalization
         let mut arena = NodeArena::new();
-        let (doc, refmap) = BlockParser::parse_with_limits_and_refmap(
+        let (doc, _refmap) = BlockParser::parse_with_limits_and_refmap(
             &mut arena,
             &normalized_input,
             self.options,
             self.limits,
         )?;
 
-        // Process inlines with the refmap extracted from the document
-        self.process_inlines(&mut arena, doc, &refmap);
-
         Ok((arena, doc))
-    }
-
-    /// Process inline content for all leaf blocks
-    fn process_inlines(
-        &self,
-        arena: &mut NodeArena,
-        root: NodeId,
-        refmap: &FxHashMap<String, (String, String)>,
-    ) {
-        // Collect leaf blocks that need inline processing
-        let mut nodes_to_process: Vec<(NodeId, String)> = Vec::new();
-        self.collect_leaf_blocks(arena, root, &mut nodes_to_process);
-
-        // Check if smart punctuation is enabled
-        let smart = (self.options & options::SMART) != 0;
-
-        // Process collected nodes with the refmap from the document
-        for (node_id, content) in nodes_to_process {
-            parse_inlines_with_options(
-                arena, node_id, &content, 1, // line number
-                0, // block offset
-                refmap, smart,
-            );
-        }
-    }
-
-    /// Recursively collect leaf blocks that need inline processing
-    fn collect_leaf_blocks(
-        &self,
-        arena: &NodeArena,
-        node_id: NodeId,
-        nodes_to_process: &mut Vec<(NodeId, String)>,
-    ) {
-        let node = arena.get(node_id);
-
-        match &node.value {
-            NodeValue::Paragraph => {
-                // Get content from the node's string content via block info
-                // For now, we'll get it from the arena's block info storage
-                // This is a simplified version - in practice, content should come from block parsing
-                nodes_to_process.push((node_id, String::new()));
-            }
-            NodeValue::Heading(..) => {
-                // Heading content is processed during block parsing
-                nodes_to_process.push((node_id, String::new()));
-            }
-            _ => {
-                // Recursively process children
-                if let Some(child_id) = node.first_child {
-                    let mut current = Some(child_id);
-                    while let Some(id) = current {
-                        self.collect_leaf_blocks(arena, id, nodes_to_process);
-                        current = arena.get(id).next;
-                    }
-                }
-            }
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::node_value::NodeValue;
 
     #[test]
     fn test_parser_creation() {

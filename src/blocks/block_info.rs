@@ -7,48 +7,19 @@ use crate::arena::NodeId;
 use crate::blocks::{BlockInfo, BlockParser};
 
 impl<'a> BlockParser<'a> {
-    /// Get the index for a node, creating a new slot if needed
-    #[inline]
-    pub(crate) fn get_or_create_index(&mut self, node_id: NodeId) -> usize {
-        if let Some(&index) = self.node_to_index.get(&node_id) {
-            index
-        } else {
-            let index = self.next_index;
-            self.node_to_index.insert(node_id, index);
-            self.block_info.push(None);
-            self.next_index += 1;
-            index
-        }
-    }
-
-    #[inline]
-    pub(crate) fn get_index(&self, node_id: NodeId) -> Option<usize> {
-        self.node_to_index.get(&node_id).copied()
-    }
-
     pub(crate) fn get_block_info(&self, node_id: NodeId) -> Option<&BlockInfo> {
-        self.get_index(node_id)
-            .and_then(|idx| self.block_info.get(idx))
-            .and_then(|opt| opt.as_ref())
+        self.block_info.get(&node_id)
     }
 
     pub(crate) fn get_block_info_mut(
         &mut self,
         node_id: NodeId,
     ) -> Option<&mut BlockInfo> {
-        if let Some(idx) = self.get_index(node_id) {
-            if let Some(Some(ref mut info)) = self.block_info.get_mut(idx) {
-                return Some(info);
-            }
-        }
-        None
+        self.block_info.get_mut(&node_id)
     }
 
     pub(crate) fn set_block_info(&mut self, node_id: NodeId, info: BlockInfo) {
-        let idx = self.get_or_create_index(node_id);
-        if idx < self.block_info.len() {
-            self.block_info[idx] = Some(info);
-        }
+        self.block_info.insert(node_id, info);
     }
 
     pub(crate) fn is_open(&self, node_id: NodeId) -> bool {
