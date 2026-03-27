@@ -17,6 +17,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::{NodeFootnoteDefinition, NodeFootnoteReference, NodeValue};
 use std::collections::HashMap;
 
 /// A footnote reference in the text: [^label]
@@ -161,13 +162,13 @@ pub fn create_footnote_ref_node(
     line: u32,
     col: u32,
 ) -> NodeId {
-    let node = arena.alloc(Node::with_data(
-        NodeType::FootnoteRef,
-        NodeData::FootnoteRef {
-            label: label.to_string(),
-            ordinal: 0, // Will be assigned during rendering
+    let node = arena.alloc(Node::with_value(NodeValue::FootnoteReference(
+        NodeFootnoteReference {
+            name: label.to_string(),
+            ref_num: 0, // Will be assigned during rendering
+            ix: 0,
         },
-    ));
+    )));
 
     {
         let node_ref = arena.get_mut(node);
@@ -191,14 +192,12 @@ pub fn create_footnote_def_node(
     line: u32,
     col: u32,
 ) -> NodeId {
-    let node = arena.alloc(Node::with_data(
-        NodeType::FootnoteDef,
-        NodeData::FootnoteDef {
-            label: label.to_string(),
-            ordinal: 0, // Will be assigned during rendering
-            ref_count: 0,
+    let node = arena.alloc(Node::with_value(NodeValue::FootnoteDefinition(
+        NodeFootnoteDefinition {
+            name: label.to_string(),
+            total_references: 0,
         },
-    ));
+    )));
 
     {
         let node_ref = arena.get_mut(node);
@@ -212,12 +211,8 @@ pub fn create_footnote_def_node(
 
     // Create text node for the content
     if !content.is_empty() {
-        let text_node = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: content.to_string(),
-            },
-        ));
+        let text_node =
+            arena.alloc(Node::with_value(NodeValue::Text(content.to_string())));
         TreeOps::append_child(arena, node, text_node);
     }
 

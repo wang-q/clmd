@@ -492,31 +492,25 @@ impl From<NodeType> for NodeValue {
             NodeType::BlockQuote => NodeValue::BlockQuote,
             NodeType::List => NodeValue::List(NodeList::default()),
             NodeType::Item => NodeValue::Item(NodeList::default()),
-            NodeType::CodeBlock => {
-                NodeValue::CodeBlock(NodeCodeBlock {
-                    fenced: false,
-                    fence_char: 0,
-                    fence_length: 0,
-                    fence_offset: 0,
-                    info: String::new(),
-                    literal: String::new(),
-                    closed: false,
-                })
-            }
-            NodeType::HtmlBlock => {
-                NodeValue::HtmlBlock(NodeHtmlBlock {
-                    block_type: 0,
-                    literal: String::new(),
-                })
-            }
+            NodeType::CodeBlock => NodeValue::CodeBlock(NodeCodeBlock {
+                fenced: false,
+                fence_char: 0,
+                fence_length: 0,
+                fence_offset: 0,
+                info: String::new(),
+                literal: String::new(),
+                closed: false,
+            }),
+            NodeType::HtmlBlock => NodeValue::HtmlBlock(NodeHtmlBlock {
+                block_type: 0,
+                literal: String::new(),
+            }),
             NodeType::Paragraph => NodeValue::Paragraph,
-            NodeType::Heading => {
-                NodeValue::Heading(NodeHeading {
-                    level: 1,
-                    setext: false,
-                    closed: false,
-                })
-            }
+            NodeType::Heading => NodeValue::Heading(NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            }),
             NodeType::ThematicBreak => NodeValue::ThematicBreak,
             NodeType::Table => NodeValue::Table(NodeTable::default()),
             NodeType::TableHead => NodeValue::TableRow(true),
@@ -529,18 +523,14 @@ impl From<NodeType> for NodeValue {
             NodeType::HtmlInline => NodeValue::HtmlInline(String::new()),
             NodeType::Emph => NodeValue::Emph,
             NodeType::Strong => NodeValue::Strong,
-            NodeType::Link => {
-                NodeValue::Link(NodeLink {
-                    url: String::new(),
-                    title: String::new(),
-                })
-            }
-            NodeType::Image => {
-                NodeValue::Image(NodeLink {
-                    url: String::new(),
-                    title: String::new(),
-                })
-            }
+            NodeType::Link => NodeValue::Link(NodeLink {
+                url: String::new(),
+                title: String::new(),
+            }),
+            NodeType::Image => NodeValue::Image(NodeLink {
+                url: String::new(),
+                title: String::new(),
+            }),
             NodeType::Strikethrough => NodeValue::Strikethrough,
             NodeType::TaskItem => NodeValue::TaskItem(NodeTaskItem::default()),
             NodeType::FootnoteRef => {
@@ -567,18 +557,16 @@ impl From<&NodeData> for NodeValue {
                 start,
                 tight,
                 bullet_char,
-            } => {
-                NodeValue::List(NodeList {
-                    list_type: (*list_type).into(),
-                    marker_offset: 0,
-                    padding: 0,
-                    start: *start as usize,
-                    delimiter: (*delim).into(),
-                    bullet_char: *bullet_char as u8,
-                    tight: *tight,
-                    is_task_list: false,
-                })
-            }
+            } => NodeValue::List(NodeList {
+                list_type: (*list_type).into(),
+                marker_offset: 0,
+                padding: 0,
+                start: *start as usize,
+                delimiter: (*delim).into(),
+                bullet_char: *bullet_char as u8,
+                tight: *tight,
+                is_task_list: false,
+            }),
             NodeData::Item => NodeValue::Item(NodeList::default()),
             NodeData::CodeBlock { info, literal } => {
                 NodeValue::CodeBlock(NodeCodeBlock {
@@ -591,35 +579,29 @@ impl From<&NodeData> for NodeValue {
                     closed: true,
                 })
             }
-            NodeData::HtmlBlock { literal } => {
-                NodeValue::HtmlBlock(NodeHtmlBlock {
-                    block_type: 0,
-                    literal: literal.clone(),
-                })
-            }
+            NodeData::HtmlBlock { literal } => NodeValue::HtmlBlock(NodeHtmlBlock {
+                block_type: 0,
+                literal: literal.clone(),
+            }),
             NodeData::CustomBlock { on_enter, on_exit } => {
                 NodeValue::Raw(format!("{}{}", on_enter, on_exit))
             }
             NodeData::Paragraph => NodeValue::Paragraph,
-            NodeData::Heading { level, content } => {
-                NodeValue::Heading(NodeHeading {
-                    level: *level as u8,
-                    setext: false,
-                    closed: true,
-                })
-            }
+            NodeData::Heading { level, content } => NodeValue::Heading(NodeHeading {
+                level: *level as u8,
+                setext: false,
+                closed: true,
+            }),
             NodeData::ThematicBreak => NodeValue::ThematicBreak,
             NodeData::Table {
                 num_columns,
                 alignments,
-            } => {
-                NodeValue::Table(NodeTable {
-                    alignments: alignments.iter().map(|a| (*a).into()).collect(),
-                    num_columns: *num_columns,
-                    num_rows: 0,
-                    num_nonempty_cells: 0,
-                })
-            }
+            } => NodeValue::Table(NodeTable {
+                alignments: alignments.iter().map(|a| (*a).into()).collect(),
+                num_columns: *num_columns,
+                num_rows: 0,
+                num_nonempty_cells: 0,
+            }),
             NodeData::TableHead => NodeValue::TableRow(true),
             NodeData::TableRow => NodeValue::TableRow(false),
             NodeData::TableCell {
@@ -633,12 +615,10 @@ impl From<&NodeData> for NodeValue {
             NodeData::Text { literal } => NodeValue::Text(literal.clone()),
             NodeData::SoftBreak => NodeValue::SoftBreak,
             NodeData::LineBreak => NodeValue::HardBreak,
-            NodeData::Code { literal } => {
-                NodeValue::Code(NodeCode {
-                    num_backticks: 1,
-                    literal: literal.clone(),
-                })
-            }
+            NodeData::Code { literal } => NodeValue::Code(NodeCode {
+                num_backticks: 1,
+                literal: literal.clone(),
+            }),
             NodeData::HtmlInline { literal } => NodeValue::HtmlInline(literal.clone()),
             NodeData::CustomInline { on_enter, on_exit } => {
                 NodeValue::Raw(format!("{}{}", on_enter, on_exit))
@@ -646,23 +626,17 @@ impl From<&NodeData> for NodeValue {
             NodeData::Emph => NodeValue::Emph,
             NodeData::Strong => NodeValue::Strong,
             NodeData::Strikethrough => NodeValue::Strikethrough,
-            NodeData::Link { url, title } => {
-                NodeValue::Link(NodeLink {
-                    url: url.clone(),
-                    title: title.clone(),
-                })
-            }
-            NodeData::Image { url, title } => {
-                NodeValue::Image(NodeLink {
-                    url: url.clone(),
-                    title: title.clone(),
-                })
-            }
-            NodeData::TaskItem { checked } => {
-                NodeValue::TaskItem(NodeTaskItem {
-                    symbol: if *checked { Some('x') } else { None },
-                })
-            }
+            NodeData::Link { url, title } => NodeValue::Link(NodeLink {
+                url: url.clone(),
+                title: title.clone(),
+            }),
+            NodeData::Image { url, title } => NodeValue::Image(NodeLink {
+                url: url.clone(),
+                title: title.clone(),
+            }),
+            NodeData::TaskItem { checked } => NodeValue::TaskItem(NodeTaskItem {
+                symbol: if *checked { Some('x') } else { None },
+            }),
             NodeData::FootnoteRef { label, ordinal } => {
                 NodeValue::FootnoteReference(NodeFootnoteReference {
                     name: label.clone(),
@@ -674,12 +648,10 @@ impl From<&NodeData> for NodeValue {
                 label,
                 ordinal,
                 ref_count,
-            } => {
-                NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
-                    name: label.clone(),
-                    total_references: *ref_count as u32,
-                })
-            }
+            } => NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
+                name: label.clone(),
+                total_references: *ref_count as u32,
+            }),
             NodeData::None => NodeValue::Raw(String::new()),
         }
     }
@@ -769,6 +741,115 @@ impl From<SourcePos> for node::SourcePos {
             start_column: pos.start.column as u32,
             end_line: pos.end.line as u32,
             end_column: pos.end.column as u32,
+        }
+    }
+}
+
+// Conversions from NodeValue to NodeType and NodeData (for backward compatibility)
+impl From<&NodeValue> for NodeType {
+    fn from(value: &NodeValue) -> Self {
+        match value {
+            NodeValue::Document => NodeType::Document,
+            NodeValue::BlockQuote => NodeType::BlockQuote,
+            NodeValue::List(..) => NodeType::List,
+            NodeValue::Item(..) => NodeType::Item,
+            NodeValue::CodeBlock(..) => NodeType::CodeBlock,
+            NodeValue::HtmlBlock(..) => NodeType::HtmlBlock,
+            NodeValue::Paragraph => NodeType::Paragraph,
+            NodeValue::Heading(..) => NodeType::Heading,
+            NodeValue::ThematicBreak => NodeType::ThematicBreak,
+            NodeValue::Table(..) => NodeType::Table,
+            NodeValue::TableRow(..) => NodeType::TableRow,
+            NodeValue::TableCell => NodeType::TableCell,
+            NodeValue::Text(..) => NodeType::Text,
+            NodeValue::SoftBreak => NodeType::SoftBreak,
+            NodeValue::HardBreak => NodeType::LineBreak,
+            NodeValue::Code(..) => NodeType::Code,
+            NodeValue::HtmlInline(..) => NodeType::HtmlInline,
+            NodeValue::Emph => NodeType::Emph,
+            NodeValue::Strong => NodeType::Strong,
+            NodeValue::Link(..) => NodeType::Link,
+            NodeValue::Image(..) => NodeType::Image,
+            NodeValue::Strikethrough => NodeType::Strikethrough,
+            NodeValue::TaskItem(..) => NodeType::TaskItem,
+            NodeValue::FootnoteReference(..) => NodeType::FootnoteRef,
+            NodeValue::FootnoteDefinition(..) => NodeType::FootnoteDef,
+            _ => NodeType::None,
+        }
+    }
+}
+
+impl From<&NodeValue> for NodeData {
+    fn from(value: &NodeValue) -> Self {
+        match value {
+            NodeValue::Document => NodeData::Document,
+            NodeValue::BlockQuote => NodeData::BlockQuote,
+            NodeValue::List(list) => NodeData::List {
+                list_type: list.list_type.into(),
+                delim: list.delimiter.into(),
+                start: list.start as u32,
+                tight: list.tight,
+                bullet_char: list.bullet_char as char,
+            },
+            NodeValue::Item(..) => NodeData::Item,
+            NodeValue::CodeBlock(code) => NodeData::CodeBlock {
+                info: code.info.clone(),
+                literal: code.literal.clone(),
+            },
+            NodeValue::HtmlBlock(html) => NodeData::HtmlBlock {
+                literal: html.literal.clone(),
+            },
+            NodeValue::Paragraph => NodeData::Paragraph,
+            NodeValue::Heading(heading) => NodeData::Heading {
+                level: heading.level as u32,
+                content: String::new(),
+            },
+            NodeValue::ThematicBreak => NodeData::ThematicBreak,
+            NodeValue::Table(table) => NodeData::Table {
+                num_columns: table.num_columns,
+                alignments: table.alignments.iter().map(|a| (*a).into()).collect(),
+            },
+            NodeValue::TableRow(..) => NodeData::TableRow,
+            NodeValue::TableCell => NodeData::TableCell {
+                column_index: 0,
+                alignment: node::TableAlignment::None,
+                is_header: false,
+            },
+            NodeValue::Text(text) => NodeData::Text {
+                literal: text.clone(),
+            },
+            NodeValue::SoftBreak => NodeData::SoftBreak,
+            NodeValue::HardBreak => NodeData::LineBreak,
+            NodeValue::Code(code) => NodeData::Code {
+                literal: code.literal.clone(),
+            },
+            NodeValue::HtmlInline(html) => NodeData::HtmlInline {
+                literal: html.clone(),
+            },
+            NodeValue::Emph => NodeData::Emph,
+            NodeValue::Strong => NodeData::Strong,
+            NodeValue::Link(link) => NodeData::Link {
+                url: link.url.clone(),
+                title: link.title.clone(),
+            },
+            NodeValue::Image(link) => NodeData::Image {
+                url: link.url.clone(),
+                title: link.title.clone(),
+            },
+            NodeValue::Strikethrough => NodeData::Strikethrough,
+            NodeValue::TaskItem(task) => NodeData::TaskItem {
+                checked: task.symbol.is_some(),
+            },
+            NodeValue::FootnoteReference(footnote) => NodeData::FootnoteRef {
+                label: footnote.name.clone(),
+                ordinal: footnote.ref_num as usize,
+            },
+            NodeValue::FootnoteDefinition(footnote) => NodeData::FootnoteDef {
+                label: footnote.name.clone(),
+                ordinal: 0,
+                ref_count: footnote.total_references as usize,
+            },
+            _ => NodeData::None,
         }
     }
 }
@@ -1470,10 +1551,7 @@ mod tests {
             NodeValue::from(NodeType::Text),
             NodeValue::Text(_)
         ));
-        assert!(matches!(
-            NodeValue::from(NodeType::Emph),
-            NodeValue::Emph
-        ));
+        assert!(matches!(NodeValue::from(NodeType::Emph), NodeValue::Emph));
         assert!(matches!(
             NodeValue::from(NodeType::Strong),
             NodeValue::Strong

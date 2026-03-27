@@ -14,11 +14,11 @@
 //! # Example
 //!
 //! ```
-//! use clmd::{NodeArena, TreeOps, NodeType, Node};
+//! use clmd::{NodeArena, TreeOps, NodeValue, Node};
 //!
 //! let mut arena = NodeArena::new();
-//! let root = arena.alloc(Node::new(NodeType::Document));
-//! let paragraph = arena.alloc(Node::new(NodeType::Paragraph));
+//! let root = arena.alloc(Node::with_value(NodeValue::Document));
+//! let paragraph = arena.alloc(Node::with_value(NodeValue::Paragraph));
 //! TreeOps::append_child(&mut arena, root, paragraph);
 //! ```
 
@@ -32,271 +32,219 @@ pub type NodeId = u32;
 pub const INVALID_NODE_ID: NodeId = u32::MAX;
 
 /// A node in the AST with arena-based references
+///
+/// This struct maintains both the new `NodeValue` API and backward-compatible
+/// `node_type`/`data` fields. When using `Node::with_value()`, the `node_type`
+/// and `data` fields are automatically computed from the value.
 pub struct Node {
+    /// The node type (backward compatibility - computed from value)
     pub node_type: NodeType,
+    /// The node data (backward compatibility - computed from value)
     pub data: NodeData,
-    /// Optional NodeValue for new API compatibility
-    pub value: Option<NodeValue>,
+    /// The node value (new API - primary storage)
+    pub value: NodeValue,
+    /// Source position information
     pub source_pos: SourcePos,
+    /// Parent node ID
     pub parent: Option<NodeId>,
+    /// First child node ID
     pub first_child: Option<NodeId>,
+    /// Last child node ID
     pub last_child: Option<NodeId>,
+    /// Next sibling node ID
     pub next: Option<NodeId>,
+    /// Previous sibling node ID
     pub prev: Option<NodeId>,
 }
 
 impl Node {
-    /// Create a new node
+    /// Create a new node with NodeValue (primary API)
+    pub fn with_value(value: NodeValue) -> Self {
+        let node_type = (&value).into();
+        let data = (&value).into();
+        Self {
+            node_type,
+            data,
+            value,
+            source_pos: SourcePos::default(),
+            parent: None,
+            first_child: None,
+            last_child: None,
+            next: None,
+            prev: None,
+        }
+    }
+
+    /// Get a reference to the NodeValue
+    pub fn value(&self) -> &NodeValue {
+        &self.value
+    }
+
+    /// Get a mutable reference to the NodeValue
+    pub fn value_mut(&mut self) -> &mut NodeValue {
+        &mut self.value
+    }
+
+    /// Set the NodeValue and update legacy fields
+    pub fn set_value(&mut self, value: NodeValue) {
+        self.node_type = (&value).into();
+        self.data = (&value).into();
+        self.value = value;
+    }
+
+    /// Create a new node from NodeType (legacy API, for backward compatibility)
+    ///
+    /// # Deprecated
+    /// Use `Node::with_value()` instead.
+    #[deprecated(since = "0.2.0", note = "Use Node::with_value() instead")]
     pub fn new(node_type: NodeType) -> Self {
-        let data = match node_type {
-            NodeType::Document => NodeData::Document,
-            NodeType::BlockQuote => NodeData::BlockQuote,
-            NodeType::List => NodeData::List {
-                list_type: crate::node::ListType::None,
-                delim: crate::node::DelimType::None,
-                start: 0,
-                tight: false,
-                bullet_char: '\0',
-            },
-            NodeType::Item => NodeData::Item,
-            NodeType::CodeBlock => NodeData::CodeBlock {
-                info: String::new(),
-                literal: String::new(),
-            },
-            NodeType::HtmlBlock => NodeData::HtmlBlock {
-                literal: String::new(),
-            },
-            NodeType::CustomBlock => NodeData::CustomBlock {
-                on_enter: String::new(),
-                on_exit: String::new(),
-            },
-            NodeType::Paragraph => NodeData::Paragraph,
-            NodeType::Heading => NodeData::Heading {
-                level: 0,
-                content: String::new(),
-            },
-            NodeType::ThematicBreak => NodeData::ThematicBreak,
-            NodeType::Text => NodeData::Text {
-                literal: String::new(),
-            },
-            NodeType::SoftBreak => NodeData::SoftBreak,
-            NodeType::LineBreak => NodeData::LineBreak,
-            NodeType::Code => NodeData::Code {
-                literal: String::new(),
-            },
-            NodeType::HtmlInline => NodeData::HtmlInline {
-                literal: String::new(),
-            },
-            NodeType::CustomInline => NodeData::CustomInline {
-                on_enter: String::new(),
-                on_exit: String::new(),
-            },
-            NodeType::Emph => NodeData::Emph,
-            NodeType::Strong => NodeData::Strong,
-            NodeType::Link => NodeData::Link {
-                url: String::new(),
-                title: String::new(),
-            },
-            NodeType::Image => NodeData::Image {
-                url: String::new(),
-                title: String::new(),
-            },
-            NodeType::Table => NodeData::Table {
-                num_columns: 0,
-                alignments: Vec::new(),
-            },
-            NodeType::TableHead => NodeData::TableHead,
-            NodeType::TableRow => NodeData::TableRow,
-            NodeType::TableCell => NodeData::TableCell {
-                column_index: 0,
-                alignment: crate::node::TableAlignment::None,
-                is_header: false,
-            },
-            NodeType::Strikethrough => NodeData::Strikethrough,
-            NodeType::TaskItem => NodeData::TaskItem { checked: false },
-            NodeType::FootnoteRef => NodeData::FootnoteRef {
-                label: String::new(),
-                ordinal: 0,
-            },
-            NodeType::FootnoteDef => NodeData::FootnoteDef {
-                label: String::new(),
-                ordinal: 0,
-                ref_count: 0,
-            },
-            NodeType::None => NodeData::None,
+        Self::with_value(node_type.into())
+    }
+
+    /// Create a new node with data (legacy API, for backward compatibility)
+    ///
+    /// # Deprecated
+    /// Use `Node::with_value()` instead.
+    #[deprecated(since = "0.2.0", note = "Use Node::with_value() instead")]
+    pub fn with_data(node_type: NodeType, data: NodeData) -> Self {
+        // Create value from node_type and data
+        let value = Self::node_data_to_value(node_type, &data);
+        let mut node = Self::with_value(value);
+        node.node_type = node_type;
+        node.data = data;
+        node
+    }
+
+    /// Helper function to convert NodeType and NodeData to NodeValue
+    fn node_data_to_value(node_type: NodeType, data: &NodeData) -> NodeValue {
+        use crate::node_value::{
+            NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
+            NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem,
         };
 
-        Self {
-            node_type,
-            data,
-            value: None,
-            source_pos: SourcePos::default(),
-            parent: None,
-            first_child: None,
-            last_child: None,
-            next: None,
-            prev: None,
+        match (node_type, data) {
+            (NodeType::Document, _) => NodeValue::Document,
+            (NodeType::BlockQuote, _) => NodeValue::BlockQuote,
+            (
+                NodeType::List,
+                NodeData::List {
+                    list_type,
+                    delim,
+                    start,
+                    tight,
+                    bullet_char,
+                },
+            ) => NodeValue::List(NodeList {
+                list_type: (*list_type).into(),
+                marker_offset: 0,
+                padding: 0,
+                start: *start as usize,
+                delimiter: (*delim).into(),
+                bullet_char: *bullet_char as u8,
+                tight: *tight,
+                is_task_list: false,
+            }),
+            (NodeType::Item, _) => NodeValue::Item(NodeList::default()),
+            (NodeType::CodeBlock, NodeData::CodeBlock { info, literal }) => {
+                NodeValue::CodeBlock(NodeCodeBlock {
+                    fenced: !info.is_empty(),
+                    fence_char: b'`',
+                    fence_length: 3,
+                    fence_offset: 0,
+                    info: info.clone(),
+                    literal: literal.clone(),
+                    closed: true,
+                })
+            }
+            (NodeType::HtmlBlock, NodeData::HtmlBlock { literal }) => {
+                NodeValue::HtmlBlock(NodeHtmlBlock {
+                    block_type: 0,
+                    literal: literal.clone(),
+                })
+            }
+            (NodeType::Paragraph, _) => NodeValue::Paragraph,
+            (NodeType::Heading, NodeData::Heading { level, content: _ }) => {
+                NodeValue::Heading(NodeHeading {
+                    level: *level as u8,
+                    setext: false,
+                    closed: true,
+                })
+            }
+            (NodeType::ThematicBreak, _) => NodeValue::ThematicBreak,
+            (
+                NodeType::Table,
+                NodeData::Table {
+                    num_columns,
+                    alignments,
+                },
+            ) => NodeValue::Table(NodeTable {
+                alignments: alignments.iter().map(|a| (*a).into()).collect(),
+                num_columns: *num_columns,
+                num_rows: 0,
+                num_nonempty_cells: 0,
+            }),
+            (NodeType::TableHead, _) => NodeValue::TableRow(true),
+            (NodeType::TableRow, _) => NodeValue::TableRow(false),
+            (NodeType::TableCell, _) => NodeValue::TableCell,
+            (NodeType::Text, NodeData::Text { literal }) => {
+                NodeValue::Text(literal.clone())
+            }
+            (NodeType::SoftBreak, _) => NodeValue::SoftBreak,
+            (NodeType::LineBreak, _) => NodeValue::HardBreak,
+            (NodeType::Code, NodeData::Code { literal }) => NodeValue::Code(NodeCode {
+                num_backticks: 1,
+                literal: literal.clone(),
+            }),
+            (NodeType::HtmlInline, NodeData::HtmlInline { literal }) => {
+                NodeValue::HtmlInline(literal.clone())
+            }
+            (NodeType::Emph, _) => NodeValue::Emph,
+            (NodeType::Strong, _) => NodeValue::Strong,
+            (NodeType::Link, NodeData::Link { url, title }) => {
+                NodeValue::Link(NodeLink {
+                    url: url.clone(),
+                    title: title.clone(),
+                })
+            }
+            (NodeType::Image, NodeData::Image { url, title }) => {
+                NodeValue::Image(NodeLink {
+                    url: url.clone(),
+                    title: title.clone(),
+                })
+            }
+            (NodeType::Strikethrough, _) => NodeValue::Strikethrough,
+            (NodeType::TaskItem, NodeData::TaskItem { checked }) => {
+                NodeValue::TaskItem(NodeTaskItem {
+                    symbol: if *checked { Some('x') } else { None },
+                })
+            }
+            (NodeType::FootnoteRef, NodeData::FootnoteRef { label, ordinal }) => {
+                NodeValue::FootnoteReference(NodeFootnoteReference {
+                    name: label.clone(),
+                    ref_num: *ordinal as u32,
+                    ix: *ordinal as u32,
+                })
+            }
+            (
+                NodeType::FootnoteDef,
+                NodeData::FootnoteDef {
+                    label,
+                    ordinal: _,
+                    ref_count,
+                },
+            ) => NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
+                name: label.clone(),
+                total_references: *ref_count as u32,
+            }),
+            _ => NodeValue::Raw(String::new()),
         }
-    }
-
-    /// Create a new node with data
-    pub fn with_data(node_type: NodeType, data: NodeData) -> Self {
-        Self {
-            node_type,
-            data,
-            value: None,
-            source_pos: SourcePos::default(),
-            parent: None,
-            first_child: None,
-            last_child: None,
-            next: None,
-            prev: None,
-        }
-    }
-
-    /// Create a new node with NodeValue (new API)
-    pub fn with_value(value: NodeValue) -> Self {
-        let node_type = value_to_node_type(&value);
-        let data = value_to_node_data(&value);
-        Self {
-            node_type,
-            data,
-            value: Some(value),
-            source_pos: SourcePos::default(),
-            parent: None,
-            first_child: None,
-            last_child: None,
-            next: None,
-            prev: None,
-        }
-    }
-
-    /// Get the NodeValue if set
-    pub fn value(&self) -> Option<&NodeValue> {
-        self.value.as_ref()
-    }
-
-    /// Get the mutable NodeValue if set
-    pub fn value_mut(&mut self) -> Option<&mut NodeValue> {
-        self.value.as_mut()
-    }
-
-    /// Set the NodeValue
-    pub fn set_value(&mut self, value: NodeValue) {
-        self.value = Some(value);
-        // Update legacy fields for compatibility
-        self.node_type = value_to_node_type(self.value.as_ref().unwrap());
-        self.data = value_to_node_data(self.value.as_ref().unwrap());
-    }
-}
-
-/// Convert NodeValue to NodeType for backward compatibility
-fn value_to_node_type(value: &NodeValue) -> NodeType {
-    match value {
-        NodeValue::Document => NodeType::Document,
-        NodeValue::BlockQuote => NodeType::BlockQuote,
-        NodeValue::List(..) => NodeType::List,
-        NodeValue::Item(..) => NodeType::Item,
-        NodeValue::CodeBlock(..) => NodeType::CodeBlock,
-        NodeValue::HtmlBlock(..) => NodeType::HtmlBlock,
-        NodeValue::Paragraph => NodeType::Paragraph,
-        NodeValue::Heading(..) => NodeType::Heading,
-        NodeValue::ThematicBreak => NodeType::ThematicBreak,
-        NodeValue::Table(..) => NodeType::Table,
-        NodeValue::TableRow(..) => NodeType::TableRow,
-        NodeValue::TableCell => NodeType::TableCell,
-        NodeValue::Text(..) => NodeType::Text,
-        NodeValue::SoftBreak => NodeType::SoftBreak,
-        NodeValue::HardBreak => NodeType::LineBreak,
-        NodeValue::Code(..) => NodeType::Code,
-        NodeValue::HtmlInline(..) => NodeType::HtmlInline,
-        NodeValue::Emph => NodeType::Emph,
-        NodeValue::Strong => NodeType::Strong,
-        NodeValue::Link(..) => NodeType::Link,
-        NodeValue::Image(..) => NodeType::Image,
-        NodeValue::Strikethrough => NodeType::Strikethrough,
-        NodeValue::TaskItem(..) => NodeType::TaskItem,
-        NodeValue::FootnoteReference(..) => NodeType::FootnoteRef,
-        NodeValue::FootnoteDefinition(..) => NodeType::FootnoteDef,
-        _ => NodeType::None,
-    }
-}
-
-/// Convert NodeValue to NodeData for backward compatibility
-fn value_to_node_data(value: &NodeValue) -> NodeData {
-    match value {
-        NodeValue::Document => NodeData::Document,
-        NodeValue::BlockQuote => NodeData::BlockQuote,
-        NodeValue::List(list) => NodeData::List {
-            list_type: list.list_type.into(),
-            delim: list.delimiter.into(),
-            start: list.start as u32,
-            tight: list.tight,
-            bullet_char: list.bullet_char as char,
-        },
-        NodeValue::Item(..) => NodeData::Item,
-        NodeValue::CodeBlock(code) => NodeData::CodeBlock {
-            info: code.info.clone(),
-            literal: code.literal.clone(),
-        },
-        NodeValue::HtmlBlock(html) => NodeData::HtmlBlock {
-            literal: html.literal.clone(),
-        },
-        NodeValue::Paragraph => NodeData::Paragraph,
-        NodeValue::Heading(heading) => NodeData::Heading {
-            level: heading.level as u32,
-            content: String::new(), // Content is in children
-        },
-        NodeValue::ThematicBreak => NodeData::ThematicBreak,
-        NodeValue::Table(table) => NodeData::Table {
-            num_columns: table.num_columns,
-            alignments: table.alignments.iter().map(|a| (*a).into()).collect(),
-        },
-        NodeValue::TableRow(..) => NodeData::TableRow,
-        NodeValue::TableCell => NodeData::TableCell {
-            column_index: 0,
-            alignment: crate::node::TableAlignment::None,
-            is_header: false,
-        },
-        NodeValue::Text(text) => NodeData::Text { literal: text.clone() },
-        NodeValue::SoftBreak => NodeData::SoftBreak,
-        NodeValue::HardBreak => NodeData::LineBreak,
-        NodeValue::Code(code) => NodeData::Code {
-            literal: code.literal.clone(),
-        },
-        NodeValue::HtmlInline(html) => NodeData::HtmlInline { literal: html.clone() },
-        NodeValue::Emph => NodeData::Emph,
-        NodeValue::Strong => NodeData::Strong,
-        NodeValue::Link(link) => NodeData::Link {
-            url: link.url.clone(),
-            title: link.title.clone(),
-        },
-        NodeValue::Image(link) => NodeData::Image {
-            url: link.url.clone(),
-            title: link.title.clone(),
-        },
-        NodeValue::Strikethrough => NodeData::Strikethrough,
-        NodeValue::TaskItem(task) => NodeData::TaskItem {
-            checked: task.symbol.is_some(),
-        },
-        NodeValue::FootnoteReference(footnote) => NodeData::FootnoteRef {
-            label: footnote.name.clone(),
-            ordinal: footnote.ref_num as usize,
-        },
-        NodeValue::FootnoteDefinition(footnote) => NodeData::FootnoteDef {
-            label: footnote.name.clone(),
-            ordinal: 0,
-            ref_count: footnote.total_references as usize,
-        },
-        _ => NodeData::None,
     }
 }
 
 impl std::fmt::Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Node")
-            .field("node_type", &self.node_type)
-            .field("data", &self.data)
+            .field("value", &self.value)
             .field("source_pos", &self.source_pos)
             .finish()
     }
@@ -394,139 +342,11 @@ impl NodeArena {
 
     /// Synchronize NodeValue for all nodes from their node_type and data
     ///
-    /// This method iterates through all nodes and creates corresponding NodeValue
-    /// from the existing node_type and data fields. This is useful for migrating
-    /// from the old API to the new NodeValue-based API.
+    /// This method is kept for backward compatibility but is now a no-op
+    /// since NodeValue is now the primary storage.
     pub fn sync_node_values(&mut self) {
-        for node in &mut self.nodes {
-            if node.value.is_none() {
-                node.value = Some(node_to_value(&node.node_type, &node.data));
-            }
-        }
-    }
-
-    /// Get a node with NodeValue, syncing if necessary
-    pub fn get_with_value(&mut self, id: NodeId) -> &Node {
-        self.sync_node_value(id);
-        self.get(id)
-    }
-
-    /// Sync NodeValue for a single node
-    fn sync_node_value(&mut self, id: NodeId) {
-        if let Some(node) = self.nodes.get_mut(id as usize) {
-            if node.value.is_none() {
-                node.value = Some(node_to_value(&node.node_type, &node.data));
-            }
-        }
-    }
-}
-
-/// Convert NodeType and NodeData to NodeValue
-fn node_to_value(node_type: &NodeType, data: &NodeData) -> NodeValue {
-    use crate::node_value::{
-        NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading,
-        NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem,
-    };
-
-    match (node_type, data) {
-        (NodeType::Document, _) => NodeValue::Document,
-        (NodeType::BlockQuote, _) => NodeValue::BlockQuote,
-        (NodeType::List, NodeData::List { list_type, delim, start, tight, bullet_char }) => {
-            NodeValue::List(NodeList {
-                list_type: (*list_type).into(),
-                marker_offset: 0,
-                padding: 0,
-                start: *start as usize,
-                delimiter: (*delim).into(),
-                bullet_char: *bullet_char as u8,
-                tight: *tight,
-                is_task_list: false,
-            })
-        }
-        (NodeType::Item, _) => NodeValue::Item(NodeList::default()),
-        (NodeType::CodeBlock, NodeData::CodeBlock { info, literal }) => {
-            NodeValue::CodeBlock(NodeCodeBlock {
-                fenced: !info.is_empty(),
-                fence_char: b'`',
-                fence_length: 3,
-                fence_offset: 0,
-                info: info.clone(),
-                literal: literal.clone(),
-                closed: true,
-            })
-        }
-        (NodeType::HtmlBlock, NodeData::HtmlBlock { literal }) => {
-            NodeValue::HtmlBlock(NodeHtmlBlock {
-                block_type: 0,
-                literal: literal.clone(),
-            })
-        }
-        (NodeType::Paragraph, _) => NodeValue::Paragraph,
-        (NodeType::Heading, NodeData::Heading { level, content: _ }) => {
-            NodeValue::Heading(NodeHeading {
-                level: *level as u8,
-                setext: false,
-                closed: true,
-            })
-        }
-        (NodeType::ThematicBreak, _) => NodeValue::ThematicBreak,
-        (NodeType::Table, NodeData::Table { num_columns, alignments }) => {
-            NodeValue::Table(NodeTable {
-                alignments: alignments.iter().map(|a| (*a).into()).collect(),
-                num_columns: *num_columns,
-                num_rows: 0,
-                num_nonempty_cells: 0,
-            })
-        }
-        (NodeType::TableHead, _) => NodeValue::TableRow(true),
-        (NodeType::TableRow, _) => NodeValue::TableRow(false),
-        (NodeType::TableCell, _) => NodeValue::TableCell,
-        (NodeType::Text, NodeData::Text { literal }) => NodeValue::Text(literal.clone()),
-        (NodeType::SoftBreak, _) => NodeValue::SoftBreak,
-        (NodeType::LineBreak, _) => NodeValue::HardBreak,
-        (NodeType::Code, NodeData::Code { literal }) => {
-            NodeValue::Code(NodeCode {
-                num_backticks: 1,
-                literal: literal.clone(),
-            })
-        }
-        (NodeType::HtmlInline, NodeData::HtmlInline { literal }) => {
-            NodeValue::HtmlInline(literal.clone())
-        }
-        (NodeType::Emph, _) => NodeValue::Emph,
-        (NodeType::Strong, _) => NodeValue::Strong,
-        (NodeType::Link, NodeData::Link { url, title }) => {
-            NodeValue::Link(NodeLink {
-                url: url.clone(),
-                title: title.clone(),
-            })
-        }
-        (NodeType::Image, NodeData::Image { url, title }) => {
-            NodeValue::Image(NodeLink {
-                url: url.clone(),
-                title: title.clone(),
-            })
-        }
-        (NodeType::Strikethrough, _) => NodeValue::Strikethrough,
-        (NodeType::TaskItem, NodeData::TaskItem { checked }) => {
-            NodeValue::TaskItem(NodeTaskItem {
-                symbol: if *checked { Some('x') } else { None },
-            })
-        }
-        (NodeType::FootnoteRef, NodeData::FootnoteRef { label, ordinal }) => {
-            NodeValue::FootnoteReference(NodeFootnoteReference {
-                name: label.clone(),
-                ref_num: *ordinal as u32,
-                ix: *ordinal as u32,
-            })
-        }
-        (NodeType::FootnoteDef, NodeData::FootnoteDef { label, ordinal: _, ref_count }) => {
-            NodeValue::FootnoteDefinition(NodeFootnoteDefinition {
-                name: label.clone(),
-                total_references: *ref_count as u32,
-            })
-        }
-        _ => NodeValue::Raw(String::new()),
+        // NodeValue is now the primary storage, so this is a no-op
+        // The node_type and data fields are computed from value on demand
     }
 }
 
@@ -658,7 +478,7 @@ mod tests {
     #[test]
     fn test_arena_alloc() {
         let mut arena = NodeArena::new();
-        let node = Node::new(NodeType::Document);
+        let node = Node::with_value(NodeValue::Document);
         let id = arena.alloc(node);
 
         assert_eq!(id, 0);
@@ -671,11 +491,11 @@ mod tests {
         let mut arena = NodeArena::new();
 
         // Create parent
-        let parent = arena.alloc(Node::new(NodeType::Document));
+        let parent = arena.alloc(Node::with_value(NodeValue::Document));
 
         // Create children
-        let child1 = arena.alloc(Node::new(NodeType::Paragraph));
-        let child2 = arena.alloc(Node::new(NodeType::Paragraph));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         // Append children
         TreeOps::append_child(&mut arena, parent, child1);
@@ -694,10 +514,10 @@ mod tests {
     fn test_unlink() {
         let mut arena = NodeArena::new();
 
-        let parent = arena.alloc(Node::new(NodeType::Document));
-        let child1 = arena.alloc(Node::new(NodeType::Paragraph));
-        let child2 = arena.alloc(Node::new(NodeType::Paragraph));
-        let child3 = arena.alloc(Node::new(NodeType::Paragraph));
+        let parent = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         TreeOps::append_child(&mut arena, parent, child1);
         TreeOps::append_child(&mut arena, parent, child2);
@@ -717,7 +537,7 @@ mod tests {
     #[test]
     fn test_try_get() {
         let mut arena = NodeArena::new();
-        let node = Node::new(NodeType::Document);
+        let node = Node::with_value(NodeValue::Document);
         let id = arena.alloc(node);
 
         // Valid ID should return Some
@@ -732,15 +552,72 @@ mod tests {
     #[test]
     fn test_try_get_mut_modification() {
         let mut arena = NodeArena::new();
-        let node = Node::new(NodeType::Paragraph);
+        let node = Node::with_value(NodeValue::Paragraph);
         let id = arena.alloc(node);
 
         // Modify through try_get_mut
         if let Some(node_mut) = arena.try_get_mut(id) {
-            node_mut.node_type = NodeType::BlockQuote;
+            node_mut.set_value(NodeValue::BlockQuote);
         }
 
         // Verify modification
-        assert_eq!(arena.get(id).node_type, NodeType::BlockQuote);
+        assert!(matches!(arena.get(id).value, NodeValue::BlockQuote));
+    }
+
+    #[test]
+    fn test_node_value_api() {
+        let mut arena = NodeArena::new();
+
+        // Create nodes using new API
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
+            crate::node_value::NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            },
+        )));
+
+        // Verify values
+        assert!(matches!(arena.get(doc).value, NodeValue::Document));
+        if let NodeValue::Heading(h) = &arena.get(heading).value {
+            assert_eq!(h.level, 1);
+        } else {
+            panic!("Expected Heading");
+        }
+    }
+
+    #[test]
+    fn test_backward_compatibility_node_type() {
+        let mut arena = NodeArena::new();
+
+        // Create using new API
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
+        let paragraph = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        // Verify node_type field works
+        assert_eq!(arena.get(doc).node_type, NodeType::Document);
+        assert_eq!(arena.get(paragraph).node_type, NodeType::Paragraph);
+    }
+
+    #[test]
+    fn test_backward_compatibility_data() {
+        let mut arena = NodeArena::new();
+
+        // Create a heading with metadata
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
+            crate::node_value::NodeHeading {
+                level: 2,
+                setext: false,
+                closed: true,
+            },
+        )));
+
+        // Verify data field works
+        if let NodeData::Heading { level, .. } = &arena.get(heading).data {
+            assert_eq!(*level, 2);
+        } else {
+            panic!("Expected Heading data");
+        }
     }
 }

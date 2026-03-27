@@ -16,6 +16,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::{NodeLink, NodeValue};
 
 /// Regex patterns for URL detection (simplified)
 const URL_SCHEMES: &[&str] = &["http://", "https://", "ftp://"];
@@ -174,13 +175,10 @@ pub fn create_autolink_node(
         url.to_string()
     };
 
-    let link_node = arena.alloc(Node::with_data(
-        NodeType::Link,
-        NodeData::Link {
-            url: href,
-            title: String::new(),
-        },
-    ));
+    let link_node = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+        url: href,
+        title: String::new(),
+    })));
 
     {
         let node = arena.get_mut(link_node);
@@ -193,12 +191,7 @@ pub fn create_autolink_node(
     }
 
     // Create text node for the display text
-    let text_node = arena.alloc(Node::with_data(
-        NodeType::Text,
-        NodeData::Text {
-            literal: display_url,
-        },
-    ));
+    let text_node = arena.alloc(Node::with_value(NodeValue::Text(display_url)));
 
     TreeOps::append_child(arena, link_node, text_node);
 
@@ -216,12 +209,7 @@ pub fn process_autolinks(
     let urls = find_urls(text);
     if urls.is_empty() {
         // No URLs found, return single text node
-        let node = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: text.to_string(),
-            },
-        ));
+        let node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string())));
         return vec![node];
     }
 
@@ -232,12 +220,8 @@ pub fn process_autolinks(
         // Add text before URL
         if start > last_end {
             let before_text = &text[last_end..start];
-            let node = arena.alloc(Node::with_data(
-                NodeType::Text,
-                NodeData::Text {
-                    literal: before_text.to_string(),
-                },
-            ));
+            let node =
+                arena.alloc(Node::with_value(NodeValue::Text(before_text.to_string())));
             nodes.push(node);
         }
 
@@ -252,12 +236,8 @@ pub fn process_autolinks(
     // Add remaining text after last URL
     if last_end < text.len() {
         let after_text = &text[last_end..];
-        let node = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: after_text.to_string(),
-            },
-        ));
+        let node =
+            arena.alloc(Node::with_value(NodeValue::Text(after_text.to_string())));
         nodes.push(node);
     }
 

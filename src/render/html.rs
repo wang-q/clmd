@@ -16,6 +16,7 @@ use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::entities::decode_entities;
 use crate::html_utils::{escape_html, is_safe_url};
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::NodeValue;
 
 /// Render an Arena-based AST to HTML
 ///
@@ -51,7 +52,7 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 pub fn render_with_value(arena: &mut NodeArena, root: NodeId, options: u32) -> String {
     // Sync NodeValue for all nodes
     arena.sync_node_values();
-    
+
     let mut renderer = HtmlRenderer::new(arena, options);
     renderer.render_node(root, true);
     renderer.finish()
@@ -606,8 +607,8 @@ mod tests {
     #[test]
     fn test_render_paragraph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -625,7 +626,7 @@ mod tests {
     #[test]
     fn test_render_heading() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_data(
             NodeType::Heading,
             NodeData::Heading {
@@ -650,8 +651,8 @@ mod tests {
     #[test]
     fn test_render_emphasis() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::new(NodeType::Emph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
@@ -671,8 +672,8 @@ mod tests {
     #[test]
     fn test_render_code() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let code = arena.alloc(Node::with_data(
             NodeType::Code,
             NodeData::Code {
@@ -690,7 +691,7 @@ mod tests {
     #[test]
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block = arena.alloc(Node::with_data(
             NodeType::CodeBlock,
             NodeData::CodeBlock {
@@ -711,8 +712,8 @@ mod tests {
     #[test]
     fn test_render_link() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let link = arena.alloc(Node::with_data(
             NodeType::Link,
             NodeData::Link {

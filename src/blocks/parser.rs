@@ -6,6 +6,7 @@ use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::error::{ParseError, ParseResult, ParserLimits};
 use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
 use rustc_hash::FxHashMap;
 
 /// Block parser state using Arena allocation
@@ -77,7 +78,7 @@ impl<'a> BlockParser<'a> {
         options: u32,
         limits: ParserLimits,
     ) -> Self {
-        let doc = arena.alloc(Node::new(NodeType::Document));
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
         let tip = doc;
         let old_tip = doc;
         let last_matched_container = doc;

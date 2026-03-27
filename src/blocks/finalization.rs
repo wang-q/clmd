@@ -7,7 +7,8 @@ use crate::arena::{NodeId, TreeOps};
 use crate::blocks::BlockParser;
 use crate::inlines::parse_reference;
 use crate::lexer::TAB_STOP;
-use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
+use crate::{NodeData, NodeType};
 
 impl<'a> BlockParser<'a> {
     /// Add text to container
@@ -289,7 +290,7 @@ impl<'a> BlockParser<'a> {
             tip = parent;
         }
 
-        let mut new_block = Node::new(block_type);
+        let mut new_block = Node::with_value(block_type.into());
         new_block.source_pos.start_line = self.line_number as u32;
         new_block.source_pos.start_column = start_column as u32;
 

@@ -3,6 +3,7 @@
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};
 use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
 use smallvec::SmallVec;
 
 /// Delimiter struct for tracking emphasis markers
@@ -185,12 +186,12 @@ fn find_matching_opener(
 
 /// Create an emphasis or strong node
 fn create_emphasis_node(arena: &mut NodeArena, use_delims: usize) -> NodeId {
-    let emph_type = if use_delims == 1 {
-        NodeType::Emph
+    let value = if use_delims == 1 {
+        NodeValue::Emph
     } else {
-        NodeType::Strong
+        NodeValue::Strong
     };
-    arena.alloc(crate::arena::Node::new(emph_type))
+    arena.alloc(crate::arena::Node::with_value(value))
 }
 
 /// Update delimiter text node by removing used delimiters

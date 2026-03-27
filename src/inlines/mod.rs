@@ -36,7 +36,8 @@ mod text;
 mod utils;
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
+use crate::{NodeData, NodeType};
 use autolinks::{match_email_autolink, match_url_autolink};
 use emphasis::{
     process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,
@@ -254,11 +255,11 @@ impl<'a> Subject<'a> {
 
         if preceding_spaces >= 2 {
             // Hard line break: line ends with 2+ spaces
-            let line_break = arena.alloc(Node::new(NodeType::LineBreak));
+            let line_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
             TreeOps::append_child(arena, parent, line_break);
         } else {
             // Soft line break
-            let soft_break = arena.alloc(Node::new(NodeType::SoftBreak));
+            let soft_break = arena.alloc(Node::with_value(NodeValue::SoftBreak));
             TreeOps::append_child(arena, parent, soft_break);
         }
 
@@ -350,7 +351,8 @@ impl<'a> Subject<'a> {
                         content
                     };
 
-                    let code_node = arena.alloc(Node::new(NodeType::Code));
+                    let code_node = arena
+                        .alloc(Node::with_value(NodeValue::Code(Default::default())));
                     {
                         let code_mut = arena.get_mut(code_node);
                         if let NodeData::Code {
@@ -409,7 +411,7 @@ impl<'a> Subject<'a> {
         if self.peek() == Some('\n') {
             // Hard line break
             self.advance();
-            let line_break = arena.alloc(Node::new(NodeType::LineBreak));
+            let line_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
             TreeOps::append_child(arena, parent, line_break);
         } else if let Some(c) = self.peek() {
             if is_escapable(c) {
@@ -456,7 +458,8 @@ impl<'a> Subject<'a> {
 
                 // This looks like it could be an autolink but failed validation
                 // Output the < as a literal character (it will be escaped during rendering)
-                let text_node = arena.alloc(Node::new(NodeType::Text));
+                let text_node =
+                    arena.alloc(Node::with_value(NodeValue::Text(String::new())));
                 {
                     let text_mut = arena.get_mut(text_node);
                     if let NodeData::Text { ref mut literal } = text_mut.data {
@@ -480,7 +483,7 @@ impl<'a> Subject<'a> {
         }
 
         // Just a literal < - add it as text
-        let text_node = arena.alloc(Node::new(NodeType::Text));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
         {
             let text_mut = arena.get_mut(text_node);
             if let NodeData::Text { ref mut literal } = text_mut.data {
@@ -556,7 +559,8 @@ impl<'a> Subject<'a> {
 
         // Try email autolink first
         if let Some((email, len)) = match_email_autolink(remaining) {
-            let link_node = arena.alloc(Node::new(NodeType::Link));
+            let link_node =
+                arena.alloc(Node::with_value(NodeValue::Link(Default::default())));
             {
                 let link_mut = arena.get_mut(link_node);
                 if let NodeData::Link {
@@ -570,7 +574,8 @@ impl<'a> Subject<'a> {
             }
 
             // Add text content
-            let text_node = arena.alloc(Node::new(NodeType::Text));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(String::new())));
             {
                 let text_mut = arena.get_mut(text_node);
                 if let NodeData::Text { ref mut literal } = text_mut.data {
@@ -586,7 +591,8 @@ impl<'a> Subject<'a> {
 
         // Try URL autolink
         if let Some((url, len)) = match_url_autolink(remaining) {
-            let link_node = arena.alloc(Node::new(NodeType::Link));
+            let link_node =
+                arena.alloc(Node::with_value(NodeValue::Link(Default::default())));
             {
                 let link_mut = arena.get_mut(link_node);
                 if let NodeData::Link {
@@ -600,7 +606,8 @@ impl<'a> Subject<'a> {
             }
 
             // Add text content
-            let text_node = arena.alloc(Node::new(NodeType::Text));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(String::new())));
             {
                 let text_mut = arena.get_mut(text_node);
                 if let NodeData::Text { ref mut literal } = text_mut.data {
@@ -623,7 +630,8 @@ impl<'a> Subject<'a> {
 
         // Try to match HTML tag
         if let Some((tag_content, len)) = match_html_tag(remaining) {
-            let html_node = arena.alloc(Node::new(NodeType::HtmlInline));
+            let html_node =
+                arena.alloc(Node::with_value(NodeValue::HtmlInline(String::new())));
             {
                 let html_mut = arena.get_mut(html_node);
                 if let NodeData::HtmlInline { ref mut literal } = html_mut.data {
@@ -671,7 +679,7 @@ impl<'a> Subject<'a> {
         } else {
             std::iter::repeat_n(c, res.num_delims).collect()
         };
-        let text_node = arena.alloc(Node::new(NodeType::Text));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
         {
             let text_mut = arena.get_mut(text_node);
             if let NodeData::Text {
@@ -702,7 +710,7 @@ impl<'a> Subject<'a> {
         // If this delimiter can open emphasis, add an empty text node as a barrier
         // to prevent subsequent text from being merged into the delimiter node.
         if res.can_open {
-            let barrier = arena.alloc(Node::new(NodeType::Text));
+            let barrier = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
             {
                 let barrier_mut = arena.get_mut(barrier);
                 if let NodeData::Text {
@@ -723,7 +731,7 @@ impl<'a> Subject<'a> {
         self.advance(); // skip [
 
         // Create a new text node for the bracket (don't merge with previous)
-        let text_node = arena.alloc(Node::new(NodeType::Text));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
         {
             let text_mut = arena.get_mut(text_node);
             if let NodeData::Text {
@@ -880,7 +888,8 @@ impl<'a> Subject<'a> {
             self.advance(); // skip [
                             // Create a separate text node for "![" to avoid merging with previous text
                             // This is important because the opener node will be unlinked when the image is processed
-            let text_node = arena.alloc(Node::new(NodeType::Text));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(String::new())));
             {
                 let text_mut = arena.get_mut(text_node);
                 if let NodeData::Text {
@@ -949,7 +958,8 @@ impl<'a> Subject<'a> {
             let text_slice = &self.input[start..self.pos];
 
             // Create text node with the content
-            let text_node = arena.alloc(Node::new(NodeType::Text));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(String::new())));
             {
                 let text_mut = arena.get_mut(text_node);
                 if let NodeData::Text {
@@ -1087,7 +1097,7 @@ impl<'a> Subject<'a> {
         }
 
         // Create new text node
-        let text_node = arena.alloc(Node::new(NodeType::Text));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
         {
             let text_mut = arena.get_mut(text_node);
             if let NodeData::Text {

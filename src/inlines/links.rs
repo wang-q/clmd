@@ -6,6 +6,7 @@ use crate::inlines::utils::{
     is_escapable, is_punctuation, normalize_reference, normalize_uri,
 };
 use crate::node::{NodeData, NodeType};
+use crate::node_value::{NodeLink, NodeValue};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
@@ -525,36 +526,13 @@ pub fn create_link_node(
     dest: String,
     title: String,
 ) -> NodeId {
-    let node_type = if is_image {
-        NodeType::Image
+    let value = if is_image {
+        NodeValue::Image(NodeLink { url: dest, title })
     } else {
-        NodeType::Link
+        NodeValue::Link(NodeLink { url: dest, title })
     };
 
-    let link_node = arena.alloc(Node::new(node_type));
-
-    {
-        let link_mut = arena.get_mut(link_node);
-        match &mut link_mut.data {
-            NodeData::Link {
-                url,
-                title: link_title,
-            } => {
-                *url = dest;
-                *link_title = title;
-            }
-            NodeData::Image {
-                url,
-                title: img_title,
-            } => {
-                *url = dest;
-                *img_title = title;
-            }
-            _ => {}
-        }
-    }
-
-    link_node
+    arena.alloc(Node::with_value(value))
 }
 
 /// Move nodes between opener and closer into the link/image node

@@ -5,6 +5,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::node::{NodeData, NodeType};
+use crate::node_value::NodeValue;
 
 /// Render an Arena-based AST to XML
 ///
@@ -39,7 +40,7 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 pub fn render_with_value(arena: &mut NodeArena, root: NodeId, options: u32) -> String {
     // Sync NodeValue for all nodes
     arena.sync_node_values();
-    
+
     let mut renderer = XmlRenderer::new(arena, options);
     renderer.render(root)
 }
@@ -276,7 +277,7 @@ mod tests {
     #[test]
     fn test_render_document() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let xml = render(&arena, root, 0);
         println!("XML output: {:?}", xml);
         assert!(xml.contains("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
@@ -287,8 +288,8 @@ mod tests {
     #[test]
     fn test_render_paragraph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -308,7 +309,7 @@ mod tests {
     #[test]
     fn test_render_bullet_list() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_data(
             NodeType::List,
             NodeData::List {
@@ -319,8 +320,8 @@ mod tests {
                 bullet_char: '-',
             },
         ));
-        let item = arena.alloc(Node::new(NodeType::Item));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let item = arena.alloc(Node::with_value(NodeValue::Item(Default::default())));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -342,7 +343,7 @@ mod tests {
     #[test]
     fn test_render_ordered_list() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_data(
             NodeType::List,
             NodeData::List {
@@ -353,7 +354,7 @@ mod tests {
                 bullet_char: '\0',
             },
         ));
-        let item = arena.alloc(Node::new(NodeType::Item));
+        let item = arena.alloc(Node::with_value(NodeValue::Item(Default::default())));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
@@ -365,7 +366,7 @@ mod tests {
     #[test]
     fn test_render_ordered_list_with_start() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_data(
             NodeType::List,
             NodeData::List {
@@ -376,7 +377,7 @@ mod tests {
                 bullet_char: '\0',
             },
         ));
-        let item = arena.alloc(Node::new(NodeType::Item));
+        let item = arena.alloc(Node::with_value(NodeValue::Item(Default::default())));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
@@ -390,7 +391,7 @@ mod tests {
     #[test]
     fn test_render_heading() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_data(
             NodeType::Heading,
             NodeData::Heading {
@@ -417,7 +418,7 @@ mod tests {
     #[test]
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block = arena.alloc(Node::with_data(
             NodeType::CodeBlock,
             NodeData::CodeBlock {
@@ -435,8 +436,8 @@ mod tests {
     #[test]
     fn test_render_link() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let link = arena.alloc(Node::with_data(
             NodeType::Link,
             NodeData::Link {
@@ -465,8 +466,8 @@ mod tests {
     #[test]
     fn test_render_image() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let image = arena.alloc(Node::with_data(
             NodeType::Image,
             NodeData::Image {
@@ -492,8 +493,8 @@ mod tests {
     #[test]
     fn test_render_with_sourcepos() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         {
             let p = arena.get_mut(para);
             p.source_pos.start_line = 1;
@@ -511,9 +512,9 @@ mod tests {
     #[test]
     fn test_render_blockquote() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let blockquote = arena.alloc(Node::new(NodeType::BlockQuote));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -534,9 +535,9 @@ mod tests {
     #[test]
     fn test_render_emph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let emph = arena.alloc(Node::new(NodeType::Emph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -557,9 +558,9 @@ mod tests {
     #[test]
     fn test_render_strong() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let strong = arena.alloc(Node::new(NodeType::Strong));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {
@@ -580,8 +581,8 @@ mod tests {
     #[test]
     fn test_render_code() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let code = arena.alloc(Node::with_data(
             NodeType::Code,
             NodeData::Code {
@@ -599,8 +600,8 @@ mod tests {
     #[test]
     fn test_render_thematic_break() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let hr = arena.alloc(Node::new(NodeType::ThematicBreak));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
 
         TreeOps::append_child(&mut arena, root, hr);
 
@@ -611,7 +612,7 @@ mod tests {
     #[test]
     fn test_render_html_block() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
         let html_block = arena.alloc(Node::with_data(
             NodeType::HtmlBlock,
             NodeData::HtmlBlock {
@@ -628,9 +629,9 @@ mod tests {
     #[test]
     fn test_render_soft_break() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let soft_break = arena.alloc(Node::new(NodeType::SoftBreak));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let soft_break = arena.alloc(Node::with_value(NodeValue::SoftBreak));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, soft_break);
@@ -642,9 +643,9 @@ mod tests {
     #[test]
     fn test_render_line_break() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        let line_break = arena.alloc(Node::new(NodeType::LineBreak));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let line_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, line_break);
@@ -656,8 +657,8 @@ mod tests {
     #[test]
     fn test_render_empty_text() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::new(NodeType::Document));
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text = arena.alloc(Node::with_data(
             NodeType::Text,
             NodeData::Text {

@@ -12,6 +12,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::{NodeTaskItem, NodeValue};
 
 /// Check if a string is a task list item marker
 /// Returns Some(checked) if it's a task item, None otherwise
@@ -63,10 +64,10 @@ pub fn create_task_item(
     line: u32,
     col: u32,
 ) -> NodeId {
-    let node = arena.alloc(Node::with_data(
-        NodeType::TaskItem,
-        NodeData::TaskItem { checked },
-    ));
+    let symbol = if checked { Some('x') } else { None };
+    let node = arena.alloc(Node::with_value(NodeValue::TaskItem(NodeTaskItem {
+        symbol,
+    })));
 
     {
         let node_ref = arena.get_mut(node);
@@ -80,12 +81,8 @@ pub fn create_task_item(
 
     // Create text node for the content
     if !content.is_empty() {
-        let text_node = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: content.to_string(),
-            },
-        ));
+        let text_node =
+            arena.alloc(Node::with_value(NodeValue::Text(content.to_string())));
         TreeOps::append_child(arena, node, text_node);
     }
 

@@ -14,6 +14,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node_value::NodeValue;
 
 /// A definition list entry
 #[derive(Debug, Clone)]
@@ -115,13 +116,7 @@ pub fn create_definition_list_node(
     start_line: u32,
     _start_col: u32,
 ) -> NodeId {
-    let list_node = arena.alloc(Node::with_data(
-        NodeType::CustomBlock,
-        NodeData::CustomBlock {
-            on_enter: "<dl>".to_string(),
-            on_exit: "</dl>".to_string(),
-        },
-    ));
+    let list_node = arena.alloc(Node::with_value(NodeValue::Raw("<dl>".to_string())));
 
     {
         let node_ref = arena.get_mut(list_node);
@@ -135,42 +130,23 @@ pub fn create_definition_list_node(
 
     for entry in entries {
         // Create term node (<dt>)
-        let term_node = arena.alloc(Node::with_data(
-            NodeType::CustomInline,
-            NodeData::CustomInline {
-                on_enter: "<dt>".to_string(),
-                on_exit: "</dt>".to_string(),
-            },
-        ));
+        let term_node =
+            arena.alloc(Node::with_value(NodeValue::Raw("<dt>".to_string())));
 
         // Create text node for term
-        let text_node = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: entry.term.clone(),
-            },
-        ));
+        let text_node =
+            arena.alloc(Node::with_value(NodeValue::Text(entry.term.clone())));
 
         TreeOps::append_child(arena, term_node, text_node);
         TreeOps::append_child(arena, list_node, term_node);
 
         // Create definition nodes (<dd>)
         for def in &entry.definitions {
-            let def_node = arena.alloc(Node::with_data(
-                NodeType::CustomInline,
-                NodeData::CustomInline {
-                    on_enter: "<dd>".to_string(),
-                    on_exit: "</dd>".to_string(),
-                },
-            ));
+            let def_node =
+                arena.alloc(Node::with_value(NodeValue::Raw("<dd>".to_string())));
 
             // Create text node for definition
-            let text_node = arena.alloc(Node::with_data(
-                NodeType::Text,
-                NodeData::Text {
-                    literal: def.clone(),
-                },
-            ));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(def.clone())));
 
             TreeOps::append_child(arena, def_node, text_node);
             TreeOps::append_child(arena, list_node, def_node);
@@ -293,7 +269,8 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_definition_list_node(&mut arena, &entries, 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::CustomBlock);
+        // NodeValue::Raw maps to NodeType::None
+        assert_eq!(node.node_type, NodeType::None);
     }
 
     #[test]

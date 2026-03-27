@@ -13,6 +13,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::node::{NodeData, NodeType, SourcePos, TableAlignment};
+use crate::node_value::{NodeTable, NodeValue, TableAlignment as NewTableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {
@@ -166,13 +167,12 @@ pub fn try_parse_table(
     };
 
     // Create table node
-    let table_node = arena.alloc(Node::with_data(
-        NodeType::Table,
-        NodeData::Table {
-            num_columns,
-            alignments: alignments.clone(),
-        },
-    ));
+    let table_node = arena.alloc(Node::with_value(NodeValue::Table(NodeTable {
+        num_columns,
+        alignments: alignments.iter().map(|a| (*a).into()).collect(),
+        num_rows: 0,
+        num_nonempty_cells: 0,
+    })));
     {
         let table = arena.get_mut(table_node);
         table.source_pos = SourcePos {
@@ -184,8 +184,7 @@ pub fn try_parse_table(
     }
 
     // Create table head
-    let thead_node =
-        arena.alloc(Node::with_data(NodeType::TableHead, NodeData::TableHead));
+    let thead_node = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
     {
         let thead = arena.get_mut(thead_node);
         thead.source_pos = SourcePos {
@@ -197,7 +196,7 @@ pub fn try_parse_table(
     }
 
     // Create header row
-    let header_row = arena.alloc(Node::new(NodeType::TableRow));
+    let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
     {
         let row = arena.get_mut(header_row);
         row.data = NodeData::TableRow;
@@ -205,29 +204,13 @@ pub fn try_parse_table(
 
     // Create header cells
     for (i, cell_content) in header_cells.iter().enumerate() {
-        let cell = arena.alloc(Node::with_data(
-            NodeType::TableCell,
-            NodeData::TableCell {
-                column_index: i,
-                alignment: alignments.get(i).copied().unwrap_or(TableAlignment::None),
-                is_header: true,
-            },
-        ));
+        let cell = arena.alloc(Node::with_value(NodeValue::TableCell));
 
         // Create paragraph for cell content
-        let para = arena.alloc(Node::new(NodeType::Paragraph));
-        {
-            let p = arena.get_mut(para);
-            p.data = NodeData::Paragraph;
-        }
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         // Create text node for content
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: cell_content.clone(),
-            },
-        ));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone())));
 
         // Build tree: cell -> para -> text
         TreeOps::append_child(arena, para, text);
@@ -250,7 +233,7 @@ pub fn try_parse_table(
         let row_cells = parse_row_cells(line);
         let row_line_num = start_line + 2 + i;
 
-        let row = arena.alloc(Node::with_data(NodeType::TableRow, NodeData::TableRow));
+        let row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
         {
             let r = arena.get_mut(row);
             r.source_pos = SourcePos {
@@ -263,32 +246,14 @@ pub fn try_parse_table(
 
         // Create cells for this row
         for (j, cell_content) in row_cells.iter().enumerate().take(num_columns) {
-            let cell = arena.alloc(Node::with_data(
-                NodeType::TableCell,
-                NodeData::TableCell {
-                    column_index: j,
-                    alignment: alignments
-                        .get(j)
-                        .copied()
-                        .unwrap_or(TableAlignment::None),
-                    is_header: false,
-                },
-            ));
+            let cell = arena.alloc(Node::with_value(NodeValue::TableCell));
 
             // Create paragraph for cell content
-            let para = arena.alloc(Node::new(NodeType::Paragraph));
-            {
-                let p = arena.get_mut(para);
-                p.data = NodeData::Paragraph;
-            }
+            let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
             // Create text node for content
-            let text = arena.alloc(Node::with_data(
-                NodeType::Text,
-                NodeData::Text {
-                    literal: cell_content.clone(),
-                },
-            ));
+            let text =
+                arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone())));
 
             // Build tree: cell -> para -> text
             TreeOps::append_child(arena, para, text);
