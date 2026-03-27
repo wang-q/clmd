@@ -68,11 +68,18 @@ impl<'a> HtmlRenderer<'a> {
         if entering {
             self.enter_node(node_id);
             let node = self.arena.get(node_id);
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                self.render_node(child_id, true);
-                child_opt = self.arena.get(child_id).next;
+
+            // For image nodes, don't render children as they are used for alt text
+            let is_image = matches!(node.value, NodeValue::Image(..));
+
+            if !is_image {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id, true);
+                    child_opt = self.arena.get(child_id).next;
+                }
             }
+
             self.exit_node(node_id);
         }
     }
@@ -97,7 +104,7 @@ impl<'a> HtmlRenderer<'a> {
         match &node.value {
             NodeValue::Document => {}
             NodeValue::BlockQuote => {
-                self.write("<blockquote>");
+                self.write_line("<blockquote>");
                 self.tag_stack.push("blockquote");
             }
             NodeValue::List(NodeList {
@@ -129,7 +136,7 @@ impl<'a> HtmlRenderer<'a> {
                 if is_task_list {
                     self.write(" class=\"task-list-item\"");
                 }
-                self.write_line(">");
+                self.write(">");
                 self.tag_stack.push("li");
             }
             NodeValue::CodeBlock(..) => {
@@ -142,6 +149,10 @@ impl<'a> HtmlRenderer<'a> {
             }
             NodeValue::Paragraph => {
                 if !self.in_tight_list() {
+                    // In loose lists, add newline before paragraph
+                    if self.in_list_item() {
+                        self.write_line("");
+                    }
                     self.write("<p>");
                     self.tag_stack.push("p");
                 }
@@ -198,6 +209,9 @@ impl<'a> HtmlRenderer<'a> {
             NodeValue::Image(NodeLink { url, title }) => {
                 self.write(&format!("<img src=\"{}\"", escape_href(url)));
                 // The alt text comes from the image's children
+                let alt_text = self.collect_alt_text(node_id);
+                // Always include alt attribute, even if empty
+                self.write(&format!(" alt=\"{}\"", escape_html(&alt_text)));
                 if !title.is_empty() {
                     self.write(&format!(" title=\"{}\"", escape_html(title)));
                 }
@@ -297,7 +311,7 @@ impl<'a> HtmlRenderer<'a> {
                 let tag = format!("h{}", level);
                 self.write_line(&format!("</{}>", tag));
                 self.tag_stack.pop();
-                self.need_blank_line = true;
+                // Headings don't need extra blank line - write_line already adds newline
             }
             NodeValue::Emph => {
                 self.write("</em>");
@@ -346,7 +360,7 @@ impl<'a> HtmlRenderer<'a> {
                     self.write(&format!(" class=\"language-{}\"", escape_html(lang)));
                 }
             }
-            self.write_line(">");
+            self.write(">");
 
             // Write code content
             self.write(&escape_html(literal));
@@ -384,6 +398,37 @@ impl<'a> HtmlRenderer<'a> {
         None
     }
 
+    /// Collect alt text from image node's children
+    /// Alt text is the plain text content of the image's children, without HTML tags
+    fn collect_alt_text(&self, node_id: NodeId) -> String {
+        let mut alt_text = String::new();
+        self.collect_alt_text_recursive(node_id, &mut alt_text);
+        alt_text
+    }
+
+    fn collect_alt_text_recursive(&self, node_id: NodeId, alt_text: &mut String) {
+        let node = self.arena.get(node_id);
+        match &node.value {
+            NodeValue::Text(literal) => {
+                alt_text.push_str(literal);
+            }
+            NodeValue::SoftBreak => {
+                alt_text.push(' ');
+            }
+            NodeValue::HardBreak => {
+                alt_text.push(' ');
+            }
+            _ => {
+                // For other node types, recursively collect from children
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.collect_alt_text_recursive(child_id, alt_text);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
+        }
+    }
+
     fn write(&mut self, text: &str) {
         self.output.push_str(text);
         self.beginning_of_line = false;
@@ -397,6 +442,11 @@ impl<'a> HtmlRenderer<'a> {
 
     fn in_tight_list(&self) -> bool {
         self.tight_list_stack.last().copied().unwrap_or(false)
+    }
+
+    fn in_list_item(&self) -> bool {
+        // Check if we're inside a list item by looking at tag stack
+        self.tag_stack.iter().any(|tag| *tag == "li")
     }
 }
 
