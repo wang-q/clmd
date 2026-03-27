@@ -9,7 +9,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node::SourcePos;
 use crate::node_value::NodeValue;
 
 /// The tilde character used for strikethrough
@@ -195,11 +195,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_strikethrough_node(&mut arena, "deleted", 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::Strikethrough);
-        match &node.data {
-            NodeData::Strikethrough => {}
-            _ => panic!("Expected Strikethrough data"),
-        }
+        assert!(matches!(node.value, NodeValue::Strikethrough));
     }
 
     #[test]
@@ -208,9 +204,12 @@ mod tests {
         let nodes = process_strikethrough(&mut arena, "This is ~~deleted~~ text", 1, 1);
         assert_eq!(nodes.len(), 3); // text, strikethrough, text
 
-        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
-        assert_eq!(arena.get(nodes[1]).node_type, NodeType::Strikethrough);
-        assert_eq!(arena.get(nodes[2]).node_type, NodeType::Text);
+        assert!(matches!(arena.get(nodes[0]).value, NodeValue::Text(..)));
+        assert!(matches!(
+            arena.get(nodes[1]).value,
+            NodeValue::Strikethrough
+        ));
+        assert!(matches!(arena.get(nodes[2]).value, NodeValue::Text(..)));
     }
 
     #[test]
@@ -218,7 +217,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let nodes = process_strikethrough(&mut arena, "normal text", 1, 1);
         assert_eq!(nodes.len(), 1);
-        assert_eq!(arena.get(nodes[0]).node_type, NodeType::Text);
+        assert!(matches!(arena.get(nodes[0]).value, NodeValue::Text(..)));
     }
 
     #[test]

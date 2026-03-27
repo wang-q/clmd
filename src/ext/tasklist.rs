@@ -11,7 +11,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos};
+use crate::node::SourcePos;
 use crate::node_value::{NodeTaskItem, NodeValue};
 
 /// Check if a string is a task list item marker
@@ -174,13 +174,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let node_id = create_task_item(&mut arena, true, "task content", 1, 1);
         let node = arena.get(node_id);
-        assert_eq!(node.node_type, NodeType::TaskItem);
-        match &node.data {
-            NodeData::TaskItem { checked } => {
-                assert!(*checked);
-            }
-            _ => panic!("Expected TaskItem data"),
-        }
+        assert!(matches!(node.value, NodeValue::TaskItem(..)));
     }
 
     #[test]

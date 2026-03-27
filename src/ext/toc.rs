@@ -13,7 +13,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node::NodeData;
+use crate::node_value::{NodeHeading, NodeValue};
 
 /// A TOC entry representing a heading
 #[derive(Debug, Clone)]
@@ -74,7 +74,7 @@ pub fn extract_heading_text(arena: &NodeArena, node_id: NodeId) -> String {
     fn collect_text(arena: &NodeArena, node_id: NodeId, text: &mut String) {
         let node = arena.get(node_id);
 
-        if let NodeData::Text { literal } = &node.data {
+        if let NodeValue::Text(literal) = &node.value {
             text.push_str(literal);
         }
 
@@ -106,16 +106,12 @@ pub fn build_toc(arena: &NodeArena, document_id: NodeId) -> Vec<TocEntry> {
         let node = arena.get(node_id);
 
         // Check if this is a heading
-        if matches!(node.data, NodeData::Heading { .. }) {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.value {
             let text = extract_heading_text(arena, node_id);
             let anchor = generate_anchor(&text);
-            let level = match &node.data {
-                NodeData::Heading { level, .. } => *level,
-                _ => 1,
-            };
 
             entries.push(TocEntry {
-                level,
+                level: *level as u32,
                 text,
                 anchor,
             });
@@ -197,7 +193,6 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node::NodeType;
 
     #[test]
     fn test_is_toc_marker() {
@@ -222,19 +217,14 @@ mod tests {
     #[test]
     fn test_extract_heading_text() {
         let mut arena = NodeArena::new();
-        let heading = arena.alloc(Node::with_data(
-            NodeType::Heading,
-            NodeData::Heading {
-                level: 1,
-                content: "Test Heading".to_string(),
-            },
-        ));
-        let text = arena.alloc(Node::with_data(
-            NodeType::Text,
-            NodeData::Text {
-                literal: "Test Heading".to_string(),
-            },
-        ));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            "Test Heading".to_string(),
+        )));
         TreeOps::append_child(&mut arena, heading, text);
 
         let extracted = extract_heading_text(&arena, heading);
@@ -244,23 +234,18 @@ mod tests {
     #[test]
     fn test_build_toc() {
         let mut arena = NodeArena::new();
-        let doc = arena.alloc(Node::new(NodeType::Document));
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
 
         // Create headings
         for i in 1..=3 {
-            let heading = arena.alloc(Node::with_data(
-                NodeType::Heading,
-                NodeData::Heading {
+            let heading =
+                arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
                     level: i,
-                    content: format!("Heading {}", i),
-                },
-            ));
-            let text = arena.alloc(Node::with_data(
-                NodeType::Text,
-                NodeData::Text {
-                    literal: format!("Heading {}", i),
-                },
-            ));
+                    setext: false,
+                    closed: false,
+                })));
+            let text =
+                arena.alloc(Node::with_value(NodeValue::Text(format!("Heading {}", i))));
             TreeOps::append_child(&mut arena, heading, text);
             TreeOps::append_child(&mut arena, doc, heading);
         }

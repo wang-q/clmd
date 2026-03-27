@@ -12,8 +12,8 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node::{NodeData, NodeType, SourcePos, TableAlignment};
-use crate::node_value::{NodeTable, NodeValue, TableAlignment as NewTableAlignment};
+use crate::node::SourcePos;
+use crate::node_value::{NodeTable, NodeValue, TableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {
@@ -169,7 +169,7 @@ pub fn try_parse_table(
     // Create table node
     let table_node = arena.alloc(Node::with_value(NodeValue::Table(NodeTable {
         num_columns,
-        alignments: alignments.iter().map(|a| (*a).into()).collect(),
+        alignments: alignments.iter().map(|a| *a).collect(),
         num_rows: 0,
         num_nonempty_cells: 0,
     })));
@@ -197,13 +197,9 @@ pub fn try_parse_table(
 
     // Create header row
     let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
-    {
-        let row = arena.get_mut(header_row);
-        row.data = NodeData::TableRow;
-    }
 
     // Create header cells
-    for (i, cell_content) in header_cells.iter().enumerate() {
+    for cell_content in header_cells.iter() {
         let cell = arena.alloc(Node::with_value(NodeValue::TableCell));
 
         // Create paragraph for cell content
@@ -245,7 +241,7 @@ pub fn try_parse_table(
         }
 
         // Create cells for this row
-        for (j, cell_content) in row_cells.iter().enumerate().take(num_columns) {
+        for cell_content in row_cells.iter().take(num_columns) {
             let cell = arena.alloc(Node::with_value(NodeValue::TableCell));
 
             // Create paragraph for cell content
@@ -335,18 +331,7 @@ mod tests {
         assert_eq!(lines_consumed, 4);
 
         let table = arena.get(table_id);
-        match &table.data {
-            NodeData::Table {
-                num_columns,
-                alignments,
-            } => {
-                assert_eq!(*num_columns, 2);
-                assert_eq!(alignments.len(), 2);
-                assert_eq!(alignments[0], TableAlignment::None);
-                assert_eq!(alignments[1], TableAlignment::None);
-            }
-            _ => panic!("Expected Table data"),
-        }
+        assert!(matches!(table.value, NodeValue::Table(..)));
     }
 
     #[test]
@@ -363,13 +348,12 @@ mod tests {
 
         let (table_id, _) = result.unwrap();
         let table = arena.get(table_id);
-        match &table.data {
-            NodeData::Table { alignments, .. } => {
-                assert_eq!(alignments[0], TableAlignment::Left);
-                assert_eq!(alignments[1], TableAlignment::Center);
-                assert_eq!(alignments[2], TableAlignment::Right);
-            }
-            _ => panic!("Expected Table data"),
+        if let NodeValue::Table(NodeTable { alignments, .. }) = &table.value {
+            assert_eq!(alignments[0], TableAlignment::Left);
+            assert_eq!(alignments[1], TableAlignment::Center);
+            assert_eq!(alignments[2], TableAlignment::Right);
+        } else {
+            panic!("Expected Table value");
         }
     }
 }
