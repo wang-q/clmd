@@ -2,7 +2,6 @@
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};
-use crate::node::{NodeData, NodeType};
 use crate::node_value::NodeValue;
 use smallvec::SmallVec;
 
@@ -201,7 +200,7 @@ fn update_delimiter_text(
     use_delims: usize,
 ) -> String {
     let node = arena.get_mut(node_id);
-    if let NodeData::Text { ref mut literal } = node.data {
+    if let NodeValue::Text(ref mut literal) = node.value {
         let new_len = literal.len().saturating_sub(use_delims);
         literal.truncate(new_len);
         literal.clone()
@@ -276,7 +275,7 @@ fn process_smart_quotes(
 
     {
         let node = arena.get_mut(closer_inl);
-        if let NodeData::Text { ref mut literal } = node.data {
+        if let NodeValue::Text(ref mut literal) = node.value {
             *literal = quote_char.to_string();
         }
     }
@@ -290,7 +289,7 @@ fn process_smart_quotes(
         };
 
         let node = arena.get_mut(opener_inl);
-        if let NodeData::Text { ref mut literal } = node.data {
+        if let NodeValue::Text(ref mut literal) = node.value {
             *literal = open_quote.to_string();
         }
     }
@@ -318,6 +317,7 @@ fn rebuild_delimiter_stack(
                 // AND they were not processed (i.e., they didn't find a match)
                 // Actually, if num_delims > 0 but they didn't find a match,
                 // they should be removed from the stack (become regular text)
+                // *num_delims > 0
                 *num_delims > 0
             }
         })
