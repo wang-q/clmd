@@ -7,9 +7,6 @@ pub mod arena;
 /// Error types and parsing limits
 pub mod error;
 
-/// AST traversal and visitor patterns
-pub mod ast;
-
 /// Block-level parsing for CommonMark documents
 ///
 /// This module implements the block parsing algorithm based on the CommonMark spec.
