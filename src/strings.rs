@@ -145,7 +145,9 @@ pub fn clean_title(title: &str) -> Cow<str> {
                 b'n' => result.push('n'),
                 b't' => result.push('t'),
                 b'r' => result.push('r'),
-                b'\\' | b'`' | b'*' | b'_' | b'{' | b'}' | b'[' | b']' | b'(' | b')' | b'#' | b'+' | b'-' | b'.' | b'!' | b'|' | b'<' | b'>' | b' ' | b'\t' | b'\n' | b'\r' => {
+                b'\\' | b'`' | b'*' | b'_' | b'{' | b'}' | b'[' | b']' | b'(' | b')'
+                | b'#' | b'+' | b'-' | b'.' | b'!' | b'|' | b'<' | b'>' | b' '
+                | b'\t' | b'\n' | b'\r' => {
                     result.push(next as char);
                 }
                 _ => {

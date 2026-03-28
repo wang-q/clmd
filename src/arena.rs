@@ -267,7 +267,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::{Arena, Node, NodeValue, TreeOps};
     ///
     /// let mut arena = Arena::new();

@@ -9,7 +9,7 @@ fn test_markdown_to_html_basic() {
     let options = Options::default();
     let html = markdown_to_html("Hello world", &options);
     println!("HTML output bytes: {:?}", html.as_bytes());
-    assert_eq!(html, "<p>Hello world</p>");
+    assert_eq!(html, "<p>Hello world</p>\n");
 }
 
 #[test]

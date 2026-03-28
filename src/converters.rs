@@ -389,9 +389,7 @@ mod tests {
             },
         )));
 
-        let text = arena.alloc(Node::with_value(NodeValue::make_text(
-            "Test Document",
-        )));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Test Document")));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, doc, heading);
 

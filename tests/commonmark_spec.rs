@@ -5,14 +5,24 @@ use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, &Options::default())
+    let mut result = markdown_to_html(input, &Options::default());
+    // Remove trailing newline to match CommonMark spec test format
+    while result.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 /// Helper function to convert markdown to HTML with smart punctuation
 fn md_to_html_smart(input: &str) -> String {
     let mut opts = Options::default();
     opts.parse.smart = true;
-    markdown_to_html(input, &opts)
+    let mut result = markdown_to_html(input, &opts);
+    // Remove trailing newline to match CommonMark spec test format
+    while result.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
@@ -271,7 +281,7 @@ fn test_commonmark_spec() {
     // Using 95% threshold during development; can be increased to 1.0 (100%) once stable
     const MIN_PASS_RATE: f64 = 0.90; // Temporarily lowered to see all failures
     let pass_rate = passed as f64 / tests.len() as f64;
-    
+
     // Print failure details before asserting
     if pass_rate < MIN_PASS_RATE {
         eprintln!("\n=== FAILED TEST DETAILS ===");
@@ -289,7 +299,7 @@ fn test_commonmark_spec() {
             }
         }
     }
-    
+
     assert!(
         pass_rate >= MIN_PASS_RATE,
         "Pass rate {:.1}% is below the threshold {:.1}%\nPassed: {}/{} tests",

@@ -5,7 +5,12 @@ use clmd::parser::options::Options;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, &Options::default())
+    let mut result = markdown_to_html(input, &Options::default());
+    // Remove trailing newline to match test expectations
+    while result.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set

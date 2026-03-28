@@ -288,7 +288,8 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
             };
 
         if let NodeValue::Text(ref mut literal) = arena.get_mut(node).value {
-            *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into_boxed_str();
+            *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref())
+                .into_boxed_str();
         }
 
         // Remove next node
@@ -555,18 +556,20 @@ mod tests {
         consolidate_text_nodes(&mut arena, root);
 
         // text1 and text2 should not be consolidated (separated by emph)
-        let text1_content: String = if let NodeValue::Text(literal) = &arena.get(text1).value {
-            literal.as_ref().to_string()
-        } else {
-            String::new()
-        };
+        let text1_content: String =
+            if let NodeValue::Text(literal) = &arena.get(text1).value {
+                literal.as_ref().to_string()
+            } else {
+                String::new()
+            };
         assert_eq!(text1_content, "Hello");
 
-        let text2_content: String = if let NodeValue::Text(literal) = &arena.get(text2).value {
-            literal.as_ref().to_string()
-        } else {
-            String::new()
-        };
+        let text2_content: String =
+            if let NodeValue::Text(literal) = &arena.get(text2).value {
+                literal.as_ref().to_string()
+            } else {
+                String::new()
+            };
         assert_eq!(text2_content, "world");
     }
 

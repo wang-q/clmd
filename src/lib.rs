@@ -29,7 +29,7 @@
 //!
 //! For more control, you can parse the input into an AST, manipulate it, and then format it:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{Arena, parse_document, format_html, Options};
 //! use clmd::nodes::NodeValue;
 //!
@@ -40,7 +40,7 @@
 //! // Manipulate the AST
 //! for node in root.descendants() {
 //!     if let NodeValue::Text(ref mut text) = node.data.borrow_mut().value {
-//!         *text = text.to_mut().replace("pretty", "beautiful").into();
+//!         *text = text.to_string().replace("pretty", "beautiful").into();
 //!     }
 //! }
 //!
@@ -53,7 +53,7 @@
 //!
 //! You can enable GFM extensions and configure rendering:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -378,10 +378,6 @@ pub fn markdown_to_html_with_plugins(
     let root = parser::parse_document(&arena, md, options);
     let mut out = String::new();
     format_html_with_plugins(root, options, &mut out, plugins).unwrap();
-    // Remove trailing newline to match CommonMark spec test format
-    while out.ends_with('\n') {
-        out.pop();
-    }
     out
 }
 

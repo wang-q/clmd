@@ -642,6 +642,12 @@ impl<'a> Subject<'a> {
             self.delimiters = Some(delim);
         }
 
+        // Add an empty text node as a barrier to prevent subsequent text from being
+        // merged into the delimiter node. This is important for both open and close
+        // delimiters because process_emphasis will modify the delimiter text nodes.
+        let barrier = arena.alloc(Node::with_value(NodeValue::Text("".into())));
+        TreeOps::append_child(arena, parent, barrier);
+
         true
     }
 

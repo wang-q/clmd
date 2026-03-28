@@ -49,7 +49,7 @@ pub fn parse_document<'a>(
     let mut node_arena = NodeArena::new();
     let options_flags = options_to_flags(options);
     let doc_id = BlockParser::parse_with_options(&mut node_arena, md, options_flags);
-    
+
     // Convert NodeArena to arena_tree::Node
     convert_node_arena_to_ast(arena, &node_arena, doc_id)
 }
@@ -134,42 +134,44 @@ fn convert_node_arena_to_ast<'a>(
     node_id: NodeId,
 ) -> Node<'a> {
     let node_count = node_arena.len() as NodeId;
-    
+
     // Create a mapping from NodeId to AstNode
     let mut id_to_node: HashMap<NodeId, Node<'a>> = HashMap::new();
-    
+
     // First pass: create all nodes
     for id in 0..node_count {
         let node = node_arena.get(id);
         let ast_node = create_ast_node(arena, node);
         id_to_node.insert(id, ast_node);
     }
-    
-    // Second pass: establish parent-child relationships
+
+    // Second pass: establish parent-child and sibling relationships
     for id in 0..node_count {
         let node = node_arena.get(id);
         if let Some(&ast_node) = id_to_node.get(&id) {
-            // Add children
-            if let Some(first_child_id) = node.first_child {
-                if let Some(&child_node) = id_to_node.get(&first_child_id) {
+            // Add all children (traverse the child linked list)
+            let mut child_id = node.first_child;
+            while let Some(child_id_val) = child_id {
+                if let Some(&child_node) = id_to_node.get(&child_id_val) {
                     ast_node.append(child_node);
                 }
-            }
-            // Add next sibling
-            if let Some(next_id) = node.next {
-                if let Some(&sibling_node) = id_to_node.get(&next_id) {
-                    ast_node.insert_after(sibling_node);
-                }
+                child_id = node_arena.get(child_id_val).next;
             }
         }
     }
-    
+
     // Return the root node
-    id_to_node.get(&node_id).copied().expect("Root node should exist")
+    id_to_node
+        .get(&node_id)
+        .copied()
+        .expect("Root node should exist")
 }
 
 /// Create an AstNode from a NodeArena Node.
-fn create_ast_node<'a>(arena: &'a crate::Arena<'a>, node: &crate::arena::Node) -> Node<'a> {
+fn create_ast_node<'a>(
+    arena: &'a crate::Arena<'a>,
+    node: &crate::arena::Node,
+) -> Node<'a> {
     let node_value = node.value.clone();
     let ast = Ast::new(node_value, node.source_pos.start);
     let ast_node = crate::arena_tree::Node::new(RefCell::new(ast));

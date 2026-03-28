@@ -222,9 +222,7 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::make_text(
-            "Test Heading",
-        )));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Test Heading")));
         TreeOps::append_child(&mut arena, heading, text);
 
         let extracted = extract_heading_text(&arena, heading);
@@ -244,8 +242,9 @@ mod tests {
                     setext: false,
                     closed: false,
                 })));
-            let text =
-                arena.alloc(Node::with_value(NodeValue::make_text(format!("Heading {}", i).as_str())));
+            let text = arena.alloc(Node::with_value(NodeValue::make_text(
+                format!("Heading {}", i).as_str(),
+            )));
             TreeOps::append_child(&mut arena, heading, text);
             TreeOps::append_child(&mut arena, doc, heading);
         }

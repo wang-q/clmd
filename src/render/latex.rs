@@ -277,8 +277,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text =
-            arena.alloc(Node::with_value(NodeValue::make_text("Hello world")));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello world")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -293,8 +292,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
-        let text =
-            arena.alloc(Node::with_value(NodeValue::make_text("emphasized")));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("emphasized")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -393,8 +391,8 @@ mod tests {
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let code_block =
-            arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
+            NodeCodeBlock {
                 fenced: true,
                 fence_char: b'`',
                 fence_length: 3,
@@ -402,7 +400,8 @@ mod tests {
                 info: "".to_string(),
                 literal: "fn main() {}".to_string(),
                 closed: true,
-            }))));
+            },
+        ))));
 
         TreeOps::append_child(&mut arena, root, code_block);
 

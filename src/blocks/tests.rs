@@ -172,7 +172,8 @@ fn test_remove_link_reference_definitions() {
     match &content_ref.value {
         NodeValue::Text(literal) => {
             assert_eq!(
-                literal.as_ref(), "Some text",
+                literal.as_ref(),
+                "Some text",
                 "Paragraph content should be 'Some text'"
             );
         }

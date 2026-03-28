@@ -227,8 +227,18 @@ fn move_nodes_to_emphasis(
         }
         let next_child = arena.get(child_id).next;
 
-        TreeOps::unlink(arena, child_id);
-        TreeOps::append_child(arena, emph_node, child_id);
+        // Skip empty text nodes (barriers added by parse_delim)
+        let is_empty_text = if let NodeValue::Text(ref text) = arena.get(child_id).value
+        {
+            text.is_empty()
+        } else {
+            false
+        };
+
+        if !is_empty_text {
+            TreeOps::unlink(arena, child_id);
+            TreeOps::append_child(arena, emph_node, child_id);
+        }
 
         current_child = next_child;
     }
@@ -249,19 +259,9 @@ fn process_emphasis_pair(
     let closer_text = update_delimiter_text(arena, closer_inl, use_delims);
 
     let emph_node = create_emphasis_node(arena, use_delims);
-    
-    // First, collect all nodes between opener and closer
-    // These are the nodes that should go inside the emphasis
-    let nodes_to_move = collect_nodes_between(arena, opener_inl, closer_inl);
-    
-    // Insert emphasis node after opener
+    move_nodes_to_emphasis(arena, emph_node, opener_inl, closer_inl);
+
     TreeOps::insert_after(arena, opener_inl, emph_node);
-    
-    // Move collected nodes into the emphasis node
-    for node_id in nodes_to_move {
-        TreeOps::unlink(arena, node_id);
-        TreeOps::append_child(arena, emph_node, node_id);
-    }
 
     if opener_text.is_empty() {
         TreeOps::unlink(arena, opener_inl);
@@ -269,26 +269,6 @@ fn process_emphasis_pair(
     if closer_text.is_empty() {
         TreeOps::unlink(arena, closer_inl);
     }
-}
-
-/// Collect all nodes between opener and closer (exclusive)
-fn collect_nodes_between(
-    arena: &NodeArena,
-    opener_inl: NodeId,
-    closer_inl: NodeId,
-) -> Vec<NodeId> {
-    let mut nodes = Vec::new();
-    let mut current = arena.get(opener_inl).next;
-    
-    while let Some(node_id) = current {
-        if node_id == closer_inl {
-            break;
-        }
-        current = arena.get(node_id).next;
-        nodes.push(node_id);
-    }
-    
-    nodes
 }
 
 /// Process smart quotes
@@ -548,11 +528,6 @@ fn process_emphasis_match(
     // Update delimiter counts
     delims[opener_idx].5 -= use_delims;
     delims[closer_idx].5 -= use_delims;
-
-    // Note: We intentionally do NOT mark delimiters between opener and closer as processed.
-    // This is crucial for nested emphasis support. Delimiters inside the matched pair
-    // (like the inner * in *(*foo*)*) should remain active for their own matching.
-    // They will be naturally removed when their count reaches 0 after processing.
 
     // Remove processed delimiters from vector if count is 0
     // Remove closer first (higher index) to avoid index shifting issues
