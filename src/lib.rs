@@ -34,11 +34,7 @@
     unstable_features,
     unused_import_braces
 )]
-#![allow(
-    unknown_lints,
-    clippy::doc_markdown,
-    clippy::too_many_arguments
-)]
+#![allow(unknown_lints, clippy::doc_markdown, clippy::too_many_arguments)]
 
 /// Adapter traits for plugins
 ///
@@ -52,6 +48,28 @@ pub mod adapters;
 /// This module provides the core data structures for efficient node allocation
 /// and tree manipulation using arena allocation instead of Rc<RefCell>.
 pub mod arena;
+
+/// DOM-like tree data structure based on `&Node` references.
+///
+/// This module provides a more ergonomic API for tree operations compared to
+/// the NodeId-based approach in the `arena` module. It uses `Cell` for interior
+/// mutability, allowing natural tree operations without mutable references.
+///
+/// # Example
+///
+/// ```
+/// use clmd::arena_tree::{Node, TreeOperations};
+/// use std::cell::RefCell;
+///
+/// let arena = typed_arena::Arena::new();
+/// let root = arena.alloc(Node::new(RefCell::new("root")));
+/// let child = arena.alloc(Node::new(RefCell::new("child")));
+///
+/// root.append(child);
+///
+/// assert_eq!(root.first_child().map(|n| *n.data.borrow()), Some("child"));
+/// ```
+pub mod arena_tree;
 
 /// Error types and parsing limits
 pub mod error;
@@ -161,7 +179,19 @@ pub mod test_utils;
 /// Convenience type alias for arena used to hold nodes.
 pub type Arena = arena::NodeArena;
 
-pub use arena::{DescendantIterator, Node, NodeId, TreeOps};
+pub use arena::{DescendantIterator, Node as ArenaNode, NodeId, TreeOps};
+
+/// Convenience type alias for arena used with arena_tree module.
+///
+/// This is the comrak-style arena type that works with the `arena_tree` module.
+pub type ArenaTree<'a> =
+    typed_arena::Arena<arena_tree::Node<'a, std::cell::RefCell<nodes::Ast>>>;
+
+// Re-export arena_tree types
+pub use arena_tree::{
+    Ancestors, Children, Descendants, FollowingSiblings, Node, NodeEdge,
+    PrecedingSiblings, ReverseChildren, ReverseTraverse, Traverse, TreeOperations,
+};
 
 /// Parse a Markdown document to an AST.
 ///
@@ -763,7 +793,7 @@ pub fn format_xml_with_plugins(
 ///
 /// # Returns
 ///
-/// The version string
+/// The version string in semver format (e.g., "0.1.0")
 ///
 /// # Example
 ///
@@ -775,6 +805,64 @@ pub fn format_xml_with_plugins(
 /// ```
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+/// Render Markdown to Typst.
+///
+/// # Arguments
+///
+/// * `md` - The Markdown text to convert
+/// * `options` - Configuration options
+///
+/// # Returns
+///
+/// The Typst output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_typst, Options};
+///
+/// let options = Options::default();
+/// let typst = markdown_to_typst("Hello *world*", &options);
+/// assert!(typst.contains("world"));
+/// ```
+pub fn markdown_to_typst(md: &str, options: &Options) -> String {
+    markdown_to_typst_with_plugins(md, options, &Plugins::default())
+}
+
+/// Render Markdown to Typst using plugins.
+///
+/// # Arguments
+///
+/// * `md` - The Markdown text to convert
+/// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// The Typst output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_typst_with_plugins, Options, Plugins};
+///
+/// let options = Options::default();
+/// let plugins = Plugins::default();
+/// let typst = markdown_to_typst_with_plugins("Hello *world*", &options, &plugins);
+/// assert!(typst.contains("world"));
+/// ```
+pub fn markdown_to_typst_with_plugins(
+    md: &str,
+    options: &Options,
+    plugins: &Plugins<'_>,
+) -> String {
+    let mut arena = Arena::new();
+    let doc = parser::parse_document(&mut arena, md, options);
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
+    render::latex::render(&arena, doc, 0)
 }
 
 // =============================================================================
