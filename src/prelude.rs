@@ -28,9 +28,11 @@ pub use crate::{
     Node,
     Options,
     NodeValue,
-    AstNode,
     Plugins,
-    RenderPlugins,
+};
+
+// Re-export from options module
+pub use crate::options::{
     Extension,
     Parse,
     Render,
@@ -40,4 +42,5 @@ pub use crate::{
     BrokenLinkReference,
     BrokenLinkCallback,
     URLRewriter,
+    RenderPlugins,
 };

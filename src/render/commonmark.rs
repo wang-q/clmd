@@ -2,15 +2,198 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::{
-    ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
+    AstNode, ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
     NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTaskItem,
     NodeValue,
 };
+use crate::parser::options::{Options, Plugins};
+use std::fmt;
 
 /// Render a node tree as CommonMark
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
     let mut renderer = CommonMarkRenderer::new(arena, options);
     renderer.render(root)
+}
+
+/// Format an AST as CommonMark with plugins (comrak-style API).
+///
+/// This is a temporary implementation that delegates to the legacy renderer.
+/// In the future, this should be updated to use the new AstNode API directly.
+pub fn format_document_with_plugins<'a>(
+    root: &'a AstNode<'a>,
+    _options: &Options,
+    output: &mut dyn fmt::Write,
+    _plugins: &Plugins<'_>,
+) -> fmt::Result {
+    // For now, use a simple recursive approach
+    format_node_commonmark(root, output)
+}
+
+fn format_node_commonmark(node: &AstNode<'_>, output: &mut dyn fmt::Write) -> fmt::Result {
+    let ast = node.data.borrow();
+
+    match &ast.value {
+        NodeValue::Document => {
+            // Render children
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+        }
+        NodeValue::Paragraph => {
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("\n\n")?;
+        }
+        NodeValue::Text(text) => {
+            output.write_str(text)?;
+        }
+        NodeValue::Heading(heading) => {
+            let hashes: String = std::iter::repeat('#').take(heading.level as usize).collect();
+            output.write_str(&hashes)?;
+            output.write_str(" ")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("\n\n")?;
+        }
+        NodeValue::Emph => {
+            output.write_str("*")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("*")?;
+        }
+        NodeValue::Strong => {
+            output.write_str("**")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("**")?;
+        }
+        NodeValue::Code(code) => {
+            let backticks = get_backtick_sequence(&code.literal);
+            output.write_str(&backticks)?;
+            output.write_str(&code.literal)?;
+            output.write_str(&backticks)?;
+        }
+        NodeValue::Link(link) => {
+            output.write_str("[")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("](")?;
+            output.write_str(&link.url)?;
+            if !link.title.is_empty() {
+                output.write_str(&format!(" \"{}\"", link.title))?;
+            }
+            output.write_str(")")?;
+        }
+        NodeValue::Image(link) => {
+            output.write_str("![")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+            output.write_str("](")?;
+            output.write_str(&link.url)?;
+            if !link.title.is_empty() {
+                output.write_str(&format!(" \"{}\"", link.title))?;
+            }
+            output.write_str(")")?;
+        }
+        NodeValue::BlockQuote => {
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                output.write_str("> ")?;
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+        }
+        NodeValue::List(list) => {
+            let mut child_opt = node.first_child();
+            let mut index = list.start;
+            while let Some(child) = child_opt {
+                match list.list_type {
+                    ListType::Bullet => {
+                        output.write_str(&format!("{} ", list.bullet_char as char))?;
+                    }
+                    ListType::Ordered => {
+                        let delim = match list.delimiter {
+                            ListDelimType::Period => ".",
+                            ListDelimType::Paren => ")",
+                        };
+                        output.write_str(&format!("{}{} ", index, delim))?;
+                        index += 1;
+                    }
+                }
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+        }
+        NodeValue::CodeBlock(code) => {
+            let fence_len = 3;
+            let fence: String = std::iter::repeat('`').take(fence_len).collect();
+            output.write_str(&fence)?;
+            if !code.info.is_empty() {
+                output.write_str(&code.info)?;
+            }
+            output.write_str("\n")?;
+            output.write_str(&code.literal)?;
+            output.write_str("\n")?;
+            output.write_str(&fence)?;
+            output.write_str("\n\n")?;
+        }
+        NodeValue::ThematicBreak => {
+            output.write_str("***\n\n")?;
+        }
+        NodeValue::SoftBreak => {
+            output.write_str("\n")?;
+        }
+        NodeValue::HardBreak => {
+            output.write_str("\\n")?;
+        }
+        _ => {
+            // For other nodes, just render children
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                format_node_commonmark(child, output)?;
+                child_opt = child.next_sibling();
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn get_backtick_sequence(content: &str) -> String {
+    let mut max_backticks = 0;
+    let mut current = 0;
+
+    for c in content.chars() {
+        if c == '`' {
+            current += 1;
+            max_backticks = max_backticks.max(current);
+        } else {
+            current = 0;
+        }
+    }
+
+    let count = (max_backticks + 1).max(1);
+    std::iter::repeat('`').take(count).collect()
 }
 
 /// CommonMark renderer state
@@ -401,25 +584,6 @@ fn escape_link_url(url: &str) -> String {
     }
 
     result
-}
-
-/// Get the appropriate backtick sequence for code content
-fn get_backtick_sequence(content: &str) -> String {
-    let mut max_backticks = 0;
-    let mut current = 0;
-
-    for c in content.chars() {
-        if c == '`' {
-            current += 1;
-            max_backticks = max_backticks.max(current);
-        } else {
-            current = 0;
-        }
-    }
-
-    // Use one more backtick than the maximum sequence in content
-    let count = (max_backticks + 1).max(1);
-    std::iter::repeat('`').take(count).collect()
 }
 
 #[cfg(test)]

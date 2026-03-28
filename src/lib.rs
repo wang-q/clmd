@@ -125,6 +125,9 @@ pub(crate) mod lexer;
 pub mod nodes;
 
 /// Options for the Markdown parser and renderer.
+pub mod options;
+
+/// Parser module for Markdown documents.
 pub mod parser;
 
 /// Plugin system for extending Markdown rendering.
@@ -167,12 +170,6 @@ pub type Arena<'a> = typed_arena::Arena<nodes::AstNode<'a>>;
 /// A reference to a node in an arena.
 pub type Node<'a> = nodes::Node<'a>;
 
-// Re-export arena_tree types
-pub use arena_tree::{
-    Ancestors, Children, Descendants, FollowingSiblings, NodeEdge,
-    PrecedingSiblings, ReverseChildren, ReverseTraverse, Traverse,
-};
-
 /// Parse a Markdown document to an AST.
 ///
 /// This is the main entry point for parsing. It takes an arena for node allocation,
@@ -208,48 +205,20 @@ pub fn parse_document<'a>(arena: &'a Arena<'a>, md: &str, options: &Options) -> 
 /// ```
 pub use parser::options::Options;
 
-/// Re-export other options types
-pub use parser::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Render,
-    ResolvedReference, URLRewriter, WikiLinksMode,
-};
+/// Re-export Plugins for customizing rendering.
+pub use parser::options::Plugins;
 
 // =============================================================================
 // Error Type Exports
 // =============================================================================
 
-pub use error::{ParseError, ParseResult, ParserLimits, Position};
+pub use error::{ParseError, ParseResult, ParserLimits};
 
 // =============================================================================
-// Iterator Exports
+// Node Value Exports
 // =============================================================================
 
-pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
-
-// =============================================================================
-// Node Value Exports (minimal - others available via nodes module)
-// =============================================================================
-
-pub use nodes::{AstNode, NodeValue};
-
-// =============================================================================
-// Plugin Exports
-// =============================================================================
-
-pub use parser::options::{Plugins, RenderPlugins};
-pub use plugins::OwnedPlugins;
-
-// =============================================================================
-// Renderer Exports (comrak-style)
-// =============================================================================
-
-pub use html::{escape_html, escape_href, is_safe_url, Context};
-
-// =============================================================================
-// Utility Exports
-// =============================================================================
-
-pub use inlines::entities::unescape_string;
+pub use nodes::NodeValue;
 
 // =============================================================================
 // Legacy Option Flags (internal use)
@@ -585,13 +554,12 @@ pub fn format_commonmark<'a>(
 /// format_commonmark_with_plugins(root, &options, &mut cm, &plugins).unwrap();
 /// ```
 pub fn format_commonmark_with_plugins<'a>(
-    _root: Node<'a>,
-    _options: &Options,
+    root: Node<'a>,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    // TODO: Implement CommonMark rendering with new API
-    output.write_str("")
+    render::commonmark::format_document_with_plugins(root, options, output, plugins)
 }
 
 /// Format an existing AST to XML.
@@ -651,13 +619,12 @@ pub fn format_xml<'a>(
 /// format_xml_with_plugins(root, &options, &mut xml, &plugins).unwrap();
 /// ```
 pub fn format_xml_with_plugins<'a>(
-    _root: Node<'a>,
-    _options: &Options,
+    root: Node<'a>,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    // TODO: Implement XML rendering with new API
-    output.write_str("")
+    render::xml::format_document_with_plugins(root, options, output, plugins)
 }
 
 /// Return the version of the crate.
