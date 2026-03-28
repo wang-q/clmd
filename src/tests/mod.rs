@@ -24,6 +24,7 @@ fn test_markdown_to_html_heading() {
 fn test_markdown_to_html_emphasis() {
     let options = Options::default();
     let html = markdown_to_html("*italic* and **bold**", &options);
+    println!("HTML output: {:?}", html);
     assert!(html.contains("<em>italic</em>"));
     assert!(html.contains("<strong>bold</strong>"));
 }
