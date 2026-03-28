@@ -90,6 +90,9 @@ pub fn parse_document_with_limits<'a>(
 ///
 /// This struct manages the parsing process, tracking the current position,
 /// open blocks, and other state needed during parsing.
+///
+/// Inspired by comrak's Parser design, with additional fields for accurate
+/// source position tracking and efficient parsing.
 struct ParserInner<'a, 'o> {
     /// Arena for node allocation
     arena: &'a crate::Arena<'a>,
@@ -101,7 +104,7 @@ struct ParserInner<'a, 'o> {
     current: Node<'a>,
 
     /// Parser options
-    options: &'o Options<'a>,
+    options: &'o Options<'o>,
 
     /// Reference map for link references
     refmap: HashMap<String, nodes::NodeLink>,
@@ -109,20 +112,47 @@ struct ParserInner<'a, 'o> {
     /// Line number (1-based)
     line_number: usize,
 
-    /// Current column offset
+    /// Current byte offset in the current line
     offset: usize,
 
-    /// Current column (accounting for tabs)
+    /// Current column (accounting for tabs, 0-based)
     column: usize,
+
+    /// Position of the first non-space character in the current line
+    first_nonspace: usize,
+
+    /// Column of the first non-space character (accounting for tabs)
+    first_nonspace_column: usize,
+
+    /// Current indentation level (difference between column and first_nonspace_column)
+    indent: usize,
 
     /// Whether the last line was blank
     last_line_blank: bool,
 
+    /// Whether the current line is blank
+    blank: bool,
+
+    /// Whether we've partially consumed a tab character
+    partially_consumed_tab: bool,
+
+    /// Position to kill thematic break attempts (for performance)
+    thematic_break_kill_pos: usize,
+
+    /// Length of the current line (in bytes)
+    curline_len: usize,
+
+    /// End column of the current line
+    curline_end_col: usize,
+
+    /// Length of the last processed line
+    last_line_length: usize,
+
+    /// Total size of the input (for limits and progress tracking)
+    total_size: usize,
+
     /// Stack of open blocks
     open_blocks: Vec<Node<'a>>,
-
-    /// Current indentation level
-    indent: usize,
 }
 
 impl<'a, 'o> ParserInner<'a, 'o> {
@@ -141,9 +171,18 @@ impl<'a, 'o> ParserInner<'a, 'o> {
             line_number: 0,
             offset: 0,
             column: 0,
-            last_line_blank: false,
-            open_blocks: vec![root],
+            first_nonspace: 0,
+            first_nonspace_column: 0,
             indent: 0,
+            last_line_blank: false,
+            blank: false,
+            partially_consumed_tab: false,
+            thematic_break_kill_pos: 0,
+            curline_len: 0,
+            curline_end_col: 0,
+            last_line_length: 0,
+            total_size: 0,
+            open_blocks: vec![root],
         }
     }
 

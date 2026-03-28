@@ -42,92 +42,43 @@
     cyclomatic_complexity
 )]
 
-/// Adapter traits for plugins
+/// Adapter traits for plugins.
 ///
-/// This module provides adapter traits for customizing various aspects of
-/// Markdown rendering, such as syntax highlighting, heading rendering,
+/// Provides traits for customizing syntax highlighting, heading rendering,
 /// and code block handling.
 pub mod adapters;
 
-/// Arena-based memory management for AST nodes
-///
-/// This module provides the core data structures for efficient node allocation
-/// and tree manipulation using arena allocation instead of Rc<RefCell>.
+/// Arena-based memory management for AST nodes.
 pub mod arena;
 
 /// DOM-like tree data structure based on `&Node` references.
-///
-/// This module provides a more ergonomic API for tree operations compared to
-/// the NodeId-based approach in the `arena` module. It uses `Cell` for interior
-/// mutability, allowing natural tree operations without mutable references.
-///
-/// # Example
-///
-/// ```
-/// use clmd::arena_tree::{Node, TreeOperations};
-/// use std::cell::RefCell;
-///
-/// let arena = typed_arena::Arena::new();
-/// let root = arena.alloc(Node::new(RefCell::new("root")));
-/// let child = arena.alloc(Node::new(RefCell::new("child")));
-///
-/// root.append(child);
-///
-/// assert_eq!(root.first_child().map(|n| *n.data.borrow()), Some("child"));
-/// ```
 pub mod arena_tree;
 
-/// Error types and parsing limits
+/// Error types and parsing limits.
 pub mod error;
 
-/// Block-level parsing for CommonMark documents
-///
-/// This module implements the block parsing algorithm based on the CommonMark spec.
-/// It processes input line by line, building the AST structure using Arena allocation.
+/// Block-level parsing for CommonMark documents.
 mod blocks;
 
-/// Document converters (HTML, LaTeX, etc.)
+/// Document converters (HTML, LaTeX, etc.).
 pub mod converters;
 
-/// Markdown extensions (GFM and others)
+/// Markdown extensions (GFM and others).
 pub mod ext;
 
 /// HTML to Markdown conversion
 pub mod html_to_md;
 
-/// String pool for efficient memory reuse
+/// String pool for efficient memory reuse.
 pub(crate) mod pool;
 
 /// HTML rendering for the CommonMark AST.
-///
-/// This module provides functions for rendering CommonMark documents as HTML,
-/// inspired by comrak's design.
-///
-/// # Example
-///
-/// ```
-/// use clmd::{Arena, parse_document, Options, html};
-/// use std::fmt::Write;
-///
-/// let arena = Arena::new();
-/// let options = Options::default();
-/// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
-///
-/// let mut html = String::new();
-/// html::format_document(root, &options, &mut html).unwrap();
-///
-/// assert!(html.contains("<h1>"));
-/// ```
 pub mod html;
 
-/// HTML utilities (escaping, entity decoding)
+/// HTML utilities (escaping, entity decoding).
 pub mod html_utils;
 
-/// Inline parsing for CommonMark documents
-///
-/// This module implements the inline parsing algorithm based on the CommonMark spec.
-/// It processes the content of leaf blocks to produce inline elements like
-/// emphasis, links, code, etc.
+/// Inline parsing for CommonMark documents.
 pub(crate) mod inlines;
 
 /// AST iteration and traversal
@@ -141,63 +92,30 @@ pub(crate) mod lexer;
 /// This module provides a unified `NodeValue` enum that combines node type and data,
 /// offering better type safety and ergonomics compared to the separate `NodeType` and `NodeData` approach.
 ///
-/// # Example
-///
-/// ```ignore
-/// use clmd::nodes::{NodeValue, NodeHeading, NodeList, ListType};
-///
-/// let heading = NodeValue::Heading(NodeHeading {
-///     level: 1,
-///     setext: false,
-///     closed: false,
-/// });
-/// ```
 pub mod nodes;
 
-/// Options for the Markdown parser and renderer
-///
-/// This module provides a comrak-style Options API.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::parser::options::Options;
-///
-/// let mut options = Options::default();
-/// options.extension.table = true;
-/// options.extension.strikethrough = true;
-/// options.render.hardbreaks = true;
-/// ```
+/// Options for the Markdown parser and renderer.
 pub mod parser;
 
-/// Plugin system for extending Markdown rendering
-///
-/// This module provides a plugin architecture that allows users to customize
-/// various aspects of Markdown rendering, such as syntax highlighting,
-/// heading rendering, and code block handling.
+/// Plugin system for extending Markdown rendering.
 pub mod plugins;
 
-/// HTML rendering for Arena-based AST
-///
-/// This module provides HTML output generation for documents parsed
-/// using the Arena-based parser.
+/// HTML rendering for Arena-based AST (legacy).
 pub mod render;
 
-/// Text sequence utilities
+/// Text sequence utilities.
 pub(crate) mod sequence;
 
-/// Test utilities
+/// Test utilities.
 pub mod test_utils;
 
-/// String processing utilities
+/// String processing utilities.
 pub mod strings;
 
-/// Scanner utilities for CommonMark syntax
+/// Scanner utilities for CommonMark syntax.
 pub mod scanners;
 
-/// Prelude module for convenient imports
-///
-/// This module re-exports the most commonly used types and functions.
+/// Prelude module for convenient imports.
 ///
 /// # Example
 ///
@@ -292,15 +210,9 @@ pub use parser::options::{Plugins, RenderPlugins};
 pub use plugins::OwnedPlugins;
 
 // =============================================================================
-// Renderer Exports
+// Renderer Exports (comrak-style)
 // =============================================================================
 
-pub use render::{
-    render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
-    render_to_xml, OutputFormat, Renderer,
-};
-
-// New comrak-style HTML formatter exports
 pub use html::{escape_html, escape_href, is_safe_url, Context};
 
 // =============================================================================
@@ -325,33 +237,6 @@ const OPT_VALIDATE_UTF8: u32 = 1 << 3;
 const OPT_SMART: u32 = 1 << 4;
 #[allow(deprecated)]
 const OPT_UNSAFE: u32 = 1 << 5;
-
-/// Convert Options to legacy u32 flags for parsing.
-/// This is a temporary bridge until all components use the new system.
-fn options_to_flags(options: &Options) -> u32 {
-    let mut flags = 0u32;
-
-    if options.parse.sourcepos {
-        flags |= OPT_SOURCEPOS;
-    }
-    if options.parse.smart {
-        flags |= OPT_SMART;
-    }
-    if options.parse.validate_utf8 {
-        flags |= OPT_VALIDATE_UTF8;
-    }
-    if options.render.hardbreaks {
-        flags |= OPT_HARDBREAKS;
-    }
-    if options.render.nobreaks {
-        flags |= OPT_NOBREAKS;
-    }
-    if options.render.r#unsafe {
-        flags |= OPT_UNSAFE;
-    }
-
-    flags
-}
 
 // =============================================================================
 // Convenience Functions

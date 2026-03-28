@@ -281,7 +281,7 @@ impl<'a> From<Ast> for AstNode<'a> {
 }
 
 /// Represents a position in the source document.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LineColumn {
     /// The 1-based line number.
     pub line: usize,
@@ -311,7 +311,7 @@ impl LineColumn {
 }
 
 /// Represents a source position range.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SourcePos {
     /// The starting position.
     pub start: LineColumn,
