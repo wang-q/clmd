@@ -29,6 +29,7 @@ pub mod html;
 pub mod latex;
 pub mod man;
 pub mod renderer;
+pub mod typst;
 pub mod xml;
 
 // Re-export renderer types

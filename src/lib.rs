@@ -3,6 +3,17 @@
 //!
 //! Source repository is at [github.com/clmd](https://github.com/clmd).
 //!
+//! # Feature Flags
+//!
+//! - `default`: Enables default features (no additional features enabled by default).
+//! - `syntect`: Enables syntax highlighting for code blocks using syntect.
+//! - `clap`: Enables command-line interface support.
+//!
+//! # Safety
+//!
+//! This crate uses `unsafe` code for performance optimizations in the arena allocator
+//! and string pool. All unsafe code is carefully audited and tested.
+//!
 //! # Quick Start
 //!
 //! The simplest way to use this library is with [`markdown_to_html`]:
@@ -184,6 +195,7 @@ pub type Node<'a> = nodes::Node<'a>;
 /// let options = Options::default();
 /// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
 /// ```
+#[inline]
 pub fn parse_document<'a>(arena: &'a Arena<'a>, md: &str, options: &Options) -> Node<'a> {
     parser::parse_document(arena, md, options)
 }
@@ -236,6 +248,31 @@ const OPT_VALIDATE_UTF8: u32 = 1 << 3;
 const OPT_SMART: u32 = 1 << 4;
 #[allow(deprecated)]
 const OPT_UNSAFE: u32 = 1 << 5;
+
+// =============================================================================
+// Deprecated Type Aliases (for backward compatibility)
+// =============================================================================
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::Extension` instead of `clmd::ExtensionOptions`"
+)]
+/// Deprecated alias: use [`parser::options::Extension`] instead.
+pub type ExtensionOptions<'c> = parser::options::Extension<'c>;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::Parse` instead of `clmd::ParseOptions`"
+)]
+/// Deprecated alias: use [`parser::options::Parse`] instead.
+pub type ParseOptions<'c> = parser::options::Parse<'c>;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::Render` instead of `clmd::RenderOptions`"
+)]
+/// Deprecated alias: use [`parser::options::Render`] instead.
+pub type RenderOptions = parser::options::Render;
 
 // =============================================================================
 // Convenience Functions
@@ -627,6 +664,71 @@ pub fn format_xml_with_plugins<'a>(
     render::xml::format_document_with_plugins(root, options, output, plugins)
 }
 
+/// Format an existing AST to Typst.
+///
+/// # Arguments
+///
+/// * `root` - The root node
+/// * `options` - Configuration options
+/// * `output` - The output buffer to write to
+///
+/// # Returns
+///
+/// A `std::fmt::Result` indicating success or failure
+///
+/// # Example
+///
+/// ```
+/// use clmd::{Arena, parse_document, format_typst, Options};
+///
+/// let arena = Arena::new();
+/// let options = Options::default();
+/// let root = parse_document(&arena, "Hello *world*", &options);
+/// let mut typst = String::new();
+/// format_typst(root, &options, &mut typst).unwrap();
+/// ```
+pub fn format_typst<'a>(
+    root: Node<'a>,
+    options: &Options,
+    output: &mut dyn std::fmt::Write,
+) -> std::fmt::Result {
+    format_typst_with_plugins(root, options, output, &Plugins::default())
+}
+
+/// Format an existing AST to Typst with plugins.
+///
+/// # Arguments
+///
+/// * `root` - The root node
+/// * `options` - Configuration options
+/// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// A `std::fmt::Result` indicating success or failure
+///
+/// # Example
+///
+/// ```
+/// use clmd::{Arena, parse_document, format_typst_with_plugins, Options, Plugins};
+///
+/// let arena = Arena::new();
+/// let options = Options::default();
+/// let plugins = Plugins::default();
+/// let root = parse_document(&arena, "Hello *world*", &options);
+/// let mut typst = String::new();
+/// format_typst_with_plugins(root, &options, &mut typst, &plugins).unwrap();
+/// ```
+pub fn format_typst_with_plugins<'a>(
+    root: Node<'a>,
+    options: &Options,
+    output: &mut dyn std::fmt::Write,
+    plugins: &Plugins<'_>,
+) -> std::fmt::Result {
+    render::typst::format_document_with_plugins(root, options, output, plugins)
+}
+
 /// Return the version of the crate.
 ///
 /// # Returns
@@ -641,6 +743,7 @@ pub fn format_xml_with_plugins<'a>(
 /// let version = version();
 /// assert!(!version.is_empty());
 /// ```
+#[inline]
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
@@ -695,10 +798,10 @@ pub fn markdown_to_typst_with_plugins(
     plugins: &Plugins<'_>,
 ) -> String {
     let arena = Arena::new();
-    let _doc = parser::parse_document(&arena, md, options);
-    // TODO: Pass plugins to renderer when plugin support is implemented
-    let _ = plugins;
-    String::new()
+    let root = parser::parse_document(&arena, md, options);
+    let mut out = String::new();
+    format_typst_with_plugins(root, options, &mut out, plugins).unwrap();
+    out
 }
 
 // =============================================================================
@@ -706,112 +809,4 @@ pub fn markdown_to_typst_with_plugins(
 // =============================================================================
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_markdown_to_html_basic() {
-        let options = Options::default();
-        let html = markdown_to_html("Hello world", &options);
-        assert_eq!(html, "<p>Hello world</p>");
-    }
-
-    #[test]
-    fn test_markdown_to_html_heading() {
-        let options = Options::default();
-        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options);
-        assert!(html.contains("<h1>"));
-        assert!(html.contains("<h2>"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_emphasis() {
-        let options = Options::default();
-        let html = markdown_to_html("*italic* and **bold**", &options);
-        assert!(html.contains("<em>italic</em>"));
-        assert!(html.contains("<strong>bold</strong>"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_link() {
-        let options = Options::default();
-        let html = markdown_to_html("[link](https://example.com)", &options);
-        assert!(html.contains("<a href=\"https://example.com\">"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_code_inline() {
-        let options = Options::default();
-        let html = markdown_to_html("Use `code` here", &options);
-        assert!(html.contains("<code>code</code>"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_code_block() {
-        let options = Options::default();
-        let html = markdown_to_html("```rust\nfn main() {}\n```", &options);
-        assert!(html.contains("<pre>"));
-        assert!(html.contains("<code"));
-        assert!(html.contains("fn main() {}"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_blockquote() {
-        let options = Options::default();
-        let html = markdown_to_html("> Quote", &options);
-        assert!(html.contains("<blockquote>"));
-        assert!(html.contains("Quote"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_list() {
-        let options = Options::default();
-        let html = markdown_to_html("- Item 1\n- Item 2", &options);
-        assert!(html.contains("<ul>"));
-        assert!(html.contains("Item 1"));
-        assert!(html.contains("Item 2"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_ordered_list() {
-        let options = Options::default();
-        let html = markdown_to_html("1. First\n2. Second", &options);
-        assert!(html.contains("<ol>"));
-        assert!(html.contains("First"));
-        assert!(html.contains("Second"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_thematic_break() {
-        let options = Options::default();
-        let html = markdown_to_html("---", &options);
-        assert!(html.contains("<hr"));
-    }
-
-    #[test]
-    fn test_markdown_to_html_image() {
-        let options = Options::default();
-        let html = markdown_to_html("![alt text](image.png)", &options);
-        assert!(html.contains("<img"));
-        assert!(html.contains("src=\"image.png\""));
-        assert!(html.contains("alt=\"alt text\""));
-    }
-
-    #[test]
-    fn test_parse_and_render_roundtrip() {
-        let options = Options::default();
-        let input = "# Title\n\nParagraph with text.";
-        let arena = Arena::new();
-        let doc = parse_document(&arena, input, &options);
-        let mut html = String::new();
-        format_html(doc, &options, &mut html).unwrap();
-        assert!(html.contains("<h1>"));
-        assert!(html.contains("Paragraph"));
-    }
-
-    #[test]
-    fn test_version() {
-        let v = version();
-        assert!(!v.is_empty());
-    }
-}
+mod tests;
