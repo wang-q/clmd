@@ -555,15 +555,15 @@ mod tests {
         consolidate_text_nodes(&mut arena, root);
 
         // text1 and text2 should not be consolidated (separated by emph)
-        let text1_content = if let NodeValue::Text(literal) = &arena.get(text1).value {
-            literal.clone()
+        let text1_content: String = if let NodeValue::Text(literal) = &arena.get(text1).value {
+            literal.as_ref().to_string()
         } else {
             String::new()
         };
         assert_eq!(text1_content, "Hello");
 
-        let text2_content = if let NodeValue::Text(literal) = &arena.get(text2).value {
-            literal.clone()
+        let text2_content: String = if let NodeValue::Text(literal) = &arena.get(text2).value {
+            literal.as_ref().to_string()
         } else {
             String::new()
         };

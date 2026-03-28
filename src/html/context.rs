@@ -22,6 +22,21 @@ pub struct Context<'o, 'c: 'o> {
     pub footnote_ix: u32,
     /// Last written footnote index
     pub written_footnote_ix: u32,
+    /// Track the last character written for cr() logic
+    last_char: Option<char>,
+}
+
+impl<'o, 'c: 'o> fmt::Debug for Context<'o, 'c> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Context")
+            .field("options", &self.options)
+            .field("plugins", &self.plugins)
+            .field("output", &"<dyn Write>")
+            .field("footnote_ix", &self.footnote_ix)
+            .field("written_footnote_ix", &self.written_footnote_ix)
+            .field("last_char", &self.last_char)
+            .finish()
+    }
 }
 
 impl<'o, 'c: 'o> Context<'o, 'c> {
@@ -37,19 +52,31 @@ impl<'o, 'c: 'o> Context<'o, 'c> {
             output,
             footnote_ix: 0,
             written_footnote_ix: 0,
+            last_char: None,
         }
     }
 
-    /// Write a string to the output.
+    /// Write a string to the output and track the last character.
     pub fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.output.write_str(s)
+        self.output.write_str(s)?;
+        if let Some(c) = s.chars().last() {
+            self.last_char = Some(c);
+        }
+        Ok(())
     }
 
     /// Write a newline if the last output wasn't already a newline.
+    /// For the beginning of the document, don't add a newline.
     pub fn cr(&mut self) -> fmt::Result {
-        // Check if we need to add a newline
-        // This is a simplified version; in practice, we'd track the last character
-        self.output.write_str("\n")
+        // Don't add newline at the very beginning of the document
+        if self.last_char.is_none() {
+            return Ok(());
+        }
+        if self.last_char != Some('\n') {
+            self.output.write_str("\n")?;
+            self.last_char = Some('\n');
+        }
+        Ok(())
     }
 
     /// Write a line feed (newline).

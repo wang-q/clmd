@@ -40,7 +40,7 @@ fn test_parse_simple_paragraph() {
 
     let content = arena.get(child.unwrap());
     if let NodeValue::Text(literal) = &content.value {
-        assert_eq!(literal, "Hello world");
+        assert_eq!(literal.as_ref(), "Hello world");
     } else {
         panic!("Expected Text value");
     }
@@ -172,7 +172,7 @@ fn test_remove_link_reference_definitions() {
     match &content_ref.value {
         NodeValue::Text(literal) => {
             assert_eq!(
-                literal, "Some text",
+                literal.as_ref(), "Some text",
                 "Paragraph content should be 'Some text'"
             );
         }

@@ -4,6 +4,7 @@
 //! All renderers use the `NodeValue` enum from `node_value` module for AST representation.
 
 use crate::arena::{NodeArena, NodeId};
+use crate::nodes::NodeValue;
 
 /// Common trait for all renderers
 ///
@@ -63,9 +64,92 @@ pub fn render_to_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// Render to XML format
 ///
 /// This is a convenience function that uses the XML renderer.
-pub fn render_to_xml(_arena: &NodeArena, _root: NodeId, _options: u32) -> String {
-    // TODO: Implement XML rendering with new AstNode-based API
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n<document></document>".to_string()
+pub fn render_to_xml(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+    let mut output = String::new();
+    output.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    output.push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
+    render_node_xml(arena, root, &mut output);
+    output
+}
+
+/// Recursively render a node to XML
+fn render_node_xml(arena: &NodeArena, node_id: NodeId, output: &mut String) {
+    let node = arena.get(node_id);
+    let tag_name = node.value.xml_node_name();
+
+    output.push('<');
+    output.push_str(tag_name);
+
+    // Handle leaf nodes with content
+    if node.value.is_leaf() {
+        match &node.value {
+            NodeValue::Text(text) => {
+                if !text.is_empty() {
+                    output.push('>');
+                    output.push_str(&escape_xml(text));
+                    output.push_str("</");
+                    output.push_str(tag_name);
+                    output.push('>');
+                } else {
+                    output.push_str(" />");
+                }
+            }
+            NodeValue::Code(code) => {
+                if !code.literal.is_empty() {
+                    output.push('>');
+                    output.push_str(&escape_xml(&code.literal));
+                    output.push_str("</");
+                    output.push_str(tag_name);
+                    output.push('>');
+                } else {
+                    output.push_str(" />");
+                }
+            }
+            NodeValue::CodeBlock(code) => {
+                if !code.literal.is_empty() {
+                    output.push('>');
+                    output.push_str(&escape_xml(&code.literal));
+                    output.push_str("</");
+                    output.push_str(tag_name);
+                    output.push('>');
+                } else {
+                    output.push_str(" />");
+                }
+            }
+            _ => {
+                output.push_str(" />");
+            }
+        }
+    } else {
+        output.push('>');
+
+        // Render children
+        let mut child_id = node.first_child;
+        while let Some(child) = child_id {
+            render_node_xml(arena, child, output);
+            child_id = arena.get(child).next;
+        }
+
+        output.push_str("</");
+        output.push_str(tag_name);
+        output.push('>');
+    }
+}
+
+/// Escape XML special characters
+fn escape_xml(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&apos;"),
+            _ => result.push(c),
+        }
+    }
+    result
 }
 
 /// Render to CommonMark format
@@ -183,9 +267,11 @@ mod tests {
         TreeOps::append_child(&mut arena, para, text);
 
         let html = render(OutputFormat::Html, &arena, root, 0);
+        println!("HTML output: {:?}", html);
         assert!(html.contains("<p>Hello</p>"));
 
         let xml = render(OutputFormat::Xml, &arena, root, 0);
+        println!("XML output: {:?}", xml);
         assert!(xml.contains("<paragraph>"));
     }
 }

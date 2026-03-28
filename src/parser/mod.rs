@@ -283,6 +283,10 @@ impl<'a, 'o> ParserInner<'a, 'o> {
                     // Paragraph continues unless interrupted
                     !is_blank && !self.is_paragraph_interruptor(line)
                 }
+                NodeValue::Document => {
+                    // Document is just a container, always allow opening new blocks
+                    false
+                }
                 _ => true,
             };
 

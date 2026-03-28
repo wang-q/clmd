@@ -8,6 +8,7 @@ use crate::{format_html, markdown_to_html, parse_document, version, Arena, Optio
 fn test_markdown_to_html_basic() {
     let options = Options::default();
     let html = markdown_to_html("Hello world", &options);
+    println!("HTML output bytes: {:?}", html.as_bytes());
     assert_eq!(html, "<p>Hello world</p>");
 }
 

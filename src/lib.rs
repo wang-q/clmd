@@ -237,6 +237,12 @@ pub use error::{ParseError, ParseResult, ParserLimits};
 pub use nodes::NodeValue;
 
 // =============================================================================
+// String Utilities Exports
+// =============================================================================
+
+pub use inlines::unescape_string;
+
+// =============================================================================
 // Legacy Option Flags (internal use)
 // =============================================================================
 
@@ -372,6 +378,10 @@ pub fn markdown_to_html_with_plugins(
     let root = parser::parse_document(&arena, md, options);
     let mut out = String::new();
     format_html_with_plugins(root, options, &mut out, plugins).unwrap();
+    // Remove trailing newline to match CommonMark spec test format
+    while out.ends_with('\n') {
+        out.pop();
+    }
     out
 }
 

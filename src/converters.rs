@@ -389,16 +389,16 @@ mod tests {
             },
         )));
 
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            "Test Document".to_string(),
+        let text = arena.alloc(Node::with_value(NodeValue::make_text(
+            "Test Document",
         )));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, doc, heading);
 
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
-            "This is a test paragraph.".to_string(),
+        let para_text = arena.alloc(Node::with_value(NodeValue::make_text(
+            "This is a test paragraph.",
         )));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, doc, para);

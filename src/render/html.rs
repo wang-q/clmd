@@ -962,10 +962,10 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let code = arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+        let code = arena.alloc(Node::with_value(NodeValue::Code(Box::new(NodeCode {
             num_backticks: 1,
             literal: "code".to_string(),
-        })));
+        }))));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
@@ -997,10 +997,10 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let link = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+        let link = arena.alloc(Node::with_value(NodeValue::Link(Box::new(NodeLink {
             url: "https://example.com".to_string(),
             title: "".to_string(),
-        })));
+        }))));
         let text = arena.alloc(Node::with_value(NodeValue::make_text("link")));
 
         TreeOps::append_child(&mut arena, root, para);
@@ -1034,7 +1034,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block =
-            arena.alloc(Node::with_value(NodeValue::CodeBlock(NodeCodeBlock {
+            arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
                 fenced: true,
                 fence_char: b'`',
                 fence_length: 3,
@@ -1042,7 +1042,7 @@ mod tests {
                 info: "rust".to_string(),
                 literal: "fn main() {}".to_string(),
                 closed: true,
-            })));
+            }))));
 
         TreeOps::append_child(&mut arena, root, code_block);
 
@@ -1157,10 +1157,10 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let link = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+        let link = arena.alloc(Node::with_value(NodeValue::Link(Box::new(NodeLink {
             url: "javascript:alert('xss')".to_string(),
             title: "".to_string(),
-        })));
+        }))));
         let text =
             arena.alloc(Node::with_value(NodeValue::make_text("click me")));
 

@@ -895,6 +895,11 @@ impl NodeValue {
         NodeValue::FootnoteReference(Box::new(ref_))
     }
 
+    /// Create a Heading node.
+    pub fn heading(heading: NodeHeading) -> Self {
+        NodeValue::Heading(heading)
+    }
+
     /// Create a Math node.
     pub fn math(math: NodeMath) -> Self {
         NodeValue::Math(Box::new(math))
@@ -1106,7 +1111,7 @@ mod tests {
 
         // Table can contain rows
         assert!(can_contain_type(
-            &NodeValue::Table(NodeTable::default()),
+            &NodeValue::table(NodeTable::default()),
             &NodeValue::TableRow(false)
         ));
     }

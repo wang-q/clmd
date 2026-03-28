@@ -358,18 +358,18 @@ mod tests {
                 write!(output, "<code>{}</code>", code)
             }
 
-            fn write_pre_tag(
+            fn write_pre_tag<'s>(
                 &self,
                 output: &mut dyn fmt::Write,
-                _attrs: HashMap<&'static str, Cow<'_, str>>,
+                _attrs: HashMap<&str, Cow<'s, str>>,
             ) -> fmt::Result {
                 output.write_str("<pre>")
             }
 
-            fn write_code_tag(
+            fn write_code_tag<'s>(
                 &self,
                 output: &mut dyn fmt::Write,
-                _attrs: HashMap<&'static str, Cow<'_, str>>,
+                _attrs: HashMap<&str, Cow<'s, str>>,
             ) -> fmt::Result {
                 output.write_str("<code>")
             }

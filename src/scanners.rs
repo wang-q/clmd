@@ -162,6 +162,11 @@ pub fn setext_heading_line(line: &str) -> Option<SetextChar> {
         return None;
     }
 
+    // Must have at least 3 characters for setext heading underline per CommonMark spec
+    if i - start < 3 {
+        return None;
+    }
+
     // After the underline, only spaces/tabs are allowed, then end of line
     while i < bytes.len() && is_space_or_tab(bytes[i]) {
         i += 1;

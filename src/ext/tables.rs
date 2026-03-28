@@ -335,10 +335,10 @@ mod tests {
 
         let (table_id, _) = result.unwrap();
         let table = arena.get(table_id);
-        if let NodeValue::Table(NodeTable { alignments, .. }) = &table.value {
-            assert_eq!(alignments[0], TableAlignment::Left);
-            assert_eq!(alignments[1], TableAlignment::Center);
-            assert_eq!(alignments[2], TableAlignment::Right);
+        if let NodeValue::Table(table_data) = &table.value {
+            assert_eq!(table_data.alignments[0], TableAlignment::Left);
+            assert_eq!(table_data.alignments[1], TableAlignment::Center);
+            assert_eq!(table_data.alignments[2], TableAlignment::Right);
         } else {
             panic!("Expected Table value");
         }

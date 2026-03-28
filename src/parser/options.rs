@@ -610,6 +610,13 @@ pub struct Plugins<'p> {
     pub render: RenderPlugins<'p>,
 }
 
+impl<'p> Plugins<'p> {
+    /// Create a new empty plugins collection
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// Plugins for alternative rendering.
 #[derive(Default, Clone)]
 pub struct RenderPlugins<'p> {

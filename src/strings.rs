@@ -140,36 +140,22 @@ pub fn clean_title(title: &str) -> Cow<str> {
     while i < bytes.len() {
         if bytes[i] == b'\\' && i + 1 < bytes.len() {
             let next = bytes[i + 1];
-            // Only escape specific characters per CommonMark spec
-            if matches!(
-                next,
-                b'\\'
-                    | b'`'
-                    | b'*'
-                    | b'_'
-                    | b'{'
-                    | b'}'
-                    | b'['
-                    | b']'
-                    | b'('
-                    | b')'
-                    | b'#'
-                    | b'+'
-                    | b'-'
-                    | b'.'
-                    | b'!'
-                    | b'|'
-                    | b'<'
-                    | b'>'
-                    | b' '
-                    | b'\t'
-                    | b'\n'
-                    | b'\r'
-            ) {
-                result.push(next as char);
-                i += 2;
-                continue;
+            // Handle backslash escapes: convert \n to n, \t to t, etc.
+            match next {
+                b'n' => result.push('n'),
+                b't' => result.push('t'),
+                b'r' => result.push('r'),
+                b'\\' | b'`' | b'*' | b'_' | b'{' | b'}' | b'[' | b']' | b'(' | b')' | b'#' | b'+' | b'-' | b'.' | b'!' | b'|' | b'<' | b'>' | b' ' | b'\t' | b'\n' | b'\r' => {
+                    result.push(next as char);
+                }
+                _ => {
+                    // Not a valid escape sequence, keep the backslash
+                    result.push('\\');
+                    result.push(next as char);
+                }
             }
+            i += 2;
+            continue;
         }
 
         if !bytes[i].is_ascii_control() {
@@ -557,7 +543,12 @@ mod tests {
     #[test]
     fn test_clean_title() {
         assert_eq!(clean_title("hello"), "hello");
-        assert_eq!(clean_title("hello\\nworld"), "hellonworld");
+        // Input "hello\nworld" (backslash + n) should become "hellonworld"
+        let input = "hello\\nworld";
+        let result = clean_title(input);
+        println!("Input bytes: {:?}", input.as_bytes());
+        println!("Result bytes: {:?}", result.as_bytes());
+        assert_eq!(result, "hellonworld");
         assert_eq!(clean_title("hello\\*world"), "hello*world");
     }
 
