@@ -14,6 +14,7 @@
 //! options.render.hardbreaks = true;
 //! ```
 
+use crate::adapters::{HeadingAdapter, SyntaxHighlighterAdapter};
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
@@ -611,10 +612,10 @@ pub struct Plugins<'p> {
 pub struct RenderPlugins<'p> {
     /// Provide a syntax highlighter adapter implementation for syntax
     /// highlighting of codefence blocks.
-    pub codefence_syntax_highlighter: Option<&'p dyn crate::adapters::SyntaxHighlighterAdapter>,
+    pub codefence_syntax_highlighter: Option<&'p dyn SyntaxHighlighterAdapter>,
 
     /// Optional heading adapter
-    pub heading_adapter: Option<&'p dyn crate::adapters::HeadingAdapter>,
+    pub heading_adapter: Option<&'p dyn HeadingAdapter>,
 }
 
 impl Debug for RenderPlugins<'_> {

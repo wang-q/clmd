@@ -312,18 +312,18 @@ impl SyntaxHighlighterAdapter for DefaultSyntaxHighlighter {
         write!(output, "{}", escaped)
     }
 
-    fn write_pre_tag(
+    fn write_pre_tag<'s>(
         &self,
         output: &mut dyn fmt::Write,
-        _attributes: HashMap<&'static str, std::borrow::Cow<'_, str>>,
+        _attributes: HashMap<&str, std::borrow::Cow<'s, str>>,
     ) -> fmt::Result {
         output.write_str("<pre>")
     }
 
-    fn write_code_tag(
+    fn write_code_tag<'s>(
         &self,
         output: &mut dyn fmt::Write,
-        attributes: HashMap<&'static str, std::borrow::Cow<'_, str>>,
+        attributes: HashMap<&str, std::borrow::Cow<'s, str>>,
     ) -> fmt::Result {
         if let Some(lang) = attributes.get("class") {
             write!(output, r#"<code class="{}">"#, lang)
@@ -365,52 +365,29 @@ mod tests {
 
     #[test]
     fn test_heading_adapter() {
-        let mut plugins = OwnedPlugins::new();
-        plugins.set_heading_adapter(Box::new(crate::adapters::AnchorHeadingAdapter));
-        assert!(plugins.heading_adapter().is_some());
-    }
-
-    #[test]
-    fn test_codefence_renderer() {
-        use crate::adapters::CodefenceRendererAdapter;
+        use crate::adapters::{HeadingAdapter, HeadingMeta};
         use crate::nodes::SourcePos;
+        use std::fmt::Write;
 
-        struct TestRenderer;
-        impl CodefenceRendererAdapter for TestRenderer {
-            fn write(
+        struct TestHeadingAdapter;
+        impl HeadingAdapter for TestHeadingAdapter {
+            fn enter(
                 &self,
-                output: &mut dyn fmt::Write,
-                _lang: &str,
-                _meta: &str,
-                code: &str,
+                output: &mut dyn Write,
+                heading: &HeadingMeta,
                 _sourcepos: Option<SourcePos>,
             ) -> fmt::Result {
-                write!(output, "<test>{}</test>", code)
+                write!(output, "<h{}>", heading.level)
+            }
+
+            fn exit(&self, output: &mut dyn Write, heading: &HeadingMeta) -> fmt::Result {
+                write!(output, "</h{}>", heading.level)
             }
         }
 
         let mut plugins = OwnedPlugins::new();
-        plugins.register_codefence_renderer("test", Box::new(TestRenderer));
-
-        assert!(plugins.codefence_renderer("test").is_some());
-        assert!(plugins.codefence_renderer("other").is_none());
-    }
-
-    #[test]
-    fn test_url_rewriter() {
-        #[derive(Debug)]
-        struct TestRewriter;
-        impl UrlRewriter for TestRewriter {
-            fn rewrite(&self, url: &str) -> String {
-                format!("https://example.com/{}", url)
-            }
-        }
-
-        let mut plugins = OwnedPlugins::new();
-        plugins.set_link_url_rewriter(Box::new(TestRewriter));
-
-        let rewriter = plugins.link_url_rewriter().unwrap();
-        assert_eq!(rewriter.rewrite("page"), "https://example.com/page");
+        plugins.set_heading_adapter(Box::new(TestHeadingAdapter));
+        assert!(plugins.heading_adapter().is_some());
     }
 
     #[test]

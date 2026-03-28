@@ -1,226 +1,676 @@
 //! Adapter traits for plugins
 //!
 //! This module provides adapter traits for customizing various aspects of
-//! Markdown rendering. Each plugin implements one or more of these traits.
+//! Markdown rendering, such as syntax highlighting, heading rendering,
+//! and code block handling.
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```
 //! use clmd::adapters::{SyntaxHighlighterAdapter, HeadingAdapter, HeadingMeta};
 //! use std::collections::HashMap;
 //! use std::borrow::Cow;
-//! use std::fmt;
+//! use std::fmt::{self, Write};
 //!
+//! // Define a custom syntax highlighter
 //! struct MyHighlighter;
 //!
 //! impl SyntaxHighlighterAdapter for MyHighlighter {
-//!     fn write_highlighted(
+//!     fn write_pre_tag<'s>(
 //!         &self,
-//!         output: &mut dyn fmt::Write,
-//!         lang: Option<&str>,
-//!         code: &str,
-//!     ) -> fmt::Result {
-//!         write!(output, "<code class=\"lang-{}\">{}</code>",
-//!             lang.unwrap_or("text"), code)
-//!     }
-//!
-//!     fn write_pre_tag(
-//!         &self,
-//!         output: &mut dyn fmt::Write,
-//!         _attributes: HashMap<&'static str, Cow<'_, str>>,
+//!         output: &mut dyn Write,
+//!         attributes: HashMap<&str, Cow<'s, str>>,
 //!     ) -> fmt::Result {
 //!         output.write_str("<pre>")
 //!     }
 //!
-//!     fn write_code_tag(
+//!     fn write_code_tag<'s>(
 //!         &self,
-//!         output: &mut dyn fmt::Write,
-//!         _attributes: HashMap<&'static str, Cow<'_, str>>,
+//!         output: &mut dyn Write,
+//!         attributes: HashMap<&str, Cow<'s, str>>,
 //!     ) -> fmt::Result {
 //!         output.write_str("<code>")
+//!     }
+//!
+//!     fn write_highlighted(
+//!         &self,
+//!         output: &mut dyn Write,
+//!         lang: Option<&str>,
+//!         code: &str,
+//!     ) -> fmt::Result {
+//!         output.write_str(code)
 //!     }
 //! }
 //! ```
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt;
+use std::fmt::{self, Write};
 
-/// Implement this adapter for custom rendering of codefence blocks.
+use crate::nodes::SourcePos;
+
+/// Adapter for syntax highlighting in code blocks.
 ///
-/// This allows you to provide custom rendering for specific languages,
-/// such as rendering Mermaid diagrams as SVG or Math as formatted output.
-pub trait CodefenceRendererAdapter: Send + Sync {
-    /// Render a codefence block.
+/// This trait allows you to customize how code blocks are rendered in HTML output.
+/// You can implement this trait to integrate with syntax highlighting libraries
+/// like syntect, tree-sitter, or highlight.js.
+///
+/// # Example
+///
+/// ```
+/// use clmd::adapters::SyntaxHighlighterAdapter;
+/// use std::collections::HashMap;
+/// use std::borrow::Cow;
+/// use std::fmt::{self, Write};
+///
+/// struct PlainHighlighter;
+///
+/// impl SyntaxHighlighterAdapter for PlainHighlighter {
+///     fn write_pre_tag<'s>(
+///         &self,
+///         output: &mut dyn Write,
+///         _attributes: HashMap<&str, Cow<'s, str>>,
+///     ) -> fmt::Result {
+///         output.write_str("<pre>")
+///     }
+///
+///     fn write_code_tag<'s>(
+///         &self,
+///         output: &mut dyn Write,
+///         _attributes: HashMap<&str, Cow<'s, str>>,
+///     ) -> fmt::Result {
+///         output.write_str("<code>")
+///     }
+///
+///     fn write_highlighted(
+///         &self,
+///         output: &mut dyn Write,
+///         _lang: Option<&str>,
+///         code: &str,
+///     ) -> fmt::Result {
+///         output.write_str(code)
+///     }
+/// }
+/// ```
+pub trait SyntaxHighlighterAdapter {
+    /// Write the opening `<pre>` tag with attributes.
     ///
     /// # Arguments
     ///
-    /// * `output` - The output stream to write to
-    /// * `lang` - Name of the programming language (the first token of the info string)
-    /// * `meta` - The remaining codefence info string after the language token, trimmed
-    /// * `code` - The code content to render
-    /// * `sourcepos` - Optional source position information
+    /// * `output` - The output buffer to write to
+    /// * `attributes` - A map of attribute names to values
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
-    fn write(
+    fn write_pre_tag<'s>(
         &self,
-        output: &mut dyn fmt::Write,
-        lang: &str,
-        meta: &str,
-        code: &str,
-        sourcepos: Option<crate::nodes::SourcePos>,
+        output: &mut dyn Write,
+        attributes: HashMap<&str, Cow<'s, str>>,
     ) -> fmt::Result;
-}
 
-/// Implement this adapter for custom syntax highlighting of codefence blocks.
-///
-/// This trait provides fine-grained control over how code blocks are rendered,
-/// allowing you to integrate with external syntax highlighting libraries.
-pub trait SyntaxHighlighterAdapter: Send + Sync {
-    /// Generates syntax highlighted HTML output.
+    /// Write the opening `<code>` tag with attributes.
     ///
     /// # Arguments
     ///
-    /// * `output` - The output stream to write to
+    /// * `output` - The output buffer to write to
+    /// * `attributes` - A map of attribute names to values
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn write_code_tag<'s>(
+        &self,
+        output: &mut dyn Write,
+        attributes: HashMap<&str, Cow<'s, str>>,
+    ) -> fmt::Result;
+
+    /// Write the highlighted code.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
     /// * `lang` - The language identifier (e.g., "rust", "python")
-    /// * `code` - The source code to be syntax highlighted
+    /// * `code` - The code to highlight
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
     fn write_highlighted(
         &self,
-        output: &mut dyn fmt::Write,
+        output: &mut dyn Write,
         lang: Option<&str>,
         code: &str,
     ) -> fmt::Result;
-
-    /// Generates the opening `<pre>` tag.
-    ///
-    /// Some syntax highlighter libraries might include their own `<pre>` tag
-    /// possibly with some HTML attributes pre-filled.
-    ///
-    /// # Arguments
-    ///
-    /// * `output` - The output stream to write to
-    /// * `attributes` - A map of HTML attributes provided by the parser
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating success or failure
-    fn write_pre_tag(
-        &self,
-        output: &mut dyn fmt::Write,
-        attributes: HashMap<&'static str, Cow<'_, str>>,
-    ) -> fmt::Result;
-
-    /// Generates the opening `<code>` tag.
-    ///
-    /// Some syntax highlighter libraries might include their own `<code>` tag
-    /// possibly with some HTML attributes pre-filled.
-    ///
-    /// # Arguments
-    ///
-    /// * `output` - The output stream to write to
-    /// * `attributes` - A map of HTML attributes provided by the parser
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating success or failure
-    fn write_code_tag(
-        &self,
-        output: &mut dyn fmt::Write,
-        attributes: HashMap<&'static str, Cow<'_, str>>,
-    ) -> fmt::Result;
 }
 
-/// Metadata for a heading, passed to the [`HeadingAdapter`].
-#[derive(Clone, Debug)]
+/// Metadata for a heading element.
+///
+/// This struct contains information about a heading that is passed to
+/// the [`HeadingAdapter`] during rendering.
+#[derive(Debug, Clone)]
 pub struct HeadingMeta {
-    /// The level of the heading; from 1 to 6 for ATX headings, 1 or 2 for setext headings.
+    /// The heading level (1-6)
     pub level: u8,
-
-    /// The content of the heading as a "flattened" string.
-    ///
-    /// Flattened in the sense that any `<strong>` or other tags are removed.
-    /// In the Markdown heading `## This is **bold**`, for example, this would
-    /// be the string `"This is bold"`.
+    /// The text content of the heading (without HTML tags)
     pub content: String,
 }
 
-/// Implement this adapter for custom heading rendering.
+/// Adapter for custom heading rendering.
 ///
-/// The `enter` method defines what's rendered prior to the AST content of the
-/// heading while the `exit` method defines what's rendered after it. Both
-/// methods provide access to a [`HeadingMeta`] struct and leave the AST content
-/// of the heading unchanged.
+/// This trait allows you to customize how headings are rendered in HTML output.
+/// You can use this to implement features like automatic ID generation for
+/// anchor links, custom heading wrappers, or TOC integration.
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use clmd::adapters::{HeadingAdapter, HeadingMeta};
-/// use std::fmt;
+/// use clmd::nodes::SourcePos;
+/// use std::fmt::{self, Write};
 ///
 /// struct AnchorHeadingAdapter;
 ///
 /// impl HeadingAdapter for AnchorHeadingAdapter {
 ///     fn enter(
 ///         &self,
-///         output: &mut dyn fmt::Write,
+///         output: &mut dyn Write,
 ///         heading: &HeadingMeta,
-///         _sourcepos: Option<clmd::nodes::SourcePos>,
+///         _sourcepos: Option<SourcePos>,
 ///     ) -> fmt::Result {
-///         let id = heading.content.to_lowercase().replace(' ', "-");
-///         write!(output, r#"<h{} id="{}"><a href="#{}">"#, heading.level, id, id)
+///         let id = heading.content.to_lowercase()
+///             .replace(' ', "-")
+///             .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
+///         write!(output, "<h{} id=\"{}\">", heading.level, id)
 ///     }
 ///
-///     fn exit(&self, output: &mut dyn fmt::Write, heading: &HeadingMeta) -> fmt::Result {
-///         write!(output, "</a></h{}>", heading.level)
+///     fn exit(&self, output: &mut dyn Write, heading: &HeadingMeta) -> fmt::Result {
+///         write!(output, "</h{}>", heading.level)
 ///     }
 /// }
 /// ```
-pub trait HeadingAdapter: Send + Sync {
-    /// Render the opening tag.
+pub trait HeadingAdapter {
+    /// Called when entering a heading element.
     ///
     /// # Arguments
     ///
-    /// * `output` - The output stream to write to
+    /// * `output` - The output buffer to write to
     /// * `heading` - Metadata about the heading
-    /// * `sourcepos` - Optional source position information
+    /// * `sourcepos` - The source position of the heading (if enabled)
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
     fn enter(
         &self,
-        output: &mut dyn fmt::Write,
+        output: &mut dyn Write,
         heading: &HeadingMeta,
-        sourcepos: Option<crate::nodes::SourcePos>,
+        sourcepos: Option<SourcePos>,
     ) -> fmt::Result;
 
-    /// Render the closing tag.
+    /// Called when exiting a heading element.
     ///
     /// # Arguments
     ///
-    /// * `output` - The output stream to write to
+    /// * `output` - The output buffer to write to
     /// * `heading` - Metadata about the heading
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
-    fn exit(&self, output: &mut dyn fmt::Write, heading: &HeadingMeta) -> fmt::Result;
+    fn exit(&self, output: &mut dyn Write, heading: &HeadingMeta) -> fmt::Result;
 }
 
-/// Trait for link and image URL rewrite extensions.
+/// Adapter for custom link rendering.
 ///
-/// This trait allows you to customize how URLs are rewritten during rendering,
-/// for example to add CDN prefixes or convert relative URLs.
+/// This trait allows you to customize how links are rendered in HTML output.
+/// You can use this to implement features like link rewriting, external link
+/// indicators, or security checks.
+pub trait LinkAdapter {
+    /// Called when entering a link element.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `url` - The link URL
+    /// * `title` - The link title (if any)
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn enter_link(&self, output: &mut dyn Write, url: &str, title: Option<&str>) -> fmt::Result;
+
+    /// Called when exiting a link element.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn exit_link(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom image rendering.
+///
+/// This trait allows you to customize how images are rendered in HTML output.
+/// You can use this to implement features like lazy loading, responsive images,
+/// or image optimization.
+pub trait ImageAdapter {
+    /// Called when rendering an image element.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `src` - The image source URL
+    /// * `alt` - The alt text
+    /// * `title` - The image title (if any)
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn render_image(
+        &self,
+        output: &mut dyn Write,
+        src: &str,
+        alt: &str,
+        title: Option<&str>,
+    ) -> fmt::Result;
+}
+
+/// Adapter for custom list rendering.
+///
+/// This trait allows you to customize how lists are rendered in HTML output.
+pub trait ListAdapter {
+    /// Called when entering a list element.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `ordered` - Whether the list is ordered
+    /// * `start` - The starting number for ordered lists
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn enter_list(&self, output: &mut dyn Write, ordered: bool, start: u32) -> fmt::Result;
+
+    /// Called when exiting a list element.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `ordered` - Whether the list is ordered
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn exit_list(&self, output: &mut dyn Write, ordered: bool) -> fmt::Result;
+}
+
+/// Adapter for custom table rendering.
+///
+/// This trait allows you to customize how tables are rendered in HTML output.
+pub trait TableAdapter {
+    /// Called when entering a table element.
+    fn enter_table(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a table element.
+    fn exit_table(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when entering a table row.
+    fn enter_row(&self, output: &mut dyn Write, is_header: bool) -> fmt::Result;
+
+    /// Called when exiting a table row.
+    fn exit_row(&self, output: &mut dyn Write, is_header: bool) -> fmt::Result;
+
+    /// Called when entering a table cell.
+    fn enter_cell(&self, output: &mut dyn Write, is_header: bool, align: Option<&str>) -> fmt::Result;
+
+    /// Called when exiting a table cell.
+    fn exit_cell(&self, output: &mut dyn Write, is_header: bool) -> fmt::Result;
+}
+
+/// Adapter for custom code block rendering.
+///
+/// This trait allows you to customize how code blocks are rendered in HTML output.
+/// Unlike [`SyntaxHighlighterAdapter`], this gives you full control over the
+/// entire code block rendering.
+pub trait CodeBlockAdapter {
+    /// Called when entering a code block.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `info` - The info string from the code fence (e.g., "rust" from ```rust)
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn enter_code_block(&self, output: &mut dyn Write, info: &str) -> fmt::Result;
+
+    /// Called when exiting a code block.
+    fn exit_code_block(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called to render the code content.
+    fn render_code(&self, output: &mut dyn Write, code: &str) -> fmt::Result;
+}
+
+/// Adapter for custom blockquote rendering.
+///
+/// This trait allows you to customize how blockquotes are rendered in HTML output.
+pub trait BlockQuoteAdapter {
+    /// Called when entering a blockquote.
+    fn enter_blockquote(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a blockquote.
+    fn exit_blockquote(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom paragraph rendering.
+///
+/// This trait allows you to customize how paragraphs are rendered in HTML output.
+pub trait ParagraphAdapter {
+    /// Called when entering a paragraph.
+    fn enter_paragraph(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a paragraph.
+    fn exit_paragraph(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom emphasis rendering.
+///
+/// This trait allows you to customize how emphasis (italic) is rendered in HTML output.
+pub trait EmphasisAdapter {
+    /// Called when entering emphasized text.
+    fn enter_emphasis(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting emphasized text.
+    fn exit_emphasis(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom strong rendering.
+///
+/// This trait allows you to customize how strong (bold) text is rendered in HTML output.
+pub trait StrongAdapter {
+    /// Called when entering strong text.
+    fn enter_strong(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting strong text.
+    fn exit_strong(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom strikethrough rendering.
+///
+/// This trait allows you to customize how strikethrough text is rendered in HTML output.
+pub trait StrikethroughAdapter {
+    /// Called when entering strikethrough text.
+    fn enter_strikethrough(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting strikethrough text.
+    fn exit_strikethrough(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom inline code rendering.
+///
+/// This trait allows you to customize how inline code is rendered in HTML output.
+pub trait InlineCodeAdapter {
+    /// Called when entering inline code.
+    fn enter_inline_code(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting inline code.
+    fn exit_inline_code(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called to render the code content.
+    fn render_code(&self, output: &mut dyn Write, code: &str) -> fmt::Result;
+}
+
+/// Adapter for custom footnote rendering.
+///
+/// This trait allows you to customize how footnotes are rendered in HTML output.
+pub trait FootnoteAdapter {
+    /// Called when entering a footnote definition.
+    fn enter_footnote_definition(&self, output: &mut dyn Write, name: &str) -> fmt::Result;
+
+    /// Called when exiting a footnote definition.
+    fn exit_footnote_definition(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when rendering a footnote reference.
+    fn render_footnote_reference(&self, output: &mut dyn Write, name: &str) -> fmt::Result;
+}
+
+/// Adapter for custom task list item rendering.
+///
+/// This trait allows you to customize how task list items are rendered in HTML output.
+pub trait TaskItemAdapter {
+    /// Called when rendering a task list item checkbox.
+    fn render_checkbox(&self, output: &mut dyn Write, checked: bool) -> fmt::Result;
+}
+
+/// Adapter for custom math rendering.
+///
+/// This trait allows you to customize how math expressions are rendered in HTML output.
+pub trait MathAdapter {
+    /// Called when rendering an inline math expression.
+    fn render_inline_math(&self, output: &mut dyn Write, math: &str) -> fmt::Result;
+
+    /// Called when rendering a display math expression.
+    fn render_display_math(&self, output: &mut dyn Write, math: &str) -> fmt::Result;
+}
+
+/// Adapter for custom definition list rendering.
+///
+/// This trait allows you to customize how definition lists are rendered in HTML output.
+pub trait DefinitionListAdapter {
+    /// Called when entering a definition list.
+    fn enter_definition_list(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a definition list.
+    fn exit_definition_list(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when entering a definition term.
+    fn enter_definition_term(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a definition term.
+    fn exit_definition_term(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when entering a definition description.
+    fn enter_definition_description(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting a definition description.
+    fn exit_definition_description(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom abbreviation rendering.
+///
+/// This trait allows you to customize how abbreviations are rendered in HTML output.
+pub trait AbbreviationAdapter {
+    /// Called when rendering an abbreviation.
+    fn render_abbreviation(&self, output: &mut dyn Write, abbr: &str, title: &str) -> fmt::Result;
+}
+
+/// Adapter for custom subscript rendering.
+///
+/// This trait allows you to customize how subscript text is rendered in HTML output.
+pub trait SubscriptAdapter {
+    /// Called when entering subscript text.
+    fn enter_subscript(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting subscript text.
+    fn exit_subscript(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom superscript rendering.
+///
+/// This trait allows you to customize how superscript text is rendered in HTML output.
+pub trait SuperscriptAdapter {
+    /// Called when entering superscript text.
+    fn enter_superscript(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting superscript text.
+    fn exit_superscript(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom inserted text rendering.
+///
+/// This trait allows you to customize how inserted (underlined) text is rendered in HTML output.
+pub trait InsertedAdapter {
+    /// Called when entering inserted text.
+    fn enter_inserted(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting inserted text.
+    fn exit_inserted(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom marked text rendering.
+///
+/// This trait allows you to customize how marked (highlighted) text is rendered in HTML output.
+pub trait MarkedAdapter {
+    /// Called when entering marked text.
+    fn enter_marked(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting marked text.
+    fn exit_marked(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom spoiler rendering.
+///
+/// This trait allows you to customize how spoiler text is rendered in HTML output.
+pub trait SpoilerAdapter {
+    /// Called when entering spoiler text.
+    fn enter_spoiler(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting spoiler text.
+    fn exit_spoiler(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom wiki link rendering.
+///
+/// This trait allows you to customize how wiki links are rendered in HTML output.
+pub trait WikiLinkAdapter {
+    /// Called when rendering a wiki link.
+    fn render_wiki_link(&self, output: &mut dyn Write, target: &str, title: Option<&str>) -> fmt::Result;
+}
+
+/// Adapter for custom emoji rendering.
+///
+/// This trait allows you to customize how emoji shortcodes are rendered in HTML output.
+pub trait EmojiAdapter {
+    /// Called when rendering an emoji.
+    fn render_emoji(&self, output: &mut dyn Write, shortcode: &str) -> fmt::Result;
+}
+
+/// Adapter for custom autolink rendering.
+///
+/// This trait allows you to customize how autolinks are rendered in HTML output.
+pub trait AutolinkAdapter {
+    /// Called when rendering an autolink.
+    fn render_autolink(&self, output: &mut dyn Write, url: &str, is_email: bool) -> fmt::Result;
+}
+
+/// Adapter for custom raw HTML rendering.
+///
+/// This trait allows you to customize how raw HTML is rendered in HTML output.
+pub trait RawHtmlAdapter {
+    /// Called when rendering raw HTML.
+    fn render_raw_html(&self, output: &mut dyn Write, html: &str, is_block: bool) -> fmt::Result;
+}
+
+/// Adapter for custom line break rendering.
+///
+/// This trait allows you to customize how line breaks are rendered in HTML output.
+pub trait LineBreakAdapter {
+    /// Called when rendering a soft line break.
+    fn render_soft_break(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when rendering a hard line break.
+    fn render_hard_break(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom thematic break rendering.
+///
+/// This trait allows you to customize how thematic breaks (horizontal rules) are rendered in HTML output.
+pub trait ThematicBreakAdapter {
+    /// Called when rendering a thematic break.
+    fn render_thematic_break(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for custom document rendering.
+///
+/// This trait allows you to customize how the document is rendered in HTML output.
+pub trait DocumentAdapter {
+    /// Called when entering the document.
+    fn enter_document(&self, output: &mut dyn Write) -> fmt::Result;
+
+    /// Called when exiting the document.
+    fn exit_document(&self, output: &mut dyn Write) -> fmt::Result;
+}
+
+/// Adapter for rendering code fence blocks with custom logic.
+///
+/// This trait allows you to customize how code fence blocks are rendered
+/// based on the language identifier.
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use clmd::adapters::CodefenceRendererAdapter;
+/// use clmd::nodes::SourcePos;
+/// use std::fmt::{self, Write};
+///
+/// struct MermaidRenderer;
+///
+/// impl CodefenceRendererAdapter for MermaidRenderer {
+///     fn write(
+///         &self,
+///         output: &mut dyn Write,
+///         lang: &str,
+///         _meta: &str,
+///         code: &str,
+///         _sourcepos: Option<SourcePos>,
+///     ) -> fmt::Result {
+///         if lang == "mermaid" {
+///             write!(output, "<div class=\"mermaid\">{}</div>", code)
+///         } else {
+///             write!(output, "<pre><code>{}</code></pre>", code)
+///         }
+///     }
+/// }
+/// ```
+pub trait CodefenceRendererAdapter {
+    /// Write the code fence block.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output buffer to write to
+    /// * `lang` - The language identifier from the info string
+    /// * `meta` - Additional metadata from the info string
+    /// * `code` - The code content
+    /// * `sourcepos` - The source position (if enabled)
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure
+    fn write(
+        &self,
+        output: &mut dyn Write,
+        lang: &str,
+        meta: &str,
+        code: &str,
+        sourcepos: Option<SourcePos>,
+    ) -> fmt::Result;
+}
+
+/// Adapter for URL rewriting.
+///
+/// This trait allows you to customize how URLs are rewritten during rendering.
+/// You can use this to implement features like base URL prepending, CDN rewriting,
+/// or link validation.
+///
+/// # Example
+///
+/// ```
 /// use clmd::adapters::UrlRewriter;
 ///
 /// struct CdnRewriter {
@@ -229,15 +679,15 @@ pub trait HeadingAdapter: Send + Sync {
 ///
 /// impl UrlRewriter for CdnRewriter {
 ///     fn rewrite(&self, url: &str) -> String {
-///         if url.starts_with("http://") || url.starts_with("https://") {
+///         if url.starts_with("http") {
 ///             url.to_string()
 ///         } else {
-///             format!("{}/{}", self.base_url, url)
+///             format!("{}{}", self.base_url, url)
 ///         }
 ///     }
 /// }
 /// ```
-pub trait UrlRewriter: Send + Sync + std::fmt::Debug {
+pub trait UrlRewriter {
     /// Rewrite a URL.
     ///
     /// # Arguments
@@ -250,265 +700,84 @@ pub trait UrlRewriter: Send + Sync + std::fmt::Debug {
     fn rewrite(&self, url: &str) -> String;
 }
 
-/// Trait for resolving broken link references.
-///
-/// When the parser encounters a potential link that has a broken reference
-/// (e.g `[foo]` when there is no `[foo]: url` entry), this callback is called
-/// to potentially resolve the reference.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::adapters::{BrokenLinkCallback, BrokenLinkReference, ResolvedReference};
-///
-/// struct MyBrokenLinkHandler;
-///
-/// impl BrokenLinkCallback for MyBrokenLinkHandler {
-///     fn resolve(&self, link: BrokenLinkReference) -> Option<ResolvedReference> {
-///         if link.normalized == "example" {
-///             Some(ResolvedReference {
-///                 url: "https://example.com".to_string(),
-///                 title: "Example".to_string(),
-///             })
-///         } else {
-///             None
-///         }
-///     }
-/// }
-/// ```
-pub trait BrokenLinkCallback: Send + Sync + std::fmt::Debug {
-    /// Potentially resolve a single broken link reference.
-    ///
-    /// # Arguments
-    ///
-    /// * `link` - Details about the broken link reference
-    ///
-    /// # Returns
-    ///
-    /// `Some(ResolvedReference)` if the link should be resolved, `None` otherwise
-    fn resolve(&self, link: BrokenLinkReference) -> Option<ResolvedReference>;
-}
-
-/// Details about a broken link reference.
-#[derive(Debug, Clone)]
-pub struct BrokenLinkReference<'a> {
-    /// The normalized reference link label.
-    ///
-    /// Unicode case folding is applied; see <https://github.com/commonmark/commonmark-spec/issues/695>
-    /// for a discussion on the details of what this exactly means.
-    pub normalized: &'a str,
-
-    /// The original text in the link label.
-    pub original: &'a str,
-}
-
-/// A resolved reference for a broken link.
-#[derive(Debug, Clone)]
-pub struct ResolvedReference {
-    /// The URL for the link.
-    pub url: String,
-
-    /// The title for the link.
-    pub title: String,
-}
-
-/// A simple syntax highlighter that wraps code in a pre/code block
-/// without any actual highlighting.
-#[derive(Debug, Clone, Copy)]
-pub struct DefaultSyntaxHighlighter;
-
-impl DefaultSyntaxHighlighter {
-    /// Create a new default syntax highlighter.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for DefaultSyntaxHighlighter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SyntaxHighlighterAdapter for DefaultSyntaxHighlighter {
-    fn write_highlighted(
-        &self,
-        output: &mut dyn fmt::Write,
-        _lang: Option<&str>,
-        code: &str,
-    ) -> fmt::Result {
-        // HTML escape the code
-        let escaped = code
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;");
-        write!(output, "{}", escaped)
-    }
-
-    fn write_pre_tag(
-        &self,
-        output: &mut dyn fmt::Write,
-        _attributes: HashMap<&'static str, Cow<'_, str>>,
-    ) -> fmt::Result {
-        output.write_str("<pre>")
-    }
-
-    fn write_code_tag(
-        &self,
-        output: &mut dyn fmt::Write,
-        attributes: HashMap<&'static str, Cow<'_, str>>,
-    ) -> fmt::Result {
-        if let Some(lang) = attributes.get("class") {
-            write!(output, r#"<code class="{}">"#, lang)
-        } else {
-            output.write_str("<code>")
-        }
-    }
-}
-
-/// A heading adapter that generates anchor links for headings.
-#[derive(Debug, Clone, Copy)]
-pub struct AnchorHeadingAdapter;
-
-impl AnchorHeadingAdapter {
-    /// Create a new anchor heading adapter.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for AnchorHeadingAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HeadingAdapter for AnchorHeadingAdapter {
-    fn enter(
-        &self,
-        output: &mut dyn fmt::Write,
-        heading: &HeadingMeta,
-        _sourcepos: Option<crate::nodes::SourcePos>,
-    ) -> fmt::Result {
-        let id = generate_anchor_id(&heading.content);
-        write!(
-            output,
-            "<h{} id=\"{}\" class=\"anchor\"><a href=\"#{}\">",
-            heading.level, id, id
-        )
-    }
-
-    fn exit(&self, output: &mut dyn fmt::Write, heading: &HeadingMeta) -> fmt::Result {
-        write!(output, "</a></h{}>", heading.level)
-    }
-}
-
-/// Generate an anchor ID from heading content.
-fn generate_anchor_id(content: &str) -> String {
-    content
-        .to_lowercase()
-        .replace(|c: char| !c.is_alphanumeric() && c != ' ', "")
-        .replace(' ', "-")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_default_syntax_highlighter() {
-        let highlighter = DefaultSyntaxHighlighter::new();
-        let mut output = String::new();
+    struct TestHighlighter;
 
-        // Test write_highlighted
-        highlighter
-            .write_highlighted(&mut output, Some("rust"), "fn main() {}")
-            .unwrap();
-        assert_eq!(output, "fn main() {}");
+    impl SyntaxHighlighterAdapter for TestHighlighter {
+        fn write_pre_tag<'s>(
+            &self,
+            output: &mut dyn Write,
+            _attributes: HashMap<&str, Cow<'s, str>>,
+        ) -> fmt::Result {
+            output.write_str("<pre class=\"highlight\">")
+        }
 
-        // Test HTML escaping
-        output.clear();
-        highlighter
-            .write_highlighted(&mut output, None, "<script>")
-            .unwrap();
-        assert_eq!(output, "&lt;script&gt;");
+        fn write_code_tag<'s>(
+            &self,
+            output: &mut dyn Write,
+            _attributes: HashMap<&str, Cow<'s, str>>,
+        ) -> fmt::Result {
+            output.write_str("<code>")
+        }
+
+        fn write_highlighted(
+            &self,
+            output: &mut dyn Write,
+            _lang: Option<&str>,
+            code: &str,
+        ) -> fmt::Result {
+            output.write_str(code)
+        }
+    }
+
+    struct TestHeadingAdapter;
+
+    impl HeadingAdapter for TestHeadingAdapter {
+        fn enter(
+            &self,
+            output: &mut dyn Write,
+            heading: &HeadingMeta,
+            _sourcepos: Option<SourcePos>,
+        ) -> fmt::Result {
+            write!(output, "<h{}>", heading.level)
+        }
+
+        fn exit(&self, output: &mut dyn Write, heading: &HeadingMeta) -> fmt::Result {
+            write!(output, "</h{}>", heading.level)
+        }
     }
 
     #[test]
-    fn test_default_syntax_highlighter_pre_tag() {
-        let highlighter = DefaultSyntaxHighlighter::new();
+    fn test_syntax_highlighter_adapter() {
+        let highlighter = TestHighlighter;
         let mut output = String::new();
 
-        highlighter
-            .write_pre_tag(&mut output, HashMap::new())
-            .unwrap();
-        assert_eq!(output, "<pre>");
-    }
-
-    #[test]
-    fn test_default_syntax_highlighter_code_tag() {
-        let highlighter = DefaultSyntaxHighlighter::new();
-        let mut output = String::new();
-
-        // Without class
-        highlighter
-            .write_code_tag(&mut output, HashMap::new())
-            .unwrap();
-        assert_eq!(output, "<code>");
-
-        // With class
-        output.clear();
-        let mut attrs = HashMap::new();
-        attrs.insert("class", Cow::Borrowed("language-rust"));
+        let attrs: HashMap<&str, Cow<'static, str>> = HashMap::new();
+        highlighter.write_pre_tag(&mut output, attrs.clone()).unwrap();
         highlighter.write_code_tag(&mut output, attrs).unwrap();
-        assert_eq!(output, r#"<code class="language-rust">"#);
+        highlighter.write_highlighted(&mut output, Some("rust"), "fn main() {}").unwrap();
+
+        assert!(output.contains("<pre class=\"highlight\">"));
+        assert!(output.contains("<code>"));
+        assert!(output.contains("fn main() {}"));
     }
 
     #[test]
-    fn test_anchor_heading_adapter() {
-        let adapter = AnchorHeadingAdapter::new();
+    fn test_heading_adapter() {
+        let adapter = TestHeadingAdapter;
         let mut output = String::new();
 
         let meta = HeadingMeta {
             level: 1,
-            content: "Hello World".to_string(),
+            content: "Test Heading".to_string(),
         };
 
         adapter.enter(&mut output, &meta, None).unwrap();
-        assert!(output.contains("<h1"));
-        assert!(output.contains("id=\"hello-world\""));
-        assert!(output.contains("<a href=\"#hello-world\""));
-
-        output.clear();
         adapter.exit(&mut output, &meta).unwrap();
-        assert_eq!(output, "</a></h1>");
-    }
 
-    #[test]
-    fn test_generate_anchor_id() {
-        assert_eq!(generate_anchor_id("Hello World"), "hello-world");
-        assert_eq!(generate_anchor_id("Test 123"), "test-123");
-        assert_eq!(generate_anchor_id("Special!@#Chars"), "specialchars");
-        assert_eq!(generate_anchor_id("Multiple   Spaces"), "multiple---spaces");
-    }
-
-    #[test]
-    fn test_broken_link_reference() {
-        let link = BrokenLinkReference {
-            normalized: "example",
-            original: "Example",
-        };
-        assert_eq!(link.normalized, "example");
-        assert_eq!(link.original, "Example");
-    }
-
-    #[test]
-    fn test_resolved_reference() {
-        let resolved = ResolvedReference {
-            url: "https://example.com".to_string(),
-            title: "Example".to_string(),
-        };
-        assert_eq!(resolved.url, "https://example.com");
-        assert_eq!(resolved.title, "Example");
+        assert_eq!(output, "<h1></h1>");
     }
 }

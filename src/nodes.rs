@@ -1212,3 +1212,203 @@ mod tests {
         assert_eq!(ast.sourcepos.end.line, 5);
     }
 }
+
+/// Error type for AST validation failures.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationError {
+    /// A node has an invalid parent-child relationship.
+    InvalidParentChild {
+        /// The parent node type.
+        parent: &'static str,
+        /// The child node type.
+        child: &'static str,
+    },
+    /// A leaf node has children.
+    LeafNodeWithChildren {
+        /// The node type.
+        node_type: &'static str,
+    },
+    /// A required child is missing.
+    MissingRequiredChild {
+        /// The parent node type.
+        parent: &'static str,
+        /// Description of what's missing.
+        description: &'static str,
+    },
+    /// A node has an invalid property value.
+    InvalidProperty {
+        /// The node type.
+        node_type: &'static str,
+        /// The property name.
+        property: &'static str,
+        /// The invalid value.
+        value: String,
+    },
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationError::InvalidParentChild { parent, child } => {
+                write!(f, "Invalid parent-child relationship: {} cannot contain {}", parent, child)
+            }
+            ValidationError::LeafNodeWithChildren { node_type } => {
+                write!(f, "Leaf node {} cannot have children", node_type)
+            }
+            ValidationError::MissingRequiredChild { parent, description } => {
+                write!(f, "{} is missing required child: {}", parent, description)
+            }
+            ValidationError::InvalidProperty { node_type, property, value } => {
+                write!(f, "Invalid property {} on {}: {}", property, node_type, value)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+/// Validate an AST node and its children.
+///
+/// This function checks that the AST structure is valid according to CommonMark
+/// rules. It verifies parent-child relationships, ensures leaf nodes don't have
+/// children, and checks for other structural constraints.
+///
+/// # Arguments
+///
+/// * `node` - The root node to validate
+///
+/// # Returns
+///
+/// `Ok(())` if the AST is valid, or a `ValidationError` describing the first
+/// problem found.
+///
+/// # Example
+///
+/// ```
+/// use clmd::{Arena, parse_document, Options, nodes::validate};
+///
+/// let arena = Arena::new();
+/// let options = Options::default();
+/// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
+///
+/// assert!(validate(root).is_ok());
+/// ```
+pub fn validate(node: &AstNode<'_>) -> Result<(), ValidationError> {
+    validate_node(node, None)
+}
+
+/// Internal validation function that tracks the parent.
+fn validate_node(
+    node: &AstNode<'_>,
+    parent: Option<&NodeValue>,
+) -> Result<(), ValidationError> {
+    let ast = node.data.borrow();
+    let value = &ast.value;
+
+    // Check parent-child relationship
+    if let Some(parent_value) = parent {
+        if !can_contain_type(parent_value, value) {
+            return Err(ValidationError::InvalidParentChild {
+                parent: parent_value.xml_node_name(),
+                child: value.xml_node_name(),
+            });
+        }
+    }
+
+    // Check that leaf nodes don't have children
+    if value.is_leaf() && node.first_child().is_some() {
+        return Err(ValidationError::LeafNodeWithChildren {
+            node_type: value.xml_node_name(),
+        });
+    }
+
+    // Validate specific node types
+    match value {
+        NodeValue::Heading(heading) => {
+            if heading.level == 0 || heading.level > 6 {
+                return Err(ValidationError::InvalidProperty {
+                    node_type: "heading",
+                    property: "level",
+                    value: heading.level.to_string(),
+                });
+            }
+        }
+        NodeValue::List(list) => {
+            // Check that lists have at least one item
+            if node.first_child().is_none() {
+                return Err(ValidationError::MissingRequiredChild {
+                    parent: "list",
+                    description: "at least one list item",
+                });
+            }
+        }
+        NodeValue::Table(table) => {
+            // Check that tables have at least one row
+            if node.first_child().is_none() {
+                return Err(ValidationError::MissingRequiredChild {
+                    parent: "table",
+                    description: "at least one table row",
+                });
+            }
+            // Check column count consistency
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                let child_ast = child.data.borrow();
+                if let NodeValue::TableRow(_) = &child_ast.value {
+                    let cell_count = child.children().count();
+                    if cell_count != table.num_columns {
+                        return Err(ValidationError::InvalidProperty {
+                            node_type: "table_row",
+                            property: "cell_count",
+                            value: format!("{} (expected {})", cell_count, table.num_columns),
+                        });
+                    }
+                }
+                child_opt = child.next_sibling();
+            }
+        }
+        _ => {}
+    }
+
+    // Recursively validate children
+    let mut child_opt = node.first_child();
+    while let Some(child) = child_opt {
+        validate_node(child, Some(value))?;
+        child_opt = child.next_sibling();
+    }
+
+    Ok(())
+}
+
+/// Extension trait for AST nodes providing validation methods.
+pub trait NodeValidationExt {
+    /// Validate this node and its children.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the AST is valid, or a `ValidationError` describing the first
+    /// problem found.
+    fn validate(&self) -> Result<(), ValidationError>;
+
+    /// Check if this node can contain another node type.
+    ///
+    /// # Arguments
+    ///
+    /// * `child` - The child node value to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if this node can contain the given child type.
+    fn can_contain(&self, child: &NodeValue) -> bool;
+}
+
+impl NodeValidationExt for AstNode<'_> {
+    fn validate(&self) -> Result<(), ValidationError> {
+        validate(self)
+    }
+
+    fn can_contain(&self, child: &NodeValue) -> bool {
+        let ast = self.data.borrow();
+        can_contain_type(&ast.value, child)
+    }
+}

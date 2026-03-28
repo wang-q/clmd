@@ -98,6 +98,28 @@ pub mod html_to_md;
 /// String pool for efficient memory reuse
 pub(crate) mod pool;
 
+/// HTML rendering for the CommonMark AST.
+///
+/// This module provides functions for rendering CommonMark documents as HTML,
+/// inspired by comrak's design.
+///
+/// # Example
+///
+/// ```
+/// use clmd::{Arena, parse_document, Options, html};
+/// use std::fmt::Write;
+///
+/// let arena = Arena::new();
+/// let options = Options::default();
+/// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
+///
+/// let mut html = String::new();
+/// html::format_document(root, &options, &mut html).unwrap();
+///
+/// assert!(html.contains("<h1>"));
+/// ```
+pub mod html;
+
 /// HTML utilities (escaping, entity decoding)
 pub mod html_utils;
 
@@ -277,6 +299,9 @@ pub use render::{
     render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
     render_to_xml, OutputFormat, Renderer,
 };
+
+// New comrak-style HTML formatter exports
+pub use html::{escape_html, escape_href, is_safe_url, Context};
 
 // =============================================================================
 // Utility Exports
@@ -515,6 +540,8 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 
 /// Format an existing AST to HTML.
 ///
+/// This function uses the new comrak-style HTML formatter.
+///
 /// # Arguments
 ///
 /// * `root` - The root node
@@ -541,7 +568,7 @@ pub fn format_html<'a>(
     options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    format_html_with_plugins(root, options, output, &Plugins::default())
+    html::format_document(root, options, output)
 }
 
 /// Format an existing AST to HTML with plugins.
@@ -573,16 +600,9 @@ pub fn format_html_with_plugins<'a>(
     root: Node<'a>,
     options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    // Get the arena from the root node
-    // For now, use the legacy renderer with options converted to flags
-    let flags = options_to_flags(options);
-    
-    // Convert Node to NodeId for the legacy renderer
-    // This is a temporary bridge until the new renderer is fully implemented
-    let html = render::html::render_from_node(root, flags);
-    output.write_str(&html)
+    html::format_document_with_plugins(root, options, output, plugins)
 }
 
 /// Format an existing AST to CommonMark.

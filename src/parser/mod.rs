@@ -101,7 +101,7 @@ struct ParserInner<'a, 'o> {
     current: Node<'a>,
 
     /// Parser options
-    options: &'o Options,
+    options: &'o Options<'a>,
 
     /// Reference map for link references
     refmap: HashMap<String, nodes::NodeLink>,
