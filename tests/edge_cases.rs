@@ -3,7 +3,9 @@
 //! This module tests boundary conditions and edge cases that may not be
 //! covered by the standard CommonMark spec tests.
 
-use clmd::{markdown_to_html, Options, Parser, ParserLimits};
+use clmd::markdown_to_html;
+use clmd::options::Options;
+use clmd::{Parser, ParserLimits};
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
@@ -263,13 +265,11 @@ fn test_html_entities() {
 /// Test smart punctuation option
 #[test]
 fn test_smart_punctuation() {
-    use clmd::config::options::SMART;
-
     let input = "\"Hello\" -- world...";
 
     let html_default = md_to_html(input);
     let mut opts = Options::default();
-    opts.set(&SMART, true);
+    opts.parse.smart = true;
     let html_smart = markdown_to_html(input, &opts);
 
     // Smart punctuation should convert quotes and dashes
