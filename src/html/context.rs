@@ -216,6 +216,7 @@ pub fn is_safe_url(url: &str) -> bool {
 }
 
 /// Render sourcepos attribute if enabled.
+#[allow(dead_code)]
 pub fn render_sourcepos(
     context: &mut Context,
     sourcepos: &crate::nodes::SourcePos,

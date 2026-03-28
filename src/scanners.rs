@@ -737,7 +737,7 @@ fn match_url_autolink(s: &str) -> Option<(&str, usize)> {
     i += 3;
 
     // URL body
-    let url_start = scheme_start;
+    let _url_start = scheme_start;
     while i < bytes.len()
         && !matches!(bytes[i], b'<' | b'>' | b' ' | b'\t' | b'\n' | b'\r')
     {

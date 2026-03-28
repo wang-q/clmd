@@ -21,7 +21,7 @@ pub mod options;
 use crate::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
 use crate::error::{ParseError, ParseResult, ParserLimits};
-use crate::nodes::{Ast, Node, NodeValue};
+use crate::nodes::{Ast, Node};
 use options::Options;
 use std::cell::RefCell;
 use std::collections::HashMap;

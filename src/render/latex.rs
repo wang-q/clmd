@@ -1,9 +1,7 @@
 //! LaTeX renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{
-    ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue,
-};
+use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 
 /// Render a node tree as LaTeX
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -271,6 +269,7 @@ fn escape_latex(text: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::nodes::{NodeCode, NodeCodeBlock, NodeLink};
 
     #[test]
     fn test_render_paragraph() {

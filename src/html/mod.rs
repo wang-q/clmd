@@ -27,9 +27,9 @@ pub use context::{escape_href, escape_html, is_safe_url, Context};
 use std::fmt::{self, Write};
 
 use crate::nodes::{
-    AstNode, LineColumn, ListType, NodeCode, NodeCodeBlock, NodeDescriptionItem,
-    NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink,
-    NodeList, NodeMath, NodeTable, NodeTaskItem, NodeValue, SourcePos, TableAlignment,
+    AstNode, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
+    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeMath,
+    NodeTable, NodeTaskItem, NodeValue,
 };
 use crate::parser::options::{Options, Plugins};
 
@@ -302,7 +302,7 @@ fn render_item(
 
 fn render_code_block(
     context: &mut Context,
-    node: &AstNode<'_>,
+    _node: &AstNode<'_>,
     entering: bool,
     code_block: &NodeCodeBlock,
 ) -> Result<ChildRendering, fmt::Error> {
@@ -579,7 +579,7 @@ fn render_link(
 
 fn render_image(
     context: &mut Context,
-    node: &AstNode<'_>,
+    _node: &AstNode<'_>,
     entering: bool,
     link: &NodeLink,
 ) -> Result<ChildRendering, fmt::Error> {
@@ -721,7 +721,7 @@ fn render_table_cell(
 
 fn render_footnote_definition(
     context: &mut Context,
-    node: &AstNode<'_>,
+    _node: &AstNode<'_>,
     entering: bool,
     def: &NodeFootnoteDefinition,
 ) -> Result<ChildRendering, fmt::Error> {
@@ -849,7 +849,7 @@ pub fn render_from_node<'a>(root: crate::nodes::Node<'a>, _options: u32) -> Stri
 
     // Create a wrapper to adapt between the two node types
     // This is a temporary bridge
-    format_document_legacy(&options, &mut output, root);
+    let _ = format_document_legacy(&options, &mut output, root);
     output
 }
 

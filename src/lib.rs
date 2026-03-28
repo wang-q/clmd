@@ -246,17 +246,17 @@ pub use inlines::unescape_string;
 // Legacy Option Flags (internal use)
 // =============================================================================
 
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_SOURCEPOS: u32 = 1 << 0;
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_HARDBREAKS: u32 = 1 << 1;
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_NOBREAKS: u32 = 1 << 2;
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_VALIDATE_UTF8: u32 = 1 << 3;
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_SMART: u32 = 1 << 4;
-#[allow(deprecated)]
+#[allow(dead_code)]
 const OPT_UNSAFE: u32 = 1 << 5;
 
 // =============================================================================

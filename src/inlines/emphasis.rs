@@ -4,7 +4,6 @@ use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};
 use crate::nodes::NodeValue;
 use smallvec::SmallVec;
-use std::borrow::Cow;
 
 /// Delimiter struct for tracking emphasis markers
 /// This is a singly-linked list using Box for ownership
@@ -15,6 +14,7 @@ pub struct Delimiter {
     /// The inline text node containing the delimiter
     pub inl_text: NodeId,
     /// Position in the subject
+    #[allow(dead_code)]
     pub position: usize,
     /// Number of delimiter characters
     pub num_delims: usize,

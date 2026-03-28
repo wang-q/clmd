@@ -54,16 +54,19 @@ pub struct BlockParser<'a> {
     /// Parser limits for input validation
     pub limits: ParserLimits,
     /// Current nesting depth
+    #[allow(dead_code)]
     pub nesting_depth: usize,
 }
 
 impl<'a> BlockParser<'a> {
     /// Create a new block parser with the given arena
+    #[allow(dead_code)]
     pub fn new(arena: &'a mut NodeArena) -> Self {
         Self::new_with_options(arena, 0)
     }
 
     /// Create a new block parser with the given arena and options
+    #[allow(dead_code)]
     pub fn new_with_options(arena: &'a mut NodeArena, options: u32) -> Self {
         Self::new_with_limits(arena, options, ParserLimits::default())
     }
@@ -111,6 +114,7 @@ impl<'a> BlockParser<'a> {
     }
 
     /// Parse a complete document
+    #[allow(dead_code)]
     pub fn parse(arena: &'a mut NodeArena, input: &str) -> NodeId {
         Self::parse_with_options(arena, input, 0)
     }
@@ -124,6 +128,7 @@ impl<'a> BlockParser<'a> {
     ///
     /// This function will panic if parsing fails (e.g., input too large).
     /// For error handling, use `parse_with_limits` instead.
+    #[allow(dead_code)]
     pub fn parse_with_options(
         arena: &'a mut NodeArena,
         input: &str,

@@ -55,7 +55,7 @@ pub fn normalize_label(s: &str, case: Case) -> String {
 /// - Percent-encoding special characters
 /// - Resolving backslash escapes
 /// - Stripping control characters
-pub fn clean_url(url: &str) -> Cow<str> {
+pub fn clean_url(url: &str) -> Cow<'_, str> {
     // Fast path: no special handling needed
     if url.bytes().all(|b| {
         b.is_ascii_alphanumeric()
@@ -127,7 +127,7 @@ pub fn clean_url(url: &str) -> Cow<str> {
 /// Clean a link title
 ///
 /// Handles backslash escapes and strips control characters.
-pub fn clean_title(title: &str) -> Cow<str> {
+pub fn clean_title(title: &str) -> Cow<'_, str> {
     // Fast path: no special handling needed
     if !title.bytes().any(|b| b == b'\\' || b.is_ascii_control()) {
         return Cow::Borrowed(title);
@@ -293,7 +293,7 @@ pub fn count_indent(s: &str) -> usize {
 /// Normalize line endings to LF
 ///
 /// Converts CRLF and CR to LF.
-pub fn normalize_newlines(s: &str) -> Cow<str> {
+pub fn normalize_newlines(s: &str) -> Cow<'_, str> {
     if !s.contains('\r') {
         return Cow::Borrowed(s);
     }

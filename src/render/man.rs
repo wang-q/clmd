@@ -1,9 +1,7 @@
 //! Man page renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{
-    ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeList, NodeValue,
-};
+use crate::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
 
 /// Render a node tree as a Man page (groff format)
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -334,6 +332,7 @@ fn escape_man(text: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::nodes::{NodeCode, NodeCodeBlock};
 
     #[test]
     fn test_render_paragraph() {

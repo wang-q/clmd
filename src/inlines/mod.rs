@@ -51,7 +51,6 @@ use links::{
     parse_reference_link, Bracket, LinkContext,
 };
 use rustc_hash::FxHashMap;
-use std::borrow::Cow;
 use text::apply_smart_punctuation;
 use utils::normalize_uri;
 
@@ -63,10 +62,13 @@ pub struct Subject<'a> {
     /// Current position in the input
     pub pos: usize,
     /// Line number (for source positions)
+    #[allow(dead_code)]
     pub line: usize,
     /// Column offset (for source positions)
+    #[allow(dead_code)]
     pub column_offset: usize,
     /// Block offset (for source positions)
+    #[allow(dead_code)]
     pub block_offset: usize,
     /// Stack of delimiters for emphasis/strong
     pub delimiters: Option<Box<Delimiter>>,
@@ -81,11 +83,13 @@ pub struct Subject<'a> {
 }
 
 /// Static empty refmap for Subject::new
+#[allow(dead_code)]
 static EMPTY_REFMAP: once_cell::sync::Lazy<FxHashMap<String, (String, String)>> =
     once_cell::sync::Lazy::new(FxHashMap::default);
 
 impl<'a> Subject<'a> {
     /// Create a new subject from a string
+    #[allow(dead_code)]
     pub fn new(input: &'a str, line: usize, block_offset: usize) -> Self {
         Subject {
             input,
@@ -102,6 +106,7 @@ impl<'a> Subject<'a> {
     }
 
     /// Create a new subject with a reference map
+    #[allow(dead_code)]
     pub fn with_refmap(
         input: &'a str,
         line: usize,
@@ -162,6 +167,7 @@ impl<'a> Subject<'a> {
 
     /// Peek at the next character code
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn peek_char_code(&self) -> i32 {
         if self.pos < self.input.len() {
             self.input.as_bytes()[self.pos] as i32
@@ -1003,6 +1009,7 @@ impl<'a> Subject<'a> {
 }
 
 /// Parse inline content into the given parent node
+#[allow(dead_code)]
 pub fn parse_inlines(
     arena: &mut NodeArena,
     parent: NodeId,
@@ -1015,6 +1022,7 @@ pub fn parse_inlines(
 }
 
 /// Parse inline content with reference map
+#[allow(dead_code)]
 pub fn parse_inlines_with_refmap(
     arena: &mut NodeArena,
     parent: NodeId,
@@ -1080,4 +1088,6 @@ pub fn parse_reference(
 
 // Re-export commonly used functions
 pub use entities::unescape_string;
+// normalize_reference is re-exported for public API use
+#[allow(unused_imports)]
 pub use utils::normalize_reference;

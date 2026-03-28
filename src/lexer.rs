@@ -8,11 +8,11 @@ pub const CODE_INDENT: usize = 4;
 /// Tab stop size
 pub const TAB_STOP: usize = 4;
 
-// Re-export Position from error module to avoid duplication
-pub use crate::error::Position;
+// Position is re-exported from error module if needed
 
 /// Line information
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct LineInfo {
     /// Content of the line
     pub content: String,
@@ -22,6 +22,7 @@ pub struct LineInfo {
 
 /// Lexer state for parsing a single line
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct LineLexer<'a> {
     /// The line being parsed
     pub line: &'a str,
@@ -47,6 +48,7 @@ pub struct LineLexer<'a> {
 
 impl<'a> LineLexer<'a> {
     /// Create a new line lexer
+    #[allow(dead_code)]
     pub fn new(line: &'a str, line_number: usize) -> Self {
         let mut lexer = LineLexer {
             line,
@@ -65,6 +67,7 @@ impl<'a> LineLexer<'a> {
     }
 
     /// Find the next non-space character position
+    #[allow(dead_code)]
     pub fn find_next_nonspace(&mut self) {
         let mut i = self.offset;
         let mut cols = self.column;
@@ -91,6 +94,7 @@ impl<'a> LineLexer<'a> {
     }
 
     /// Advance to the next non-space position
+    #[allow(dead_code)]
     pub fn advance_next_nonspace(&mut self) {
         self.offset = self.next_nonspace;
         self.column = self.next_nonspace_column;
@@ -99,6 +103,7 @@ impl<'a> LineLexer<'a> {
 
     /// Advance offset by count characters
     /// If columns is true, count columns (tabs count as multiple spaces)
+    #[allow(dead_code)]
     pub fn advance_offset(&mut self, count: usize, columns: bool) {
         let chars: Vec<char> = self.line[self.offset..].chars().collect();
         let mut remaining = count;
@@ -137,42 +142,50 @@ impl<'a> LineLexer<'a> {
     }
 
     /// Peek at a character at the given offset
+    #[allow(dead_code)]
     pub fn peek(&self, pos: usize) -> Option<char> {
         self.line[pos..].chars().next()
     }
 
     /// Peek at the current offset
+    #[allow(dead_code)]
     pub fn peek_current(&self) -> Option<char> {
         self.peek(self.offset)
     }
 
     /// Peek at the next non-space position
+    #[allow(dead_code)]
     pub fn peek_next_nonspace(&self) -> Option<char> {
         self.peek(self.next_nonspace)
     }
 
     /// Get the remaining content from current offset
+    #[allow(dead_code)]
     pub fn remaining(&self) -> &str {
         &self.line[self.offset..]
     }
 
     /// Get the content from next non-space position
+    #[allow(dead_code)]
     pub fn from_next_nonspace(&self) -> &str {
         &self.line[self.next_nonspace..]
     }
 
     /// Check if the line matches a blank line
+    #[allow(dead_code)]
     pub fn is_blank(&self) -> bool {
         self.line.trim().is_empty()
     }
 
     /// Get the indent level
+    #[allow(dead_code)]
     pub fn get_indent(&self) -> usize {
         self.indent
     }
 }
 
 /// Split input text into lines
+#[allow(dead_code)]
 pub fn split_lines(text: &str) -> Vec<&str> {
     text.lines().collect()
 }
@@ -183,17 +196,20 @@ pub fn is_space_or_tab(c: char) -> bool {
 }
 
 /// Check if a string is blank (only whitespace)
+#[allow(dead_code)]
 pub fn is_blank(s: &str) -> bool {
     s.trim().is_empty()
 }
 
 /// Count leading spaces on a line
+#[allow(dead_code)]
 pub fn count_leading_spaces(line: &str) -> usize {
     line.chars().take_while(|&c| c == ' ').count()
 }
 
 /// Count leading whitespace (spaces and tabs) on a line,
 /// accounting for tab stops
+#[allow(dead_code)]
 pub fn count_leading_whitespace(line: &str) -> (usize, usize) {
     let mut offset = 0;
     let mut column = 0;
@@ -423,7 +439,8 @@ mod tests {
 
     #[test]
     fn test_position_default() {
-        // Position is now re-exported from error module
+        // Position is from error module
+        use crate::error::Position;
         let pos = Position::default();
         assert_eq!(pos.line, 0);
         assert_eq!(pos.column, 0);

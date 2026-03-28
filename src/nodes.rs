@@ -4,7 +4,6 @@
 //! It is inspired by comrak's design, combining node values with metadata
 //! into a unified structure.
 
-use std::borrow::Cow;
 use std::cell::RefCell;
 
 /// Shorthand for checking if a node's value matches the given expression.
@@ -1356,7 +1355,7 @@ fn validate_node(
                 });
             }
         }
-        NodeValue::List(list) => {
+        NodeValue::List(_list) => {
             // Check that lists have at least one item
             if node.first_child().is_none() {
                 return Err(ValidationError::MissingRequiredChild {

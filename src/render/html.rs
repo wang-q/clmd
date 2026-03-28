@@ -2,11 +2,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::{escape_html, is_safe_url};
-use crate::nodes::{
-    ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
-    NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem, NodeValue,
-    TableAlignment,
-};
+use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue, TableAlignment};
 
 /// Render an arena_tree node to HTML
 ///
@@ -899,6 +895,7 @@ fn escape_href(url: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::nodes::{NodeCode, NodeCodeBlock, NodeLink};
 
     #[test]
     fn test_escape_html() {

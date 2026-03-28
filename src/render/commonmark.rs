@@ -1,11 +1,7 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{
-    AstNode, ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
-    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTaskItem,
-    NodeValue,
-};
+use crate::nodes::{AstNode, ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
 use crate::parser::options::{Options, Plugins};
 use std::fmt;
 
@@ -595,6 +591,7 @@ fn escape_link_url(url: &str) -> String {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::nodes::{NodeCode, NodeCodeBlock, NodeLink};
 
     #[test]
     fn test_render_paragraph() {

@@ -7,12 +7,13 @@ fn md_to_html(input: &str) -> String {
 }
 
 fn main() {
-    let spec_content = fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
-    
+    let spec_content =
+        fs::read_to_string("tests/fixtures/spec.txt").expect("Failed to read spec.txt");
+
     let mut test_number = 0;
     let lines: Vec<&str> = spec_content.lines().collect();
     let mut i = 0;
-    
+
     let mut passed = 0;
     let mut failed = 0;
 
@@ -47,7 +48,7 @@ fn main() {
             let html = html.replace('→', "\t");
 
             let result = md_to_html(&markdown);
-            
+
             if result == html {
                 passed += 1;
             } else {
@@ -61,10 +62,13 @@ fn main() {
 
         i += 1;
     }
-    
+
     println!("\n=== Summary ===");
     println!("Passed: {}", passed);
     println!("Failed: {}", failed);
     println!("Total: {}", test_number);
-    println!("Pass rate: {:.1}%", (passed as f64 / test_number as f64) * 100.0);
+    println!(
+        "Pass rate: {:.1}%",
+        (passed as f64 / test_number as f64) * 100.0
+    );
 }

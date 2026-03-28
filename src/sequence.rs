@@ -412,12 +412,14 @@ impl<'a> Iterator for SplitIterator<'a> {
 
 /// A collection of BasedSequences
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct SequenceList<'a> {
     sequences: Vec<BasedSequence<'a>>,
 }
 
 impl<'a> SequenceList<'a> {
     /// Create a new empty sequence list
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             sequences: Vec::new(),
@@ -425,31 +427,37 @@ impl<'a> SequenceList<'a> {
     }
 
     /// Add a sequence to the list
+    #[allow(dead_code)]
     pub fn push(&mut self, seq: BasedSequence<'a>) {
         self.sequences.push(seq);
     }
 
     /// Get the number of sequences
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.sequences.len()
     }
 
     /// Check if the list is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.sequences.is_empty()
     }
 
     /// Get a sequence at index
+    #[allow(dead_code)]
     pub fn get(&self, index: usize) -> Option<&BasedSequence<'a>> {
         self.sequences.get(index)
     }
 
     /// Iterate over sequences
+    #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = &BasedSequence<'a>> {
         self.sequences.iter()
     }
 
     /// Join all sequences into a single string
+    #[allow(dead_code)]
     pub fn join(&self, sep: &str) -> String {
         self.sequences
             .iter()
@@ -466,6 +474,7 @@ impl<'a> Default for SequenceList<'a> {
 }
 
 /// Utility functions for sequence operations
+#[allow(dead_code)]
 pub mod utils {
     use super::BasedSequence;
 

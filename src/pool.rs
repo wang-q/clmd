@@ -5,12 +5,14 @@
 
 /// A simple string pool for reusing String buffers
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct StringPool {
     buffer: String,
 }
 
 impl StringPool {
     /// Create a new string pool with the given initial capacity
+    #[allow(dead_code)]
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             buffer: String::with_capacity(cap),
@@ -18,31 +20,37 @@ impl StringPool {
     }
 
     /// Clear the buffer without deallocating
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.buffer.clear();
     }
 
     /// Get a mutable reference to the buffer
+    #[allow(dead_code)]
     pub fn buffer_mut(&mut self) -> &mut String {
         &mut self.buffer
     }
 
     /// Get the buffer as a string slice
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.buffer
     }
 
     /// Append a string to the buffer
+    #[allow(dead_code)]
     pub fn push_str(&mut self, s: &str) {
         self.buffer.push_str(s);
     }
 
     /// Push a character to the buffer
+    #[allow(dead_code)]
     pub fn push(&mut self, c: char) {
         self.buffer.push(c);
     }
 
     /// Take the buffer content and clear it
+    #[allow(dead_code)]
     pub fn take(&mut self) -> String {
         let result = self.buffer.clone();
         self.buffer.clear();
@@ -50,6 +58,7 @@ impl StringPool {
     }
 
     /// Take the buffer content as a new string without cloning
+    #[allow(dead_code)]
     pub fn take_string(&mut self) -> String {
         std::mem::take(&mut self.buffer)
     }
