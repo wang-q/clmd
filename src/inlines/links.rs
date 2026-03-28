@@ -10,6 +10,7 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 /// Bracket struct for tracking link/image brackets
+#[derive(Debug)]
 pub struct Bracket {
     /// Previous bracket in stack
     pub previous: Option<Box<Bracket>>,

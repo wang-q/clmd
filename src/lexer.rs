@@ -14,22 +14,34 @@ pub use crate::error::Position;
 /// Line information
 #[derive(Debug, Clone)]
 pub struct LineInfo {
+    /// Content of the line
     pub content: String,
+    /// Line number (1-indexed)
     pub line_number: usize,
 }
 
 /// Lexer state for parsing a single line
 #[derive(Debug)]
 pub struct LineLexer<'a> {
+    /// The line being parsed
     pub line: &'a str,
+    /// Line number (1-indexed)
     pub line_number: usize,
+    /// Current byte offset in the line
     pub offset: usize,
+    /// Current column (0-indexed)
     pub column: usize,
+    /// Offset of the next non-space character
     pub next_nonspace: usize,
+    /// Column of the next non-space character
     pub next_nonspace_column: usize,
+    /// Current indent level
     pub indent: usize,
+    /// Whether the current line is indented
     pub indented: bool,
+    /// Whether the current line is blank
     pub blank: bool,
+    /// Whether a tab was partially consumed
     pub partially_consumed_tab: bool,
 }
 

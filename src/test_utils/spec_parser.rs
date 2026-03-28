@@ -13,11 +13,17 @@
 
 #[derive(Debug, Clone)]
 pub struct SpecExample {
+    /// Section name in the spec file
     pub section: String,
+    /// Test case number
     pub number: usize,
+    /// Input markdown text
     pub input: String,
+    /// Expected HTML output
     pub expected_html: String,
+    /// Expected AST output (optional)
     pub expected_ast: Option<String>,
+    /// Test options
     pub options: Vec<String>,
 }
 

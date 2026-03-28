@@ -1,4 +1,4 @@
-use clmd::inlines::unescape_string;
+use clmd::unescape_string;
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
 macro_rules! test_log {

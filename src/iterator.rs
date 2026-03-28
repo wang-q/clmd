@@ -20,13 +20,18 @@ use crate::node_value::NodeValue;
 /// Event type for tree iteration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
+    /// No event (initial state)
     None,
+    /// Iteration complete
     Done,
+    /// Entering a node
     Enter,
+    /// Exiting a node
     Exit,
 }
 
 /// Iterator for traversing the Arena-based AST
+#[derive(Debug)]
 pub struct ArenaNodeIterator<'a> {
     arena: &'a NodeArena,
     root: NodeId,
@@ -35,6 +40,7 @@ pub struct ArenaNodeIterator<'a> {
 }
 
 impl<'a> ArenaNodeIterator<'a> {
+    /// Create a new iterator for the given arena and root node
     pub fn new(arena: &'a NodeArena, root: NodeId) -> Self {
         ArenaNodeIterator {
             arena,
@@ -44,6 +50,7 @@ impl<'a> ArenaNodeIterator<'a> {
         }
     }
 
+    /// Advance the iterator and return the next event type
     pub fn next(&mut self) -> EventType {
         if self.event_type == EventType::None {
             // First call - start at root
@@ -99,14 +106,17 @@ impl<'a> ArenaNodeIterator<'a> {
         }
     }
 
+    /// Get the current node ID
     pub fn get_node(&self) -> Option<NodeId> {
         self.current
     }
 
+    /// Get the current event type
     pub fn get_event_type(&self) -> EventType {
         self.event_type
     }
 
+    /// Reset the iterator to a specific node and event type
     pub fn reset(&mut self, current: NodeId, event_type: EventType) {
         self.current = Some(current);
         self.event_type = event_type;
@@ -189,6 +199,7 @@ impl<'a> ArenaNodeIterator<'a> {
 }
 
 /// A walker that can be used to iterate through the node tree
+#[derive(Debug)]
 pub struct ArenaNodeWalker<'a> {
     #[allow(dead_code)]
     root: NodeId,
@@ -196,6 +207,7 @@ pub struct ArenaNodeWalker<'a> {
 }
 
 impl<'a> ArenaNodeWalker<'a> {
+    /// Create a new walker for the given arena and root node
     pub fn new(arena: &'a NodeArena, root: NodeId) -> Self {
         ArenaNodeWalker {
             root,
@@ -203,6 +215,7 @@ impl<'a> ArenaNodeWalker<'a> {
         }
     }
 
+    /// Get the next event from the walker
     pub fn next(&mut self) -> Option<ArenaWalkerEvent> {
         let event_type = self.iterator.next();
         if event_type == EventType::Done {
@@ -215,6 +228,7 @@ impl<'a> ArenaNodeWalker<'a> {
         }
     }
 
+    /// Resume iteration at a specific node
     pub fn resume_at(&mut self, node: NodeId, entering: bool) {
         let event_type = if entering {
             EventType::Enter
@@ -226,8 +240,11 @@ impl<'a> ArenaNodeWalker<'a> {
 }
 
 /// Event returned by the walker
+#[derive(Debug, Clone, Copy)]
 pub struct ArenaWalkerEvent {
+    /// The node ID
     pub node: NodeId,
+    /// Whether we are entering (true) or exiting (false) the node
     pub entering: bool,
 }
 

@@ -23,7 +23,7 @@
 //!
 //! // Configure plugins
 //! let mut plugins = Plugins::new();
-//! plugins.set_syntax_highlighter(Box::new(MyHighlighter));
+//! plugins.render.set_syntax_highlighter(&MyHighlighter);
 //! ```
 
 use std::collections::HashMap;
@@ -34,12 +34,44 @@ pub use crate::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
 
-/// A collection of plugins for customizing rendering behavior.
+/// A collection of plugins for customizing rendering behavior (comrak-style).
 ///
 /// This struct holds references to various adapter implementations
 /// that can customize how different elements are rendered.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::plugins::Plugins;
+///
+/// let mut plugins = Plugins::new();
+/// // Configure render plugins
+/// plugins.render.set_syntax_highlighter(&my_highlighter);
+/// ```
+#[derive(Default, Debug)]
+pub struct Plugins<'p> {
+    /// Render-time plugins.
+    pub render: RenderPlugins<'p>,
+}
+
+impl<'p> Plugins<'p> {
+    /// Create a new empty plugins collection.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Check if any plugins are registered.
+    pub fn is_empty(&self) -> bool {
+        self.render.is_empty()
+    }
+}
+
+/// A collection of plugins for customizing rendering behavior (owned version).
+///
+/// This struct holds owned adapter implementations for use cases where
+/// lifetime management is not desired.
 #[derive(Default)]
-pub struct Plugins {
+pub struct OwnedPlugins {
     /// Syntax highlighter for code blocks
     syntax_highlighter: Option<Box<dyn SyntaxHighlighterAdapter>>,
     /// Custom heading renderer
@@ -52,7 +84,7 @@ pub struct Plugins {
     image_url_rewriter: Option<Box<dyn UrlRewriter>>,
 }
 
-impl Plugins {
+impl OwnedPlugins {
     /// Create a new empty plugins collection
     pub fn new() -> Self {
         Self::default()
@@ -126,11 +158,29 @@ impl Plugins {
             && self.link_url_rewriter.is_none()
             && self.image_url_rewriter.is_none()
     }
+
+    /// Convert to comrak-style Plugins struct.
+    ///
+    /// Note: This creates a new RenderPlugins with references to the owned adapters.
+    /// The returned Plugins must not outlive this OwnedPlugins.
+    pub fn as_plugins(&self) -> Plugins<'_> {
+        let mut render = RenderPlugins::new();
+        if let Some(ref highlighter) = self.syntax_highlighter {
+            render.set_syntax_highlighter(highlighter.as_ref());
+        }
+        if let Some(ref adapter) = self.heading_adapter {
+            render.set_heading_adapter(adapter.as_ref());
+        }
+        for (lang, renderer) in &self.codefence_renderers {
+            render.register_codefence_renderer(lang.clone(), renderer.as_ref());
+        }
+        Plugins { render }
+    }
 }
 
-impl fmt::Debug for Plugins {
+impl fmt::Debug for OwnedPlugins {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Plugins")
+        f.debug_struct("OwnedPlugins")
             .field("has_syntax_highlighter", &self.syntax_highlighter.is_some())
             .field("has_heading_adapter", &self.heading_adapter.is_some())
             .field(
@@ -178,7 +228,10 @@ impl<'p> RenderPlugins<'p> {
     }
 
     /// Get a code fence renderer for a specific language
-    pub fn codefence_renderer(&self, language: &str) -> Option<&dyn CodefenceRendererAdapter> {
+    pub fn codefence_renderer(
+        &self,
+        language: &str,
+    ) -> Option<&dyn CodefenceRendererAdapter> {
         self.codefence_renderers.get(language).copied()
     }
 
@@ -228,6 +281,7 @@ impl fmt::Debug for RenderPlugins<'_> {
 
 /// A simple syntax highlighter that wraps code in a pre/code block
 /// without any actual highlighting.
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultSyntaxHighlighter;
 
 impl DefaultSyntaxHighlighter {
@@ -289,13 +343,19 @@ mod tests {
     fn test_plugins_default() {
         let plugins = Plugins::new();
         assert!(plugins.is_empty());
+    }
+
+    #[test]
+    fn test_owned_plugins_default() {
+        let plugins = OwnedPlugins::new();
+        assert!(plugins.is_empty());
         assert!(plugins.syntax_highlighter().is_none());
         assert!(plugins.heading_adapter().is_none());
     }
 
     #[test]
     fn test_syntax_highlighter() {
-        let mut plugins = Plugins::new();
+        let mut plugins = OwnedPlugins::new();
         assert!(plugins.is_empty());
 
         plugins.set_syntax_highlighter(Box::new(DefaultSyntaxHighlighter));
@@ -305,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_heading_adapter() {
-        let mut plugins = Plugins::new();
+        let mut plugins = OwnedPlugins::new();
         plugins.set_heading_adapter(Box::new(crate::adapters::AnchorHeadingAdapter));
         assert!(plugins.heading_adapter().is_some());
     }
@@ -329,7 +389,7 @@ mod tests {
             }
         }
 
-        let mut plugins = Plugins::new();
+        let mut plugins = OwnedPlugins::new();
         plugins.register_codefence_renderer("test", Box::new(TestRenderer));
 
         assert!(plugins.codefence_renderer("test").is_some());
@@ -346,7 +406,7 @@ mod tests {
             }
         }
 
-        let mut plugins = Plugins::new();
+        let mut plugins = OwnedPlugins::new();
         plugins.set_link_url_rewriter(Box::new(TestRewriter));
 
         let rewriter = plugins.link_url_rewriter().unwrap();
@@ -404,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_plugins_debug() {
-        let mut plugins = Plugins::new();
+        let mut plugins = OwnedPlugins::new();
         plugins.set_syntax_highlighter(Box::new(DefaultSyntaxHighlighter));
 
         let debug = format!("{:?}", plugins);

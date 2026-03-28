@@ -1,10 +1,10 @@
-//! Configuration options
+//! Configuration options (deprecated, use `parser::options` instead)
 //!
 //! Provides a type-safe configuration system inspired by flexmark-java's DataKey.
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::config::{DataKey, MutableDataSet, DataHolder};
 //!
 //! const SOURCEPOS: DataKey<bool> = DataKey::with_default("sourcepos", false);

@@ -72,6 +72,7 @@ pub fn needs_escaping(c: char) -> bool {
 }
 
 /// HTML tag builder for constructing HTML elements
+#[derive(Debug)]
 pub struct HtmlBuilder {
     output: String,
 }

@@ -1,11 +1,11 @@
-//! Predefined configuration options for the Markdown parser and renderer.
+//! Predefined configuration options for the Markdown parser and renderer (deprecated).
 //!
 //! This module provides a comprehensive set of `DataKey` constants for configuring
 //! the behavior of the Markdown parser and renderer.
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::config::{MutableDataSet, DataHolder};
 //! use clmd::config::options::{SOURCEPOS, SMART, ENABLE_TABLES};
 //!
@@ -32,7 +32,7 @@ use super::{DataHolder, DataKey};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::options::SOURCEPOS;
 ///
 /// // When enabled, HTML output will include data-sourcepos attributes:
@@ -46,7 +46,7 @@ pub const SOURCEPOS: DataKey<bool> = DataKey::with_default("parse.sourcepos", fa
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::options::SMART;
 ///
 /// // When enabled:
@@ -101,7 +101,7 @@ pub const LEAVE_FOOTNOTE_DEFINITIONS: DataKey<bool> =
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::options::HARDBREAKS;
 ///
 /// // Input: "Hello\nWorld"
@@ -126,7 +126,7 @@ pub const NOBREAKS: DataKey<bool> = DataKey::with_default("render.nobreaks", fal
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::options::UNSAFE;
 ///
 /// // When enabled, raw HTML like <script> tags will be preserved
@@ -435,8 +435,7 @@ pub const SOURCEPOS_RENDER: DataKey<bool> =
 /// Enables GFM quirks in HTML output which break CommonMark compatibility.
 ///
 /// This changes how nested emphasis is rendered to match GitHub's behavior.
-pub const GFM_QUIRKS: DataKey<bool> =
-    DataKey::with_default("render.gfm_quirks", false);
+pub const GFM_QUIRKS: DataKey<bool> = DataKey::with_default("render.gfm_quirks", false);
 
 /// Render the image as a figure element with the title as its caption.
 pub const FIGURE_WITH_CAPTION: DataKey<bool> =
@@ -445,8 +444,7 @@ pub const FIGURE_WITH_CAPTION: DataKey<bool> =
 /// Render ordered list with a minimum marker width.
 ///
 /// Having a width lower than 3 doesn't do anything.
-pub const OL_WIDTH: DataKey<usize> =
-    DataKey::with_default("render.ol_width", 0);
+pub const OL_WIDTH: DataKey<usize> = DataKey::with_default("render.ol_width", 0);
 
 /// Wrap escaped characters in a `<span>` to allow any
 /// post-processing to recognize them.
@@ -476,7 +474,7 @@ pub enum ListStyleType {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::options::Options;
 /// use clmd::config::options::{SMART, ENABLE_TABLES};
 ///

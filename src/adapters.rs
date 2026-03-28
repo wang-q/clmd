@@ -314,6 +314,7 @@ pub struct ResolvedReference {
 
 /// A simple syntax highlighter that wraps code in a pre/code block
 /// without any actual highlighting.
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultSyntaxHighlighter;
 
 impl DefaultSyntaxHighlighter {
@@ -366,6 +367,7 @@ impl SyntaxHighlighterAdapter for DefaultSyntaxHighlighter {
 }
 
 /// A heading adapter that generates anchor links for headings.
+#[derive(Debug, Clone, Copy)]
 pub struct AnchorHeadingAdapter;
 
 impl AnchorHeadingAdapter {

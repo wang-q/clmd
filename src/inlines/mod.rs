@@ -32,7 +32,7 @@
 
 mod autolinks;
 mod emphasis;
-mod entities;
+pub mod entities;
 mod html_tags;
 mod links;
 mod text;
@@ -55,6 +55,7 @@ use text::apply_smart_punctuation;
 use utils::normalize_uri;
 
 /// Subject represents the string being parsed and tracks position
+#[derive(Debug)]
 pub struct Subject<'a> {
     /// The input string (borrowed reference to avoid copying)
     pub input: &'a str,

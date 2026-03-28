@@ -208,7 +208,7 @@ impl Ast {
 pub type AstNode<'a> = RefCell<Ast>;
 
 /// A reference to a node in an arena.
-/// 
+///
 /// Note: This is a placeholder type alias. In clmd's arena-based system,
 /// nodes are referenced by `NodeId` rather than direct references.
 /// See the `arena` module for the actual implementation.

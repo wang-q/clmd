@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::parser::options::{Options, Extension, Parse, Render};
+//! use clmd::Options;
 //!
 //! let mut options = Options::default();
 //! options.extension.table = true;
@@ -28,7 +28,7 @@ use std::sync::Arc;
 /// # Example
 ///
 /// ```
-/// use clmd::parser::options::Options;
+/// use clmd::Options;
 ///
 /// let mut options = Options::default();
 /// options.extension.table = true;
@@ -76,12 +76,12 @@ impl<'c> Options<'c> {
 pub struct Extension<'c> {
     /// Enables the strikethrough extension from the GFM spec.
     ///
-    /// ```rust,ignore
-    /// use clmd::{markdown_to_html, parser::options::Options};
+    /// ```ignore
+    /// use clmd::{markdown_to_html, Options};
     ///
     /// let mut options = Options::default();
     /// options.extension.strikethrough = true;
-    /// let html = clmd::markdown_to_html("Hello ~~world~~ there.\n", &options);
+    /// let html = markdown_to_html("Hello ~~world~~ there.\n", &options);
     /// assert!(html.contains("<del>world</del>"));
     /// ```
     pub strikethrough: bool,
@@ -91,12 +91,12 @@ pub struct Extension<'c> {
 
     /// Enables the table extension from the GFM spec.
     ///
-    /// ```rust,ignore
-    /// use clmd::{markdown_to_html, parser::options::Options};
+    /// ```ignore
+    /// use clmd::{markdown_to_html, Options};
     ///
     /// let mut options = Options::default();
     /// options.extension.table = true;
-    /// let html = clmd::markdown_to_html("| a | b |\n|---|---|\n| c | d |\n", &options);
+    /// let html = markdown_to_html("| a | b |\n|---|---|\n| c | d |\n", &options);
     /// assert!(html.contains("<table>"));
     /// ```
     pub table: bool,
@@ -249,8 +249,14 @@ impl<'c> Debug for Extension<'c> {
             .field("alerts", &self.alerts)
             .field("math_dollars", &self.math_dollars)
             .field("math_code", &self.math_code)
-            .field("wikilinks_title_after_pipe", &self.wikilinks_title_after_pipe)
-            .field("wikilinks_title_before_pipe", &self.wikilinks_title_before_pipe)
+            .field(
+                "wikilinks_title_after_pipe",
+                &self.wikilinks_title_after_pipe,
+            )
+            .field(
+                "wikilinks_title_before_pipe",
+                &self.wikilinks_title_before_pipe,
+            )
             .field("underline", &self.underline)
             .field("spoiler", &self.spoiler)
             .field("greentext", &self.greentext)
@@ -298,17 +304,17 @@ pub enum WikiLinksMode {
 pub struct Parse<'c> {
     /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
     ///
-    /// ```rust,ignore
-    /// use clmd::{markdown_to_html, parser::options::Options};
+    /// ```
+    /// use clmd::{markdown_to_html, Options};
     ///
     /// let mut options = Options::default();
     /// let input = "'Hello,' \"world\" ...";
     ///
-    /// let html = clmd::markdown_to_html(input, &options);
+    /// let html = markdown_to_html(input, &options);
     /// // Without smart: <p>'Hello,' &quot;world&quot; ...</p>
     ///
     /// options.parse.smart = true;
-    /// let html = clmd::markdown_to_html(input, &options);
+    /// let html = markdown_to_html(input, &options);
     /// // With smart: <p>'Hello,' "world" …</p>
     /// ```
     pub smart: bool,
@@ -382,7 +388,10 @@ impl<'c> Debug for Parse<'c> {
             .field("default_info_string", &self.default_info_string)
             .field("relaxed_tasklist_matching", &self.relaxed_tasklist_matching)
             .field("ignore_setext", &self.ignore_setext)
-            .field("leave_footnote_definitions", &self.leave_footnote_definitions)
+            .field(
+                "leave_footnote_definitions",
+                &self.leave_footnote_definitions,
+            )
             .field("tasklist_in_table", &self.tasklist_in_table)
             .field("relaxed_autolinks", &self.relaxed_autolinks)
             .field("escaped_char_spans", &self.escaped_char_spans)
@@ -396,18 +405,18 @@ impl<'c> Debug for Parse<'c> {
 pub struct Render {
     /// Soft line breaks in the input translate into hard line breaks in the output.
     ///
-    /// ```rust,ignore
-    /// use clmd::{markdown_to_html, parser::options::Options};
+    /// ```ignore
+    /// use clmd::{markdown_to_html, Options};
     ///
     /// let mut options = Options::default();
     /// let input = "Hello.\nWorld.\n";
     ///
-    /// let html = clmd::markdown_to_html(input, &options);
+    /// let html = markdown_to_html(input, &options);
     /// assert!(html.contains("Hello.\nWorld."));
     ///
     /// options.render.hardbreaks = true;
-    /// let html = clmd::markdown_to_html(input, &options);
-    /// assert!(html.contains("<br />"));
+    /// let html = markdown_to_html(input, &options);
+    /// assert!(html.contains("<br"));
     /// ```
     pub hardbreaks: bool,
 
@@ -543,7 +552,10 @@ where
 /// preserved in its entirety.
 pub trait BrokenLinkCallback: Send + Sync {
     /// Potentially resolve a single broken link reference.
-    fn resolve(&self, broken_link_reference: BrokenLinkReference) -> Option<ResolvedReference>;
+    fn resolve(
+        &self,
+        broken_link_reference: BrokenLinkReference,
+    ) -> Option<ResolvedReference>;
 }
 
 impl Debug for dyn BrokenLinkCallback + '_ {
@@ -556,7 +568,10 @@ impl<F> BrokenLinkCallback for F
 where
     F: Fn(BrokenLinkReference) -> Option<ResolvedReference> + Send + Sync,
 {
-    fn resolve(&self, broken_link_reference: BrokenLinkReference) -> Option<ResolvedReference> {
+    fn resolve(
+        &self,
+        broken_link_reference: BrokenLinkReference,
+    ) -> Option<ResolvedReference> {
         self(broken_link_reference)
     }
 }

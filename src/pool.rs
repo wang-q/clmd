@@ -4,6 +4,7 @@
 //! by reusing String buffers.
 
 /// A simple string pool for reusing String buffers
+#[derive(Debug)]
 pub struct StringPool {
     buffer: String,
 }

@@ -1,12 +1,12 @@
-//! A 100% CommonMark and GFM compatible Markdown parser.
+//! A 100% [CommonMark](http://commonmark.org/) and [GFM](https://github.github.com/gfm/)
+//! compatible Markdown parser.
 //!
-//! Source repository and detailed README is at
-//! [github.com/kivikakk/comrak](https://github.com/kivikakk/comrak).
+//! Source repository is at [github.com/clmd](https://github.com/clmd).
 //!
 //! You can use `clmd::markdown_to_html` directly:
 //!
-//! ```ignore
-//! use clmd::{markdown_to_html, parser::options::Options};
+//! ```
+//! use clmd::{markdown_to_html, Options};
 //! let html = markdown_to_html("Hello, **world**!", &Options::default());
 //! assert!(html.contains("<strong>world</strong>"));
 //! ```
@@ -14,8 +14,8 @@
 //! Or you can parse the input into an AST yourself, manipulate it, and then use your desired
 //! formatter:
 //!
-//! ```ignore
-//! use clmd::{Arena, parse_document, format_html, parser::options::Options};
+//! ```
+//! use clmd::{Arena, parse_document, format_html, Options};
 //!
 //! let mut arena = Arena::new();
 //! let options = Options::default();
@@ -24,6 +24,21 @@
 //! let mut html = String::new();
 //! format_html(&arena, root, &options, &mut html).unwrap();
 //! ```
+
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unstable_features,
+    unused_import_braces
+)]
+#![allow(
+    unknown_lints,
+    clippy::doc_markdown,
+    clippy::too_many_arguments
+)]
 
 /// Adapter traits for plugins
 ///
@@ -45,14 +60,14 @@ pub mod error;
 ///
 /// This module implements the block parsing algorithm based on the CommonMark spec.
 /// It processes input line by line, building the AST structure using Arena allocation.
-pub mod blocks;
+pub(crate) mod blocks;
 
 /// Compatibility layer for different API versions
-pub mod compat;
+pub(crate) mod compat;
 
 /// Configuration management (deprecated, use `parser::options` instead)
 #[deprecated(since = "0.2.0", note = "Use `parser::options` instead")]
-pub mod config;
+pub(crate) mod config;
 
 /// Document converters (HTML, LaTeX, etc.)
 pub mod converters;
@@ -64,7 +79,7 @@ pub mod ext;
 pub mod html_to_md;
 
 /// String pool for efficient memory reuse
-pub mod pool;
+pub(crate) mod pool;
 
 /// HTML utilities (escaping, entity decoding)
 pub mod html_utils;
@@ -74,13 +89,13 @@ pub mod html_utils;
 /// This module implements the inline parsing algorithm based on the CommonMark spec.
 /// It processes the content of leaf blocks to produce inline elements like
 /// emphasis, links, code, etc.
-pub mod inlines;
+pub(crate) mod inlines;
 
 /// AST iteration and traversal
 pub mod iterator;
 
 /// Lexical analysis utilities
-pub mod lexer;
+pub(crate) mod lexer;
 
 /// AST node definitions (unified API, inspired by comrak)
 ///
@@ -102,7 +117,7 @@ pub mod nodes;
 
 /// Unified node value types (deprecated, use `nodes` instead)
 #[deprecated(since = "0.2.0", note = "Use `nodes` module instead")]
-pub mod node_value;
+pub(crate) mod node_value;
 
 /// Options for the Markdown parser and renderer
 ///
@@ -134,7 +149,7 @@ pub mod plugins;
 pub mod render;
 
 /// Text sequence utilities
-pub mod sequence;
+pub(crate) mod sequence;
 
 /// Test utilities
 pub mod test_utils;
@@ -146,7 +161,7 @@ pub mod test_utils;
 /// Convenience type alias for arena used to hold nodes.
 pub type Arena = arena::NodeArena;
 
-pub use arena::{Node, NodeId, TreeOps};
+pub use arena::{DescendantIterator, Node, NodeId, TreeOps};
 
 /// Parse a Markdown document to an AST.
 ///
@@ -155,18 +170,14 @@ pub use arena::{Node, NodeId, TreeOps};
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{Arena, parse_document, parser::options::Options};
+/// ```
+/// use clmd::{Arena, parse_document, Options};
 ///
 /// let mut arena = Arena::new();
 /// let options = Options::default();
 /// let root = parse_document(&mut arena, "# Hello\n\nWorld", &options);
 /// ```
-pub fn parse_document<'a>(
-    arena: &'a mut Arena,
-    md: &str,
-    options: &parser::options::Options,
-) -> NodeId {
+pub fn parse_document<'a>(arena: &'a mut Arena, md: &str, options: &Options) -> NodeId {
     parser::parse_document(arena, md, options)
 }
 
@@ -174,10 +185,23 @@ pub fn parse_document<'a>(
 // Options Exports (comrak-style)
 // =============================================================================
 
-/// Re-export Options from parser::options
+/// Re-export Options from parser::options for convenient access.
+///
+/// # Example
+///
+/// ```
+/// use clmd::Options;
+///
+/// let mut options = Options::default();
+/// options.extension.table = true;
+/// options.render.hardbreaks = true;
+/// ```
+pub use parser::options::Options;
+
+/// Re-export other options types
 pub use parser::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Options as ParserOptions,
-    Parse, Render, ResolvedReference, URLRewriter, WikiLinksMode,
+    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Render,
+    ResolvedReference, URLRewriter, WikiLinksMode,
 };
 
 // =============================================================================
@@ -197,11 +221,11 @@ pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 // =============================================================================
 
 pub use nodes::{
-    can_contain_type, AlertType, LineColumn, ListDelimType, ListType as NodeValueListType,
-    NodeAlert, NodeCode, NodeCodeBlock, NodeDescriptionItem, NodeFootnoteDefinition,
-    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeMath,
-    NodeMultilineBlockQuote, NodeTable, NodeTaskItem, NodeValue, NodeWikiLink, SourcePos,
-    TableAlignment,
+    can_contain_type, AlertType, LineColumn, ListDelimType,
+    ListType as NodeValueListType, NodeAlert, NodeCode, NodeCodeBlock,
+    NodeDescriptionItem, NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading,
+    NodeHtmlBlock, NodeLink, NodeList, NodeMath, NodeMultilineBlockQuote, NodeTable,
+    NodeTaskItem, NodeValue, NodeWikiLink, SourcePos, TableAlignment,
 };
 
 // Re-export core AST types from nodes
@@ -212,24 +236,30 @@ pub use nodes::{Ast, AstNode, Node as AstNodeRef};
 // =============================================================================
 
 pub use adapters::{
-    AnchorHeadingAdapter, CodefenceRendererAdapter, DefaultSyntaxHighlighter, HeadingAdapter,
-    HeadingMeta, SyntaxHighlighterAdapter, UrlRewriter,
+    AnchorHeadingAdapter, CodefenceRendererAdapter, DefaultSyntaxHighlighter,
+    HeadingAdapter, HeadingMeta, SyntaxHighlighterAdapter, UrlRewriter,
 };
 
 // =============================================================================
 // Plugin Exports
 // =============================================================================
 
-pub use plugins::{Plugins, RenderPlugins};
+pub use plugins::{OwnedPlugins, Plugins, RenderPlugins};
 
 // =============================================================================
 // Renderer Exports
 // =============================================================================
 
 pub use render::{
-    render, render_to_commonmark, render_to_html, render_to_latex, render_to_man, render_to_xml,
-    OutputFormat, Renderer,
+    render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
+    render_to_xml, OutputFormat, Renderer,
 };
+
+// =============================================================================
+// Utility Exports
+// =============================================================================
+
+pub use inlines::entities::unescape_string;
 
 // =============================================================================
 // Legacy Option Flags (internal use)
@@ -250,7 +280,7 @@ const OPT_UNSAFE: u32 = 1 << 5;
 
 /// Convert Options to legacy u32 flags for parsing.
 /// This is a temporary bridge until all components use the new system.
-fn options_to_flags(options: &parser::options::Options) -> u32 {
+fn options_to_flags(options: &Options) -> u32 {
     let mut flags = 0u32;
 
     if options.parse.sourcepos {
@@ -289,7 +319,7 @@ fn options_to_flags(options: &parser::options::Options) -> u32 {
 ///
 /// ```
 /// use clmd::Document;
-/// use clmd::parser::options::Options;
+/// use clmd::Options;
 ///
 /// let doc = Document::parse("Hello *world*", &Options::default());
 /// let html = doc.to_html(&Options::default());
@@ -312,7 +342,7 @@ impl Document {
     /// # Returns
     ///
     /// The parsed document
-    pub fn parse(input: &str, options: &parser::options::Options) -> Self {
+    pub fn parse(input: &str, options: &Options) -> Self {
         let mut arena = Arena::new();
         let root = parser::parse_document(&mut arena, input, options);
         Document { arena, root }
@@ -327,7 +357,7 @@ impl Document {
     /// # Returns
     ///
     /// The HTML output as a String
-    pub fn to_html(&self, options: &parser::options::Options) -> String {
+    pub fn to_html(&self, options: &Options) -> String {
         let flags = options_to_flags(options);
         render::html::render(&self.arena, self.root, flags)
     }
@@ -388,14 +418,12 @@ impl Document {
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{markdown_to_html, parser::options::Options};
-/// assert_eq!(
-///     markdown_to_html("Hello, **world**!", &Options::default()),
-///     "<p>Hello, <strong>world</strong>!</p>\n"
-/// );
 /// ```
-pub fn markdown_to_html(md: &str, options: &parser::options::Options) -> String {
+/// use clmd::{markdown_to_html, Options};
+/// let html = markdown_to_html("Hello, **world**!", &Options::default());
+/// assert!(html.contains("<strong>world</strong>"));
+/// ```
+pub fn markdown_to_html(md: &str, options: &Options) -> String {
     let mut arena = Arena::new();
     let doc = parser::parse_document(&mut arena, md, options);
     let flags = options_to_flags(options);
@@ -416,8 +444,8 @@ pub fn markdown_to_html(md: &str, options: &parser::options::Options) -> String 
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{markdown_to_html_with_plugins, parser::options::Options, plugins::Plugins};
+/// ```
+/// use clmd::{markdown_to_html_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let plugins = Plugins::default();
@@ -425,13 +453,15 @@ pub fn markdown_to_html(md: &str, options: &parser::options::Options) -> String 
 /// ```
 pub fn markdown_to_html_with_plugins(
     md: &str,
-    options: &parser::options::Options,
-    plugins: &Plugins,
+    options: &Options,
+    plugins: &Plugins<'_>,
 ) -> String {
-    // For now, delegate to the non-plugin version
-    // TODO: Implement plugin support in renderers
+    let mut arena = Arena::new();
+    let doc = parser::parse_document(&mut arena, md, options);
+    let flags = options_to_flags(options);
+    // TODO: Pass plugins to renderer when plugin support is implemented
     let _ = plugins;
-    markdown_to_html(md, options)
+    render::html::render(&arena, doc, flags)
 }
 
 /// Render Markdown back to CommonMark.
@@ -447,16 +477,50 @@ pub fn markdown_to_html_with_plugins(
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{markdown_to_commonmark, parser::options::Options};
+/// ```
+/// use clmd::{markdown_to_commonmark, Options};
 ///
 /// let options = Options::default();
 /// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```
-pub fn markdown_to_commonmark(md: &str, options: &parser::options::Options) -> String {
+pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
     let mut arena = Arena::new();
     let doc = parser::parse_document(&mut arena, md, options);
+    render::commonmark::render(&arena, doc, 0)
+}
+
+/// Render Markdown back to CommonMark using plugins.
+///
+/// # Arguments
+///
+/// * `md` - The Markdown text to convert
+/// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_commonmark_with_plugins, Options, Plugins};
+///
+/// let options = Options::default();
+/// let plugins = Plugins::default();
+/// let cm = markdown_to_commonmark_with_plugins("Hello *world*", &options, &plugins);
+/// assert!(cm.contains("Hello"));
+/// ```
+pub fn markdown_to_commonmark_with_plugins(
+    md: &str,
+    options: &Options,
+    plugins: &Plugins<'_>,
+) -> String {
+    let mut arena = Arena::new();
+    let doc = parser::parse_document(&mut arena, md, options);
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
     render::commonmark::render(&arena, doc, 0)
 }
 
@@ -475,16 +539,52 @@ pub fn markdown_to_commonmark(md: &str, options: &parser::options::Options) -> S
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{markdown_to_commonmark_xml, parser::options::Options};
+/// ```
+/// use clmd::{markdown_to_commonmark_xml, Options};
 ///
 /// let options = Options::default();
 /// let xml = markdown_to_commonmark_xml("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
 /// ```
-pub fn markdown_to_commonmark_xml(md: &str, options: &parser::options::Options) -> String {
+pub fn markdown_to_commonmark_xml(md: &str, options: &Options) -> String {
     let mut arena = Arena::new();
     let doc = parser::parse_document(&mut arena, md, options);
+    render::xml::render(&arena, doc, 0)
+}
+
+/// Render Markdown to CommonMark XML using plugins.
+///
+/// See <https://github.com/commonmark/commonmark-spec/blob/master/CommonMark.dtd>.
+///
+/// # Arguments
+///
+/// * `md` - The Markdown text to convert
+/// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// The XML output as a String
+///
+/// # Example
+///
+/// ```
+/// use clmd::{markdown_to_commonmark_xml_with_plugins, Options, Plugins};
+///
+/// let options = Options::default();
+/// let plugins = Plugins::default();
+/// let xml = markdown_to_commonmark_xml_with_plugins("Hello *world*", &options, &plugins);
+/// assert!(xml.contains("<document>"));
+/// ```
+pub fn markdown_to_commonmark_xml_with_plugins(
+    md: &str,
+    options: &Options,
+    plugins: &Plugins<'_>,
+) -> String {
+    let mut arena = Arena::new();
+    let doc = parser::parse_document(&mut arena, md, options);
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
     render::xml::render(&arena, doc, 0)
 }
 
@@ -503,8 +603,8 @@ pub fn markdown_to_commonmark_xml(md: &str, options: &parser::options::Options) 
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{Arena, parse_document, format_html, parser::options::Options};
+/// ```
+/// use clmd::{Arena, parse_document, format_html, Options};
 ///
 /// let mut arena = Arena::new();
 /// let options = Options::default();
@@ -515,10 +615,50 @@ pub fn markdown_to_commonmark_xml(md: &str, options: &parser::options::Options) 
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
-    options: &parser::options::Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     let flags = options_to_flags(options);
+    let html = render::html::render(arena, root, flags);
+    output.write_str(&html)
+}
+
+/// Format an existing AST to HTML with plugins.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options
+/// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// A `std::fmt::Result` indicating success or failure
+///
+/// # Example
+///
+/// ```
+/// use clmd::{Arena, parse_document, format_html_with_plugins, Options, Plugins};
+///
+/// let mut arena = Arena::new();
+/// let options = Options::default();
+/// let plugins = Plugins::default();
+/// let root = parse_document(&mut arena, "Hello *world*", &options);
+/// let mut html = String::new();
+/// format_html_with_plugins(&arena, root, &options, &mut html, &plugins).unwrap();
+/// ```
+pub fn format_html_with_plugins(
+    arena: &Arena,
+    root: NodeId,
+    options: &Options,
+    output: &mut dyn std::fmt::Write,
+    plugins: &Plugins<'_>,
+) -> std::fmt::Result {
+    let flags = options_to_flags(options);
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
     let html = render::html::render(arena, root, flags);
     output.write_str(&html)
 }
@@ -538,9 +678,35 @@ pub fn format_html(
 pub fn format_commonmark(
     arena: &Arena,
     root: NodeId,
-    _options: &parser::options::Options,
+    _options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
+    let cm = render::commonmark::render(arena, root, 0);
+    output.write_str(&cm)
+}
+
+/// Format an existing AST to CommonMark with plugins.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options
+/// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// A `std::fmt::Result` indicating success or failure
+pub fn format_commonmark_with_plugins(
+    arena: &Arena,
+    root: NodeId,
+    _options: &Options,
+    output: &mut dyn std::fmt::Write,
+    plugins: &Plugins<'_>,
+) -> std::fmt::Result {
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
     let cm = render::commonmark::render(arena, root, 0);
     output.write_str(&cm)
 }
@@ -560,9 +726,35 @@ pub fn format_commonmark(
 pub fn format_xml(
     arena: &Arena,
     root: NodeId,
-    _options: &parser::options::Options,
+    _options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
+    let xml = render::xml::render(arena, root, 0);
+    output.write_str(&xml)
+}
+
+/// Format an existing AST to XML with plugins.
+///
+/// # Arguments
+///
+/// * `arena` - The node arena containing the AST
+/// * `root` - The root node ID
+/// * `options` - Configuration options
+/// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering
+///
+/// # Returns
+///
+/// A `std::fmt::Result` indicating success or failure
+pub fn format_xml_with_plugins(
+    arena: &Arena,
+    root: NodeId,
+    _options: &Options,
+    output: &mut dyn std::fmt::Write,
+    plugins: &Plugins<'_>,
+) -> std::fmt::Result {
+    // TODO: Pass plugins to renderer when plugin support is implemented
+    let _ = plugins;
     let xml = render::xml::render(arena, root, 0);
     output.write_str(&xml)
 }
@@ -575,7 +767,7 @@ pub fn format_xml(
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use clmd::version;
 ///
 /// let version = version();
@@ -592,7 +784,6 @@ pub fn version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::options::Options;
 
     #[test]
     fn test_markdown_to_html_basic() {

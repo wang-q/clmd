@@ -260,6 +260,27 @@ impl NodeArena {
     pub fn shrink_to_fit(&mut self) {
         self.nodes.shrink_to_fit();
     }
+
+    /// Returns an iterator over all descendants of the given node.
+    ///
+    /// The iterator yields `NodeId`s in depth-first order.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    ///
+    /// let mut arena = Arena::new();
+    /// let root = arena.alloc(Node::with_value(NodeValue::Document));
+    /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// TreeOps::append_child(&mut arena, root, para);
+    ///
+    /// let descendants: Vec<_> = arena.descendants(root).collect();
+    /// assert_eq!(descendants.len(), 2); // root and para
+    /// ```
+    pub fn descendants(&self, root: NodeId) -> DescendantIterator<'_> {
+        DescendantIterator::new(self, root)
+    }
 }
 
 impl Default for NodeArena {
@@ -269,6 +290,7 @@ impl Default for NodeArena {
 }
 
 /// Tree operations for arena-based nodes
+#[derive(Debug, Clone, Copy)]
 pub struct TreeOps;
 
 impl TreeOps {
@@ -380,6 +402,40 @@ impl TreeOps {
             let parent_node = arena.get_mut(parent);
             parent_node.last_child = Some(new_node_id);
         }
+    }
+}
+
+/// Iterator for traversing all descendants of a node
+#[derive(Debug)]
+pub struct DescendantIterator<'a> {
+    arena: &'a NodeArena,
+    stack: Vec<NodeId>,
+}
+
+impl<'a> DescendantIterator<'a> {
+    /// Create a new descendant iterator
+    fn new(arena: &'a NodeArena, root: NodeId) -> Self {
+        DescendantIterator {
+            arena,
+            stack: vec![root],
+        }
+    }
+}
+
+impl<'a> Iterator for DescendantIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop().map(|node_id| {
+            // Add children to stack in reverse order so first child is processed first
+            let node = self.arena.get(node_id);
+            let mut child = node.last_child;
+            while let Some(child_id) = child {
+                self.stack.push(child_id);
+                child = self.arena.get(child_id).prev;
+            }
+            node_id
+        })
     }
 }
 

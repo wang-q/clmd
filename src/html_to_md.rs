@@ -12,7 +12,7 @@
 //! ```
 
 /// HTML element conversion rules
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ConversionRules {
     /// Whether to wrap text at certain column
     pub wrap_column: Option<usize>,

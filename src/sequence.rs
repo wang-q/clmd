@@ -383,6 +383,7 @@ impl<'a> PartialEq<&str> for BasedSequence<'a> {
 }
 
 /// Iterator for splitting a BasedSequence
+#[derive(Debug)]
 pub struct SplitIterator<'a> {
     base: &'a str,
     inner: std::iter::Peekable<std::str::Split<'a, char>>,

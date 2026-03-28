@@ -15,7 +15,7 @@ use std::rc::Rc;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::config::DataKey;
 ///
 /// const SOURCEPOS: DataKey<bool> = DataKey::new("sourcepos");

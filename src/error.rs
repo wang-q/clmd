@@ -104,6 +104,7 @@ pub trait BrokenLinkCallback: Send + Sync {
 }
 
 /// A simple broken link callback that always returns None.
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultBrokenLinkCallback;
 
 impl BrokenLinkCallback for DefaultBrokenLinkCallback {

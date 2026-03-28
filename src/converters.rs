@@ -40,8 +40,11 @@ impl Default for ExportOptions {
 /// Page size for PDF export
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageSize {
+    /// A4 page size
     A4,
+    /// Letter page size
     Letter,
+    /// Legal page size
     Legal,
 }
 
@@ -79,6 +82,7 @@ impl From<std::io::Error> for ConverterError {
 }
 
 /// DOCX converter (placeholder implementation)
+#[derive(Debug)]
 pub struct DocxConverter {
     #[allow(dead_code)]
     options: ExportOptions,
@@ -222,6 +226,7 @@ impl DocxConverter {
 }
 
 /// PDF converter (placeholder implementation)
+#[derive(Debug)]
 pub struct PdfConverter {
     #[allow(dead_code)]
     options: ExportOptions,

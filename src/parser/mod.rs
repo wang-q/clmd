@@ -109,6 +109,7 @@ const OPT_UNSAFE: u32 = 1 << 5;
 /// Parser for CommonMark documents using Arena allocation.
 ///
 /// This struct provides a higher-level API for parsing with error handling.
+#[derive(Debug, Clone, Copy)]
 pub struct Parser {
     options: u32,
     limits: ParserLimits,
@@ -139,7 +140,11 @@ impl Parser {
     /// - Input exceeds maximum allowed size
     /// - Nesting depth exceeds maximum allowed
     /// - Other parsing errors occur
-    pub fn parse<'a>(&self, arena: &'a mut NodeArena, text: &str) -> ParseResult<NodeId> {
+    pub fn parse<'a>(
+        &self,
+        arena: &'a mut NodeArena,
+        text: &str,
+    ) -> ParseResult<NodeId> {
         BlockParser::parse_with_limits(arena, text, self.options, self.limits)
     }
 }

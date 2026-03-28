@@ -7,6 +7,7 @@ use smallvec::SmallVec;
 
 /// Delimiter struct for tracking emphasis markers
 /// This is a singly-linked list using Box for ownership
+#[derive(Debug)]
 pub struct Delimiter {
     /// Previous delimiter in stack
     pub previous: Option<Box<Delimiter>>,

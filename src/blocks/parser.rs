@@ -9,6 +9,7 @@ use crate::node_value::NodeValue;
 use rustc_hash::FxHashMap;
 
 /// Block parser state using Arena allocation
+#[derive(Debug)]
 pub struct BlockParser<'a> {
     /// Arena for node allocation
     pub(crate) arena: &'a mut NodeArena,

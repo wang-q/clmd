@@ -3,10 +3,10 @@
 //! This module tests boundary conditions and edge cases that may not be
 //! covered by the standard CommonMark spec tests.
 
+use clmd::error::ParserLimits;
 use clmd::markdown_to_html;
 use clmd::parser::options::Options;
 use clmd::parser::Parser;
-use clmd::error::ParserLimits;
 use clmd::Arena;
 
 /// Helper function to convert markdown to HTML with default options
@@ -211,7 +211,8 @@ fn test_line_endings() {
 #[test]
 fn test_extreme_nesting() {
     let options = Options::default();
-    let parser = Parser::with_limits(&options, ParserLimits::new().max_nesting_depth(10));
+    let parser =
+        Parser::with_limits(&options, ParserLimits::new().max_nesting_depth(10));
 
     // Create input that exceeds nesting depth
     let mut input = String::new();
