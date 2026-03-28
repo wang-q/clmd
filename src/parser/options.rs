@@ -285,6 +285,7 @@ impl<'c> Extension<'c> {
 }
 
 /// Selects between wikilinks with the title first or the URL first.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WikiLinksMode {
     /// Indicates that the URL precedes the title.
@@ -511,6 +512,7 @@ impl Default for Render {
 }
 
 /// Style type for bullet lists.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ListStyleType {
     /// Use `-` for bullet lists.

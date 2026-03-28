@@ -3,6 +3,15 @@ name = "clmd"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["gfm"]
+gfm = []
+math = []
+footnotes = []
+alerts = []
+wikilinks = []
+syntax-highlighting = []
+
 [dependencies]
 thiserror = "1.0"
 regex = "1.10"

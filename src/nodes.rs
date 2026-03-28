@@ -25,7 +25,7 @@ pub enum NodeValue {
     Document,
 
     /// Non-Markdown front matter. Treated as an opaque blob.
-    FrontMatter(String),
+    FrontMatter(Box<str>),
 
     /// A block quote. Contains other blocks.
     BlockQuote,
@@ -49,10 +49,10 @@ pub enum NodeValue {
     DescriptionDetails,
 
     /// A code block (fenced or indented).
-    CodeBlock(NodeCodeBlock),
+    CodeBlock(Box<NodeCodeBlock>),
 
     /// An HTML block.
-    HtmlBlock(NodeHtmlBlock),
+    HtmlBlock(Box<NodeHtmlBlock>),
 
     /// A paragraph. Contains inlines.
     Paragraph,
@@ -64,10 +64,10 @@ pub enum NodeValue {
     ThematicBreak,
 
     /// A footnote definition.
-    FootnoteDefinition(NodeFootnoteDefinition),
+    FootnoteDefinition(Box<NodeFootnoteDefinition>),
 
     /// A table (GFM extension).
-    Table(NodeTable),
+    Table(Box<NodeTable>),
 
     /// A table row.
     TableRow(bool), // bool indicates if this is the header row
@@ -76,7 +76,7 @@ pub enum NodeValue {
     TableCell,
 
     /// Textual content.
-    Text(Cow<'static, str>),
+    Text(Box<str>),
 
     /// A task list item (GFM extension).
     TaskItem(NodeTaskItem),
@@ -88,10 +88,10 @@ pub enum NodeValue {
     HardBreak,
 
     /// An inline code span.
-    Code(NodeCode),
+    Code(Box<NodeCode>),
 
     /// Raw HTML inline.
-    HtmlInline(String),
+    HtmlInline(Box<str>),
 
     /// Emphasized text.
     Emph,
@@ -115,40 +115,43 @@ pub enum NodeValue {
     Subscript,
 
     /// A link.
-    Link(NodeLink),
+    Link(Box<NodeLink>),
 
     /// An image.
-    Image(NodeLink),
+    Image(Box<NodeLink>),
 
     /// A footnote reference.
-    FootnoteReference(NodeFootnoteReference),
+    FootnoteReference(Box<NodeFootnoteReference>),
 
     /// A math span.
-    Math(NodeMath),
+    Math(Box<NodeMath>),
 
     /// A wikilink.
-    WikiLink(NodeWikiLink),
+    WikiLink(Box<NodeWikiLink>),
 
     /// Underlined text.
     Underline,
 
-    /// Spoiler text.
-    Spoiler,
+    /// Spoiler text (GFM Discord-style spoiler).
+    SpoileredText,
 
     /// An escaped character.
     Escaped,
 
     /// A multiline block quote.
-    MultilineBlockQuote(NodeMultilineBlockQuote),
+    MultilineBlockQuote(Box<NodeMultilineBlockQuote>),
 
     /// An alert (GFM extension).
-    Alert(NodeAlert),
+    Alert(Box<NodeAlert>),
 
     /// Subtext (block-scoped subscript).
     Subtext,
 
     /// Raw output (not parsed, inserted verbatim).
-    Raw(String),
+    Raw(Box<str>),
+
+    /// An escaped tag (used during parsing).
+    EscapedTag(&'static str),
 }
 
 /// A single node in the CommonMark AST.
@@ -214,13 +217,14 @@ pub type AstNode<'a> = crate::arena_tree::Node<'a, RefCell<Ast>>;
 pub type Node<'a> = &'a AstNode<'a>;
 
 // Size assertions to monitor type sizes (matching comrak's approach)
+// These help ensure we don't accidentally bloat the node sizes
 #[allow(dead_code)]
 #[cfg(target_pointer_width = "64")]
-const AST_SIZE_ASSERTION: [u8; 160] = [0; std::mem::size_of::<Ast>()];
+const AST_SIZE_ASSERTION: [u8; 128] = [0; std::mem::size_of::<Ast>()];
 
 #[allow(dead_code)]
 #[cfg(target_pointer_width = "64")]
-const AST_NODE_SIZE_ASSERTION: [u8; 208] = [0; std::mem::size_of::<AstNode<'_>>()];
+const AST_NODE_SIZE_ASSERTION: [u8; 176] = [0; std::mem::size_of::<AstNode<'_>>()];
 
 impl std::fmt::Debug for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -293,11 +297,16 @@ impl LineColumn {
     }
 
     /// Return a new LineColumn based on this one, with the column adjusted by offset.
-    pub fn column_add(&self, offset: isize) -> LineColumn {
-        LineColumn {
-            line: self.line,
-            column: usize::try_from((self.column as isize) + offset).unwrap(),
+    /// Returns None if the result would be negative.
+    pub fn column_add(&self, offset: isize) -> Option<LineColumn> {
+        let new_column = (self.column as isize) + offset;
+        if new_column < 0 {
+            return None;
         }
+        Some(LineColumn {
+            line: self.line,
+            column: new_column as usize,
+        })
     }
 }
 
@@ -386,6 +395,7 @@ pub struct NodeList {
 }
 
 /// The type of list.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ListType {
     /// A bullet list (unordered).
@@ -397,6 +407,7 @@ pub enum ListType {
 }
 
 /// The delimiter for ordered lists.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ListDelimType {
     /// A period character `.`.
@@ -506,6 +517,7 @@ pub struct NodeTable {
 }
 
 /// Alignment of a table cell.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TableAlignment {
     /// No specific alignment.
@@ -605,6 +617,7 @@ pub struct NodeMultilineBlockQuote {
 }
 
 /// The type of alert.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AlertType {
     /// Useful information.
@@ -719,7 +732,7 @@ impl NodeValue {
                 | NodeValue::Math(..)
                 | NodeValue::WikiLink(..)
                 | NodeValue::Underline
-                | NodeValue::Spoiler
+                | NodeValue::SpoileredText
                 | NodeValue::Escaped
         )
     }
@@ -766,7 +779,7 @@ impl NodeValue {
     /// Return a mutable reference to the text of a `Text` inline, if this node is one.
     ///
     /// Convenience method.
-    pub fn text_mut(&mut self) -> Option<&mut Cow<'static, str>> {
+    pub fn text_mut(&mut self) -> Option<&mut Box<str>> {
         match self {
             NodeValue::Text(text) => Some(text),
             _ => None,
@@ -816,9 +829,10 @@ impl NodeValue {
             NodeValue::WikiLink(..) => "wikilink",
             NodeValue::Underline => "underline",
             NodeValue::Subscript => "subscript",
-            NodeValue::Spoiler => "spoiler",
+            NodeValue::SpoileredText => "spoilered_text",
             NodeValue::Alert(_) => "alert",
             NodeValue::Subtext => "subtext",
+            NodeValue::EscapedTag(_) => "escaped_tag",
         }
     }
 
@@ -831,6 +845,71 @@ impl NodeValue {
                 | NodeValue::CodeBlock(..)
                 | NodeValue::Subtext
         )
+    }
+
+    /// Create a Text node from a string.
+    pub fn make_text<S: Into<Box<str>>>(s: S) -> Self {
+        NodeValue::Text(s.into())
+    }
+
+    /// Create a CodeBlock node.
+    pub fn code_block(code: NodeCodeBlock) -> Self {
+        NodeValue::CodeBlock(Box::new(code))
+    }
+
+    /// Create an HtmlBlock node.
+    pub fn html_block(block: NodeHtmlBlock) -> Self {
+        NodeValue::HtmlBlock(Box::new(block))
+    }
+
+    /// Create a FootnoteDefinition node.
+    pub fn footnote_definition(def: NodeFootnoteDefinition) -> Self {
+        NodeValue::FootnoteDefinition(Box::new(def))
+    }
+
+    /// Create a Table node.
+    pub fn table(table: NodeTable) -> Self {
+        NodeValue::Table(Box::new(table))
+    }
+
+    /// Create a Code inline node.
+    pub fn code(code: NodeCode) -> Self {
+        NodeValue::Code(Box::new(code))
+    }
+
+    /// Create a Link node.
+    pub fn link(link: NodeLink) -> Self {
+        NodeValue::Link(Box::new(link))
+    }
+
+    /// Create an Image node.
+    pub fn image(image: NodeLink) -> Self {
+        NodeValue::Image(Box::new(image))
+    }
+
+    /// Create a FootnoteReference node.
+    pub fn footnote_reference(ref_: NodeFootnoteReference) -> Self {
+        NodeValue::FootnoteReference(Box::new(ref_))
+    }
+
+    /// Create a Math node.
+    pub fn math(math: NodeMath) -> Self {
+        NodeValue::Math(Box::new(math))
+    }
+
+    /// Create a WikiLink node.
+    pub fn wiki_link(wiki: NodeWikiLink) -> Self {
+        NodeValue::WikiLink(Box::new(wiki))
+    }
+
+    /// Create a MultilineBlockQuote node.
+    pub fn multiline_block_quote(quote: NodeMultilineBlockQuote) -> Self {
+        NodeValue::MultilineBlockQuote(Box::new(quote))
+    }
+
+    /// Create an Alert node.
+    pub fn alert(alert: NodeAlert) -> Self {
+        NodeValue::Alert(Box::new(alert))
     }
 }
 
@@ -901,25 +980,25 @@ mod tests {
     fn test_node_value_classification() {
         assert!(NodeValue::Document.is_block());
         assert!(NodeValue::Paragraph.is_block());
-        assert!(!NodeValue::Text(Cow::Borrowed("")).is_block());
+        assert!(!NodeValue::make_text("").is_block());
 
-        assert!(NodeValue::Text(Cow::Borrowed("")).is_inline());
-        assert!(NodeValue::Link(NodeLink::default()).is_inline());
+        assert!(NodeValue::make_text("").is_inline());
+        assert!(NodeValue::link(NodeLink::default()).is_inline());
         assert!(!NodeValue::Paragraph.is_inline());
 
-        assert!(NodeValue::Text(Cow::Borrowed("")).is_leaf());
-        assert!(NodeValue::CodeBlock(NodeCodeBlock::default()).is_leaf());
+        assert!(NodeValue::make_text("").is_leaf());
+        assert!(NodeValue::code_block(NodeCodeBlock::default()).is_leaf());
         assert!(!NodeValue::Paragraph.is_leaf());
     }
 
     #[test]
     fn test_text_methods() {
-        let mut value = NodeValue::Text(Cow::Borrowed("hello"));
+        let mut value = NodeValue::make_text("hello");
         assert_eq!(value.text(), Some("hello"));
-        assert_eq!(value.text_mut(), Some(&mut Cow::Borrowed("hello")));
+        assert!(value.text_mut().is_some());
 
         if let Some(text) = value.text_mut() {
-            *text = Cow::Owned(format!("{} world", text));
+            *text = format!("{} world", text).into_boxed_str();
         }
         assert_eq!(value.text(), Some("hello world"));
 
@@ -932,7 +1011,7 @@ mod tests {
     fn test_xml_node_names() {
         assert_eq!(NodeValue::Document.xml_node_name(), "document");
         assert_eq!(NodeValue::Paragraph.xml_node_name(), "paragraph");
-        assert_eq!(NodeValue::Text(Cow::Borrowed("")).xml_node_name(), "text");
+        assert_eq!(NodeValue::make_text("").xml_node_name(), "text");
         assert_eq!(NodeValue::Strong.xml_node_name(), "strong");
     }
 
@@ -1009,7 +1088,7 @@ mod tests {
         // Paragraph can contain inlines
         assert!(can_contain_type(
             &NodeValue::Paragraph,
-            &NodeValue::Text(Cow::Borrowed("hi"))
+            &NodeValue::make_text("hi")
         ));
         assert!(!can_contain_type(
             &NodeValue::Paragraph,
@@ -1073,7 +1152,7 @@ mod tests {
         assert_eq!(link.url, "https://example.com");
         assert_eq!(link.title, "Example");
 
-        let image = NodeValue::Image(NodeLink {
+        let image = NodeValue::image(NodeLink {
             url: "image.png".to_string(),
             title: "An image".to_string(),
         });
