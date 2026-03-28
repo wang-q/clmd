@@ -87,15 +87,34 @@ impl Write for Context<'_, '_> {
 /// - `>` → `&gt;`
 /// - `"` → `&quot;`
 pub fn escape_html(output: &mut dyn Write, text: &str) -> fmt::Result {
-    for c in text.chars() {
-        match c {
-            '&' => output.write_str("&amp;")?,
-            '<' => output.write_str("&lt;")?,
-            '>' => output.write_str("&gt;")?,
-            '"' => output.write_str("&quot;")?,
-            _ => output.write_char(c)?,
+    // Fast path: scan bytes and only process chunks that need escaping
+    let bytes = text.as_bytes();
+    let mut last = 0;
+
+    for (i, &b) in bytes.iter().enumerate() {
+        let escaped = match b {
+            b'&' => Some("&amp;"),
+            b'<' => Some("&lt;"),
+            b'>' => Some("&gt;"),
+            b'"' => Some("&quot;"),
+            _ => None,
+        };
+
+        if let Some(esc) = escaped {
+            // Write the chunk before this character
+            if i > last {
+                output.write_str(&text[last..i])?;
+            }
+            output.write_str(esc)?;
+            last = i + 1;
         }
     }
+
+    // Write remaining chunk
+    if last < text.len() {
+        output.write_str(&text[last..])?;
+    }
+
     Ok(())
 }
 
@@ -106,18 +125,36 @@ pub fn escape_href(output: &mut dyn Write, url: &str) -> fmt::Result {
         return output.write_str("#");
     }
 
-    // Escape special characters for attribute context
-    for c in url.chars() {
-        match c {
-            '&' => output.write_str("&amp;")?,
-            '"' => output.write_str("&quot;")?,
-            '<' => output.write_str("&lt;")?,
-            '>' => output.write_str("&gt;")?,
-            '\'' => output.write_str("&#x27;")?,
-            '`' => output.write_str("&#x60;")?,
-            _ => output.write_char(c)?,
+    // Fast path: scan bytes and only process chunks that need escaping
+    let bytes = url.as_bytes();
+    let mut last = 0;
+
+    for (i, &b) in bytes.iter().enumerate() {
+        let escaped = match b {
+            b'&' => Some("&amp;"),
+            b'"' => Some("&quot;"),
+            b'<' => Some("&lt;"),
+            b'>' => Some("&gt;"),
+            b'\'' => Some("&#x27;"),
+            b'`' => Some("&#x60;"),
+            _ => None,
+        };
+
+        if let Some(esc) = escaped {
+            // Write the chunk before this character
+            if i > last {
+                output.write_str(&url[last..i])?;
+            }
+            output.write_str(esc)?;
+            last = i + 1;
         }
     }
+
+    // Write remaining chunk
+    if last < url.len() {
+        output.write_str(&url[last..])?;
+    }
+
     Ok(())
 }
 

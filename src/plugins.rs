@@ -29,42 +29,13 @@
 use std::collections::HashMap;
 use std::fmt;
 
+// Re-export from parser::options for unified API
+pub use crate::parser::options::{Plugins, RenderPlugins};
+
 // Re-export adapter traits for convenience
 pub use crate::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
-
-/// A collection of plugins for customizing rendering behavior (comrak-style).
-///
-/// This struct holds references to various adapter implementations
-/// that can customize how different elements are rendered.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::plugins::Plugins;
-///
-/// let mut plugins = Plugins::new();
-/// // Configure render plugins
-/// plugins.render.set_syntax_highlighter(&my_highlighter);
-/// ```
-#[derive(Default, Debug)]
-pub struct Plugins<'p> {
-    /// Render-time plugins.
-    pub render: RenderPlugins<'p>,
-}
-
-impl<'p> Plugins<'p> {
-    /// Create a new empty plugins collection.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Check if any plugins are registered.
-    pub fn is_empty(&self) -> bool {
-        self.render.is_empty()
-    }
-}
 
 /// A collection of plugins for customizing rendering behavior (owned version).
 ///
@@ -193,92 +164,6 @@ impl fmt::Debug for OwnedPlugins {
     }
 }
 
-/// Plugins for alternative rendering (comrak-style).
-///
-/// This struct provides a comrak-compatible interface for render-time plugins.
-#[derive(Default, Clone)]
-pub struct RenderPlugins<'p> {
-    /// Provide language-specific renderers for codefence blocks.
-    ///
-    /// `math` codefence blocks are handled separately by the built-in math renderer,
-    /// so entries keyed by `"math"` in this map are not used.
-    pub codefence_renderers: HashMap<String, &'p dyn CodefenceRendererAdapter>,
-
-    /// Provide a syntax highlighter adapter implementation for syntax
-    /// highlighting of codefence blocks.
-    pub codefence_syntax_highlighter: Option<&'p dyn SyntaxHighlighterAdapter>,
-
-    /// Optional heading adapter
-    pub heading_adapter: Option<&'p dyn HeadingAdapter>,
-}
-
-impl<'p> RenderPlugins<'p> {
-    /// Create a new empty render plugins collection
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a code fence renderer for a specific language
-    pub fn register_codefence_renderer(
-        &mut self,
-        language: impl Into<String>,
-        renderer: &'p dyn CodefenceRendererAdapter,
-    ) {
-        self.codefence_renderers.insert(language.into(), renderer);
-    }
-
-    /// Get a code fence renderer for a specific language
-    pub fn codefence_renderer(
-        &self,
-        language: &str,
-    ) -> Option<&dyn CodefenceRendererAdapter> {
-        self.codefence_renderers.get(language).copied()
-    }
-
-    /// Set the syntax highlighter
-    pub fn set_syntax_highlighter(&mut self, adapter: &'p dyn SyntaxHighlighterAdapter) {
-        self.codefence_syntax_highlighter = Some(adapter);
-    }
-
-    /// Get the syntax highlighter if set
-    pub fn syntax_highlighter(&self) -> Option<&dyn SyntaxHighlighterAdapter> {
-        self.codefence_syntax_highlighter
-    }
-
-    /// Set the heading adapter
-    pub fn set_heading_adapter(&mut self, adapter: &'p dyn HeadingAdapter) {
-        self.heading_adapter = Some(adapter);
-    }
-
-    /// Get the heading adapter if set
-    pub fn heading_adapter(&self) -> Option<&dyn HeadingAdapter> {
-        self.heading_adapter
-    }
-
-    /// Check if any plugins are registered
-    pub fn is_empty(&self) -> bool {
-        self.codefence_renderers.is_empty()
-            && self.codefence_syntax_highlighter.is_none()
-            && self.heading_adapter.is_none()
-    }
-}
-
-impl fmt::Debug for RenderPlugins<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RenderPlugins")
-            .field(
-                "codefence_renderers",
-                &self.codefence_renderers.keys().collect::<Vec<_>>(),
-            )
-            .field(
-                "has_syntax_highlighter",
-                &self.codefence_syntax_highlighter.is_some(),
-            )
-            .field("has_heading_adapter", &self.heading_adapter.is_some())
-            .finish()
-    }
-}
-
 /// A simple syntax highlighter that wraps code in a pre/code block
 /// without any actual highlighting.
 #[derive(Debug, Clone, Copy)]
@@ -342,7 +227,7 @@ mod tests {
     #[test]
     fn test_plugins_default() {
         let plugins = Plugins::new();
-        assert!(plugins.is_empty());
+        assert!(plugins.render.is_empty());
     }
 
     #[test]

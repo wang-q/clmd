@@ -963,7 +963,7 @@ pub fn can_contain_type(parent: &NodeValue, child: &NodeValue) -> bool {
         | NodeValue::Highlight
         | NodeValue::Insert
         | NodeValue::Superscript
-        | NodeValue::Spoiler
+        | NodeValue::SpoileredText
         | NodeValue::Underline
         | NodeValue::Subscript
         | NodeValue::Subtext => child.is_inline(),

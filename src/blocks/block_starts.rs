@@ -137,7 +137,7 @@ impl<'a> BlockParser<'a> {
         if indented && !maybe_lazy && !self.blank {
             self.close_unmatched_blocks();
             let code_block = self
-                .add_child(NodeValue::CodeBlock(NodeCodeBlock::default()), self.offset);
+                .add_child(NodeValue::CodeBlock(Box::new(NodeCodeBlock::default())), self.offset);
             self.set_fence_info(code_block, '\0', 0, 0);
             self.advance_offset(CODE_INDENT, true);
             BlockStartResult::Done(code_block)
@@ -318,7 +318,7 @@ impl<'a> BlockParser<'a> {
         let info = unescape_string(rest.trim());
         self.close_unmatched_blocks();
         let code_block = self.add_child(
-            NodeValue::CodeBlock(NodeCodeBlock {
+            NodeValue::CodeBlock(Box::new(NodeCodeBlock {
                 fenced: true,
                 fence_char: first_char as u8,
                 fence_length,
@@ -326,7 +326,7 @@ impl<'a> BlockParser<'a> {
                 info: info.clone(),
                 literal: String::new(),
                 closed: false,
-            }),
+            })),
             self.next_nonspace,
         );
 
@@ -365,10 +365,10 @@ impl<'a> BlockParser<'a> {
         {
             self.close_unmatched_blocks();
             let html_block = self.add_child(
-                NodeValue::HtmlBlock(NodeHtmlBlock {
+                NodeValue::HtmlBlock(Box::new(NodeHtmlBlock {
                     block_type,
                     literal: String::new(),
-                }),
+                })),
                 self.offset,
             );
             self.set_html_block_type(html_block, block_type);
