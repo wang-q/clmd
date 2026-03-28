@@ -11,36 +11,16 @@
 //! ```
 
 pub use crate::{
-    parse_document,
-    markdown_to_html,
-    markdown_to_html_with_plugins,
-    markdown_to_commonmark,
-    markdown_to_commonmark_with_plugins,
-    markdown_to_commonmark_xml,
-    markdown_to_commonmark_xml_with_plugins,
-    format_html,
-    format_html_with_plugins,
-    format_commonmark,
-    format_commonmark_with_plugins,
-    format_xml,
-    format_xml_with_plugins,
-    Arena,
-    Node,
-    Options,
-    NodeValue,
-    Plugins,
+    format_commonmark, format_commonmark_with_plugins, format_html,
+    format_html_with_plugins, format_xml, format_xml_with_plugins,
+    markdown_to_commonmark, markdown_to_commonmark_with_plugins,
+    markdown_to_commonmark_xml, markdown_to_commonmark_xml_with_plugins,
+    markdown_to_html, markdown_to_html_with_plugins, parse_document, Arena, Node,
+    NodeValue, Options, Plugins,
 };
 
 // Re-export from options module
 pub use crate::options::{
-    Extension,
-    Parse,
-    Render,
-    ListStyleType,
-    WikiLinksMode,
-    ResolvedReference,
-    BrokenLinkReference,
-    BrokenLinkCallback,
-    URLRewriter,
-    RenderPlugins,
+    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Render,
+    RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };

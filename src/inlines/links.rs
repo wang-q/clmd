@@ -527,9 +527,9 @@ pub fn create_link_node(
     title: String,
 ) -> NodeId {
     let value = if is_image {
-        NodeValue::Image(NodeLink { url: dest, title })
+        NodeValue::image(NodeLink { url: dest, title })
     } else {
-        NodeValue::Link(NodeLink { url: dest, title })
+        NodeValue::link(NodeLink { url: dest, title })
     };
 
     arena.alloc(Node::with_value(value))

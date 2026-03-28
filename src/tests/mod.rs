@@ -2,9 +2,7 @@
 //!
 //! This module contains tests for the public API of the CLMD library.
 
-use crate::{
-    format_html, markdown_to_html, parse_document, version, Arena, Options,
-};
+use crate::{format_html, markdown_to_html, parse_document, version, Arena, Options};
 
 #[test]
 fn test_markdown_to_html_basic() {

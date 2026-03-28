@@ -136,8 +136,10 @@ impl<'a> BlockParser<'a> {
     ) -> BlockStartResult {
         if indented && !maybe_lazy && !self.blank {
             self.close_unmatched_blocks();
-            let code_block = self
-                .add_child(NodeValue::CodeBlock(Box::new(NodeCodeBlock::default())), self.offset);
+            let code_block = self.add_child(
+                NodeValue::CodeBlock(Box::new(NodeCodeBlock::default())),
+                self.offset,
+            );
             self.set_fence_info(code_block, '\0', 0, 0);
             self.advance_offset(CODE_INDENT, true);
             BlockStartResult::Done(code_block)

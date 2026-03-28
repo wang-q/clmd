@@ -173,9 +173,9 @@ impl<'a> ManRenderer<'a> {
                     self.writeln(".br");
                 }
             }
-            NodeValue::Code(NodeCode { literal, .. }) => {
+            NodeValue::Code(code) => {
                 self.write("\\fC");
-                self.write(&escape_man(literal));
+                self.write(&escape_man(&code.literal));
                 self.write("\\fR");
             }
             NodeValue::HtmlInline(..) => {
@@ -240,11 +240,11 @@ impl<'a> ManRenderer<'a> {
 
     fn render_code_block(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
+        if let NodeValue::CodeBlock(code_block) = &node.value {
             self.in_verbatim = true;
 
-            if !info.is_empty() {
-                let lang = info.split_whitespace().next().unwrap_or("");
+            if !code_block.info.is_empty() {
+                let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 self.write(".PP");
                 self.write(&escape_man(lang));
                 self.writeln(":");
@@ -253,7 +253,7 @@ impl<'a> ManRenderer<'a> {
             self.writeln(".EX");
 
             // Write code content
-            for line in literal.lines() {
+            for line in code_block.literal.lines() {
                 self.writeln(line);
             }
 
@@ -341,7 +341,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("Hello world".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("Hello world")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -358,7 +358,7 @@ mod tests {
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("emphasized".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("emphasized")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -374,7 +374,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let strong = arena.alloc(Node::with_value(NodeValue::Strong));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("strong".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("strong")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -389,7 +389,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let code = arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+        let code = arena.alloc(Node::with_value(NodeValue::code(NodeCode {
             num_backticks: 1,
             literal: "code".to_string(),
         })));
@@ -439,7 +439,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Quote".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quote")));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -455,7 +455,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block =
-            arena.alloc(Node::with_value(NodeValue::CodeBlock(NodeCodeBlock {
+            arena.alloc(Node::with_value(NodeValue::code_block(NodeCodeBlock {
                 fenced: true,
                 fence_char: b'`',
                 fence_length: 3,
@@ -489,7 +489,7 @@ mod tests {
         })));
         let item = arena.alloc(Node::with_value(NodeValue::Item(NodeList::default())));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Item".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Item")));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
@@ -511,8 +511,8 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            ".dot at start".to_string(),
+        let text = arena.alloc(Node::with_value(NodeValue::make_text(
+            ".dot at start",
         )));
 
         TreeOps::append_child(&mut arena, root, para);

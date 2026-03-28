@@ -265,7 +265,11 @@ mod tests {
                 write!(output, "<h{}>", heading.level)
             }
 
-            fn exit(&self, output: &mut dyn Write, heading: &HeadingMeta) -> fmt::Result {
+            fn exit(
+                &self,
+                output: &mut dyn Write,
+                heading: &HeadingMeta,
+            ) -> fmt::Result {
                 write!(output, "</h{}>", heading.level)
             }
         }

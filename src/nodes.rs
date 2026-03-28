@@ -269,7 +269,10 @@ impl Ast {
 impl<'a> From<NodeValue> for AstNode<'a> {
     /// Create a new AST node with the given value. The sourcepos is set to (0,0)-(0,0).
     fn from(value: NodeValue) -> Self {
-        crate::arena_tree::Node::new(RefCell::new(Ast::new(value, LineColumn::default())))
+        crate::arena_tree::Node::new(RefCell::new(Ast::new(
+            value,
+            LineColumn::default(),
+        )))
     }
 }
 
@@ -1250,16 +1253,31 @@ impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ValidationError::InvalidParentChild { parent, child } => {
-                write!(f, "Invalid parent-child relationship: {} cannot contain {}", parent, child)
+                write!(
+                    f,
+                    "Invalid parent-child relationship: {} cannot contain {}",
+                    parent, child
+                )
             }
             ValidationError::LeafNodeWithChildren { node_type } => {
                 write!(f, "Leaf node {} cannot have children", node_type)
             }
-            ValidationError::MissingRequiredChild { parent, description } => {
+            ValidationError::MissingRequiredChild {
+                parent,
+                description,
+            } => {
                 write!(f, "{} is missing required child: {}", parent, description)
             }
-            ValidationError::InvalidProperty { node_type, property, value } => {
-                write!(f, "Invalid property {} on {}: {}", property, node_type, value)
+            ValidationError::InvalidProperty {
+                node_type,
+                property,
+                value,
+            } => {
+                write!(
+                    f,
+                    "Invalid property {} on {}: {}",
+                    property, node_type, value
+                )
             }
         }
     }
@@ -1360,7 +1378,10 @@ fn validate_node(
                         return Err(ValidationError::InvalidProperty {
                             node_type: "table_row",
                             property: "cell_count",
-                            value: format!("{} (expected {})", cell_count, table.num_columns),
+                            value: format!(
+                                "{} (expected {})",
+                                cell_count, table.num_columns
+                            ),
                         });
                     }
                 }

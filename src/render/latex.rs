@@ -117,9 +117,9 @@ impl<'a> LatexRenderer<'a> {
             NodeValue::HardBreak => {
                 self.writeln("\\\\");
             }
-            NodeValue::Code(NodeCode { literal, .. }) => {
+            NodeValue::Code(code) => {
                 self.write("\\texttt{");
-                self.write(&escape_latex(literal));
+                self.write(&escape_latex(&code.literal));
                 self.write("}");
             }
             NodeValue::HtmlInline(..) => {}
@@ -129,14 +129,14 @@ impl<'a> LatexRenderer<'a> {
             NodeValue::Strong => {
                 self.write("\\textbf{");
             }
-            NodeValue::Link(NodeLink { url, .. }) => {
+            NodeValue::Link(link) => {
                 self.write("\\href{");
-                self.write(&escape_latex(url));
+                self.write(&escape_latex(&link.url));
                 self.write("}{");
             }
-            NodeValue::Image(NodeLink { url, .. }) => {
+            NodeValue::Image(link) => {
                 self.write("\\includegraphics{");
-                self.write(&escape_latex(url));
+                self.write(&escape_latex(&link.url));
                 self.write("}");
             }
             _ => {}
@@ -189,9 +189,9 @@ impl<'a> LatexRenderer<'a> {
 
     fn render_code_block(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
-            if !info.is_empty() {
-                let lang = info.split_whitespace().next().unwrap_or("");
+        if let NodeValue::CodeBlock(code_block) = &node.value {
+            if !code_block.info.is_empty() {
+                let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 self.write("\\begin{lstlisting}[language=");
                 self.write(&escape_latex(lang));
                 self.writeln("]");
@@ -199,11 +199,11 @@ impl<'a> LatexRenderer<'a> {
                 self.writeln("\\begin{verbatim}");
             }
 
-            for line in literal.lines() {
+            for line in code_block.literal.lines() {
                 self.writeln(line);
             }
 
-            if !info.is_empty() {
+            if !code_block.info.is_empty() {
                 self.writeln("\\end{lstlisting}");
             } else {
                 self.writeln("\\end{verbatim}");
@@ -278,7 +278,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("Hello world".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("Hello world")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -294,7 +294,7 @@ mod tests {
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("emphasized".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("emphasized")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -310,7 +310,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let strong = arena.alloc(Node::with_value(NodeValue::Strong));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("strong".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("strong")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -362,7 +362,7 @@ mod tests {
             url: "https://example.com".to_string(),
             title: "".to_string(),
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("link".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("link")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -378,7 +378,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Quote".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quote")));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -428,7 +428,7 @@ mod tests {
         })));
         let item = arena.alloc(Node::with_value(NodeValue::Item(NodeList::default())));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Item".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Item")));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);

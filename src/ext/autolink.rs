@@ -113,7 +113,7 @@ pub fn create_autolink_node(
         url.to_string()
     };
 
-    let link_node = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+    let link_node = arena.alloc(Node::with_value(NodeValue::link(NodeLink {
         url: actual_url,
         title: String::new(),
     })));
@@ -148,7 +148,9 @@ pub fn process_autolinks(
 
     if links.is_empty() {
         // No autolinks found, return single text node
-        nodes.push(arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into()))));
+        nodes.push(
+            arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into()))),
+        );
         return nodes;
     }
 
@@ -160,7 +162,8 @@ pub fn process_autolinks(
         if start > last_end {
             let before: String = chars[last_end..start].iter().collect();
             if !before.is_empty() {
-                nodes.push(arena.alloc(Node::with_value(NodeValue::Text(before.into()))));
+                nodes
+                    .push(arena.alloc(Node::with_value(NodeValue::Text(before.into()))));
             }
         }
 

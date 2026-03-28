@@ -78,7 +78,7 @@ pub fn parse_document_with_limits<'a>(
     if md.len() > limits.max_input_size {
         return Err(ParseError::InputTooLarge {
             size: md.len(),
-            max: limits.max_input_size,
+            max_size: limits.max_input_size,
         });
     }
 
@@ -157,11 +157,7 @@ struct ParserInner<'a, 'o> {
 
 impl<'a, 'o> ParserInner<'a, 'o> {
     /// Create a new parser instance.
-    fn new(
-        arena: &'a crate::Arena<'a>,
-        root: Node<'a>,
-        options: &'o Options,
-    ) -> Self {
+    fn new(arena: &'a crate::Arena<'a>, root: Node<'a>, options: &'o Options) -> Self {
         ParserInner {
             arena,
             root,
@@ -220,7 +216,10 @@ impl<'a, 'o> ParserInner<'a, 'o> {
                 if let Some(end) = md[delimiter.len()..].find(delimiter) {
                     let front_matter = &md[delimiter.len()..delimiter.len() + end];
                     let node = self.arena.alloc(
-                        NodeValue::FrontMatter(front_matter.to_string().into_boxed_str()).into(),
+                        NodeValue::FrontMatter(
+                            front_matter.to_string().into_boxed_str(),
+                        )
+                        .into(),
                     );
                     self.root.append(node);
                     return &md[delimiter.len() + end + delimiter.len()..];
@@ -266,7 +265,11 @@ impl<'a, 'o> ParserInner<'a, 'o> {
                 NodeValue::BlockQuote => self.check_block_quote_continuation(line),
                 NodeValue::CodeBlock(code) => {
                     if code.fenced {
-                        self.check_code_fence_continuation(line, code.fence_char, code.fence_length)
+                        self.check_code_fence_continuation(
+                            line,
+                            code.fence_char,
+                            code.fence_length,
+                        )
                     } else {
                         // Indented code block continues if line is indented or blank
                         is_blank || self.indent >= 4
@@ -344,7 +347,10 @@ impl<'a, 'o> ParserInner<'a, 'o> {
     }
 
     /// Try to parse a list marker from the beginning of a line.
-    fn parse_list_marker(&self, line: &str) -> Option<(nodes::ListType, u8, usize, usize)> {
+    fn parse_list_marker(
+        &self,
+        line: &str,
+    ) -> Option<(nodes::ListType, u8, usize, usize)> {
         let bytes = line.as_bytes();
         let mut i = self.offset;
 
@@ -364,7 +370,12 @@ impl<'a, 'o> ParserInner<'a, 'o> {
 
             // Must be followed by space or tab
             if i < bytes.len() && scanners::is_space_or_tab(bytes[i]) {
-                return Some((nodes::ListType::Bullet, bullet_char, i + 1, i - self.offset));
+                return Some((
+                    nodes::ListType::Bullet,
+                    bullet_char,
+                    i + 1,
+                    i - self.offset,
+                ));
             }
             return None;
         }
@@ -410,7 +421,7 @@ impl<'a, 'o> ParserInner<'a, 'o> {
     fn close_unmatched_blocks(&mut self) {
         // Finalize any blocks that are being closed
         while let Some(node) = self.open_blocks.pop() {
-            if node != self.root {
+            if !std::ptr::eq(node, self.root) {
                 let mut data = node.data_mut();
                 data.open = false;
             }
@@ -440,7 +451,9 @@ impl<'a, 'o> ParserInner<'a, 'o> {
         }
 
         if line.len() >= self.offset + 4
-            && line.as_bytes()[self.offset..self.offset + 4].iter().all(|&b| b == b' ')
+            && line.as_bytes()[self.offset..self.offset + 4]
+                .iter()
+                .all(|&b| b == b' ')
         {
             // Indented code block
             self.add_indented_code_block(line);
@@ -473,13 +486,13 @@ impl<'a, 'o> ParserInner<'a, 'o> {
             closed: true,
         };
 
-        let node = self
-            .arena
-            .alloc(NodeValue::Heading(heading).into());
+        let node = self.arena.alloc(NodeValue::Heading(heading).into());
 
         // Add text content
         if !content.is_empty() {
-            let text = self.arena.alloc(NodeValue::make_text(content.trim()).into());
+            let text = self
+                .arena
+                .alloc(NodeValue::make_text(content.trim()).into());
             node.append(text);
         }
 
@@ -487,7 +500,7 @@ impl<'a, 'o> ParserInner<'a, 'o> {
     }
 
     /// Extract content from an ATX heading line.
-    fn extract_atx_content(&self, line: &str, level: usize) -> &str {
+    fn extract_atx_content<'b>(&self, line: &'b str, level: usize) -> &'b str {
         let bytes = line.as_bytes();
         let mut i = 0;
 
@@ -515,7 +528,9 @@ impl<'a, 'o> ParserInner<'a, 'o> {
             } else if c == b'#' {
                 // Check if all remaining trailing chars are hashes or whitespace
                 let mut j = end - 1;
-                while j > start && (bytes[j] == b'#' || bytes[j] == b' ' || bytes[j] == b'\t') {
+                while j > start
+                    && (bytes[j] == b'#' || bytes[j] == b' ' || bytes[j] == b'\t')
+                {
                     j -= 1;
                 }
                 if j == start || bytes[j + 1] == b' ' || bytes[j + 1] == b'\t' {
@@ -606,7 +621,8 @@ impl<'a, 'o> ParserInner<'a, 'o> {
         marker_width: usize,
     ) {
         // Check if we need to create a new list
-        let needs_new_list = if let NodeValue::List(ref list) = self.current.data().value {
+        let needs_new_list = if let NodeValue::List(ref list) = self.current.data().value
+        {
             list.list_type != list_type
         } else {
             true
@@ -683,7 +699,9 @@ impl<'a, 'o> ParserInner<'a, 'o> {
     fn add_paragraph(&mut self, line: &str) {
         // Check if we can extend an existing paragraph
         if let Some(last_child) = self.current.last_child() {
-            if matches!(last_child.data().value, NodeValue::Paragraph) && !self.last_line_blank {
+            if matches!(last_child.data().value, NodeValue::Paragraph)
+                && !self.last_line_blank
+            {
                 // Extend existing paragraph
                 self.append_line_to_node(last_child, line);
                 return;
@@ -754,7 +772,8 @@ impl<'a, 'o> ParserInner<'a, 'o> {
                         let content = std::mem::take(&mut data.content);
                         drop(data); // Release borrow
 
-                        let text = self.arena.alloc(NodeValue::make_text(content).into());
+                        let text =
+                            self.arena.alloc(NodeValue::make_text(content).into());
                         node.append(text);
                     }
                 }
@@ -814,7 +833,7 @@ impl Parser {
         if text.len() > self.limits.max_input_size {
             return Err(ParseError::InputTooLarge {
                 size: text.len(),
-                max: self.limits.max_input_size,
+                max_size: self.limits.max_input_size,
             });
         }
 

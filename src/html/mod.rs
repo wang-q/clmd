@@ -22,14 +22,14 @@
 
 mod context;
 
-pub use context::{escape_html, escape_href, is_safe_url, Context};
+pub use context::{escape_href, escape_html, is_safe_url, Context};
 
 use std::fmt::{self, Write};
 
 use crate::nodes::{
-    AstNode, LineColumn, ListType, NodeCode, NodeCodeBlock, NodeDescriptionItem, NodeFootnoteDefinition,
-    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeMath, NodeTable,
-    NodeTaskItem, NodeValue, SourcePos, TableAlignment,
+    AstNode, LineColumn, ListType, NodeCode, NodeCodeBlock, NodeDescriptionItem,
+    NodeFootnoteDefinition, NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink,
+    NodeList, NodeMath, NodeTable, NodeTaskItem, NodeValue, SourcePos, TableAlignment,
 };
 use crate::parser::options::{Options, Plugins};
 
@@ -150,8 +150,8 @@ fn render_plain(context: &mut Context, node: &AstNode<'_>) -> fmt::Result {
         NodeValue::Text(text) => {
             context.escape(text)?;
         }
-        NodeValue::Code(NodeCode { literal, .. }) => {
-            context.escape(literal)?;
+        NodeValue::Code(code) => {
+            context.escape(&code.literal)?;
         }
         NodeValue::SoftBreak | NodeValue::HardBreak => {
             context.write_str(" ")?;
@@ -180,7 +180,9 @@ fn format_node_default(
         NodeValue::CodeBlock(code_block) => {
             render_code_block(context, node, entering, code_block)
         }
-        NodeValue::HtmlBlock(html_block) => render_html_block(context, entering, html_block),
+        NodeValue::HtmlBlock(html_block) => {
+            render_html_block(context, entering, html_block)
+        }
         NodeValue::Paragraph => render_paragraph(context, node, entering),
         NodeValue::Heading(heading) => render_heading(context, node, entering, heading),
         NodeValue::ThematicBreak => render_thematic_break(context, node, entering),
@@ -198,9 +200,13 @@ fn format_node_default(
         NodeValue::Strikethrough => render_strikethrough(context, node, entering),
 
         // GFM extensions
-        NodeValue::TaskItem(task_item) => render_task_item(context, node, entering, task_item),
+        NodeValue::TaskItem(task_item) => {
+            render_task_item(context, node, entering, task_item)
+        }
         NodeValue::Table(table) => render_table(context, node, entering, table),
-        NodeValue::TableRow(is_header) => render_table_row(context, node, entering, *is_header),
+        NodeValue::TableRow(is_header) => {
+            render_table_row(context, node, entering, *is_header)
+        }
         NodeValue::TableCell => render_table_cell(context, node, entering),
         NodeValue::FootnoteDefinition(def) => {
             render_footnote_definition(context, node, entering, def)
@@ -309,13 +315,20 @@ fn render_code_block(
             if !code_block.info.is_empty() {
                 let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 if !lang.is_empty() {
-                    attrs.insert("class", std::borrow::Cow::Owned(format!("language-{}", lang)));
+                    attrs.insert(
+                        "class",
+                        std::borrow::Cow::Owned(format!("language-{}", lang)),
+                    );
                 }
             }
 
             highlighter.write_pre_tag(context, attrs.clone())?;
             highlighter.write_code_tag(context, attrs)?;
-            highlighter.write_highlighted(context, Some(&code_block.info), &code_block.literal)?;
+            highlighter.write_highlighted(
+                context,
+                Some(&code_block.info),
+                &code_block.literal,
+            )?;
             context.write_str("</code></pre>")?;
         } else {
             context.write_str("<pre><code")?;
@@ -762,7 +775,11 @@ fn render_math(
     math: &NodeMath,
 ) -> Result<ChildRendering, fmt::Error> {
     if entering {
-        let style = if math.display_math { "display" } else { "inline" };
+        let style = if math.display_math {
+            "display"
+        } else {
+            "inline"
+        };
         context.write_str("<span data-math-style=\"")?;
         context.write_str(style)?;
         context.write_str("\"")?;

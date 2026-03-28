@@ -14,7 +14,9 @@
 //! options.render.hardbreaks = true;
 //! ```
 
-use crate::adapters::{CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter};
+use crate::adapters::{
+    CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter,
+};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;

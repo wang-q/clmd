@@ -196,7 +196,11 @@ pub type Node<'a> = nodes::Node<'a>;
 /// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
 /// ```
 #[inline]
-pub fn parse_document<'a>(arena: &'a Arena<'a>, md: &str, options: &Options) -> Node<'a> {
+pub fn parse_document<'a>(
+    arena: &'a Arena<'a>,
+    md: &str,
+    options: &Options,
+) -> Node<'a> {
     parser::parse_document(arena, md, options)
 }
 
@@ -273,6 +277,34 @@ pub type ParseOptions<'c> = parser::options::Parse<'c>;
 )]
 /// Deprecated alias: use [`parser::options::Render`] instead.
 pub type RenderOptions = parser::options::Render;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::BrokenLinkReference` instead of `clmd::BrokenLinkReference`"
+)]
+/// Deprecated alias: use [`parser::options::BrokenLinkReference`] instead.
+pub type BrokenLinkReference<'l> = parser::options::BrokenLinkReference<'l>;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::ListStyleType` instead of `clmd::ListStyleType`"
+)]
+/// Deprecated alias: use [`parser::options::ListStyleType`] instead.
+pub type ListStyleType = parser::options::ListStyleType;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::WikiLinksMode` instead of `clmd::WikiLinksMode`"
+)]
+/// Deprecated alias: use [`parser::options::WikiLinksMode`] instead.
+pub type WikiLinksMode = parser::options::WikiLinksMode;
+
+#[deprecated(
+    since = "0.2.0",
+    note = "use `clmd::parser::options::RenderPlugins` instead of `clmd::RenderPlugins`"
+)]
+/// Deprecated alias: use [`parser::options::RenderPlugins`] instead.
+pub type RenderPlugins<'p> = parser::options::RenderPlugins<'p>;
 
 // =============================================================================
 // Convenience Functions

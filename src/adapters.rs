@@ -238,7 +238,12 @@ pub trait LinkAdapter {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
-    fn enter_link(&self, output: &mut dyn Write, url: &str, title: Option<&str>) -> fmt::Result;
+    fn enter_link(
+        &self,
+        output: &mut dyn Write,
+        url: &str,
+        title: Option<&str>,
+    ) -> fmt::Result;
 
     /// Called when exiting a link element.
     ///
@@ -294,7 +299,12 @@ pub trait ListAdapter {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure
-    fn enter_list(&self, output: &mut dyn Write, ordered: bool, start: u32) -> fmt::Result;
+    fn enter_list(
+        &self,
+        output: &mut dyn Write,
+        ordered: bool,
+        start: u32,
+    ) -> fmt::Result;
 
     /// Called when exiting a list element.
     ///
@@ -326,7 +336,12 @@ pub trait TableAdapter {
     fn exit_row(&self, output: &mut dyn Write, is_header: bool) -> fmt::Result;
 
     /// Called when entering a table cell.
-    fn enter_cell(&self, output: &mut dyn Write, is_header: bool, align: Option<&str>) -> fmt::Result;
+    fn enter_cell(
+        &self,
+        output: &mut dyn Write,
+        is_header: bool,
+        align: Option<&str>,
+    ) -> fmt::Result;
 
     /// Called when exiting a table cell.
     fn exit_cell(&self, output: &mut dyn Write, is_header: bool) -> fmt::Result;
@@ -431,13 +446,21 @@ pub trait InlineCodeAdapter {
 /// This trait allows you to customize how footnotes are rendered in HTML output.
 pub trait FootnoteAdapter {
     /// Called when entering a footnote definition.
-    fn enter_footnote_definition(&self, output: &mut dyn Write, name: &str) -> fmt::Result;
+    fn enter_footnote_definition(
+        &self,
+        output: &mut dyn Write,
+        name: &str,
+    ) -> fmt::Result;
 
     /// Called when exiting a footnote definition.
     fn exit_footnote_definition(&self, output: &mut dyn Write) -> fmt::Result;
 
     /// Called when rendering a footnote reference.
-    fn render_footnote_reference(&self, output: &mut dyn Write, name: &str) -> fmt::Result;
+    fn render_footnote_reference(
+        &self,
+        output: &mut dyn Write,
+        name: &str,
+    ) -> fmt::Result;
 }
 
 /// Adapter for custom task list item rendering.
@@ -487,7 +510,12 @@ pub trait DefinitionListAdapter {
 /// This trait allows you to customize how abbreviations are rendered in HTML output.
 pub trait AbbreviationAdapter {
     /// Called when rendering an abbreviation.
-    fn render_abbreviation(&self, output: &mut dyn Write, abbr: &str, title: &str) -> fmt::Result;
+    fn render_abbreviation(
+        &self,
+        output: &mut dyn Write,
+        abbr: &str,
+        title: &str,
+    ) -> fmt::Result;
 }
 
 /// Adapter for custom subscript rendering.
@@ -550,7 +578,12 @@ pub trait SpoilerAdapter {
 /// This trait allows you to customize how wiki links are rendered in HTML output.
 pub trait WikiLinkAdapter {
     /// Called when rendering a wiki link.
-    fn render_wiki_link(&self, output: &mut dyn Write, target: &str, title: Option<&str>) -> fmt::Result;
+    fn render_wiki_link(
+        &self,
+        output: &mut dyn Write,
+        target: &str,
+        title: Option<&str>,
+    ) -> fmt::Result;
 }
 
 /// Adapter for custom emoji rendering.
@@ -566,7 +599,12 @@ pub trait EmojiAdapter {
 /// This trait allows you to customize how autolinks are rendered in HTML output.
 pub trait AutolinkAdapter {
     /// Called when rendering an autolink.
-    fn render_autolink(&self, output: &mut dyn Write, url: &str, is_email: bool) -> fmt::Result;
+    fn render_autolink(
+        &self,
+        output: &mut dyn Write,
+        url: &str,
+        is_email: bool,
+    ) -> fmt::Result;
 }
 
 /// Adapter for custom raw HTML rendering.
@@ -574,7 +612,12 @@ pub trait AutolinkAdapter {
 /// This trait allows you to customize how raw HTML is rendered in HTML output.
 pub trait RawHtmlAdapter {
     /// Called when rendering raw HTML.
-    fn render_raw_html(&self, output: &mut dyn Write, html: &str, is_block: bool) -> fmt::Result;
+    fn render_raw_html(
+        &self,
+        output: &mut dyn Write,
+        html: &str,
+        is_block: bool,
+    ) -> fmt::Result;
 }
 
 /// Adapter for custom line break rendering.
@@ -756,9 +799,13 @@ mod tests {
         let mut output = String::new();
 
         let attrs: HashMap<&str, Cow<'static, str>> = HashMap::new();
-        highlighter.write_pre_tag(&mut output, attrs.clone()).unwrap();
+        highlighter
+            .write_pre_tag(&mut output, attrs.clone())
+            .unwrap();
         highlighter.write_code_tag(&mut output, attrs).unwrap();
-        highlighter.write_highlighted(&mut output, Some("rust"), "fn main() {}").unwrap();
+        highlighter
+            .write_highlighted(&mut output, Some("rust"), "fn main() {}")
+            .unwrap();
 
         assert!(output.contains("<pre class=\"highlight\">"));
         assert!(output.contains("<code>"));

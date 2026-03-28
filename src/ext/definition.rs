@@ -115,7 +115,7 @@ pub fn create_definition_list_node(
     start_line: u32,
     _start_col: u32,
 ) -> NodeId {
-    let list_node = arena.alloc(Node::with_value(NodeValue::Raw("<dl>".to_string())));
+    let list_node = arena.alloc(Node::with_value(NodeValue::Raw("<dl>".into())));
 
     {
         let node_ref = arena.get_mut(list_node);
@@ -125,8 +125,7 @@ pub fn create_definition_list_node(
 
     for entry in entries {
         // Create term node (<dt>)
-        let term_node =
-            arena.alloc(Node::with_value(NodeValue::Raw("<dt>".to_string())));
+        let term_node = arena.alloc(Node::with_value(NodeValue::Raw("<dt>".into())));
 
         // Create text node for term
         let text_node =
@@ -137,11 +136,11 @@ pub fn create_definition_list_node(
 
         // Create definition nodes (<dd>)
         for def in &entry.definitions {
-            let def_node =
-                arena.alloc(Node::with_value(NodeValue::Raw("<dd>".to_string())));
+            let def_node = arena.alloc(Node::with_value(NodeValue::Raw("<dd>".into())));
 
             // Create text node for definition
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(def.clone().into())));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(def.clone().into())));
 
             TreeOps::append_child(arena, def_node, text_node);
             TreeOps::append_child(arena, list_node, def_node);

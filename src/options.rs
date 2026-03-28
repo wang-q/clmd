@@ -15,6 +15,6 @@
 //! ```
 
 pub use crate::parser::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Options, Parse, Plugins,
-    Render, RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
+    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Options, Parse,
+    Plugins, Render, RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };

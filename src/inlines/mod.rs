@@ -41,7 +41,6 @@ mod utils;
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::nodes::{NodeCode, NodeLink, NodeValue};
 use autolinks::{match_email_autolink, match_url_autolink};
-use std::borrow::Cow;
 use emphasis::{
     process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,
 };
@@ -52,6 +51,7 @@ use links::{
     parse_reference_link, Bracket, LinkContext,
 };
 use rustc_hash::FxHashMap;
+use std::borrow::Cow;
 use text::apply_smart_punctuation;
 use utils::normalize_uri;
 
@@ -278,7 +278,7 @@ impl<'a> Subject<'a> {
                 let new_literal = literal[..new_len].to_string();
                 let node = arena.get_mut(last_child);
                 if let NodeValue::Text(ref mut literal) = node.value {
-                    *literal = Cow::Owned(new_literal);
+                    *literal = new_literal.into_boxed_str();
                 }
             }
         }
@@ -349,7 +349,7 @@ impl<'a> Subject<'a> {
                     };
 
                     let code_node =
-                        arena.alloc(Node::with_value(NodeValue::Code(NodeCode {
+                        arena.alloc(Node::with_value(NodeValue::code(NodeCode {
                             num_backticks: tick_len,
                             literal: content,
                         })));
@@ -449,8 +449,7 @@ impl<'a> Subject<'a> {
 
                 // This looks like it could be an autolink but failed validation
                 // Output the < as a literal character (it will be escaped during rendering)
-                let text_node =
-                    arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed("<"))));
+                let text_node = arena.alloc(Node::with_value(NodeValue::make_text("<")));
                 TreeOps::append_child(arena, parent, text_node);
                 self.pos += 1;
                 return true;
@@ -468,7 +467,7 @@ impl<'a> Subject<'a> {
         }
 
         // Just a literal < - add it as text
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed("<"))));
+        let text_node = arena.alloc(Node::with_value(NodeValue::make_text("<")));
         TreeOps::append_child(arena, parent, text_node);
         self.pos += 1;
         true
@@ -538,13 +537,14 @@ impl<'a> Subject<'a> {
 
         // Try email autolink first
         if let Some((email, len)) = match_email_autolink(remaining) {
-            let link_node = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+            let link_node = arena.alloc(Node::with_value(NodeValue::link(NodeLink {
                 url: normalize_uri(&format!("mailto:{}", email)),
                 title: String::new(),
             })));
 
             // Add text content
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(email.into())));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::make_text(email.as_str())));
             TreeOps::append_child(arena, link_node, text_node);
             TreeOps::append_child(arena, parent, link_node);
 
@@ -554,13 +554,14 @@ impl<'a> Subject<'a> {
 
         // Try URL autolink
         if let Some((url, len)) = match_url_autolink(remaining) {
-            let link_node = arena.alloc(Node::with_value(NodeValue::Link(NodeLink {
+            let link_node = arena.alloc(Node::with_value(NodeValue::link(NodeLink {
                 url: normalize_uri(&url),
                 title: String::new(),
             })));
 
             // Add text content
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(url.into())));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::make_text(url.as_str())));
             TreeOps::append_child(arena, link_node, text_node);
             TreeOps::append_child(arena, parent, link_node);
 
@@ -577,8 +578,9 @@ impl<'a> Subject<'a> {
 
         // Try to match HTML tag
         if let Some((tag_content, len)) = match_html_tag(remaining) {
-            let html_node =
-                arena.alloc(Node::with_value(NodeValue::HtmlInline(tag_content)));
+            let html_node = arena.alloc(Node::with_value(NodeValue::HtmlInline(
+                tag_content.into_boxed_str(),
+            )));
             TreeOps::append_child(arena, parent, html_node);
             self.pos += len;
             return true;
@@ -620,7 +622,8 @@ impl<'a> Subject<'a> {
         } else {
             std::iter::repeat_n(c, res.num_delims).collect()
         };
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text(delim_text.into())));
+        let text_node =
+            arena.alloc(Node::with_value(NodeValue::Text(delim_text.into())));
         TreeOps::append_child(arena, parent, text_node);
 
         // Add to delimiter stack if it can open or close
@@ -642,7 +645,7 @@ impl<'a> Subject<'a> {
         // If this delimiter can open emphasis, add an empty text node as a barrier
         // to prevent subsequent text from being merged into the delimiter node.
         if res.can_open {
-            let barrier = arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed(""))));
+            let barrier = arena.alloc(Node::with_value(NodeValue::make_text("")));
             TreeOps::append_child(arena, parent, barrier);
         }
 
@@ -802,8 +805,7 @@ impl<'a> Subject<'a> {
             self.advance(); // skip [
                             // Create a separate text node for "![" to avoid merging with previous text
                             // This is important because the opener node will be unlinked when the image is processed
-            let text_node =
-                arena.alloc(Node::with_value(NodeValue::Text("![".into())));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text("![".into())));
             TreeOps::append_child(arena, parent, text_node);
 
             // Add to bracket stack as image
@@ -868,7 +870,8 @@ impl<'a> Subject<'a> {
             } else {
                 text_slice.to_string()
             };
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(literal.into())));
+            let text_node =
+                arena.alloc(Node::with_value(NodeValue::Text(literal.into())));
             TreeOps::append_child(arena, parent, text_node);
             true
         } else {
@@ -929,7 +932,7 @@ impl<'a> Subject<'a> {
 
                     if can_merge {
                         // Get next's literal and merge into current
-                        let next_literal: std::borrow::Cow<'static, str> = {
+                        let next_literal: Box<str> = {
                             match &arena.get(next).value {
                                 NodeValue::Text(literal) => literal.clone(),
                                 _ => "".into(),
@@ -940,7 +943,12 @@ impl<'a> Subject<'a> {
                             let current_node = arena.get_mut(current);
                             if let NodeValue::Text(ref mut literal) = current_node.value
                             {
-                                *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into();
+                                *literal = format!(
+                                    "{}{}",
+                                    literal.as_ref(),
+                                    next_literal.as_ref()
+                                )
+                                .into_boxed_str();
                             }
                         }
 
@@ -988,7 +996,8 @@ impl<'a> Subject<'a> {
         }
 
         // Create new text node
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
+        let text_node =
+            arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }

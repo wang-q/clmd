@@ -82,7 +82,8 @@ pub fn create_strikethrough_node(
     }
 
     // Create text node for the content
-    let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
+    let text_node =
+        arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
 
     // Add text node as child
     TreeOps::append_child(arena, node, text_node);
@@ -101,7 +102,8 @@ pub fn process_strikethrough(
     let spans = parse_strikethrough_spans(text);
     if spans.is_empty() {
         // No strikethrough found, return single text node
-        let node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
+        let node =
+            arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
         return vec![node];
     }
 
@@ -113,8 +115,9 @@ pub fn process_strikethrough(
         if start > last_end + STRIKETHROUGH_COUNT {
             let before_text = &text[last_end..start - STRIKETHROUGH_COUNT];
             if !before_text.is_empty() {
-                let node = arena
-                    .alloc(Node::with_value(NodeValue::Text(before_text.to_string().into())));
+                let node = arena.alloc(Node::with_value(NodeValue::Text(
+                    before_text.to_string().into(),
+                )));
                 nodes.push(node);
             }
         }
@@ -131,8 +134,9 @@ pub fn process_strikethrough(
     // Add remaining text after last strikethrough (if any)
     if last_end < text.len() {
         let after_text = &text[last_end..];
-        let node =
-            arena.alloc(Node::with_value(NodeValue::Text(after_text.to_string().into())));
+        let node = arena.alloc(Node::with_value(NodeValue::Text(
+            after_text.to_string().into(),
+        )));
         nodes.push(node);
     }
 

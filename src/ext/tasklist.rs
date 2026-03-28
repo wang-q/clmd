@@ -80,8 +80,9 @@ pub fn create_task_item(
 
     // Create text node for the content
     if !content.is_empty() {
-        let text_node =
-            arena.alloc(Node::with_value(NodeValue::Text(content.to_string().into())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(
+            content.to_string().into(),
+        )));
         TreeOps::append_child(arena, node, text_node);
     }
 

@@ -59,9 +59,31 @@ pub fn clean_url(url: &str) -> Cow<str> {
     // Fast path: no special handling needed
     if url.bytes().all(|b| {
         b.is_ascii_alphanumeric()
-            || matches!(b, b'/' | b':' | b'.' | b'-' | b'_' | b'~' | b'?' | b'#' | b'[' | b']' |
-                b'@' | b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' |
-                b'=' | b'%')
+            || matches!(
+                b,
+                b'/' | b':'
+                    | b'.'
+                    | b'-'
+                    | b'_'
+                    | b'~'
+                    | b'?'
+                    | b'#'
+                    | b'['
+                    | b']'
+                    | b'@'
+                    | b'!'
+                    | b'$'
+                    | b'&'
+                    | b'\''
+                    | b'('
+                    | b')'
+                    | b'*'
+                    | b'+'
+                    | b','
+                    | b';'
+                    | b'='
+                    | b'%'
+            )
     }) {
         return Cow::Borrowed(url);
     }
@@ -72,7 +94,13 @@ pub fn clean_url(url: &str) -> Cow<str> {
 
     while i < bytes.len() {
         match bytes[i] {
-            b'\\' if i + 1 < bytes.len() && matches!(bytes[i + 1], b'(' | b')' | b' ' | b'\t' | b'\n' | b'\r') => {
+            b'\\'
+                if i + 1 < bytes.len()
+                    && matches!(
+                        bytes[i + 1],
+                        b'(' | b')' | b' ' | b'\t' | b'\n' | b'\r'
+                    ) =>
+            {
                 // Backslash escape for these specific characters
                 result.push(bytes[i + 1] as char);
                 i += 2;
@@ -113,10 +141,31 @@ pub fn clean_title(title: &str) -> Cow<str> {
         if bytes[i] == b'\\' && i + 1 < bytes.len() {
             let next = bytes[i + 1];
             // Only escape specific characters per CommonMark spec
-            if matches!(next, b'\\' | b'`' | b'*' | b'_' | b'{' | b'}' | b'[' | b']' |
-                       b'(' | b')' | b'#' | b'+' | b'-' | b'.' | b'!' | b'|' | b'<' |
-                       b'>' | b' ' | b'\t' | b'\n' | b'\r')
-            {
+            if matches!(
+                next,
+                b'\\'
+                    | b'`'
+                    | b'*'
+                    | b'_'
+                    | b'{'
+                    | b'}'
+                    | b'['
+                    | b']'
+                    | b'('
+                    | b')'
+                    | b'#'
+                    | b'+'
+                    | b'-'
+                    | b'.'
+                    | b'!'
+                    | b'|'
+                    | b'<'
+                    | b'>'
+                    | b' '
+                    | b'\t'
+                    | b'\n'
+                    | b'\r'
+            ) {
                 result.push(next as char);
                 i += 2;
                 continue;
@@ -145,7 +194,8 @@ pub fn remove_trailing_blank_lines(s: &mut String) {
     }
 
     // Also remove trailing whitespace on the last line
-    while s.ends_with('\n') || s.ends_with('\r') || s.ends_with(' ') || s.ends_with('\t') {
+    while s.ends_with('\n') || s.ends_with('\r') || s.ends_with(' ') || s.ends_with('\t')
+    {
         s.pop();
     }
 }
@@ -183,10 +233,40 @@ pub fn unescape(s: &mut String) {
 
 /// Check if a byte is ASCII punctuation
 fn is_ascii_punct(b: u8) -> bool {
-    matches!(b, b'!' | b'"' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'(' | b')' |
-             b'*' | b'+' | b',' | b'-' | b'.' | b'/' | b':' | b';' | b'<' |
-             b'=' | b'>' | b'?' | b'@' | b'[' | b'\\' | b']' | b'^' | b'_' |
-             b'`' | b'{' | b'|' | b'}' | b'~')
+    matches!(
+        b,
+        b'!' | b'"'
+            | b'#'
+            | b'$'
+            | b'%'
+            | b'&'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*'
+            | b'+'
+            | b','
+            | b'-'
+            | b'.'
+            | b'/'
+            | b':'
+            | b';'
+            | b'<'
+            | b'='
+            | b'>'
+            | b'?'
+            | b'@'
+            | b'['
+            | b'\\'
+            | b']'
+            | b'^'
+            | b'_'
+            | b'`'
+            | b'{'
+            | b'|'
+            | b'}'
+            | b'~'
+    )
 }
 
 /// Check if a byte is a space or tab
@@ -282,12 +362,17 @@ pub fn looks_like_url(s: &str) -> bool {
 
     // Find the colon
     let mut i = 1;
-    while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'+' | b'-' | b'.')) {
+    while i < bytes.len()
+        && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'+' | b'-' | b'.'))
+    {
         i += 1;
     }
 
     // Must have ://
-    i + 2 < bytes.len() && bytes[i] == b':' && bytes[i + 1] == b'/' && bytes[i + 2] == b'/'
+    i + 2 < bytes.len()
+        && bytes[i] == b':'
+        && bytes[i + 1] == b'/'
+        && bytes[i + 2] == b'/'
 }
 
 /// Percent-encode a string for use in URLs
@@ -296,8 +381,9 @@ pub fn percent_encode(s: &str) -> String {
 
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' |
-            b'-' | b'_' | b'.' | b'~' => result.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                result.push(b as char)
+            }
             _ => {
                 result.push('%');
                 result.push_str(&format!("{:02X}", b));
@@ -311,7 +397,7 @@ pub fn percent_encode(s: &str) -> String {
 /// Decode HTML entities in a string
 ///
 /// Handles numeric entities (decimal and hex) and named entities.
-pub fn decode_entities(s: &str) -> Cow<str> {
+pub fn decode_entities(s: &str) -> Cow<'_, str> {
     if !s.contains('&') {
         return Cow::Borrowed(s);
     }
@@ -322,8 +408,8 @@ pub fn decode_entities(s: &str) -> Cow<str> {
 
     while i < bytes.len() {
         if bytes[i] == b'&' {
-            if let Some((entity, len)) = match_entity(&bytes[i..]) {
-                result.push_str(entity);
+            if let Some((ch, len)) = match_entity(&bytes[i..]) {
+                result.push(ch);
                 i += len;
                 continue;
             }
@@ -452,7 +538,10 @@ mod tests {
 
     #[test]
     fn test_normalize_label() {
-        assert_eq!(normalize_label("  Hello  World  ", Case::Fold), "hello world");
+        assert_eq!(
+            normalize_label("  Hello  World  ", Case::Fold),
+            "hello world"
+        );
         assert_eq!(normalize_label("Hello\t\tWorld", Case::Fold), "hello world");
         assert_eq!(normalize_label("HELLO", Case::Fold), "hello");
         assert_eq!(normalize_label("HELLO", Case::Preserve), "HELLO");

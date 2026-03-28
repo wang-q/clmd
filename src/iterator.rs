@@ -280,7 +280,7 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
         }
 
         // Append next node's literal to current node
-        let next_literal: std::borrow::Cow<'static, str> =
+        let next_literal: Box<str> =
             if let NodeValue::Text(literal) = &arena.get(next_node_id).value {
                 literal.clone()
             } else {
@@ -288,7 +288,7 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
             };
 
         if let NodeValue::Text(ref mut literal) = arena.get_mut(node).value {
-            *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into();
+            *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into_boxed_str();
         }
 
         // Remove next node
@@ -309,7 +309,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -342,7 +342,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -416,7 +416,7 @@ mod tests {
         let list = arena.alloc(Node::with_value(NodeValue::List(Default::default())));
         let item = arena.alloc(Node::with_value(NodeValue::Item(Default::default())));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Text".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Text")));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, list);
@@ -517,9 +517,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Hello ".to_string())));
-        let text2 = arena.alloc(Node::with_value(NodeValue::Text("world".to_string())));
-        let text3 = arena.alloc(Node::with_value(NodeValue::Text("!".to_string())));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Hello ")));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("world")));
+        let text3 = arena.alloc(Node::with_value(NodeValue::make_text("!")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text1);
@@ -530,7 +530,7 @@ mod tests {
 
         // text1 should now contain "Hello world!"
         if let NodeValue::Text(literal) = &arena.get(text1).value {
-            assert_eq!(literal, "Hello world!");
+            assert_eq!(literal.as_ref(), "Hello world!");
         }
 
         // text2 and text3 should be unlinked
@@ -543,9 +543,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string())));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
-        let text2 = arena.alloc(Node::with_value(NodeValue::Text("world".to_string())));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("world")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text1);
@@ -596,8 +596,8 @@ mod tests {
         TreeOps::append_child(&mut arena, list, item2);
 
         // Add text to items
-        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Item 1".to_string())));
-        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Item 2".to_string())));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Item 1")));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("Item 2")));
         TreeOps::append_child(&mut arena, item1, text1);
         TreeOps::append_child(&mut arena, item2, text2);
 

@@ -36,7 +36,7 @@ pub fn create_footnote_ref_node(
     line: u32,
     col: u32,
 ) -> NodeId {
-    let node = arena.alloc(Node::with_value(NodeValue::FootnoteReference(
+    let node = arena.alloc(Node::with_value(NodeValue::footnote_reference(
         NodeFootnoteReference {
             name: label.to_string(),
             ref_num: 0, // Will be set during rendering
@@ -65,7 +65,7 @@ pub fn create_footnote_def_node(
     line: u32,
     col: u32,
 ) -> NodeId {
-    let node = arena.alloc(Node::with_value(NodeValue::FootnoteDefinition(
+    let node = arena.alloc(Node::with_value(NodeValue::footnote_definition(
         NodeFootnoteDefinition {
             name: label.to_string(),
             total_references: 0, // Will be set during processing
@@ -84,7 +84,9 @@ pub fn create_footnote_def_node(
 
     // Create a paragraph for the content
     let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-    let text = arena.alloc(Node::with_value(NodeValue::Text(content.to_string().into())));
+    let text = arena.alloc(Node::with_value(NodeValue::Text(
+        content.to_string().into(),
+    )));
     TreeOps::append_child(arena, para, text);
     TreeOps::append_child(arena, node, para);
 

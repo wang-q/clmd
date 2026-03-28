@@ -34,10 +34,40 @@ pub mod ctype {
     /// Check if byte is a punctuation character
     #[inline(always)]
     pub fn ispunct(b: u8) -> bool {
-        matches!(b, b'!' | b'"' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'(' | b')' |
-                 b'*' | b'+' | b',' | b'-' | b'.' | b'/' | b':' | b';' | b'<' |
-                 b'=' | b'>' | b'?' | b'@' | b'[' | b'\\' | b']' | b'^' | b'_' |
-                 b'`' | b'{' | b'|' | b'}' | b'~')
+        matches!(
+            b,
+            b'!' | b'"'
+                | b'#'
+                | b'$'
+                | b'%'
+                | b'&'
+                | b'\''
+                | b'('
+                | b')'
+                | b'*'
+                | b'+'
+                | b','
+                | b'-'
+                | b'.'
+                | b'/'
+                | b':'
+                | b';'
+                | b'<'
+                | b'='
+                | b'>'
+                | b'?'
+                | b'@'
+                | b'['
+                | b'\\'
+                | b']'
+                | b'^'
+                | b'_'
+                | b'`'
+                | b'{'
+                | b'|'
+                | b'}'
+                | b'~'
+        )
     }
 }
 
@@ -317,7 +347,10 @@ pub fn html_block_start(line: &str) -> Option<u8> {
     // Type 1: <script, <pre, <style (case-insensitive)
     if rest.len() >= 7 {
         let tag = &rest[1..7].to_ascii_lowercase();
-        if tag.starts_with("script") || tag.starts_with("pre") || tag.starts_with("style") {
+        if tag.starts_with("script")
+            || tag.starts_with("pre")
+            || tag.starts_with("style")
+        {
             // Check for tag end or whitespace
             if tag.len() >= 7 {
                 let after_tag = tag.as_bytes()[6];
@@ -433,7 +466,10 @@ fn match_html_tag(s: &str) -> Option<usize> {
         }
 
         // Attribute name
-        while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'_' | b':' | b'-')) {
+        while i < bytes.len()
+            && (bytes[i].is_ascii_alphanumeric()
+                || matches!(bytes[i], b'_' | b':' | b'-'))
+        {
             i += 1;
         }
 
@@ -468,18 +504,22 @@ pub fn html_block_end_1(line: &str) -> bool {
         || line.to_ascii_lowercase().contains("</style>")
 }
 
+/// Check if line ends HTML block type 2 (comment end)
 pub fn html_block_end_2(line: &str) -> bool {
     line.contains("-->")
 }
 
+/// Check if line ends HTML block type 3 (processing instruction end)
 pub fn html_block_end_3(line: &str) -> bool {
     line.contains("?>")
 }
 
+/// Check if line ends HTML block type 4 (declaration end)
 pub fn html_block_end_4(line: &str) -> bool {
     line.contains(">")
 }
 
+/// Check if line ends HTML block type 5 (CDATA end)
 pub fn html_block_end_5(line: &str) -> bool {
     line.contains("]]>")
 }
@@ -678,12 +718,14 @@ fn match_url_autolink(s: &str) -> Option<(&str, usize)> {
 
     // Scheme characters
     let scheme_start = i;
-    while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'+' | b'-' | b'.')) {
+    while i < bytes.len()
+        && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'+' | b'-' | b'.'))
+    {
         i += 1;
     }
 
     // Must have ://
-    if i + 2 >= bytes.len() || &s[i..i+3] != "://" {
+    if i + 2 >= bytes.len() || &s[i..i + 3] != "://" {
         return None;
     }
 
@@ -691,7 +733,9 @@ fn match_url_autolink(s: &str) -> Option<(&str, usize)> {
 
     // URL body
     let url_start = scheme_start;
-    while i < bytes.len() && !matches!(bytes[i], b'<' | b'>' | b' ' | b'\t' | b'\n' | b'\r') {
+    while i < bytes.len()
+        && !matches!(bytes[i], b'<' | b'>' | b' ' | b'\t' | b'\n' | b'\r')
+    {
         i += 1;
     }
 
@@ -705,8 +749,29 @@ fn match_url_autolink(s: &str) -> Option<(&str, usize)> {
 }
 
 fn is_email_local_char(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || matches!(b, b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' |
-        b'+' | b'-' | b'/' | b'=' | b'?' | b'^' | b'_' | b'`' | b'{' | b'|' | b'}' | b'~' | b'.')
+    b.is_ascii_alphanumeric()
+        || matches!(
+            b,
+            b'!' | b'#'
+                | b'$'
+                | b'%'
+                | b'&'
+                | b'\''
+                | b'*'
+                | b'+'
+                | b'-'
+                | b'/'
+                | b'='
+                | b'?'
+                | b'^'
+                | b'_'
+                | b'`'
+                | b'{'
+                | b'|'
+                | b'}'
+                | b'~'
+                | b'.'
+        )
 }
 
 fn is_email_domain_char(b: u8) -> bool {

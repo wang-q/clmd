@@ -65,7 +65,7 @@ impl ArenaTreeHtmlRenderer {
 
     fn render_node(&mut self, node: crate::nodes::Node<'_>) {
         self.enter_node(node);
-        
+
         // Render children
         let is_image = matches!(node.data.borrow().value, NodeValue::Image(..));
         if !is_image {
@@ -73,7 +73,7 @@ impl ArenaTreeHtmlRenderer {
                 self.render_node_recursive(child);
             }
         }
-        
+
         self.exit_node(node);
     }
 
@@ -95,7 +95,12 @@ impl ArenaTreeHtmlRenderer {
                 self.tag_stack.push("blockquote");
                 self.tight_list_stack.push(false);
             }
-            NodeValue::List(NodeList { tight, list_type, start, .. }) => {
+            NodeValue::List(NodeList {
+                tight,
+                list_type,
+                start,
+                ..
+            }) => {
                 self.tight_list_stack.push(*tight);
                 self.cr();
                 match list_type {
@@ -121,25 +126,25 @@ impl ArenaTreeHtmlRenderer {
                     self.lit("\n");
                 }
             }
-            NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) => {
+            NodeValue::CodeBlock(code_block) => {
                 self.cr();
                 self.in_code_block = true;
                 self.lit("<pre><code");
-                if !info.is_empty() {
-                    let lang = info.split_whitespace().next().unwrap_or("");
+                if !code_block.info.is_empty() {
+                    let lang = code_block.info.split_whitespace().next().unwrap_or("");
                     if !lang.is_empty() {
                         self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
                     }
                 }
                 self.lit(">");
-                self.lit(&escape_html(literal));
+                self.lit(&escape_html(&code_block.literal));
                 self.lit("</code></pre>");
                 self.lit("\n");
                 self.in_code_block = false;
             }
-            NodeValue::HtmlBlock(NodeHtmlBlock { literal, .. }) => {
+            NodeValue::HtmlBlock(html_block) => {
                 self.cr();
-                self.lit(literal);
+                self.lit(&html_block.literal);
                 self.lit("\n");
             }
             NodeValue::Paragraph => {
@@ -177,13 +182,13 @@ impl ArenaTreeHtmlRenderer {
                 self.lit("<br />");
                 self.lit("\n");
             }
-            NodeValue::Code(NodeCode { literal, .. }) => {
+            NodeValue::Code(code) => {
                 self.lit("<code>");
-                self.lit(&escape_html(literal));
+                self.lit(&escape_html(&code.literal));
                 self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                self.lit(literal);
+                self.lit(literal.as_ref());
             }
             NodeValue::Emph => {
                 self.lit("<em>");
@@ -191,27 +196,27 @@ impl ArenaTreeHtmlRenderer {
             NodeValue::Strong => {
                 self.lit("<strong>");
             }
-            NodeValue::Link(NodeLink { url, title }) => {
+            NodeValue::Link(link) => {
                 self.lit("<a href=\"");
-                self.lit(&escape_href(url));
+                self.lit(&escape_href(&link.url));
                 self.lit("\"");
-                if !title.is_empty() {
+                if !link.title.is_empty() {
                     self.lit(" title=\"");
-                    self.lit(&escape_html(title));
+                    self.lit(&escape_html(&link.title));
                     self.lit("\"");
                 }
                 self.lit(">");
             }
-            NodeValue::Image(NodeLink { url, title }) => {
+            NodeValue::Image(link) => {
                 self.lit("<img src=\"");
-                self.lit(&escape_href(url));
+                self.lit(&escape_href(&link.url));
                 self.lit("\" alt=\"");
                 // Collect alt text from children
                 let alt_text = self.collect_alt_text(node);
                 self.lit(&escape_html(&alt_text));
-                if !title.is_empty() {
+                if !link.title.is_empty() {
                     self.lit("\" title=\"");
-                    self.lit(&escape_html(title));
+                    self.lit(&escape_html(&link.title));
                 }
                 self.lit("\" />");
             }
@@ -282,7 +287,11 @@ impl ArenaTreeHtmlRenderer {
         alt_text
     }
 
-    fn collect_alt_text_recursive(&self, node: crate::nodes::Node<'_>, alt_text: &mut String) {
+    fn collect_alt_text_recursive(
+        &self,
+        node: crate::nodes::Node<'_>,
+        alt_text: &mut String,
+    ) {
         let ast = node.data.borrow();
         match &ast.value {
             NodeValue::Text(literal) => {
@@ -480,7 +489,7 @@ impl<'a> HtmlRenderer<'a> {
                 }
                 self.render_code_block(node_id);
             }
-            NodeValue::HtmlBlock(NodeHtmlBlock { literal, .. }) => {
+            NodeValue::HtmlBlock(html_block) => {
                 // In tight list items, add newline before HTML block if not first child
                 if self.track_item_child() {
                     self.lit("\n");
@@ -488,7 +497,7 @@ impl<'a> HtmlRenderer<'a> {
                     self.cr();
                 }
                 // HTML blocks are always output as raw HTML
-                self.lit(literal);
+                self.lit(&html_block.literal);
                 self.lit("\n");
             }
             NodeValue::Paragraph => {
@@ -545,13 +554,13 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("<br />");
                 self.lit("\n");
             }
-            NodeValue::Code(NodeCode { literal, .. }) => {
+            NodeValue::Code(code) => {
                 self.lit("<code>");
-                self.lit(&escape_html(literal));
+                self.lit(&escape_html(&code.literal));
                 self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                self.lit(literal);
+                self.lit(literal.as_ref());
             }
             NodeValue::Emph => {
                 self.lit("<em>");
@@ -559,71 +568,71 @@ impl<'a> HtmlRenderer<'a> {
             NodeValue::Strong => {
                 self.lit("<strong>");
             }
-            NodeValue::Link(NodeLink { url, title }) => {
+            NodeValue::Link(link) => {
                 if self.disable_tags > 0 {
                     // We're inside an image's alt text
                     // Links in alt text are replaced by their link text
                 } else {
                     self.lit("<a href=\"");
-                    self.lit(&escape_href(url));
+                    self.lit(&escape_href(&link.url));
                     self.lit("\"");
-                    if !title.is_empty() {
+                    if !link.title.is_empty() {
                         self.lit(" title=\"");
-                        self.lit(&escape_html(title));
+                        self.lit(&escape_html(&link.title));
                         self.lit("\"");
                     }
                     self.lit(">");
                 }
             }
-            NodeValue::Image(NodeLink { url, title }) => {
+            NodeValue::Image(link) => {
                 self.lit("<img src=\"");
-                self.lit(&escape_href(url));
+                self.lit(&escape_href(&link.url));
                 self.lit("\" alt=\"");
                 // Collect alt text from children
                 let alt_text = self.collect_alt_text(node_id);
                 self.lit(&escape_html(&alt_text));
-                if !title.is_empty() {
+                if !link.title.is_empty() {
                     self.lit("\" title=\"");
-                    self.lit(&escape_html(title));
+                    self.lit(&escape_html(&link.title));
                 }
                 self.lit("\" />");
             }
             NodeValue::Strikethrough => {
                 self.lit("<del>");
             }
-            NodeValue::TaskItem(NodeTaskItem { symbol, .. }) => {
-                let checked = symbol.is_some();
+            NodeValue::TaskItem(task_item) => {
+                let checked = task_item.symbol.is_some();
                 self.lit(&format!(
                     "<input type=\"checkbox\" disabled=\"disabled\"{} />",
                     if checked { " checked=\"checked\"" } else { "" }
                 ));
             }
-            NodeValue::FootnoteReference(NodeFootnoteReference { name, .. }) => {
+            NodeValue::FootnoteReference(footnote_ref) => {
                 // Collect footnote for rendering at the end
-                if let Some(def_id) = self.find_footnote_def(name) {
-                    self.footnotes.push((name.clone(), def_id));
+                if let Some(def_id) = self.find_footnote_def(&footnote_ref.name) {
+                    self.footnotes.push((footnote_ref.name.clone(), def_id));
                 }
                 self.lit(&format!(
                     "<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"fnref-{}\">[{}]</a></sup>",
-                    escape_html(name),
-                    escape_html(name),
-                    escape_html(name)
+                    escape_html(&footnote_ref.name),
+                    escape_html(&footnote_ref.name),
+                    escape_html(&footnote_ref.name)
                 ));
             }
-            NodeValue::FootnoteDefinition(NodeFootnoteDefinition { name, .. }) => {
+            NodeValue::FootnoteDefinition(footnote_def) => {
                 // Footnote definitions are rendered at the end
-                self.lit(&format!("<li id=\"fn-{}\">", escape_html(name)));
+                self.lit(&format!("<li id=\"fn-{}\">", escape_html(&footnote_def.name)));
                 self.tag_stack.push("li");
             }
-            NodeValue::Table(NodeTable { alignments, .. }) => {
+            NodeValue::Table(table) => {
                 self.lit("<table>");
                 self.lit("\n");
-                if !alignments.is_empty() {
+                if !table.alignments.is_empty() {
                     self.lit("<thead>");
                     self.lit("\n");
                     self.lit("<tr>");
                     self.lit("\n");
-                    for alignment in alignments {
+                    for alignment in &table.alignments {
                         let align_attr = match alignment {
                             TableAlignment::Left => " align=\"left\"",
                             TableAlignment::Center => " align=\"center\"",
@@ -755,12 +764,12 @@ impl<'a> HtmlRenderer<'a> {
 
     fn render_code_block(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
-        if let NodeValue::CodeBlock(NodeCodeBlock { info, literal, .. }) = &node.value {
+        if let NodeValue::CodeBlock(code_block) = &node.value {
             self.in_code_block = true;
 
             self.lit("<pre><code");
-            if !info.is_empty() {
-                let lang = info.split_whitespace().next().unwrap_or("");
+            if !code_block.info.is_empty() {
+                let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 if !lang.is_empty() {
                     self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
                 }
@@ -768,7 +777,7 @@ impl<'a> HtmlRenderer<'a> {
             self.lit(">");
 
             // Write code content
-            self.lit(&escape_html(literal));
+            self.lit(&escape_html(&code_block.literal));
 
             self.lit("</code></pre>");
             self.lit("\n");
@@ -901,7 +910,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("Hello world".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("Hello world")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -922,7 +931,7 @@ mod tests {
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(NodeValue::Emph));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("emphasized".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("emphasized")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -938,7 +947,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let strong = arena.alloc(Node::with_value(NodeValue::Strong));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("strong".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("strong")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -974,7 +983,7 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Title".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Title")));
 
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, heading, text);
@@ -992,7 +1001,7 @@ mod tests {
             url: "https://example.com".to_string(),
             title: "".to_string(),
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("link".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("link")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -1008,7 +1017,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Quote".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quote")));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -1059,7 +1068,7 @@ mod tests {
         })));
         let item = arena.alloc(Node::with_value(NodeValue::Item(NodeList::default())));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Item".to_string())));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Item")));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
@@ -1153,7 +1162,7 @@ mod tests {
             title: "".to_string(),
         })));
         let text =
-            arena.alloc(Node::with_value(NodeValue::Text("click me".to_string())));
+            arena.alloc(Node::with_value(NodeValue::make_text("click me")));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);

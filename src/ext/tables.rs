@@ -166,7 +166,7 @@ pub fn try_parse_table(
     };
 
     // Create table node
-    let table_node = arena.alloc(Node::with_value(NodeValue::Table(NodeTable {
+    let table_node = arena.alloc(Node::with_value(NodeValue::table(NodeTable {
         num_columns,
         alignments: alignments.iter().map(|a| *a).collect(),
         num_rows: 0,
@@ -195,7 +195,9 @@ pub fn try_parse_table(
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         // Create text node for content
-        let text = arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone().into())));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            cell_content.clone().into(),
+        )));
 
         // Build tree: cell -> para -> text
         TreeOps::append_child(arena, para, text);
@@ -232,8 +234,9 @@ pub fn try_parse_table(
             let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
             // Create text node for content
-            let text =
-                arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone().into())));
+            let text = arena.alloc(Node::with_value(NodeValue::Text(
+                cell_content.clone().into(),
+            )));
 
             // Build tree: cell -> para -> text
             TreeOps::append_child(arena, para, text);

@@ -206,7 +206,7 @@ fn update_delimiter_text(
         let new_len = literal.len().saturating_sub(use_delims);
         let mut s = literal.to_string();
         s.truncate(new_len);
-        *literal = Cow::Owned(s);
+        *literal = s.into_boxed_str();
         literal.to_string()
     } else {
         String::new()
@@ -280,7 +280,7 @@ fn process_smart_quotes(
     {
         let node = arena.get_mut(closer_inl);
         if let NodeValue::Text(ref mut literal) = node.value {
-            *literal = Cow::Owned(quote_char.to_string());
+            *literal = quote_char.to_string().into_boxed_str();
         }
     }
 
@@ -294,7 +294,7 @@ fn process_smart_quotes(
 
         let node = arena.get_mut(opener_inl);
         if let NodeValue::Text(ref mut literal) = node.value {
-            *literal = Cow::Owned(open_quote.to_string());
+            *literal = open_quote.to_string().into_boxed_str();
         }
     }
 }
