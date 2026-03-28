@@ -981,7 +981,10 @@ impl<'a> HtmlRenderer<'a> {
 
     fn render(&mut self, root: crate::arena::NodeId) -> String {
         self.render_node(root, true);
-        // Remove trailing newlines
+        // Remove leading and trailing newlines
+        while self.output.starts_with('\n') {
+            self.output.remove(0);
+        }
         while self.output.ends_with('\n') {
             self.output.pop();
         }
@@ -1004,10 +1007,9 @@ impl<'a> HtmlRenderer<'a> {
     }
 
     /// Write indentation for current depth
+    /// Note: Disabled to match CommonMark spec output format (no indentation)
     fn write_indent(&mut self) {
-        for _ in 0..self.depth {
-            self.output.push_str("  ");
-        }
+        // No indentation for CommonMark compatibility
     }
 
     /// Write a newline
