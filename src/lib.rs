@@ -87,6 +87,9 @@ pub mod adapters;
 pub mod arena;
 
 /// DOM-like tree data structure based on `&Node` references.
+/// 
+/// Deprecated: Use `arena` module with NodeArena instead.
+#[deprecated(note = "Use arena module with NodeArena instead")]
 pub mod arena_tree;
 
 /// Error types and parsing limits.
