@@ -70,7 +70,7 @@ pub trait CodefenceRendererAdapter: Send + Sync {
         lang: &str,
         meta: &str,
         code: &str,
-        sourcepos: Option<crate::node_value::SourcePos>,
+        sourcepos: Option<crate::nodes::SourcePos>,
     ) -> fmt::Result;
 }
 
@@ -170,7 +170,7 @@ pub struct HeadingMeta {
 ///         &self,
 ///         output: &mut dyn fmt::Write,
 ///         heading: &HeadingMeta,
-///         _sourcepos: Option<clmd::node_value::SourcePos>,
+///         _sourcepos: Option<clmd::nodes::SourcePos>,
 ///     ) -> fmt::Result {
 ///         let id = heading.content.to_lowercase().replace(' ', "-");
 ///         write!(output, r#"<h{} id="{}"><a href="#{}">"#, heading.level, id, id)
@@ -197,7 +197,7 @@ pub trait HeadingAdapter: Send + Sync {
         &self,
         output: &mut dyn fmt::Write,
         heading: &HeadingMeta,
-        sourcepos: Option<crate::node_value::SourcePos>,
+        sourcepos: Option<crate::nodes::SourcePos>,
     ) -> fmt::Result;
 
     /// Render the closing tag.
@@ -386,7 +386,7 @@ impl HeadingAdapter for AnchorHeadingAdapter {
         &self,
         output: &mut dyn fmt::Write,
         heading: &HeadingMeta,
-        _sourcepos: Option<crate::node_value::SourcePos>,
+        _sourcepos: Option<crate::nodes::SourcePos>,
     ) -> fmt::Result {
         let id = generate_anchor_id(&heading.content);
         write!(

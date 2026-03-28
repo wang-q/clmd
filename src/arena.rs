@@ -22,7 +22,7 @@
 //! TreeOps::append_child(&mut arena, root, paragraph);
 //! ```
 
-use crate::node_value::{NodeValue, SourcePos};
+use crate::nodes::{NodeValue, SourcePos};
 
 /// Node ID type - index into the arena
 pub type NodeId = u32;
@@ -483,7 +483,7 @@ mod tests {
         // Create nodes using new API
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::node_value::NodeHeading {
+            crate::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,

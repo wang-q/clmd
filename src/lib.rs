@@ -82,7 +82,7 @@ pub mod iterator;
 /// Lexical analysis utilities
 pub mod lexer;
 
-/// Unified node value types (new API, inspired by comrak)
+/// AST node definitions (unified API, inspired by comrak)
 ///
 /// This module provides a unified `NodeValue` enum that combines node type and data,
 /// offering better type safety and ergonomics compared to the separate `NodeType` and `NodeData` approach.
@@ -90,7 +90,7 @@ pub mod lexer;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::node_value::{NodeValue, NodeHeading, NodeList, ListType};
+/// use clmd::nodes::{NodeValue, NodeHeading, NodeList, ListType};
 ///
 /// let heading = NodeValue::Heading(NodeHeading {
 ///     level: 1,
@@ -98,6 +98,10 @@ pub mod lexer;
 ///     closed: false,
 /// });
 /// ```
+pub mod nodes;
+
+/// Unified node value types (deprecated, use `nodes` instead)
+#[deprecated(since = "0.2.0", note = "Use `nodes` module instead")]
 pub mod node_value;
 
 /// Options for the Markdown parser and renderer
@@ -189,16 +193,19 @@ pub use error::{ParseError, ParseResult, ParserLimits, Position};
 pub use iterator::{ArenaNodeIterator, ArenaNodeWalker, EventType};
 
 // =============================================================================
-// Node Value Exports
+// Node Value Exports (from nodes module)
 // =============================================================================
 
-pub use node_value::{
+pub use nodes::{
     can_contain_type, AlertType, LineColumn, ListDelimType, ListType as NodeValueListType,
     NodeAlert, NodeCode, NodeCodeBlock, NodeDescriptionItem, NodeFootnoteDefinition,
     NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeMath,
     NodeMultilineBlockQuote, NodeTable, NodeTaskItem, NodeValue, NodeWikiLink, SourcePos,
     TableAlignment,
 };
+
+// Re-export core AST types from nodes
+pub use nodes::{Ast, AstNode, Node as AstNodeRef};
 
 // =============================================================================
 // Adapter Exports

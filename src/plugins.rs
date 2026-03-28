@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_codefence_renderer() {
         use crate::adapters::CodefenceRendererAdapter;
-        use crate::node_value::SourcePos;
+        use crate::nodes::SourcePos;
 
         struct TestRenderer;
         impl CodefenceRendererAdapter for TestRenderer {
