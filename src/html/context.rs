@@ -81,7 +81,9 @@ impl<'o, 'c: 'o> Context<'o, 'c> {
 
     /// Write a line feed (newline).
     pub fn lf(&mut self) -> fmt::Result {
-        self.output.write_str("\n")
+        self.output.write_str("\n")?;
+        self.last_char = Some('\n');
+        Ok(())
     }
 
     /// Escape HTML special characters.

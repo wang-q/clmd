@@ -305,10 +305,14 @@ impl TreeOps {
 
             let child = arena.get_mut(child_id);
             child.prev = Some(last_child_id);
+            child.next = None; // Clear next pointer
         } else {
             // No children yet, set as first child
             let parent = arena.get_mut(parent_id);
             parent.first_child = Some(child_id);
+
+            let child = arena.get_mut(child_id);
+            child.next = None; // Clear next pointer
         }
 
         // Always update last_child and set parent

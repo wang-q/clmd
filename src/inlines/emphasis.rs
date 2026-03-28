@@ -249,9 +249,19 @@ fn process_emphasis_pair(
     let closer_text = update_delimiter_text(arena, closer_inl, use_delims);
 
     let emph_node = create_emphasis_node(arena, use_delims);
-    move_nodes_to_emphasis(arena, emph_node, opener_inl, closer_inl);
-
+    
+    // First, collect all nodes between opener and closer
+    // These are the nodes that should go inside the emphasis
+    let nodes_to_move = collect_nodes_between(arena, opener_inl, closer_inl);
+    
+    // Insert emphasis node after opener
     TreeOps::insert_after(arena, opener_inl, emph_node);
+    
+    // Move collected nodes into the emphasis node
+    for node_id in nodes_to_move {
+        TreeOps::unlink(arena, node_id);
+        TreeOps::append_child(arena, emph_node, node_id);
+    }
 
     if opener_text.is_empty() {
         TreeOps::unlink(arena, opener_inl);
@@ -259,6 +269,26 @@ fn process_emphasis_pair(
     if closer_text.is_empty() {
         TreeOps::unlink(arena, closer_inl);
     }
+}
+
+/// Collect all nodes between opener and closer (exclusive)
+fn collect_nodes_between(
+    arena: &NodeArena,
+    opener_inl: NodeId,
+    closer_inl: NodeId,
+) -> Vec<NodeId> {
+    let mut nodes = Vec::new();
+    let mut current = arena.get(opener_inl).next;
+    
+    while let Some(node_id) = current {
+        if node_id == closer_inl {
+            break;
+        }
+        current = arena.get(node_id).next;
+        nodes.push(node_id);
+    }
+    
+    nodes
 }
 
 /// Process smart quotes
