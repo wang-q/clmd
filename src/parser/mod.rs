@@ -157,4 +157,28 @@ mod tests {
         let second = arena.next_sibling(first).expect("Should have second child");
         assert!(matches!(arena.get(second).value, NodeValue::Paragraph));
     }
+
+    #[test]
+    fn test_parse_link_with_title() {
+        let options = Options::default();
+        let (arena, root) = parse_document("[foo]\n\n[foo]: /url \"title\"", &options);
+
+        // Get the paragraph
+        let para = arena.first_child(root).expect("Should have a child");
+        assert!(matches!(arena.get(para).value, NodeValue::Paragraph));
+
+        // Get the link inside the paragraph
+        let link = arena.first_child(para).expect("Should have link");
+        if let NodeValue::Link(link_data) = &arena.get(link).value {
+            assert_eq!(link_data.url, "/url");
+            assert_eq!(link_data.title, "title");
+            
+            // Also test HTML output
+            let html = crate::html::render(&arena, root, 0);
+            println!("HTML output: {:?}", html);
+            assert!(html.contains("title=\"title\""), "HTML should contain title attribute");
+        } else {
+            panic!("Expected link node");
+        }
+    }
 }

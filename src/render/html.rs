@@ -1223,7 +1223,15 @@ impl<'a> HtmlRenderer<'a> {
                 self.output.push_str("</code>");
             }
             NodeValue::Link(link) => {
-                self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                if link.title.is_empty() {
+                    self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                } else {
+                    self.output.push_str(&format!(
+                        "<a href=\"{}\" title=\"{}\">",
+                        escape_href_str(&link.url),
+                        escape_html_str(&link.title)
+                    ));
+                }
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
                     self.render_inline(child_id);

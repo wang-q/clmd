@@ -316,7 +316,13 @@ fn test_regression() {
         .expect("Failed to read regression.txt");
 
     let tests = parse_spec_tests(&spec_content);
-    test_log!("Found {} regression test cases", tests.len());
+    println!("DEBUG: Found {} regression test cases", tests.len());
+    
+    // Print first few tests for debugging
+    for (i, test) in tests.iter().take(3).enumerate() {
+        println!("DEBUG: Test {} - Section: {}, Number: {}", i, test.section, test.number);
+        println!("DEBUG: Markdown: {:?}", &test.markdown[..test.markdown.len().min(50)]);
+    }
 
     let mut passed = 0;
     let mut failed = 0;
@@ -328,10 +334,13 @@ fn test_regression() {
             passed += 1;
         } else {
             failed += 1;
-            test_log!("\nFailed test #{} ({})", test.number, test.section);
-            test_log!("Input: {:?}", test.markdown);
-            test_log!("Expected: {:?}", test.html);
-            test_log!("Got: {:?}", result);
+            // Always print first few failures for debugging
+            if failed <= 3 {
+                println!("\nFailed test #{} ({})", test.number, test.section);
+                println!("Input: {:?}", test.markdown);
+                println!("Expected: {:?}", test.html);
+                println!("Got: {:?}", result);
+            }
         }
     }
 
