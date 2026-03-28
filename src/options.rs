@@ -17,7 +17,7 @@
 //! let html = clmd::markdown_to_html("| a | b |\n|---|---|\n| c | d |", &options);
 //! ```
 
-use crate::config::DataHolder;
+use std::sync::Arc;
 
 // Re-export DataKey-based options for backward compatibility
 pub use crate::config::options as data_keys;
@@ -27,6 +27,9 @@ pub use crate::config::options as data_keys;
 /// This struct provides a convenient way to configure all aspects of
 /// Markdown parsing and rendering. It wraps the underlying DataKey-based
 /// configuration system.
+///
+/// The lifetime parameter `'c` allows options to hold references to
+/// external data such as URL rewriters and broken link callbacks.
 ///
 /// # Example
 ///
@@ -43,18 +46,18 @@ pub use crate::config::options as data_keys;
 /// assert!(html.contains("<strong>"));
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct Options {
+pub struct Options<'c> {
     /// Enable CommonMark extensions.
-    pub extension: Extension,
+    pub extension: Extension<'c>,
 
     /// Configure parse-time options.
-    pub parse: Parse,
+    pub parse: Parse<'c>,
 
     /// Configure render-time options.
     pub render: Render,
 }
 
-impl Options {
+impl<'c> Options<'c> {
     /// Create a new options struct with default values.
     pub fn new() -> Self {
         Self::default()
@@ -87,6 +90,8 @@ impl Options {
         opts.set(&data_keys::ENABLE_GREENTEXT, self.extension.greentext);
         opts.set(&data_keys::ENABLE_HIGHLIGHT, self.extension.highlight);
         opts.set(&data_keys::ENABLE_INSERT, self.extension.insert);
+        opts.set(&data_keys::ENABLE_CJK_FRIENDLY_EMPHASIS, self.extension.cjk_friendly_emphasis);
+        opts.set(&data_keys::ENABLE_SUBTEXT, self.extension.subtext);
 
         if let Some(ref prefix) = self.extension.header_ids {
             opts.set(&data_keys::HEADER_IDS, Some(prefix.clone()));
@@ -103,6 +108,9 @@ impl Options {
         opts.set(&data_keys::RELAXED_TASKLIST_MATCHING, self.parse.relaxed_tasklist_matching);
         opts.set(&data_keys::IGNORE_SETEXT, self.parse.ignore_setext);
         opts.set(&data_keys::LEAVE_FOOTNOTE_DEFINITIONS, self.parse.leave_footnote_definitions);
+        opts.set(&data_keys::TASKLIST_IN_TABLE, self.parse.tasklist_in_table);
+        opts.set(&data_keys::RELAXED_AUTOLINKS, self.parse.relaxed_autolinks);
+        opts.set(&data_keys::ESCAPED_CHAR_SPANS, self.parse.escaped_char_spans);
 
         if let Some(ref info) = self.parse.default_info_string {
             opts.set(&data_keys::DEFAULT_INFO_STRING, Some(info.clone()));
@@ -121,6 +129,11 @@ impl Options {
         opts.set(&data_keys::IGNORE_EMPTY_LINKS, self.render.ignore_empty_links);
         opts.set(&data_keys::TASKLIST_CLASSES, self.render.tasklist_classes);
         opts.set(&data_keys::COMPACT_HTML, self.render.compact_html);
+        opts.set(&data_keys::SOURCEPOS_RENDER, self.render.sourcepos);
+        opts.set(&data_keys::GFM_QUIRKS, self.render.gfm_quirks);
+        opts.set(&data_keys::FIGURE_WITH_CAPTION, self.render.figure_with_caption);
+        opts.set(&data_keys::OL_WIDTH, self.render.ol_width);
+        opts.set(&data_keys::ESCAPED_CHAR_SPANS_RENDER, self.render.escaped_char_spans);
 
         opts
     }
@@ -129,8 +142,11 @@ impl Options {
 /// Options to select extensions.
 ///
 /// Extensions affect both parsing and rendering.
+///
+/// The lifetime parameter `'c` allows extensions to hold references to
+/// external data such as URL rewriters.
 #[derive(Debug, Clone)]
-pub struct Extension {
+pub struct Extension<'c> {
     /// Enables the strikethrough extension from the GFM spec.
     ///
     /// Note: This extension requires inline parsing which will be
@@ -188,6 +204,15 @@ pub struct Extension {
     /// Enables the footnotes extension.
     pub footnotes: bool,
 
+    /// Enables inline footnotes.
+    ///
+    /// Allows inline footnote syntax `^[content]` where the content can include
+    /// inline markup. Inline footnotes are automatically converted to regular
+    /// footnotes with auto-generated names.
+    ///
+    /// Requires `footnotes` to be enabled as well.
+    pub inline_footnotes: bool,
+
     /// Enables the description lists extension.
     pub description_lists: bool,
 
@@ -229,9 +254,28 @@ pub struct Extension {
 
     /// Enables inserted text using `++`.
     pub insert: bool,
+
+    /// Recognizes many emphasis that appear in CJK contexts.
+    ///
+    /// This enables emphasis patterns that are common in CJK text but
+    /// not recognized by plain CommonMark.
+    pub cjk_friendly_emphasis: bool,
+
+    /// Enables block scoped subscript that acts similar to a header.
+    ///
+    /// ```markdown
+    /// -# subtext
+    /// ```
+    pub subtext: bool,
+
+    /// Wraps embedded image URLs using a function or custom trait object.
+    pub image_url_rewriter: Option<Arc<dyn crate::adapters::UrlRewriter + 'c>>,
+
+    /// Wraps link URLs using a function or custom trait object.
+    pub link_url_rewriter: Option<Arc<dyn crate::adapters::UrlRewriter + 'c>>,
 }
 
-impl Default for Extension {
+impl<'c> Default for Extension<'c> {
     fn default() -> Self {
         Self {
             strikethrough: false,
@@ -243,6 +287,7 @@ impl Default for Extension {
             subscript: false,
             header_ids: None,
             footnotes: false,
+            inline_footnotes: false,
             description_lists: false,
             front_matter_delimiter: None,
             multiline_block_quotes: false,
@@ -256,11 +301,15 @@ impl Default for Extension {
             greentext: false,
             highlight: false,
             insert: false,
+            cjk_friendly_emphasis: false,
+            subtext: false,
+            image_url_rewriter: None,
+            link_url_rewriter: None,
         }
     }
 }
 
-impl Extension {
+impl<'c> Extension<'c> {
     /// Returns the wikilinks mode if either wikilinks option is enabled.
     pub fn wikilinks(&self) -> Option<WikiLinksMode> {
         match (
@@ -287,8 +336,11 @@ pub enum WikiLinksMode {
 }
 
 /// Options for parser functions.
+///
+/// The lifetime parameter `'c` allows parse options to hold references to
+/// external data such as broken link callbacks.
 #[derive(Debug, Clone)]
-pub struct Parse {
+pub struct Parse<'c> {
     /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
     ///
     /// ```rust
@@ -323,9 +375,32 @@ pub struct Parse {
 
     /// Leave footnote definitions in place in the document tree.
     pub leave_footnote_definitions: bool,
+
+    /// Whether tasklist items can be parsed in table cells.
+    ///
+    /// At present, the tasklist item must be the only content in the cell.
+    /// Both tables and tasklists must be enabled for this to work.
+    pub tasklist_in_table: bool,
+
+    /// Relax parsing of autolinks.
+    ///
+    /// Allows links to be detected inside brackets and allow all URL schemes.
+    /// Intended to allow specific autolink detection patterns like
+    /// `[this http://and.com that]` or `{http://foo.com}`.
+    pub relaxed_autolinks: bool,
+
+    /// Leave escaped characters in an `Escaped` node in the document tree.
+    pub escaped_char_spans: bool,
+
+    /// Callback for resolving broken link references.
+    ///
+    /// When the parser encounters a potential link that has a broken reference
+    /// (e.g `[foo]` when there is no `[foo]: url` entry), this callback is called
+    /// to potentially resolve the reference.
+    pub broken_link_callback: Option<Arc<dyn crate::adapters::BrokenLinkCallback + 'c>>,
 }
 
-impl Default for Parse {
+impl<'c> Default for Parse<'c> {
     fn default() -> Self {
         Self {
             smart: false,
@@ -335,6 +410,10 @@ impl Default for Parse {
             relaxed_tasklist_matching: false,
             ignore_setext: false,
             leave_footnote_definitions: false,
+            tasklist_in_table: false,
+            relaxed_autolinks: false,
+            escaped_char_spans: false,
+            broken_link_callback: None,
         }
     }
 }
@@ -401,6 +480,31 @@ pub struct Render {
 
     /// Compact HTML output (no newlines between block elements).
     pub compact_html: bool,
+
+    /// Include source position attributes in HTML and XML output.
+    ///
+    /// Sourcepos information is reliable for core block items excluding
+    /// lists and list items, all inlines, and most extensions.
+    pub sourcepos: bool,
+
+    /// Enables GFM quirks in HTML output which break CommonMark compatibility.
+    ///
+    /// This changes how nested emphasis is rendered to match GitHub's behavior.
+    pub gfm_quirks: bool,
+
+    /// Render the image as a figure element with the title as its caption.
+    pub figure_with_caption: bool,
+
+    /// Render ordered list with a minimum marker width.
+    /// Having a width lower than 3 doesn't do anything.
+    pub ol_width: usize,
+
+    /// Wrap escaped characters in a `<span>` to allow any
+    /// post-processing to recognize them.
+    ///
+    /// Note that enabling this option will cause the `escaped_char_spans`
+    /// parse option to be enabled.
+    pub escaped_char_spans: bool,
 }
 
 impl Default for Render {
@@ -418,6 +522,11 @@ impl Default for Render {
             ignore_empty_links: false,
             tasklist_classes: false,
             compact_html: false,
+            sourcepos: false,
+            gfm_quirks: false,
+            figure_with_caption: false,
+            ol_width: 0,
+            escaped_char_spans: false,
         }
     }
 }
@@ -512,5 +621,34 @@ mod tests {
             crate::config::options::ListStyleType::from(ListStyleType::Star),
             crate::config::options::ListStyleType::Star
         ));
+    }
+
+    #[test]
+    fn test_new_render_options() {
+        let render = Render::default();
+        assert!(!render.sourcepos);
+        assert!(!render.gfm_quirks);
+        assert!(!render.figure_with_caption);
+        assert_eq!(render.ol_width, 0);
+        assert!(!render.escaped_char_spans);
+    }
+
+    #[test]
+    fn test_new_parse_options() {
+        let parse = Parse::default();
+        assert!(!parse.tasklist_in_table);
+        assert!(!parse.relaxed_autolinks);
+        assert!(!parse.escaped_char_spans);
+        assert!(parse.broken_link_callback.is_none());
+    }
+
+    #[test]
+    fn test_new_extension_options() {
+        let ext = Extension::default();
+        assert!(!ext.inline_footnotes);
+        assert!(!ext.cjk_friendly_emphasis);
+        assert!(!ext.subtext);
+        assert!(ext.image_url_rewriter.is_none());
+        assert!(ext.link_url_rewriter.is_none());
     }
 }

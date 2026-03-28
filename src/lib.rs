@@ -14,17 +14,11 @@
 //! Or you can parse the input into an AST yourself, manipulate it, and then use your desired
 //! formatter:
 //!
-//! ```rust,ignore
+//! ```rust
 //! use clmd::{Arena, parse_document, format_html, options::Options};
-//! use clmd::node_value::NodeValue;
 //!
 //! let mut arena = Arena::new();
 //! let root = parse_document(&mut arena, "Hello, world!", &Options::default());
-//!
-//! // Traverse and manipulate the AST
-//! for node in root.descendants() {
-//!     // Manipulate nodes here
-//! }
 //!
 //! let mut html = String::new();
 //! format_html(&arena, root, &Options::default(), &mut html).unwrap();
@@ -194,7 +188,7 @@ pub use options::{
     Extension, ListStyleType, Parse, Render, WikiLinksMode,
 };
 
-// Re-export the new comrak-style Options
+// Re-export the new comrak-style Options with lifetime parameter
 pub use options::Options;
 
 // Re-export DataKey-based options for backward compatibility
@@ -389,7 +383,7 @@ impl Document {
     /// # Returns
     ///
     /// A `ParseResult` containing the parsed document or an error
-    pub fn parse_with_comrak_options(input: &str, options: &options::Options) -> ParseResult<Self> {
+    pub fn parse_with_comrak_options(input: &str, options: &options::Options<'_>) -> ParseResult<Self> {
         let data_key_options = options.to_data_key_options();
         Self::parse_with_options(input, &data_key_options)
     }
@@ -526,7 +520,7 @@ impl Document {
 ///     "<p>Hello, <strong>world</strong>!</p>\n"
 /// );
 /// ```
-pub fn markdown_to_html(md: &str, options: &options::Options) -> String {
+pub fn markdown_to_html(md: &str, options: &options::Options<'_>) -> String {
     let data_key_options = options.to_data_key_options();
     let legacy_options = options_to_u32_for_parse(&data_key_options);
     let mut arena = Arena::new();
@@ -556,7 +550,7 @@ pub fn markdown_to_html(md: &str, options: &options::Options) -> String {
 /// let plugins = Plugins::default();
 /// let html = markdown_to_html_with_plugins("Hello, **world**!", &options, &plugins);
 /// ```
-pub fn markdown_to_html_with_plugins(md: &str, options: &options::Options, plugins: &Plugins) -> String {
+pub fn markdown_to_html_with_plugins(md: &str, options: &options::Options<'_>, plugins: &Plugins) -> String {
     // For now, delegate to the non-plugin version
     // TODO: Implement plugin support in renderers
     let _ = plugins;
@@ -583,7 +577,7 @@ pub fn markdown_to_html_with_plugins(md: &str, options: &options::Options, plugi
 /// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```
-pub fn markdown_to_commonmark(md: &str, options: &options::Options) -> String {
+pub fn markdown_to_commonmark(md: &str, options: &options::Options<'_>) -> String {
     let data_key_options = options.to_data_key_options();
     let legacy_options = options_to_u32_for_parse(&data_key_options);
     let mut arena = Arena::new();
@@ -613,7 +607,7 @@ pub fn markdown_to_commonmark(md: &str, options: &options::Options) -> String {
 /// let xml = markdown_to_commonmark_xml("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
 /// ```
-pub fn markdown_to_commonmark_xml(md: &str, options: &options::Options) -> String {
+pub fn markdown_to_commonmark_xml(md: &str, options: &options::Options<'_>) -> String {
     let data_key_options = options.to_data_key_options();
     let legacy_options = options_to_u32_for_parse(&data_key_options);
     let mut arena = Arena::new();
@@ -632,7 +626,7 @@ pub fn markdown_to_commonmark_xml(md: &str, options: &options::Options) -> Strin
 /// # Returns
 ///
 /// The XML output as a String
-pub fn markdown_to_commonmark_xml_with_plugins(md: &str, options: &options::Options, plugins: &Plugins) -> String {
+pub fn markdown_to_commonmark_xml_with_plugins(md: &str, options: &options::Options<'_>, plugins: &Plugins) -> String {
     let _ = plugins;
     markdown_to_commonmark_xml(md, options)
 }
@@ -659,7 +653,7 @@ pub fn markdown_to_commonmark_xml_with_plugins(md: &str, options: &options::Opti
 /// let root = parse_document(&mut arena, "Hello *world*", &options);
 /// // Now you can traverse and manipulate the AST
 /// ```
-pub fn parse_document(arena: &mut Arena, md: &str, options: &options::Options) -> NodeId {
+pub fn parse_document(arena: &mut Arena, md: &str, options: &options::Options<'_>) -> NodeId {
     let data_key_options = options.to_data_key_options();
     let legacy_options = options_to_u32_for_parse(&data_key_options);
     blocks::BlockParser::parse_with_options(arena, md, legacy_options)
@@ -692,7 +686,7 @@ pub fn parse_document(arena: &mut Arena, md: &str, options: &options::Options) -
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
-    options: &options::Options,
+    options: &options::Options<'_>,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     let data_key_options = options.to_data_key_options();
@@ -717,7 +711,7 @@ pub fn format_html(
 pub fn format_html_with_plugins(
     arena: &Arena,
     root: NodeId,
-    options: &options::Options,
+    options: &options::Options<'_>,
     output: &mut dyn std::fmt::Write,
     plugins: &Plugins,
 ) -> std::fmt::Result {
@@ -740,7 +734,7 @@ pub fn format_html_with_plugins(
 pub fn format_commonmark(
     arena: &Arena,
     root: NodeId,
-    _options: &options::Options,
+    _options: &options::Options<'_>,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     let cm = render::commonmark::render(arena, root, 0);
@@ -762,7 +756,7 @@ pub fn format_commonmark(
 pub fn format_xml(
     arena: &Arena,
     root: NodeId,
-    _options: &options::Options,
+    _options: &options::Options<'_>,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     let xml = render::xml::render(arena, root, 0);

@@ -388,6 +388,71 @@ pub const ENABLE_HIGHLIGHT: DataKey<bool> =
 pub const ENABLE_INSERT: DataKey<bool> =
     DataKey::with_default("extension.insert", false);
 
+/// Enable CJK-friendly emphasis.
+///
+/// Recognizes emphasis patterns that are common in CJK text.
+pub const ENABLE_CJK_FRIENDLY_EMPHASIS: DataKey<bool> =
+    DataKey::with_default("extension.cjk_friendly_emphasis", false);
+
+/// Enable subtext support.
+///
+/// Allows parsing of subtext using `-#` syntax.
+pub const ENABLE_SUBTEXT: DataKey<bool> =
+    DataKey::with_default("extension.subtext", false);
+
+// =============================================================================
+// Additional Parse Options
+// =============================================================================
+
+/// Whether tasklist items can be parsed in table cells.
+///
+/// At present, the tasklist item must be the only content in the cell.
+/// Both tables and tasklists must be enabled for this to work.
+pub const TASKLIST_IN_TABLE: DataKey<bool> =
+    DataKey::with_default("parse.tasklist_in_table", false);
+
+/// Relax parsing of autolinks.
+///
+/// Allows links to be detected inside brackets and allow all URL schemes.
+pub const RELAXED_AUTOLINKS: DataKey<bool> =
+    DataKey::with_default("parse.relaxed_autolinks", false);
+
+/// Leave escaped characters in an `Escaped` node in the document tree.
+pub const ESCAPED_CHAR_SPANS: DataKey<bool> =
+    DataKey::with_default("parse.escaped_char_spans", false);
+
+// =============================================================================
+// Additional Render Options
+// =============================================================================
+
+/// Include source position attributes in HTML and XML output.
+///
+/// Sourcepos information is reliable for core block items excluding
+/// lists and list items, all inlines, and most extensions.
+pub const SOURCEPOS_RENDER: DataKey<bool> =
+    DataKey::with_default("render.sourcepos", false);
+
+/// Enables GFM quirks in HTML output which break CommonMark compatibility.
+///
+/// This changes how nested emphasis is rendered to match GitHub's behavior.
+pub const GFM_QUIRKS: DataKey<bool> =
+    DataKey::with_default("render.gfm_quirks", false);
+
+/// Render the image as a figure element with the title as its caption.
+pub const FIGURE_WITH_CAPTION: DataKey<bool> =
+    DataKey::with_default("render.figure_with_caption", false);
+
+/// Render ordered list with a minimum marker width.
+///
+/// Having a width lower than 3 doesn't do anything.
+pub const OL_WIDTH: DataKey<usize> =
+    DataKey::with_default("render.ol_width", 0);
+
+/// Wrap escaped characters in a `<span>` to allow any
+/// post-processing to recognize them.
+pub const ESCAPED_CHAR_SPANS_RENDER: DataKey<bool> =
+    DataKey::with_default("render.escaped_char_spans", false);
+
 // =============================================================================
 // Types
 // =============================================================================

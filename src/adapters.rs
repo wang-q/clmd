@@ -237,7 +237,7 @@ pub trait HeadingAdapter: Send + Sync {
 ///     }
 /// }
 /// ```
-pub trait UrlRewriter: Send + Sync {
+pub trait UrlRewriter: Send + Sync + std::fmt::Debug {
     /// Rewrite a URL.
     ///
     /// # Arguments
@@ -276,7 +276,7 @@ pub trait UrlRewriter: Send + Sync {
 ///     }
 /// }
 /// ```
-pub trait BrokenLinkCallback: Send + Sync {
+pub trait BrokenLinkCallback: Send + Sync + std::fmt::Debug {
     /// Potentially resolve a single broken link reference.
     ///
     /// # Arguments

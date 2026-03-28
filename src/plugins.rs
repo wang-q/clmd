@@ -338,6 +338,7 @@ mod tests {
 
     #[test]
     fn test_url_rewriter() {
+        #[derive(Debug)]
         struct TestRewriter;
         impl UrlRewriter for TestRewriter {
             fn rewrite(&self, url: &str) -> String {
