@@ -2,7 +2,7 @@
 //!
 //! This module contains tests for the public API of the CLMD library.
 
-use crate::{format_html, markdown_to_html, parse_document, version, Arena, Options};
+use crate::{format_html, markdown_to_html, parse_document, version, Options};
 
 #[test]
 fn test_markdown_to_html_basic() {
@@ -98,10 +98,9 @@ fn test_markdown_to_html_image() {
 fn test_parse_and_render_roundtrip() {
     let options = Options::default();
     let input = "# Title\n\nParagraph with text.";
-    let arena = Arena::new();
-    let doc = parse_document(&arena, input, &options);
+    let (arena, root) = parse_document(input, &options);
     let mut html = String::new();
-    format_html(doc, &options, &mut html).unwrap();
+    format_html(&arena, root, &options, &mut html).unwrap();
     assert!(html.contains("<h1>"));
     assert!(html.contains("Paragraph"));
 }
