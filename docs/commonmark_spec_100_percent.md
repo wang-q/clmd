@@ -10,9 +10,9 @@
 
 ### 提交信息
 
-- **提交哈希**: `2f8dcf8965b6e6f9ac445e759c2a32d5c70c337a`
-- **提交消息**: `fix(emphasis): fix delimiter stack handling in emphasis processing`
-- **提交日期**: 2026-03-26 23:21:57
+- **提交哈希**: `51be89c26b1ddc5e50ad8a89a97cb250935702d7`
+- **提交消息**: `fix(emphasis): fix nested emphasis processing by zeroing inner delimiters`
+- **提交日期**: 2026-03-29 03:37:02
 - **作者**: Qiang Wang
 
 ### 测试通过率
@@ -21,23 +21,54 @@
 
 ### 该提交修改的文件
 
-- `src/inlines/emphasis.rs` - 132 行变更
-- `src/inlines/links.rs` - 4 行变更
-- `src/inlines/utils.rs` - 149 行变更
+- `src/inlines/emphasis.rs` - 7 行变更
+
+### 修复的问题
+
+修复了以下两个失败的测试用例：
+
+| 测试编号 | 输入 | 期望输出 | 之前实际输出 |
+|---------|------|---------|-------------|
+| #469 | `*foo _bar* baz_` | `<p><em>foo _bar</em> baz_</p>` | `<p><em>foo <em>bar</em></em> baz</p>` |
+| #470 | `*foo __bar *baz bim__ bam*` | `<p><em>foo <strong>bar *baz bim</strong> bam</em></p>` | `<p>*foo <strong>bar <em>baz bim</em></strong> bam</p>` |
+
+**修复原因**: 在 `process_emphasis_match` 函数中添加了关键逻辑，当找到 opener 和 closer 匹配后，将它们之间的所有 delimiter 的 `num_delims` 设置为 0，防止这些 delimiter 被再次处理为强调。
 
 ### 如何检出该版本
 
 ```bash
 # 检出 100% 通过的提交
-git checkout 2f8dcf8
+git checkout 51be89c
 
 # 或者创建分支
-git checkout -b reference-100-percent-652 2f8dcf8
+git checkout -b reference-100-percent-652 51be89c
 ```
 
 ---
 
 ## 历史 100% 通过提交
+
+### 提交 `2f8dcf8`（652 个测试）
+
+- **提交哈希**: `2f8dcf8965b6e6f9ac445e759c2a32d5c70c337a`
+- **提交消息**: `fix(emphasis): fix delimiter stack handling in emphasis processing`
+- **提交日期**: 2026-03-26 23:21:57
+- **作者**: Qiang Wang
+- **测试数量**: 652/652 (100%)
+
+#### 该提交修改的文件
+
+- `src/inlines/emphasis.rs` - 132 行变更
+- `src/inlines/links.rs` - 4 行变更
+- `src/inlines/utils.rs` - 149 行变更
+
+#### 如何检出该版本
+
+```bash
+git checkout 2f8dcf8
+```
+
+---
 
 ### 早期的 100% 通过点（624 个测试）
 
@@ -70,34 +101,6 @@ git checkout bcfc078
 
 ---
 
-## 当前状态
-
-### 当前 master 分支
-
-- **当前提交**: `ab89b40` (master)
-- **当前通过率**: 99.7% (650/652)
-- **失败测试数**: 2 个
-
-### 当前失败的测试用例
-
-| 测试编号 | 输入 | 期望输出 | 实际输出 |
-|---------|------|---------|---------|
-| #469 | `*foo _bar* baz_` | `<p><em>foo _bar</em> baz_</p>` | `<p><em>foo <em>bar</em></em> baz</p>` |
-| #470 | `*foo __bar *baz bim__ bam*` | `<p><em>foo <strong>bar *baz bim</strong> bam</em></p>` | `<p>*foo <strong>bar <em>baz bim</em></strong> bam</p>` |
-
-**失败原因分析**: 这两个失败用例都涉及**嵌套强调解析**的复杂情况，特别是下划线 `_` 和星号 `*` 混合使用时的优先级处理。
-
-### 从 100% 到当前的变更
-
-从 `2f8dcf8` 到当前 `master` 共有 58 个提交，其中可能导致回归的提交包括：
-
-1. `f45e755` - fix(emphasis): prevent delimiter merging and improve nested emphasis handling
-2. `e44bbc9` - fix(emphasis): correct emphasis processing and add debug tests
-3. `aff84c8` - fix(emphasis): correct delimiter processing for nested emphasis
-4. `a750494` - refactor(parser): replace custom parser with BlockParser implementation
-
----
-
 ## 版本差异对比
 
 ### 从 `bcfc078` 到 `2f8dcf8` 的主要变化
@@ -106,7 +109,13 @@ git checkout bcfc078
 - 强调处理算法重写
 - 模块化重构（inlines 和 blocks 改为目录结构）
 
-### 从 `2f8dcf8` 到当前的主要变化
+### 从 `2f8dcf8` 到 `51be89c` 的主要变化
+
+- 修复了嵌套强调解析的回归问题
+- 添加了将内部 delimiter 的 num_delims 置零的逻辑
+- 修复了测试 #469 和 #470
+
+### 从 `51be89c` 到当前的主要变化
 
 1. **代码重构**: 从单文件重构为模块化目录结构
 2. **数据结构变更**: 从 `Rc<RefCell<Node>>` 改为 Arena-based 内存管理
@@ -131,6 +140,11 @@ git checkout bcfc078
 
 ## 相关文件
 
+### 在 `51be89c` 提交点
+
+- `src/inlines/emphasis.rs` - 强调处理
+- `tests/commonmark_spec.rs` - CommonMark 规范测试
+
 ### 在 `2f8dcf8` 提交点
 
 - `src/inlines/emphasis.rs` - 强调处理
@@ -149,9 +163,8 @@ git checkout bcfc078
 
 ## 后续修复建议
 
-要修复当前 master 分支的 2 个失败测试，建议：
+要保持 100% 测试通过率，注意以下要点：
 
-1. 对比 `2f8dcf8` 和 `f45e755` 之间 `src/inlines/emphasis.rs` 的变更
-2. 分析测试 #469 和 #470 的失败原因
-3. 考虑回滚或修正 `f45e755` 引入的 delimiter merging 相关变更
-4. 重点关注星号和下划线混合使用时的优先级处理逻辑
+1. **强调处理**: 修改 `process_emphasis` 相关代码时，确保 opener 和 closer 之间的 delimiter 被正确处理
+2. **嵌套强调**: 星号和下划线混合使用时，注意优先级处理逻辑
+3. **回归测试**: 每次修改后运行 `cargo test test_commonmark_spec` 验证
