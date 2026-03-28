@@ -281,6 +281,81 @@ impl NodeArena {
     pub fn descendants(&self, root: NodeId) -> DescendantIterator<'_> {
         DescendantIterator::new(self, root)
     }
+
+    /// Returns an iterator over the children of the given node.
+    ///
+    /// The iterator yields `NodeId`s in order from first child to last child.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    ///
+    /// let mut arena = Arena::new();
+    /// let root = arena.alloc(Node::with_value(NodeValue::Document));
+    /// let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// TreeOps::append_child(&mut arena, root, para1);
+    /// TreeOps::append_child(&mut arena, root, para2);
+    ///
+    /// let children: Vec<_> = arena.children(root).collect();
+    /// assert_eq!(children.len(), 2);
+    /// ```
+    pub fn children(&self, parent: NodeId) -> ChildrenIterator<'_> {
+        ChildrenIterator {
+            arena: self,
+            current: self.get(parent).first_child,
+        }
+    }
+
+    /// Returns an iterator over the ancestors of the given node.
+    ///
+    /// The iterator yields `NodeId`s from the immediate parent up to the root.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    ///
+    /// let mut arena = Arena::new();
+    /// let root = arena.alloc(Node::with_value(NodeValue::Document));
+    /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// TreeOps::append_child(&mut arena, root, para);
+    ///
+    /// let ancestors: Vec<_> = arena.ancestors(para).collect();
+    /// assert_eq!(ancestors, vec![root]);
+    /// ```
+    pub fn ancestors(&self, node: NodeId) -> AncestorIterator<'_> {
+        AncestorIterator {
+            arena: self,
+            current: self.get(node).parent,
+        }
+    }
+
+    /// Returns the parent of the given node, if any.
+    pub fn parent(&self, node: NodeId) -> Option<NodeId> {
+        self.get(node).parent
+    }
+
+    /// Returns the first child of the given node, if any.
+    pub fn first_child(&self, node: NodeId) -> Option<NodeId> {
+        self.get(node).first_child
+    }
+
+    /// Returns the last child of the given node, if any.
+    pub fn last_child(&self, node: NodeId) -> Option<NodeId> {
+        self.get(node).last_child
+    }
+
+    /// Returns the next sibling of the given node, if any.
+    pub fn next_sibling(&self, node: NodeId) -> Option<NodeId> {
+        self.get(node).next
+    }
+
+    /// Returns the previous sibling of the given node, if any.
+    pub fn prev_sibling(&self, node: NodeId) -> Option<NodeId> {
+        self.get(node).prev
+    }
 }
 
 impl Default for NodeArena {
@@ -443,9 +518,132 @@ impl<'a> Iterator for DescendantIterator<'a> {
     }
 }
 
+/// Iterator for traversing children of a node
+#[derive(Debug)]
+pub struct ChildrenIterator<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for ChildrenIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current.map(|node_id| {
+            self.current = self.arena.get(node_id).next;
+            node_id
+        })
+    }
+}
+
+/// Iterator for traversing ancestors of a node
+#[derive(Debug)]
+pub struct AncestorIterator<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for AncestorIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current.map(|node_id| {
+            self.current = self.arena.get(node_id).parent;
+            node_id
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_descendants_iterator() {
+        let mut arena = NodeArena::new();
+
+        // Create tree structure:
+        // root
+        //   ├── child1
+        //   │     └── grandchild
+        //   └── child2
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let grandchild = arena.alloc(Node::with_value(NodeValue::Text("test".into())));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, child1, grandchild);
+
+        // Test descendants iterator
+        let descendants: Vec<NodeId> = arena.descendants(root).collect();
+        assert_eq!(descendants.len(), 4);
+        assert_eq!(descendants[0], root);
+        assert_eq!(descendants[1], child1);
+        assert_eq!(descendants[2], grandchild);
+        assert_eq!(descendants[3], child2);
+    }
+
+    #[test]
+    fn test_children_iterator() {
+        let mut arena = NodeArena::new();
+
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, root, child3);
+
+        // Test children iterator
+        let children: Vec<NodeId> = arena.children(root).collect();
+        assert_eq!(children, vec![child1, child2, child3]);
+    }
+
+    #[test]
+    fn test_ancestors_iterator() {
+        let mut arena = NodeArena::new();
+
+        // Create tree: root -> parent -> child
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let parent = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let child = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, parent);
+        TreeOps::append_child(&mut arena, parent, child);
+
+        // Test ancestors iterator
+        let ancestors: Vec<NodeId> = arena.ancestors(child).collect();
+        assert_eq!(ancestors, vec![parent, root]);
+    }
+
+    #[test]
+    fn test_node_relationship_methods() {
+        let mut arena = NodeArena::new();
+
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+
+        // Test relationship methods
+        assert_eq!(arena.parent(child1), Some(root));
+        assert_eq!(arena.parent(child2), Some(root));
+        assert_eq!(arena.parent(root), None);
+
+        assert_eq!(arena.first_child(root), Some(child1));
+        assert_eq!(arena.last_child(root), Some(child2));
+
+        assert_eq!(arena.next_sibling(child1), Some(child2));
+        assert_eq!(arena.prev_sibling(child2), Some(child1));
+        assert_eq!(arena.next_sibling(child2), None);
+        assert_eq!(arena.prev_sibling(child1), None);
+    }
 
     #[test]
     fn test_arena_alloc() {
