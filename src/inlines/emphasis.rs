@@ -519,10 +519,10 @@ fn process_emphasis_match(
     delims[opener_idx].5 -= use_delims;
     delims[closer_idx].5 -= use_delims;
 
-    // Mark delimiters between opener and closer as processed (inside emphasis)
-    for k in (opener_idx + 1)..closer_idx {
-        delims[k].5 = 0;
-    }
+    // Note: We intentionally do NOT mark delimiters between opener and closer as processed.
+    // This is crucial for nested emphasis support. Delimiters inside the matched pair
+    // (like the inner * in *(*foo*)*) should remain active for their own matching.
+    // They will be naturally removed when their count reaches 0 after processing.
 
     // Remove processed delimiters from vector if count is 0
     // Remove closer first (higher index) to avoid index shifting issues

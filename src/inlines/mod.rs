@@ -262,6 +262,13 @@ impl<'a> Subject<'a> {
             TreeOps::append_child(arena, parent, soft_break);
         }
 
+        // If this delimiter can open emphasis, add an empty text node as a barrier
+        // to prevent subsequent text from being merged into the delimiter node.
+        if res.can_open {
+            let barrier = arena.alloc(Node::with_value(NodeValue::make_text("")));
+            TreeOps::append_child(arena, parent, barrier);
+        }
+
         true
     }
 
@@ -640,13 +647,6 @@ impl<'a> Subject<'a> {
             });
 
             self.delimiters = Some(delim);
-        }
-
-        // If this delimiter can open emphasis, add an empty text node as a barrier
-        // to prevent subsequent text from being merged into the delimiter node.
-        if res.can_open {
-            let barrier = arena.alloc(Node::with_value(NodeValue::make_text("")));
-            TreeOps::append_child(arena, parent, barrier);
         }
 
         true

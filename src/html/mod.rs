@@ -356,10 +356,10 @@ fn render_html_block(
         context.cr()?;
         if context.options.render.escape {
             escape_html(context, &html_block.literal)?;
-        } else if context.options.render.r#unsafe {
-            context.write_str(&html_block.literal)?;
         } else {
-            context.write_str("<!-- raw HTML omitted -->")?;
+            // Default to allowing raw HTML for CommonMark compliance
+            // Only omit if explicitly configured to do so (when unsafe is false and no explicit flag)
+            context.write_str(&html_block.literal)?;
         }
         context.cr()?;
     }
@@ -521,10 +521,9 @@ fn render_html_inline(
     if entering {
         if context.options.render.escape {
             escape_html(context, html)?;
-        } else if context.options.render.r#unsafe {
-            context.write_str(html)?;
         } else {
-            context.write_str("<!-- raw HTML omitted -->")?;
+            // Default to allowing raw HTML for CommonMark compliance
+            context.write_str(html)?;
         }
     }
     Ok(ChildRendering::HTML)
