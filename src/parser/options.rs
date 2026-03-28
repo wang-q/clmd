@@ -1,0 +1,622 @@
+//! Configuration for the parser and renderer. Extensions affect both.
+//!
+//! This module provides a comrak-style Options API for configuring
+//! Markdown parsing and rendering behavior.
+//!
+//! # Example
+//!
+//! ```
+//! use clmd::parser::options::{Options, Extension, Parse, Render};
+//!
+//! let mut options = Options::default();
+//! options.extension.table = true;
+//! options.extension.strikethrough = true;
+//! options.render.hardbreaks = true;
+//! ```
+
+use std::fmt::{self, Debug, Formatter};
+use std::sync::Arc;
+
+/// Umbrella options struct for the Markdown parser and renderer.
+///
+/// This struct provides a convenient way to configure all aspects of
+/// Markdown parsing and rendering.
+///
+/// The lifetime parameter `'c` allows options to hold references to
+/// external data such as URL rewriters and broken link callbacks.
+///
+/// # Example
+///
+/// ```
+/// use clmd::parser::options::Options;
+///
+/// let mut options = Options::default();
+/// options.extension.table = true;
+/// options.extension.strikethrough = true;
+///
+/// let html = clmd::markdown_to_html("Hello **world**!", &options);
+/// assert!(html.contains("<strong>world</strong>"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct Options<'c> {
+    /// Enable CommonMark extensions.
+    pub extension: Extension<'c>,
+
+    /// Configure parse-time options.
+    pub parse: Parse<'c>,
+
+    /// Configure render-time options.
+    pub render: Render,
+}
+
+impl<'c> Default for Options<'c> {
+    fn default() -> Self {
+        Self {
+            extension: Extension::default(),
+            parse: Parse::default(),
+            render: Render::default(),
+        }
+    }
+}
+
+impl<'c> Options<'c> {
+    /// Create a new options struct with default values.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Options to select extensions.
+///
+/// Extensions affect both parsing and rendering.
+///
+/// The lifetime parameter `'c` allows extensions to hold references to
+/// external data such as URL rewriters.
+#[derive(Clone)]
+pub struct Extension<'c> {
+    /// Enables the strikethrough extension from the GFM spec.
+    ///
+    /// ```rust,ignore
+    /// use clmd::{markdown_to_html, parser::options::Options};
+    ///
+    /// let mut options = Options::default();
+    /// options.extension.strikethrough = true;
+    /// let html = clmd::markdown_to_html("Hello ~~world~~ there.\n", &options);
+    /// assert!(html.contains("<del>world</del>"));
+    /// ```
+    pub strikethrough: bool,
+
+    /// Enables the tagfilter extension from the GFM spec.
+    pub tagfilter: bool,
+
+    /// Enables the table extension from the GFM spec.
+    ///
+    /// ```rust,ignore
+    /// use clmd::{markdown_to_html, parser::options::Options};
+    ///
+    /// let mut options = Options::default();
+    /// options.extension.table = true;
+    /// let html = clmd::markdown_to_html("| a | b |\n|---|---|\n| c | d |\n", &options);
+    /// assert!(html.contains("<table>"));
+    /// ```
+    pub table: bool,
+
+    /// Enables the autolink extension from the GFM spec.
+    pub autolink: bool,
+
+    /// Enables the task list items extension from the GFM spec.
+    pub tasklist: bool,
+
+    /// Enables superscript text using `^` delimiters.
+    pub superscript: bool,
+
+    /// Enables subscript text using `~` delimiters.
+    ///
+    /// Note: If strikethrough is also enabled, this overrides the single
+    /// tilde case to output subscript text.
+    pub subscript: bool,
+
+    /// Enables header IDs.
+    ///
+    /// When set to Some(prefix), adds IDs to headers based on their content.
+    /// The prefix is prepended to the generated ID.
+    pub header_ids: Option<String>,
+
+    /// Enables the footnotes extension.
+    pub footnotes: bool,
+
+    /// Enables inline footnotes.
+    ///
+    /// Allows inline footnote syntax `^[content]` where the content can include
+    /// inline markup. Inline footnotes are automatically converted to regular
+    /// footnotes with auto-generated names.
+    ///
+    /// Requires `footnotes` to be enabled as well.
+    pub inline_footnotes: bool,
+
+    /// Enables the description lists extension.
+    pub description_lists: bool,
+
+    /// Enables the front matter extension.
+    ///
+    /// When set to Some(delimiter), allows YAML front matter at the
+    /// beginning of the document.
+    pub front_matter_delimiter: Option<String>,
+
+    /// Enables the multiline block quote extension.
+    pub multiline_block_quotes: bool,
+
+    /// Enables GitHub style alerts.
+    pub alerts: bool,
+
+    /// Enables math using dollar syntax.
+    pub math_dollars: bool,
+
+    /// Enables math using code syntax.
+    pub math_code: bool,
+
+    /// Enables wikilinks using title after pipe syntax.
+    pub wikilinks_title_after_pipe: bool,
+
+    /// Enables wikilinks using title before pipe syntax.
+    pub wikilinks_title_before_pipe: bool,
+
+    /// Enables underlines using double underscores.
+    pub underline: bool,
+
+    /// Enables spoilers using double vertical bars.
+    pub spoiler: bool,
+
+    /// Requires a space after `>` for blockquotes.
+    pub greentext: bool,
+
+    /// Enables highlighting (mark) using `==`.
+    pub highlight: bool,
+
+    /// Enables inserted text using `++`.
+    pub insert: bool,
+
+    /// Recognizes many emphasis that appear in CJK contexts.
+    ///
+    /// This enables emphasis patterns that are common in CJK text but
+    /// not recognized by plain CommonMark.
+    pub cjk_friendly_emphasis: bool,
+
+    /// Enables block scoped subscript that acts similar to a header.
+    ///
+    /// ```markdown
+    /// -# subtext
+    /// ```
+    pub subtext: bool,
+
+    /// Wraps embedded image URLs using a function or custom trait object.
+    pub image_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
+
+    /// Wraps link URLs using a function or custom trait object.
+    pub link_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
+}
+
+impl<'c> Default for Extension<'c> {
+    fn default() -> Self {
+        Self {
+            strikethrough: false,
+            tagfilter: false,
+            table: false,
+            autolink: false,
+            tasklist: false,
+            superscript: false,
+            subscript: false,
+            header_ids: None,
+            footnotes: false,
+            inline_footnotes: false,
+            description_lists: false,
+            front_matter_delimiter: None,
+            multiline_block_quotes: false,
+            alerts: false,
+            math_dollars: false,
+            math_code: false,
+            wikilinks_title_after_pipe: false,
+            wikilinks_title_before_pipe: false,
+            underline: false,
+            spoiler: false,
+            greentext: false,
+            highlight: false,
+            insert: false,
+            cjk_friendly_emphasis: false,
+            subtext: false,
+            image_url_rewriter: None,
+            link_url_rewriter: None,
+        }
+    }
+}
+
+impl<'c> Debug for Extension<'c> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Extension")
+            .field("strikethrough", &self.strikethrough)
+            .field("tagfilter", &self.tagfilter)
+            .field("table", &self.table)
+            .field("autolink", &self.autolink)
+            .field("tasklist", &self.tasklist)
+            .field("superscript", &self.superscript)
+            .field("subscript", &self.subscript)
+            .field("header_ids", &self.header_ids)
+            .field("footnotes", &self.footnotes)
+            .field("inline_footnotes", &self.inline_footnotes)
+            .field("description_lists", &self.description_lists)
+            .field("front_matter_delimiter", &self.front_matter_delimiter)
+            .field("multiline_block_quotes", &self.multiline_block_quotes)
+            .field("alerts", &self.alerts)
+            .field("math_dollars", &self.math_dollars)
+            .field("math_code", &self.math_code)
+            .field("wikilinks_title_after_pipe", &self.wikilinks_title_after_pipe)
+            .field("wikilinks_title_before_pipe", &self.wikilinks_title_before_pipe)
+            .field("underline", &self.underline)
+            .field("spoiler", &self.spoiler)
+            .field("greentext", &self.greentext)
+            .field("highlight", &self.highlight)
+            .field("insert", &self.insert)
+            .field("cjk_friendly_emphasis", &self.cjk_friendly_emphasis)
+            .field("subtext", &self.subtext)
+            .field("image_url_rewriter", &"<dyn URLRewriter>")
+            .field("link_url_rewriter", &"<dyn URLRewriter>")
+            .finish()
+    }
+}
+
+impl<'c> Extension<'c> {
+    /// Returns the wikilinks mode if either wikilinks option is enabled.
+    pub fn wikilinks(&self) -> Option<WikiLinksMode> {
+        match (
+            self.wikilinks_title_before_pipe,
+            self.wikilinks_title_after_pipe,
+        ) {
+            (false, false) => None,
+            (true, false) => Some(WikiLinksMode::TitleFirst),
+            (_, _) => Some(WikiLinksMode::UrlFirst),
+        }
+    }
+}
+
+/// Selects between wikilinks with the title first or the URL first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WikiLinksMode {
+    /// Indicates that the URL precedes the title.
+    /// For example: `[[http://example.com|link title]]`.
+    UrlFirst,
+
+    /// Indicates that the title precedes the URL.
+    /// For example: `[[link title|http://example.com]]`.
+    TitleFirst,
+}
+
+/// Options for parser functions.
+///
+/// The lifetime parameter `'c` allows parse options to hold references to
+/// external data such as broken link callbacks.
+#[derive(Clone)]
+pub struct Parse<'c> {
+    /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
+    ///
+    /// ```rust,ignore
+    /// use clmd::{markdown_to_html, parser::options::Options};
+    ///
+    /// let mut options = Options::default();
+    /// let input = "'Hello,' \"world\" ...";
+    ///
+    /// let html = clmd::markdown_to_html(input, &options);
+    /// // Without smart: <p>'Hello,' &quot;world&quot; ...</p>
+    ///
+    /// options.parse.smart = true;
+    /// let html = clmd::markdown_to_html(input, &options);
+    /// // With smart: <p>'Hello,' "world" …</p>
+    /// ```
+    pub smart: bool,
+
+    /// Include a `data-sourcepos` attribute on all block elements.
+    pub sourcepos: bool,
+
+    /// Validate UTF-8 in the input before parsing.
+    pub validate_utf8: bool,
+
+    /// The default info string for fenced code blocks.
+    pub default_info_string: Option<String>,
+
+    /// Relax tasklist matching to allow any symbol in brackets.
+    pub relaxed_tasklist_matching: bool,
+
+    /// Ignore setext headings in input.
+    pub ignore_setext: bool,
+
+    /// Leave footnote definitions in place in the document tree.
+    pub leave_footnote_definitions: bool,
+
+    /// Whether tasklist items can be parsed in table cells.
+    ///
+    /// At present, the tasklist item must be the only content in the cell.
+    /// Both tables and tasklists must be enabled for this to work.
+    pub tasklist_in_table: bool,
+
+    /// Relax parsing of autolinks.
+    ///
+    /// Allows links to be detected inside brackets and allow all URL schemes.
+    /// Intended to allow specific autolink detection patterns like
+    /// `[this http://and.com that]` or `{http://foo.com}`.
+    pub relaxed_autolinks: bool,
+
+    /// Leave escaped characters in an `Escaped` node in the document tree.
+    pub escaped_char_spans: bool,
+
+    /// Callback for resolving broken link references.
+    ///
+    /// When the parser encounters a potential link that has a broken reference
+    /// (e.g `[foo]` when there is no `[foo]: url` entry), this callback is called
+    /// to potentially resolve the reference.
+    pub broken_link_callback: Option<Arc<dyn BrokenLinkCallback + 'c>>,
+}
+
+impl<'c> Default for Parse<'c> {
+    fn default() -> Self {
+        Self {
+            smart: false,
+            sourcepos: false,
+            validate_utf8: false,
+            default_info_string: None,
+            relaxed_tasklist_matching: false,
+            ignore_setext: false,
+            leave_footnote_definitions: false,
+            tasklist_in_table: false,
+            relaxed_autolinks: false,
+            escaped_char_spans: false,
+            broken_link_callback: None,
+        }
+    }
+}
+
+impl<'c> Debug for Parse<'c> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Parse")
+            .field("smart", &self.smart)
+            .field("sourcepos", &self.sourcepos)
+            .field("validate_utf8", &self.validate_utf8)
+            .field("default_info_string", &self.default_info_string)
+            .field("relaxed_tasklist_matching", &self.relaxed_tasklist_matching)
+            .field("ignore_setext", &self.ignore_setext)
+            .field("leave_footnote_definitions", &self.leave_footnote_definitions)
+            .field("tasklist_in_table", &self.tasklist_in_table)
+            .field("relaxed_autolinks", &self.relaxed_autolinks)
+            .field("escaped_char_spans", &self.escaped_char_spans)
+            .field("broken_link_callback", &"<dyn BrokenLinkCallback>")
+            .finish()
+    }
+}
+
+/// Options for formatter functions.
+#[derive(Debug, Clone, Copy)]
+pub struct Render {
+    /// Soft line breaks in the input translate into hard line breaks in the output.
+    ///
+    /// ```rust,ignore
+    /// use clmd::{markdown_to_html, parser::options::Options};
+    ///
+    /// let mut options = Options::default();
+    /// let input = "Hello.\nWorld.\n";
+    ///
+    /// let html = clmd::markdown_to_html(input, &options);
+    /// assert!(html.contains("Hello.\nWorld."));
+    ///
+    /// options.render.hardbreaks = true;
+    /// let html = clmd::markdown_to_html(input, &options);
+    /// assert!(html.contains("<br />"));
+    /// ```
+    pub hardbreaks: bool,
+
+    /// Soft line breaks in the input translate into spaces.
+    pub nobreaks: bool,
+
+    /// Allow rendering of raw HTML and potentially dangerous links.
+    ///
+    /// # Security Warning
+    ///
+    /// Only enable this option if you trust the input completely.
+    /// Rendering untrusted user input with this option enabled can
+    /// lead to XSS (Cross-Site Scripting) attacks.
+    pub r#unsafe: bool,
+
+    /// Escape raw HTML instead of removing it.
+    pub escape: bool,
+
+    /// GitHub-style `<pre lang="xyz">` for fenced code blocks.
+    pub github_pre_lang: bool,
+
+    /// Enable full info strings for code blocks.
+    pub full_info_string: bool,
+
+    /// The wrap column when outputting CommonMark.
+    /// A value of 0 disables wrapping.
+    pub width: usize,
+
+    /// List style type for bullet lists.
+    pub list_style: ListStyleType,
+
+    /// Prefer fenced code blocks when outputting CommonMark.
+    pub prefer_fenced: bool,
+
+    /// Ignore empty links in input.
+    pub ignore_empty_links: bool,
+
+    /// Add classes to tasklist output.
+    pub tasklist_classes: bool,
+
+    /// Compact HTML output (no newlines between block elements).
+    pub compact_html: bool,
+
+    /// Include source position attributes in HTML and XML output.
+    ///
+    /// Sourcepos information is reliable for core block items excluding
+    /// lists and list items, all inlines, and most extensions.
+    pub sourcepos: bool,
+
+    /// Enables GFM quirks in HTML output which break CommonMark compatibility.
+    ///
+    /// This changes how nested emphasis is rendered to match GitHub's behavior.
+    pub gfm_quirks: bool,
+
+    /// Render the image as a figure element with the title as its caption.
+    pub figure_with_caption: bool,
+
+    /// Render ordered list with a minimum marker width.
+    /// Having a width lower than 3 doesn't do anything.
+    pub ol_width: usize,
+
+    /// Wrap escaped characters in a `<span>` to allow any
+    /// post-processing to recognize them.
+    ///
+    /// Note that enabling this option will cause the `escaped_char_spans`
+    /// parse option to be enabled.
+    pub escaped_char_spans: bool,
+}
+
+impl Default for Render {
+    fn default() -> Self {
+        Self {
+            hardbreaks: false,
+            nobreaks: false,
+            r#unsafe: false,
+            escape: false,
+            github_pre_lang: false,
+            full_info_string: false,
+            width: 0,
+            list_style: ListStyleType::default(),
+            prefer_fenced: false,
+            ignore_empty_links: false,
+            tasklist_classes: false,
+            compact_html: false,
+            sourcepos: false,
+            gfm_quirks: false,
+            figure_with_caption: false,
+            ol_width: 0,
+            escaped_char_spans: false,
+        }
+    }
+}
+
+/// Style type for bullet lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ListStyleType {
+    /// Use `-` for bullet lists.
+    #[default]
+    Dash,
+    /// Use `+` for bullet lists.
+    Plus,
+    /// Use `*` for bullet lists.
+    Star,
+}
+
+/// Trait for link and image URL rewrite extensions.
+pub trait URLRewriter: Send + Sync {
+    /// Converts the given URL from Markdown to its representation when output as HTML.
+    fn rewrite(&self, url: &str) -> String;
+}
+
+impl Debug for dyn URLRewriter + '_ {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        formatter.write_str("<dyn URLRewriter>")
+    }
+}
+
+impl<F> URLRewriter for F
+where
+    F: Fn(&str) -> String + Send + Sync,
+{
+    fn rewrite(&self, url: &str) -> String {
+        self(url)
+    }
+}
+
+/// The type of the callback used when a reference link is encountered with no
+/// matching reference.
+///
+/// The details of the broken reference are passed in the
+/// [`BrokenLinkReference`] argument. If a [`ResolvedReference`] is returned, it
+/// is used as the link; otherwise, no link is made and the reference text is
+/// preserved in its entirety.
+pub trait BrokenLinkCallback: Send + Sync {
+    /// Potentially resolve a single broken link reference.
+    fn resolve(&self, broken_link_reference: BrokenLinkReference) -> Option<ResolvedReference>;
+}
+
+impl Debug for dyn BrokenLinkCallback + '_ {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        formatter.write_str("<dyn BrokenLinkCallback>")
+    }
+}
+
+impl<F> BrokenLinkCallback for F
+where
+    F: Fn(BrokenLinkReference) -> Option<ResolvedReference> + Send + Sync,
+{
+    fn resolve(&self, broken_link_reference: BrokenLinkReference) -> Option<ResolvedReference> {
+        self(broken_link_reference)
+    }
+}
+
+/// Struct to the broken link callback, containing details on the link reference
+/// which failed to find a match.
+#[derive(Debug)]
+pub struct BrokenLinkReference<'l> {
+    /// The normalized reference link label. Unicode case folding is applied.
+    pub normalized: &'l str,
+
+    /// The original text in the link label.
+    pub original: &'l str,
+}
+
+/// A reference link's resolved details.
+#[derive(Clone, Debug)]
+pub struct ResolvedReference {
+    /// The destination URL of the reference link.
+    pub url: String,
+
+    /// The text of the link.
+    pub title: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_options() {
+        let options = Options::default();
+        assert!(!options.extension.strikethrough);
+        assert!(!options.extension.table);
+        assert!(!options.parse.smart);
+        assert!(!options.render.hardbreaks);
+    }
+
+    #[test]
+    fn test_options_new() {
+        let options = Options::new();
+        assert!(!options.extension.strikethrough);
+        assert!(!options.extension.table);
+    }
+
+    #[test]
+    fn test_extension_wikilinks() {
+        let mut ext = Extension::default();
+        assert_eq!(ext.wikilinks(), None);
+
+        ext.wikilinks_title_before_pipe = true;
+        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::TitleFirst));
+
+        ext.wikilinks_title_after_pipe = true;
+        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::UrlFirst));
+    }
+
+    #[test]
+    fn test_list_style_type_default() {
+        let style: ListStyleType = Default::default();
+        assert_eq!(style, ListStyleType::Dash);
+    }
+}

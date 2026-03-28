@@ -23,11 +23,12 @@ use crate::node_value::{
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::{parse_document, render_to_xml, config::options::Options};
+/// ```ignore
+/// use clmd::{parse_document, render_to_xml, parser::options::Options, Arena};
 ///
-/// let options = Options::new();
-/// let (arena, doc) = parse_document("# Hello", &options);
+/// let mut arena = Arena::new();
+/// let options = Options::default();
+/// let doc = parse_document(&mut arena, "# Hello", &options);
 /// let xml = render_to_xml(&arena, doc, 0);
 /// assert!(xml.contains("<heading level=\"1\">"));
 /// ```

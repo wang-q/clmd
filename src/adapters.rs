@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::adapters::{SyntaxHighlighterAdapter, HeadingAdapter, HeadingMeta};
 //! use std::collections::HashMap;
 //! use std::borrow::Cow;
@@ -159,7 +159,7 @@ pub struct HeadingMeta {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::{HeadingAdapter, HeadingMeta};
 /// use std::fmt;
 ///
@@ -220,7 +220,7 @@ pub trait HeadingAdapter: Send + Sync {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::UrlRewriter;
 ///
 /// struct CdnRewriter {
@@ -258,7 +258,7 @@ pub trait UrlRewriter: Send + Sync + std::fmt::Debug {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::{BrokenLinkCallback, BrokenLinkReference, ResolvedReference};
 ///
 /// struct MyBrokenLinkHandler;

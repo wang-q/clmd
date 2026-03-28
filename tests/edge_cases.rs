@@ -4,8 +4,10 @@
 //! covered by the standard CommonMark spec tests.
 
 use clmd::markdown_to_html;
-use clmd::options::Options;
-use clmd::{Parser, ParserLimits};
+use clmd::parser::options::Options;
+use clmd::parser::Parser;
+use clmd::error::ParserLimits;
+use clmd::Arena;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
@@ -153,10 +155,12 @@ fn test_unmatched_backticks() {
 /// Test parser limits - input too large
 #[test]
 fn test_input_too_large() {
-    let parser = Parser::with_limits(0, ParserLimits::new().max_input_size(100));
+    let options = Options::default();
+    let parser = Parser::with_limits(&options, ParserLimits::new().max_input_size(100));
 
     let large_input = "a".repeat(101);
-    let result = parser.parse(&large_input);
+    let mut arena = Arena::new();
+    let result = parser.parse(&mut arena, &large_input);
 
     assert!(result.is_err(), "Should fail for input exceeding max size");
 }
@@ -164,11 +168,13 @@ fn test_input_too_large() {
 /// Test parser limits - line too long
 #[test]
 fn test_line_too_long() {
-    let parser = Parser::with_limits(0, ParserLimits::new().max_line_length(50));
+    let options = Options::default();
+    let parser = Parser::with_limits(&options, ParserLimits::new().max_line_length(50));
 
     let long_line = "a".repeat(100);
     let input = format!("{}\n", long_line);
-    let result = parser.parse(&input);
+    let mut arena = Arena::new();
+    let result = parser.parse(&mut arena, &input);
 
     assert!(result.is_err(), "Should fail for line exceeding max length");
 }
@@ -204,7 +210,8 @@ fn test_line_endings() {
 /// Test extreme nesting depth
 #[test]
 fn test_extreme_nesting() {
-    let parser = Parser::with_limits(0, ParserLimits::new().max_nesting_depth(10));
+    let options = Options::default();
+    let parser = Parser::with_limits(&options, ParserLimits::new().max_nesting_depth(10));
 
     // Create input that exceeds nesting depth
     let mut input = String::new();
@@ -213,7 +220,8 @@ fn test_extreme_nesting() {
     }
     input.push_str("text\n");
 
-    let result = parser.parse(&input);
+    let mut arena = Arena::new();
+    let result = parser.parse(&mut arena, &input);
     // Should either succeed or fail gracefully
     assert!(result.is_ok() || result.is_err());
 }

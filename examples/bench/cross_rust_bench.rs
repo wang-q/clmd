@@ -13,7 +13,8 @@ use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
 #[cfg(feature = "pulldown-cmark")]
 use pulldown_cmark::{html, Parser};
 
-use clmd::{markdown_to_html as clmd_to_html, Options as ClmdOptions};
+use clmd::markdown_to_html as clmd_to_html;
+use clmd::parser::options::Options as ClmdOptions;
 use std::env;
 use std::fs;
 

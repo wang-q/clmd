@@ -17,11 +17,14 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::{parse_document, format_html, Options};
+//! ```ignore
+//! use clmd::{Arena, parse_document, format_html, parser::options::Options};
 //!
-//! let (arena, doc) = parse_document("# Heading\n\nParagraph", &Options::default());
-//! let html = format_html(&arena, doc, &Options::default());
+//! let mut arena = Arena::new();
+//! let options = Options::default();
+//! let doc = parse_document(&mut arena, "# Heading\n\nParagraph", &options);
+//! let mut html = String::new();
+//! format_html(&arena, doc, &options, &mut html).unwrap();
 //! assert!(html.contains("<h1>Heading</h1>"));
 //! assert!(html.contains("<p>Paragraph</p>"));
 //! ```

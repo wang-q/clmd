@@ -3,7 +3,8 @@
 //! Tests for extreme input cases that could cause performance issues
 //! or stack overflows. Based on cmark's pathological_tests.py.
 
-use clmd::{markdown_to_html, Options};
+use clmd::markdown_to_html;
+use clmd::parser::options::Options;
 use std::time::{Duration, Instant};
 
 const TIMEOUT: Duration = Duration::from_secs(5);

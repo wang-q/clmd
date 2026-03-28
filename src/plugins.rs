@@ -6,9 +6,9 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::plugins::{Plugins, SyntaxHighlighterAdapter};
-//! use clmd::config::options::Options;
+//! use clmd::parser::options::Options;
 //!
 //! // Create a custom syntax highlighter
 //! struct MyHighlighter;

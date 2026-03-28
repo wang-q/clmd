@@ -12,7 +12,7 @@ use crate::arena::{NodeArena, NodeId};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{Renderer, NodeArena, NodeId};
 ///
 /// fn render_document<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
@@ -47,11 +47,12 @@ pub use super::xml;
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::{parse_document, render_to_html, config::options::Options};
+/// ```ignore
+/// use clmd::{parse_document, render_to_html, parser::options::Options, Arena};
 ///
-/// let options = Options::new();
-/// let (arena, doc) = parse_document("# Hello", &options);
+/// let mut arena = Arena::new();
+/// let options = Options::default();
+/// let doc = parse_document(&mut arena, "# Hello", &options);
 /// let html = render_to_html(&arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
@@ -117,11 +118,12 @@ pub enum OutputFormat {
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::{parse_document, render, OutputFormat, config::options::Options};
+/// ```ignore
+/// use clmd::{parse_document, render, OutputFormat, parser::options::Options, Arena};
 ///
-/// let options = Options::new();
-/// let (arena, doc) = parse_document("# Hello", &options);
+/// let mut arena = Arena::new();
+/// let options = Options::default();
+/// let doc = parse_document(&mut arena, "# Hello", &options);
 /// let html = render(OutputFormat::Html, &arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```

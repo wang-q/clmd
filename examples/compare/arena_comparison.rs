@@ -2,7 +2,8 @@
 //!
 //! This example tests the performance of the Arena-based implementation.
 
-use clmd::{markdown_to_html, Options};
+use clmd::markdown_to_html;
+use clmd::parser::options::Options;
 use std::time::Instant;
 
 fn main() {

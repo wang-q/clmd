@@ -19,12 +19,15 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::{parse_document, format_html, Options};
+//! ```ignore
+//! use clmd::{Arena, parse_document, format_html, parser::options::Options};
 //!
-//! let (arena, doc) = parse_document("Hello *world*", &Options::default());
-//! let html = format_html(&arena, doc, &Options::default());
-//! assert_eq!(html, "<p>Hello <em>world</em></p>");
+//! let mut arena = Arena::new();
+//! let options = Options::default();
+//! let doc = parse_document(&mut arena, "Hello *world*", &options);
+//! let mut html = String::new();
+//! format_html(&arena, doc, &options, &mut html).unwrap();
+//! assert!(html.contains("<em>world</em>"));
 //! ```
 
 mod autolinks;

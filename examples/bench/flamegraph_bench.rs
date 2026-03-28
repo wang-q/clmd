@@ -4,7 +4,8 @@
 //!
 //! This runs many iterations to get good profiling data for flamegraph generation.
 
-use clmd::{markdown_to_html, Options};
+use clmd::markdown_to_html;
+use clmd::parser::options::Options;
 
 fn main() {
     // Use lorem1_full_document as it's the most comprehensive test

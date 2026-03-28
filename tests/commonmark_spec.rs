@@ -1,4 +1,4 @@
-use clmd::options::Options;
+use clmd::parser::options::Options;
 use clmd::markdown_to_html;
 use std::collections::HashMap;
 use std::fs;

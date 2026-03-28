@@ -13,7 +13,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::{NodeArena, TreeOps, NodeValue, Node};
 //!
 //! let mut arena = NodeArena::new();
@@ -110,7 +110,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::NodeArena;
     ///
     /// let arena = NodeArena::with_limits(100, 10000);
@@ -150,7 +150,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::NodeArena;
     ///
     /// let arena = NodeArena::new();

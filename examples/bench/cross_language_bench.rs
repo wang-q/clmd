@@ -7,7 +7,8 @@
 //!   cargo build --release --example cross_language_bench
 //!   ./target/release/examples/cross_language_bench <markdown-file>
 
-use clmd::{markdown_to_html, Options};
+use clmd::markdown_to_html;
+use clmd::parser::options::Options;
 use std::env;
 use std::fs;
 
