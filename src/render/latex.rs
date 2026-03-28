@@ -1,7 +1,7 @@
 //! LaTeX renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::{
+use crate::nodes::{
     ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue,
 };
 
@@ -418,7 +418,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
             list_type: ListType::Bullet,
-            delimiter: crate::node_value::ListDelimType::Period,
+            delimiter: crate::nodes::ListDelimType::Period,
             start: 1,
             tight: true,
             bullet_char: b'-',

@@ -2,8 +2,9 @@
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 use smallvec::SmallVec;
+use std::borrow::Cow;
 
 /// Delimiter struct for tracking emphasis markers
 /// This is a singly-linked list using Box for ownership
@@ -203,8 +204,10 @@ fn update_delimiter_text(
     let node = arena.get_mut(node_id);
     if let NodeValue::Text(ref mut literal) = node.value {
         let new_len = literal.len().saturating_sub(use_delims);
-        literal.truncate(new_len);
-        literal.clone()
+        let mut s = literal.to_string();
+        s.truncate(new_len);
+        *literal = Cow::Owned(s);
+        literal.to_string()
     } else {
         String::new()
     }
@@ -277,7 +280,7 @@ fn process_smart_quotes(
     {
         let node = arena.get_mut(closer_inl);
         if let NodeValue::Text(ref mut literal) = node.value {
-            *literal = quote_char.to_string();
+            *literal = Cow::Owned(quote_char.to_string());
         }
     }
 
@@ -291,7 +294,7 @@ fn process_smart_quotes(
 
         let node = arena.get_mut(opener_inl);
         if let NodeValue::Text(ref mut literal) = node.value {
-            *literal = open_quote.to_string();
+            *literal = Cow::Owned(open_quote.to_string());
         }
     }
 }

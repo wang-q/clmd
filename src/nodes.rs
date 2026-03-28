@@ -4,7 +4,19 @@
 //! It is inspired by comrak's design, combining node values with metadata
 //! into a unified structure.
 
+use std::borrow::Cow;
 use std::cell::RefCell;
+
+/// Shorthand for checking if a node's value matches the given expression.
+///
+/// Note this will call `node.data()`, which will fail if the node is already
+/// mutably borrowed.
+#[macro_export]
+macro_rules! node_matches {
+    ($node:expr, $( $pat:pat_param )|+) => {{
+        matches!($node.data().value, $( $pat )|+)
+    }};
+}
 
 /// The core AST node value enum.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +76,7 @@ pub enum NodeValue {
     TableCell,
 
     /// Textual content.
-    Text(String),
+    Text(Cow<'static, str>),
 
     /// A task list item (GFM extension).
     TaskItem(NodeTaskItem),
@@ -164,6 +176,52 @@ pub struct Ast {
     pub(crate) line_offsets: Vec<usize>,
 }
 
+/// The type of a node within the document.
+///
+/// It is bound by the lifetime `'a`, which corresponds to the `Arena` nodes are
+/// allocated in. Child `Ast`s are wrapped in `RefCell` for interior mutability.
+///
+/// You can construct a new `AstNode` from a `NodeValue` using the `From` trait:
+///
+/// ```ignore
+/// # use clmd::nodes::{AstNode, NodeValue};
+/// let root = AstNode::from(NodeValue::Document);
+/// ```
+///
+/// Note that no sourcepos information is given to the created node. If you wish
+/// to assign sourcepos information, use the `From` trait to create an `AstNode`
+/// from an `Ast`:
+///
+/// ```ignore
+/// # use clmd::nodes::{Ast, AstNode, NodeValue};
+/// let root = AstNode::from(Ast::new_with_sourcepos(
+///     NodeValue::Paragraph,
+///     SourcePos::new(4, 1, 4, 10),
+/// ));
+/// ```
+///
+/// For practical use, you'll probably need it allocated in an `Arena`, in which
+/// case you can use `.into()` to simplify creation:
+///
+/// ```ignore
+/// # use clmd::{nodes::{AstNode, NodeValue}, Arena};
+/// # let arena = Arena::new();
+/// let node_in_arena = arena.alloc(NodeValue::Document.into());
+/// ```
+pub type AstNode<'a> = crate::arena_tree::Node<'a, RefCell<Ast>>;
+
+/// A reference to a node in an arena.
+pub type Node<'a> = &'a AstNode<'a>;
+
+// Size assertions to monitor type sizes (matching comrak's approach)
+#[allow(dead_code)]
+#[cfg(target_pointer_width = "64")]
+const AST_SIZE_ASSERTION: [u8; 160] = [0; std::mem::size_of::<Ast>()];
+
+#[allow(dead_code)]
+#[cfg(target_pointer_width = "64")]
+const AST_NODE_SIZE_ASSERTION: [u8; 208] = [0; std::mem::size_of::<AstNode<'_>>()];
+
 impl std::fmt::Debug for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<{:?} ({:?})>", self.value, self.sourcepos)
@@ -172,6 +230,9 @@ impl std::fmt::Debug for Ast {
 
 impl Ast {
     /// Create a new AST node with the given value and starting sourcepos.
+    /// The end column is set to zero; it is expected this will be set manually
+    /// or later in the parse. Use [`Ast::new_with_sourcepos`] if you have full
+    /// sourcepos.
     pub fn new(value: NodeValue, start: LineColumn) -> Self {
         Ast {
             value,
@@ -201,18 +262,19 @@ impl Ast {
     }
 }
 
-/// The type of a node within the document.
-///
-/// This is a type alias for use with arena-based allocation.
-/// For clmd's specific arena implementation, see the `arena` module.
-pub type AstNode<'a> = RefCell<Ast>;
+impl<'a> From<NodeValue> for AstNode<'a> {
+    /// Create a new AST node with the given value. The sourcepos is set to (0,0)-(0,0).
+    fn from(value: NodeValue) -> Self {
+        crate::arena_tree::Node::new(RefCell::new(Ast::new(value, LineColumn::default())))
+    }
+}
 
-/// A reference to a node in an arena.
-///
-/// Note: This is a placeholder type alias. In clmd's arena-based system,
-/// nodes are referenced by `NodeId` rather than direct references.
-/// See the `arena` module for the actual implementation.
-pub type Node<'a> = &'a AstNode<'a>;
+impl<'a> From<Ast> for AstNode<'a> {
+    /// Create a new AST node with the given Ast.
+    fn from(ast: Ast) -> Self {
+        crate::arena_tree::Node::new(RefCell::new(ast))
+    }
+}
 
 /// Represents a position in the source document.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -230,16 +292,11 @@ impl LineColumn {
         Self { line, column }
     }
 
-    /// Returns a new LineColumn with the column adjusted by the given offset.
-    pub fn column_add(&self, offset: isize) -> Option<LineColumn> {
-        let new_column = (self.column as isize) + offset;
-        if new_column >= 1 {
-            Some(LineColumn {
-                line: self.line,
-                column: new_column as usize,
-            })
-        } else {
-            None
+    /// Return a new LineColumn based on this one, with the column adjusted by offset.
+    pub fn column_add(&self, offset: isize) -> LineColumn {
+        LineColumn {
+            line: self.line,
+            column: usize::try_from((self.column as isize) + offset).unwrap(),
         }
     }
 }
@@ -696,7 +753,9 @@ impl NodeValue {
         )
     }
 
-    /// Get the text content if this is a text node.
+    /// Return a reference to the text of a `Text` inline, if this node is one.
+    ///
+    /// Convenience method.
     pub fn text(&self) -> Option<&str> {
         match self {
             NodeValue::Text(text) => Some(text),
@@ -704,8 +763,10 @@ impl NodeValue {
         }
     }
 
-    /// Get the mutable text content if this is a text node.
-    pub fn text_mut(&mut self) -> Option<&mut String> {
+    /// Return a mutable reference to the text of a `Text` inline, if this node is one.
+    ///
+    /// Convenience method.
+    pub fn text_mut(&mut self) -> Option<&mut Cow<'static, str>> {
         match self {
             NodeValue::Text(text) => Some(text),
             _ => None,
@@ -840,25 +901,25 @@ mod tests {
     fn test_node_value_classification() {
         assert!(NodeValue::Document.is_block());
         assert!(NodeValue::Paragraph.is_block());
-        assert!(!NodeValue::Text(String::new()).is_block());
+        assert!(!NodeValue::Text(Cow::Borrowed("")).is_block());
 
-        assert!(NodeValue::Text(String::new()).is_inline());
+        assert!(NodeValue::Text(Cow::Borrowed("")).is_inline());
         assert!(NodeValue::Link(NodeLink::default()).is_inline());
         assert!(!NodeValue::Paragraph.is_inline());
 
-        assert!(NodeValue::Text(String::new()).is_leaf());
+        assert!(NodeValue::Text(Cow::Borrowed("")).is_leaf());
         assert!(NodeValue::CodeBlock(NodeCodeBlock::default()).is_leaf());
         assert!(!NodeValue::Paragraph.is_leaf());
     }
 
     #[test]
     fn test_text_methods() {
-        let mut value = NodeValue::Text("hello".to_string());
+        let mut value = NodeValue::Text(Cow::Borrowed("hello"));
         assert_eq!(value.text(), Some("hello"));
-        assert_eq!(value.text_mut(), Some(&mut "hello".to_string()));
+        assert_eq!(value.text_mut(), Some(&mut Cow::Borrowed("hello")));
 
         if let Some(text) = value.text_mut() {
-            text.push_str(" world");
+            *text = Cow::Owned(format!("{} world", text));
         }
         assert_eq!(value.text(), Some("hello world"));
 
@@ -871,7 +932,7 @@ mod tests {
     fn test_xml_node_names() {
         assert_eq!(NodeValue::Document.xml_node_name(), "document");
         assert_eq!(NodeValue::Paragraph.xml_node_name(), "paragraph");
-        assert_eq!(NodeValue::Text(String::new()).xml_node_name(), "text");
+        assert_eq!(NodeValue::Text(Cow::Borrowed("")).xml_node_name(), "text");
         assert_eq!(NodeValue::Strong.xml_node_name(), "strong");
     }
 
@@ -948,7 +1009,7 @@ mod tests {
         // Paragraph can contain inlines
         assert!(can_contain_type(
             &NodeValue::Paragraph,
-            &NodeValue::Text("hi".to_string())
+            &NodeValue::Text(Cow::Borrowed("hi"))
         ));
         assert!(!can_contain_type(
             &NodeValue::Paragraph,

@@ -146,7 +146,7 @@ pub fn render(
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::node_value::NodeValue;
+    use crate::nodes::NodeValue;
 
     #[test]
     fn test_output_format_enum() {

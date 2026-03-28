@@ -6,7 +6,7 @@
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::lexer::TAB_STOP;
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 
 impl<'a> BlockParser<'a> {
     /// Check if parent can contain child

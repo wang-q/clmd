@@ -4,7 +4,7 @@
 //! Useful for debugging and AST inspection.
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::{
+use crate::nodes::{
     ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeHtmlBlock,
     NodeLink, NodeList, NodeValue,
 };
@@ -156,9 +156,18 @@ impl<'a> XmlRenderer<'a> {
         // Handle leaf nodes with literal content
         if self.is_leaf(node_id) {
             match &node.value {
-                NodeValue::Text(literal)
-                | NodeValue::HtmlInline(literal)
-                | NodeValue::Raw(literal) => {
+                NodeValue::Text(literal) => {
+                    if !literal.is_empty() {
+                        self.output.push('>');
+                        self.output.push_str(&escape_xml(literal.as_ref()));
+                        self.output.push_str("</");
+                        self.output.push_str(tag_name);
+                        self.output.push('>');
+                    } else {
+                        self.output.push_str(" />");
+                    }
+                }
+                NodeValue::HtmlInline(literal) | NodeValue::Raw(literal) => {
                     if !literal.is_empty() {
                         self.output.push('>');
                         self.output.push_str(&escape_xml(literal));

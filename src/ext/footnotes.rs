@@ -19,7 +19,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{
+use crate::nodes::{
     NodeFootnoteDefinition, NodeFootnoteReference, NodeValue, SourcePos,
 };
 
@@ -84,7 +84,7 @@ pub fn create_footnote_def_node(
 
     // Create a paragraph for the content
     let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-    let text = arena.alloc(Node::with_value(NodeValue::Text(content.to_string())));
+    let text = arena.alloc(Node::with_value(NodeValue::Text(content.to_string().into())));
     TreeOps::append_child(arena, para, text);
     TreeOps::append_child(arena, node, para);
 
@@ -176,7 +176,7 @@ pub fn get_footnote_content(arena: &NodeArena, def_node: NodeId) -> String {
         // Get first child of paragraph (should be text)
         if let Some(text_id) = arena.get(para_id).first_child {
             if let NodeValue::Text(ref text) = arena.get(text_id).value {
-                content = text.clone();
+                content = text.to_string();
             }
         }
     }

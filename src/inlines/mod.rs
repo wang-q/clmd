@@ -39,8 +39,9 @@ mod text;
 mod utils;
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{NodeCode, NodeLink, NodeValue};
+use crate::nodes::{NodeCode, NodeLink, NodeValue};
 use autolinks::{match_email_autolink, match_url_autolink};
+use std::borrow::Cow;
 use emphasis::{
     process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,
 };
@@ -277,7 +278,7 @@ impl<'a> Subject<'a> {
                 let new_literal = literal[..new_len].to_string();
                 let node = arena.get_mut(last_child);
                 if let NodeValue::Text(ref mut literal) = node.value {
-                    *literal = new_literal;
+                    *literal = Cow::Owned(new_literal);
                 }
             }
         }
@@ -449,7 +450,7 @@ impl<'a> Subject<'a> {
                 // This looks like it could be an autolink but failed validation
                 // Output the < as a literal character (it will be escaped during rendering)
                 let text_node =
-                    arena.alloc(Node::with_value(NodeValue::Text("<".to_string())));
+                    arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed("<"))));
                 TreeOps::append_child(arena, parent, text_node);
                 self.pos += 1;
                 return true;
@@ -467,7 +468,7 @@ impl<'a> Subject<'a> {
         }
 
         // Just a literal < - add it as text
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text("<".to_string())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed("<"))));
         TreeOps::append_child(arena, parent, text_node);
         self.pos += 1;
         true
@@ -543,7 +544,7 @@ impl<'a> Subject<'a> {
             })));
 
             // Add text content
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(email)));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(email.into())));
             TreeOps::append_child(arena, link_node, text_node);
             TreeOps::append_child(arena, parent, link_node);
 
@@ -559,7 +560,7 @@ impl<'a> Subject<'a> {
             })));
 
             // Add text content
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(url)));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(url.into())));
             TreeOps::append_child(arena, link_node, text_node);
             TreeOps::append_child(arena, parent, link_node);
 
@@ -619,7 +620,7 @@ impl<'a> Subject<'a> {
         } else {
             std::iter::repeat_n(c, res.num_delims).collect()
         };
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text(delim_text)));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(delim_text.into())));
         TreeOps::append_child(arena, parent, text_node);
 
         // Add to delimiter stack if it can open or close
@@ -641,7 +642,7 @@ impl<'a> Subject<'a> {
         // If this delimiter can open emphasis, add an empty text node as a barrier
         // to prevent subsequent text from being merged into the delimiter node.
         if res.can_open {
-            let barrier = arena.alloc(Node::with_value(NodeValue::Text(String::new())));
+            let barrier = arena.alloc(Node::with_value(NodeValue::Text(Cow::Borrowed(""))));
             TreeOps::append_child(arena, parent, barrier);
         }
 
@@ -653,7 +654,7 @@ impl<'a> Subject<'a> {
         self.advance(); // skip [
 
         // Create a new text node for the bracket (don't merge with previous)
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text("[".to_string())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text("[".into())));
         TreeOps::append_child(arena, parent, text_node);
 
         // Add to bracket stack
@@ -802,7 +803,7 @@ impl<'a> Subject<'a> {
                             // Create a separate text node for "![" to avoid merging with previous text
                             // This is important because the opener node will be unlinked when the image is processed
             let text_node =
-                arena.alloc(Node::with_value(NodeValue::Text("![".to_string())));
+                arena.alloc(Node::with_value(NodeValue::Text("![".into())));
             TreeOps::append_child(arena, parent, text_node);
 
             // Add to bracket stack as image
@@ -867,7 +868,7 @@ impl<'a> Subject<'a> {
             } else {
                 text_slice.to_string()
             };
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(literal)));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(literal.into())));
             TreeOps::append_child(arena, parent, text_node);
             true
         } else {
@@ -885,10 +886,10 @@ impl<'a> Subject<'a> {
             if let Some(last_child) = arena.get(parent).last_child {
                 if let NodeValue::Text(ref literal) = arena.get(last_child).value {
                     let trimmed = literal.trim_end_matches(' ').to_string();
-                    if trimmed != *literal {
+                    if trimmed != literal.as_ref() {
                         let node = arena.get_mut(last_child);
                         if let NodeValue::Text(ref mut literal) = node.value {
-                            *literal = trimmed;
+                            *literal = trimmed.into();
                         }
                     }
                 }
@@ -915,11 +916,11 @@ impl<'a> Subject<'a> {
                     // Check if either is a smart quote without cloning
                     let can_merge = {
                         let current_literal = match &arena.get(current).value {
-                            NodeValue::Text(literal) => literal.as_str(),
+                            NodeValue::Text(literal) => literal.as_ref(),
                             _ => "",
                         };
                         let next_literal = match &arena.get(next).value {
-                            NodeValue::Text(literal) => literal.as_str(),
+                            NodeValue::Text(literal) => literal.as_ref(),
                             _ => "",
                         };
                         !Self::is_smart_quote(current_literal)
@@ -928,10 +929,10 @@ impl<'a> Subject<'a> {
 
                     if can_merge {
                         // Get next's literal and merge into current
-                        let next_literal = {
+                        let next_literal: std::borrow::Cow<'static, str> = {
                             match &arena.get(next).value {
                                 NodeValue::Text(literal) => literal.clone(),
-                                _ => String::new(),
+                                _ => "".into(),
                             }
                         };
 
@@ -939,7 +940,7 @@ impl<'a> Subject<'a> {
                             let current_node = arena.get_mut(current);
                             if let NodeValue::Text(ref mut literal) = current_node.value
                             {
-                                literal.push_str(&next_literal);
+                                *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into();
                             }
                         }
 
@@ -980,14 +981,14 @@ impl<'a> Subject<'a> {
                 // Merge with existing text node
                 let last_node = arena.get_mut(last_child);
                 if let NodeValue::Text(ref mut literal) = last_node.value {
-                    literal.push_str(text);
+                    *literal = format!("{}{}", literal.as_ref(), text).into();
                 }
                 return last_child;
             }
         }
 
         // Create new text node
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }
@@ -1045,7 +1046,7 @@ pub fn parse_inlines_with_options(
     // should have NodeValue::Heading type, not NodeValue::Text type
     let parent_node = arena.get_mut(parent);
     if let NodeValue::Text(ref mut literal) = parent_node.value {
-        literal.clear();
+        *literal = "".into();
     }
 }
 

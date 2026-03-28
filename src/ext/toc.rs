@@ -13,7 +13,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::{NodeHeading, NodeValue};
+use crate::nodes::{NodeHeading, NodeValue};
 
 /// A TOC entry representing a heading
 #[derive(Debug, Clone)]

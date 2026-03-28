@@ -13,7 +13,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{NodeValue, SourcePos};
+use crate::nodes::{NodeValue, SourcePos};
 
 /// A definition list entry
 #[derive(Debug, Clone)]
@@ -130,7 +130,7 @@ pub fn create_definition_list_node(
 
         // Create text node for term
         let text_node =
-            arena.alloc(Node::with_value(NodeValue::Text(entry.term.clone())));
+            arena.alloc(Node::with_value(NodeValue::Text(entry.term.clone().into())));
 
         TreeOps::append_child(arena, term_node, text_node);
         TreeOps::append_child(arena, list_node, term_node);
@@ -141,7 +141,7 @@ pub fn create_definition_list_node(
                 arena.alloc(Node::with_value(NodeValue::Raw("<dd>".to_string())));
 
             // Create text node for definition
-            let text_node = arena.alloc(Node::with_value(NodeValue::Text(def.clone())));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(def.clone().into())));
 
             TreeOps::append_child(arena, def_node, text_node);
             TreeOps::append_child(arena, list_node, def_node);

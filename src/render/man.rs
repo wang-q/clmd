@@ -1,7 +1,7 @@
 //! Man page renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::{
+use crate::nodes::{
     ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeList, NodeValue,
 };
 

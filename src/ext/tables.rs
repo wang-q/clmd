@@ -12,7 +12,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{NodeTable, NodeValue, SourcePos, TableAlignment};
+use crate::nodes::{NodeTable, NodeValue, SourcePos, TableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {
@@ -195,7 +195,7 @@ pub fn try_parse_table(
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         // Create text node for content
-        let text = arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone())));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone().into())));
 
         // Build tree: cell -> para -> text
         TreeOps::append_child(arena, para, text);
@@ -233,7 +233,7 @@ pub fn try_parse_table(
 
             // Create text node for content
             let text =
-                arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone())));
+                arena.alloc(Node::with_value(NodeValue::Text(cell_content.clone().into())));
 
             // Build tree: cell -> para -> text
             TreeOps::append_child(arena, para, text);

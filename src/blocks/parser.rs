@@ -5,7 +5,7 @@
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::error::{ParseError, ParseResult, ParserLimits};
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 use rustc_hash::FxHashMap;
 
 /// Block parser state using Arena allocation

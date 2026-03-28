@@ -1,7 +1,7 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::{
+use crate::nodes::{
     ListDelimType, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
     NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTaskItem,
     NodeValue,

@@ -5,7 +5,7 @@ use crate::inlines::entities::unescape_string;
 use crate::inlines::utils::{
     is_escapable, is_punctuation, normalize_reference, normalize_uri,
 };
-use crate::node_value::{NodeLink, NodeValue};
+use crate::nodes::{NodeLink, NodeValue};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 

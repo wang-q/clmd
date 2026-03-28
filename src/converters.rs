@@ -4,7 +4,7 @@
 //! different formats like DOCX (Word) and PDF.
 
 use crate::arena::{NodeArena, NodeId};
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 use std::io::Write;
 
 /// Export format options
@@ -382,7 +382,7 @@ mod tests {
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
 
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::node_value::NodeHeading {
+            crate::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,

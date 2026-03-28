@@ -7,7 +7,7 @@ use crate::arena::{NodeId, TreeOps};
 use crate::blocks::BlockParser;
 use crate::inlines::parse_reference;
 use crate::lexer::TAB_STOP;
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 
 impl<'a> BlockParser<'a> {
     /// Add text to container

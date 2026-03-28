@@ -6,7 +6,7 @@ use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::inlines::unescape_string;
 use crate::lexer::{is_space_or_tab, CODE_INDENT};
-use crate::node_value::{
+use crate::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };

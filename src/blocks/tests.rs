@@ -2,7 +2,7 @@
 
 use crate::arena::NodeArena;
 use crate::blocks::BlockParser;
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 
 #[test]
 fn test_parser_creation() {

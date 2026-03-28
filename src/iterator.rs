@@ -15,7 +15,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
-use crate::node_value::NodeValue;
+use crate::nodes::NodeValue;
 
 /// Event type for tree iteration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -280,15 +280,15 @@ fn consolidate_text_node(arena: &mut NodeArena, node: NodeId) {
         }
 
         // Append next node's literal to current node
-        let next_literal =
+        let next_literal: std::borrow::Cow<'static, str> =
             if let NodeValue::Text(literal) = &arena.get(next_node_id).value {
                 literal.clone()
             } else {
-                String::new()
+                "".into()
             };
 
         if let NodeValue::Text(ref mut literal) = arena.get_mut(node).value {
-            literal.push_str(&next_literal);
+            *literal = format!("{}{}", literal.as_ref(), next_literal.as_ref()).into();
         }
 
         // Remove next node
@@ -578,7 +578,7 @@ mod tests {
 
         // First child: Heading
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::node_value::NodeHeading {
+            crate::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,

@@ -597,6 +597,35 @@ pub struct ResolvedReference {
     pub title: String,
 }
 
+/// Umbrella plugins struct.
+#[derive(Default, Clone, Debug)]
+pub struct Plugins<'p> {
+    /// Configure render-time plugins.
+    pub render: RenderPlugins<'p>,
+}
+
+/// Plugins for alternative rendering.
+#[derive(Default, Clone)]
+pub struct RenderPlugins<'p> {
+    /// Provide a syntax highlighter adapter implementation for syntax
+    /// highlighting of codefence blocks.
+    pub codefence_syntax_highlighter: Option<&'p dyn crate::adapters::SyntaxHighlighterAdapter>,
+
+    /// Optional heading adapter
+    pub heading_adapter: Option<&'p dyn crate::adapters::HeadingAdapter>,
+}
+
+impl Debug for RenderPlugins<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderPlugins")
+            .field(
+                "codefence_syntax_highlighter",
+                &"impl SyntaxHighlighterAdapter",
+            )
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

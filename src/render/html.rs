@@ -2,7 +2,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::{escape_html, is_safe_url};
-use crate::node_value::{
+use crate::nodes::{
     ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
     NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeTaskItem, NodeValue,
     TableAlignment,
@@ -754,7 +754,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
             list_type: ListType::Bullet,
-            delimiter: crate::node_value::ListDelimType::Period,
+            delimiter: crate::nodes::ListDelimType::Period,
             start: 1,
             tight: true,
             bullet_char: b'-',

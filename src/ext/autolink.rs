@@ -17,7 +17,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{NodeLink, NodeValue, SourcePos};
+use crate::nodes::{NodeLink, NodeValue, SourcePos};
 
 /// Regex patterns for URL detection (simplified)
 /// In a full implementation, this would use more sophisticated pattern matching
@@ -129,7 +129,7 @@ pub fn create_autolink_node(
     }
 
     // Create text node for the display text
-    let text_node = arena.alloc(Node::with_value(NodeValue::Text(display_url)));
+    let text_node = arena.alloc(Node::with_value(NodeValue::Text(display_url.into())));
 
     TreeOps::append_child(arena, link_node, text_node);
 
@@ -148,7 +148,7 @@ pub fn process_autolinks(
 
     if links.is_empty() {
         // No autolinks found, return single text node
-        nodes.push(arena.alloc(Node::with_value(NodeValue::Text(text.to_string()))));
+        nodes.push(arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into()))));
         return nodes;
     }
 
@@ -160,7 +160,7 @@ pub fn process_autolinks(
         if start > last_end {
             let before: String = chars[last_end..start].iter().collect();
             if !before.is_empty() {
-                nodes.push(arena.alloc(Node::with_value(NodeValue::Text(before))));
+                nodes.push(arena.alloc(Node::with_value(NodeValue::Text(before.into()))));
             }
         }
 
@@ -177,7 +177,7 @@ pub fn process_autolinks(
     if last_end < chars.len() {
         let after: String = chars[last_end..].iter().collect();
         if !after.is_empty() {
-            nodes.push(arena.alloc(Node::with_value(NodeValue::Text(after))));
+            nodes.push(arena.alloc(Node::with_value(NodeValue::Text(after.into()))));
         }
     }
 

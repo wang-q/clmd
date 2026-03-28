@@ -9,7 +9,7 @@
 //! ```
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::node_value::{NodeValue, SourcePos};
+use crate::nodes::{NodeValue, SourcePos};
 
 /// The tilde character used for strikethrough
 pub const STRIKETHROUGH_DELIM: char = '~';
@@ -82,7 +82,7 @@ pub fn create_strikethrough_node(
     }
 
     // Create text node for the content
-    let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string())));
+    let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
 
     // Add text node as child
     TreeOps::append_child(arena, node, text_node);
@@ -101,7 +101,7 @@ pub fn process_strikethrough(
     let spans = parse_strikethrough_spans(text);
     if spans.is_empty() {
         // No strikethrough found, return single text node
-        let node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string())));
+        let node = arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
         return vec![node];
     }
 
@@ -114,7 +114,7 @@ pub fn process_strikethrough(
             let before_text = &text[last_end..start - STRIKETHROUGH_COUNT];
             if !before_text.is_empty() {
                 let node = arena
-                    .alloc(Node::with_value(NodeValue::Text(before_text.to_string())));
+                    .alloc(Node::with_value(NodeValue::Text(before_text.to_string().into())));
                 nodes.push(node);
             }
         }
@@ -132,7 +132,7 @@ pub fn process_strikethrough(
     if last_end < text.len() {
         let after_text = &text[last_end..];
         let node =
-            arena.alloc(Node::with_value(NodeValue::Text(after_text.to_string())));
+            arena.alloc(Node::with_value(NodeValue::Text(after_text.to_string().into())));
         nodes.push(node);
     }
 
