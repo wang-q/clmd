@@ -963,10 +963,11 @@ pub fn render(arena: &crate::arena::NodeArena, root: crate::arena::NodeId, optio
     renderer.render(root)
 }
 
-/// HTML renderer for arena-based AST (legacy).
+/// HTML renderer for arena-based AST with pretty printing.
 struct HtmlRenderer<'a> {
     arena: &'a crate::arena::NodeArena,
     output: String,
+    depth: usize,
 }
 
 impl<'a> HtmlRenderer<'a> {
@@ -974,32 +975,65 @@ impl<'a> HtmlRenderer<'a> {
         HtmlRenderer {
             arena,
             output: String::new(),
+            depth: 0,
         }
     }
 
     fn render(&mut self, root: crate::arena::NodeId) -> String {
-        self.render_node(root);
+        self.render_node(root, true);
+        // Remove trailing newlines
         while self.output.ends_with('\n') {
             self.output.pop();
         }
         self.output.clone()
     }
 
-    fn render_node(&mut self, node_id: crate::arena::NodeId) {
+    /// Check if a node type is a block-level element that needs newlines
+    fn is_block_node(&self, value: &NodeValue) -> bool {
+        matches!(
+            value,
+            NodeValue::Document
+                | NodeValue::Paragraph
+                | NodeValue::Heading(_)
+                | NodeValue::BlockQuote
+                | NodeValue::CodeBlock(_)
+                | NodeValue::List(_)
+                | NodeValue::Item(_)
+                | NodeValue::ThematicBreak
+        )
+    }
+
+    /// Write indentation for current depth
+    fn write_indent(&mut self) {
+        for _ in 0..self.depth {
+            self.output.push_str("  ");
+        }
+    }
+
+    /// Write a newline
+    fn write_newline(&mut self) {
+        self.output.push('\n');
+    }
+
+    fn render_node(&mut self, node_id: crate::arena::NodeId, is_root: bool) {
         let node = self.arena.get(node_id);
         match &node.value {
             NodeValue::Document => {
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_node(child_id, false);
                     child_opt = self.arena.get(child_id).next;
                 }
             }
             NodeValue::Paragraph => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 self.output.push_str("<p>");
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_inline(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
                 self.output.push_str("</p>");
@@ -1011,7 +1045,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.output.push_str("<em>");
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_inline(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
                 self.output.push_str("</em>");
@@ -1020,7 +1054,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.output.push_str("<strong>");
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_inline(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
                 self.output.push_str("</strong>");
@@ -1031,33 +1065,57 @@ impl<'a> HtmlRenderer<'a> {
                 self.output.push_str("</code>");
             }
             NodeValue::Heading(heading) => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 self.output.push_str(&format!("<h{}>", heading.level));
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_inline(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
                 self.output.push_str(&format!("</h{}>", heading.level));
             }
             NodeValue::Link(link) => {
-                self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                if link.title.is_empty() {
+                    self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                } else {
+                    self.output.push_str(&format!(
+                        "<a href=\"{}\" title=\"{}\">",
+                        escape_href_str(&link.url),
+                        escape_html_str(&link.title)
+                    ));
+                }
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_inline(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
                 self.output.push_str("</a>");
             }
             NodeValue::BlockQuote => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 self.output.push_str("<blockquote>");
+                self.depth += 1;
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_node(child_id, false);
                     child_opt = self.arena.get(child_id).next;
                 }
+                self.depth -= 1;
+                self.write_newline();
+                self.write_indent();
                 self.output.push_str("</blockquote>");
             }
             NodeValue::CodeBlock(code_block) => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 self.output.push_str("<pre><code");
                 if !code_block.info.is_empty() {
                     let lang = code_block.info.split_whitespace().next().unwrap_or("");
@@ -1070,33 +1128,191 @@ impl<'a> HtmlRenderer<'a> {
                 self.output.push_str("</code></pre>");
             }
             NodeValue::List(list) => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 match list.list_type {
                     ListType::Bullet => self.output.push_str("<ul>"),
                     ListType::Ordered => self.output.push_str("<ol>"),
                 }
+                self.depth += 1;
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_node(child_id, false);
                     child_opt = self.arena.get(child_id).next;
                 }
+                self.depth -= 1;
+                self.write_newline();
+                self.write_indent();
                 match list.list_type {
                     ListType::Bullet => self.output.push_str("</ul>"),
                     ListType::Ordered => self.output.push_str("</ol>"),
                 }
             }
             NodeValue::Item(..) => {
+                self.write_newline();
+                self.write_indent();
                 self.output.push_str("<li>");
+                self.depth += 1;
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id);
+                    self.render_node(child_id, false);
                     child_opt = self.arena.get(child_id).next;
                 }
+                self.depth -= 1;
+                self.write_newline();
+                self.write_indent();
                 self.output.push_str("</li>");
             }
             NodeValue::ThematicBreak => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
                 self.output.push_str("<hr />");
             }
+            NodeValue::SoftBreak => {
+                self.output.push('\n');
+            }
+            NodeValue::HardBreak => {
+                self.output.push_str("<br />\n");
+            }
+            NodeValue::HtmlBlock(block) => {
+                if !is_root {
+                    self.write_newline();
+                    self.write_indent();
+                }
+                self.output.push_str(&block.literal);
+            }
+            NodeValue::HtmlInline(html) => {
+                self.output.push_str(html);
+            }
             _ => {}
+        }
+    }
+
+    /// Render inline content without adding block-level newlines
+    fn render_inline(&mut self, node_id: crate::arena::NodeId) {
+        let node = self.arena.get(node_id);
+        match &node.value {
+            NodeValue::Text(text) => {
+                self.output.push_str(&escape_html_str(text));
+            }
+            NodeValue::Emph => {
+                self.output.push_str("<em>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_inline(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</em>");
+            }
+            NodeValue::Strong => {
+                self.output.push_str("<strong>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_inline(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</strong>");
+            }
+            NodeValue::Code(code) => {
+                self.output.push_str("<code>");
+                self.output.push_str(&escape_html_str(&code.literal));
+                self.output.push_str("</code>");
+            }
+            NodeValue::Link(link) => {
+                self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_inline(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</a>");
+            }
+            NodeValue::Image(image) => {
+                // Get alt text from child nodes
+                let mut alt_text = String::new();
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.collect_alt_text(child_id, &mut alt_text);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                
+                if image.title.is_empty() {
+                    self.output.push_str(&format!(
+                        "<img src=\"{}\" alt=\"{}\" />",
+                        escape_href_str(&image.url),
+                        escape_html_str(&alt_text)
+                    ));
+                } else {
+                    self.output.push_str(&format!(
+                        "<img src=\"{}\" alt=\"{}\" title=\"{}\" />",
+                        escape_href_str(&image.url),
+                        escape_html_str(&alt_text),
+                        escape_html_str(&image.title)
+                    ));
+                }
+            }
+            NodeValue::SoftBreak => {
+                self.output.push('\n');
+            }
+            NodeValue::HardBreak => {
+                self.output.push_str("<br />\n");
+            }
+            NodeValue::HtmlInline(html) => {
+                self.output.push_str(html);
+            }
+            _ => {
+                // For other node types, just render children
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_inline(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
+        }
+    }
+
+    /// Collect alt text from a node (for image rendering)
+    fn collect_alt_text(&self, node_id: crate::arena::NodeId, output: &mut String) {
+        let node = self.arena.get(node_id);
+        match &node.value {
+            NodeValue::Text(text) => {
+                output.push_str(text);
+            }
+            NodeValue::Emph | NodeValue::Strong | NodeValue::Code(_) => {
+                // For inline formatting, just collect the text content
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.collect_alt_text_inner(child_id, output);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
+            _ => {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.collect_alt_text(child_id, output);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
+        }
+    }
+
+    fn collect_alt_text_inner(&self, node_id: crate::arena::NodeId, output: &mut String) {
+        let node = self.arena.get(node_id);
+        match &node.value {
+            NodeValue::Text(text) => {
+                output.push_str(text);
+            }
+            _ => {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.collect_alt_text_inner(child_id, output);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
         }
     }
 }
