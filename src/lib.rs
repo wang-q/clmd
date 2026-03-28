@@ -175,6 +175,12 @@ pub type Arena<'a> = typed_arena::Arena<nodes::AstNode<'a>>;
 /// A reference to a node in an arena.
 pub type Node<'a> = nodes::Node<'a>;
 
+/// Node ID type for compatibility.
+pub use arena_tree::NodeId;
+
+/// Invalid node ID constant.
+pub use arena_tree::INVALID_NODE_ID;
+
 /// Parse a Markdown document to an AST.
 ///
 /// This is the main entry point for parsing. It takes an arena for node allocation,

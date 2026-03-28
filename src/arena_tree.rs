@@ -28,6 +28,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// Global counter for generating unique node IDs.
 static NODE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// Node ID type for compatibility with the old NodeArena system.
+pub type NodeId = u64;
+
+/// Invalid node ID (used for Option<NodeId> patterns).
+pub const INVALID_NODE_ID: NodeId = u64::MAX;
+
 /// A node inside a DOM-like tree.
 ///
 /// This struct represents a node in an arena-allocated tree structure.
@@ -126,6 +132,11 @@ impl<'a, T: 'a> Node<'a, T> {
     /// Returns whether two references point to the same node.
     pub fn same_node(&self, other: &Node<'a, T>) -> bool {
         self.id == other.id
+    }
+
+    /// Returns the unique ID of this node.
+    pub fn id(&self) -> NodeId {
+        self.id
     }
 
     /// Return an iterator of references to this node and its ancestors.
