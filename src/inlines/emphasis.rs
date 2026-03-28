@@ -529,6 +529,13 @@ fn process_emphasis_match(
     delims[opener_idx].5 -= use_delims;
     delims[closer_idx].5 -= use_delims;
 
+    // IMPORTANT: Set num_delims to 0 for all delimiters between opener and closer
+    // These delimiters are now inside the emphasis node and should not be
+    // processed as emphasis anymore
+    for k in (opener_idx + 1)..closer_idx {
+        delims[k].5 = 0;
+    }
+
     // Remove processed delimiters from vector if count is 0
     // Remove closer first (higher index) to avoid index shifting issues
     let closer_removed = if delims[closer_idx].5 == 0 {
