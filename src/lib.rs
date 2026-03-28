@@ -3,12 +3,6 @@
 //!
 //! Source repository is at [github.com/clmd](https://github.com/clmd).
 //!
-//! # Feature Flags
-//!
-//! - `default`: Enables default features (no additional features enabled by default).
-//! - `syntect`: Enables syntax highlighting for code blocks using syntect.
-//! - `clap`: Enables command-line interface support.
-//!
 //! # Safety
 //!
 //! This crate uses `unsafe` code for performance optimizations in the arena allocator
@@ -113,8 +107,8 @@ pub mod html_to_md;
 /// String pool for efficient memory reuse.
 pub(crate) mod pool;
 
-/// HTML rendering for the CommonMark AST.
-pub mod html;
+// HTML rendering for the CommonMark AST is now in render::html
+pub use render::html;
 
 /// HTML utilities (escaping, entity decoding).
 pub mod html_utils;
@@ -223,6 +217,24 @@ pub use parser::options::Options;
 
 /// Re-export Plugins for customizing rendering.
 pub use parser::options::Plugins;
+
+/// Re-export Extension options.
+pub use parser::options::Extension;
+
+/// Re-export Parse options.
+pub use parser::options::Parse;
+
+/// Re-export Render options.
+pub use parser::options::Render;
+
+/// Re-export ResolvedReference.
+pub use parser::options::ResolvedReference;
+
+/// Re-export BrokenLinkCallback.
+pub use parser::options::BrokenLinkCallback;
+
+/// Re-export URLRewriter trait.
+pub use parser::options::URLRewriter;
 
 // =============================================================================
 // Error Type Exports

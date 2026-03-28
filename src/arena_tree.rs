@@ -291,6 +291,7 @@ impl<T> Node<'_, RefCell<T>> {
 }
 
 /// An edge of the node graph returned by a traversal iterator.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum NodeEdge<T> {
     /// Indicates that start of a node that has children.

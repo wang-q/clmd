@@ -174,6 +174,7 @@ pub fn render_to_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
 }
 
 /// Available output formats
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
     /// HTML output

@@ -18,6 +18,7 @@ use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::nodes::NodeValue;
 
 /// Event type for tree iteration
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
     /// No event (initial state)

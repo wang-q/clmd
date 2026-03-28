@@ -1221,6 +1221,7 @@ mod tests {
 }
 
 /// Error type for AST validation failures.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     /// A node has an invalid parent-child relationship.

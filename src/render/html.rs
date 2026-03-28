@@ -1,57 +1,983 @@
-//! HTML renderer
+//! HTML rendering for the CommonMark AST.
+//!
+//! This module provides functions for rendering CommonMark documents as HTML,
+//! inspired by comrak's design.
+//!
+//! # Example
+//!
+//! ```
+//! use clmd::{Arena, parse_document, Options, format_html};
+//! use std::fmt::Write;
+//!
+//! let arena = Arena::new();
+//! let options = Options::default();
+//! let root = parse_document(&arena, "# Hello\n\nWorld", &options);
+//!
+//! let mut html = String::new();
+//! format_html(root, &options, &mut html).unwrap();
+//!
+//! assert!(html.contains("<h1>"));
+//! assert!(html.contains("<p>"));
+//! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::html_utils::{escape_html, is_safe_url};
-use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue, TableAlignment};
+use std::fmt::{self, Write};
 
-/// Render an arena_tree node to HTML
-///
-/// This is a convenience function for rendering the new arena_tree-based AST.
+use crate::nodes::{
+    AstNode, ListType, NodeCode, NodeCodeBlock, NodeFootnoteDefinition,
+    NodeFootnoteReference, NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeMath,
+    NodeTable, NodeTaskItem, NodeValue,
+};
+use crate::parser::options::{Options, Plugins};
+
+// Re-export context types
+mod context {
+    use super::*;
+
+    /// Context for HTML rendering.
+    ///
+    /// This struct holds the rendering options, plugins, and output buffer,
+    /// providing a unified interface for HTML rendering operations.
+    pub struct Context<'o, 'c: 'o> {
+        /// The options for rendering
+        pub options: &'o Options<'c>,
+        /// The plugins for rendering
+        pub plugins: &'o Plugins<'o>,
+        /// The output buffer
+        output: &'o mut dyn Write,
+        /// Current footnote index
+        pub footnote_ix: u32,
+        /// Track the last character written for cr() logic
+        last_char: Option<char>,
+    }
+
+    impl<'o, 'c: 'o> fmt::Debug for Context<'o, 'c> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("Context")
+                .field("options", &self.options)
+                .field("plugins", &self.plugins)
+                .field("output", &"<dyn Write>")
+                .field("footnote_ix", &self.footnote_ix)
+                .field("last_char", &self.last_char)
+                .finish()
+        }
+    }
+
+    impl<'o, 'c: 'o> Context<'o, 'c> {
+        /// Create a new rendering context.
+        pub fn new(
+            output: &'o mut dyn Write,
+            options: &'o Options<'c>,
+            plugins: &'o Plugins<'o>,
+        ) -> Self {
+            Self {
+                options,
+                plugins,
+                output,
+                footnote_ix: 0,
+                last_char: None,
+            }
+        }
+
+        /// Write a string to the output and track the last character.
+        pub fn write_str(&mut self, s: &str) -> fmt::Result {
+            self.output.write_str(s)?;
+            if let Some(c) = s.chars().last() {
+                self.last_char = Some(c);
+            }
+            Ok(())
+        }
+
+        /// Write a newline if the last output wasn't already a newline.
+        /// For the beginning of the document, don't add a newline.
+        pub fn cr(&mut self) -> fmt::Result {
+            if self.last_char.is_none() {
+                return Ok(());
+            }
+            if self.last_char != Some('\n') {
+                self.output.write_str("\n")?;
+                self.last_char = Some('\n');
+            }
+            Ok(())
+        }
+
+        /// Write a line feed (newline).
+        pub fn lf(&mut self) -> fmt::Result {
+            self.output.write_str("\n")?;
+            self.last_char = Some('\n');
+            Ok(())
+        }
+
+        /// Escape HTML special characters.
+        pub fn escape(&mut self, text: &str) -> fmt::Result {
+            escape_html(self.output, text)
+        }
+
+        /// Escape a URL for use in an href attribute.
+        pub fn escape_href(&mut self, url: &str) -> fmt::Result {
+            escape_href(self.output, url)
+        }
+
+        /// Finish rendering and return the result.
+        pub fn finish(self) -> fmt::Result {
+            Ok(())
+        }
+    }
+
+    impl Write for Context<'_, '_> {
+        fn write_str(&mut self, s: &str) -> fmt::Result {
+            self.output.write_str(s)
+        }
+    }
+}
+
+pub use context::Context;
+
+/// Child rendering mode for formatters.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy)]
+pub enum ChildRendering {
+    /// Render children in full HTML mode.
+    HTML,
+    /// Render children in plain text mode (for alt text, etc.).
+    Plain,
+    /// Skip rendering children entirely.
+    Skip,
+}
+
+/// Formats an AST as HTML.
+pub fn format_document(
+    root: &AstNode<'_>,
+    options: &Options,
+    output: &mut dyn Write,
+) -> fmt::Result {
+    format_document_with_plugins(root, options, output, &Plugins::default())
+}
+
+/// Formats an AST as HTML with plugins.
+pub fn format_document_with_plugins(
+    root: &AstNode<'_>,
+    options: &Options,
+    output: &mut dyn Write,
+    plugins: &Plugins<'_>,
+) -> fmt::Result {
+    let mut context = Context::new(output, options, plugins);
+
+    enum Phase {
+        Pre,
+        Post,
+    }
+
+    let mut stack = vec![(root, ChildRendering::HTML, Phase::Pre)];
+
+    while let Some((node, child_rendering, phase)) = stack.pop() {
+        match phase {
+            Phase::Pre => {
+                let new_cr = match child_rendering {
+                    ChildRendering::Plain => {
+                        render_plain(&mut context, node)?;
+                        ChildRendering::Plain
+                    }
+                    ChildRendering::HTML => {
+                        stack.push((node, ChildRendering::HTML, Phase::Post));
+                        format_node_default(&mut context, node, true)?
+                    }
+                    ChildRendering::Skip => unreachable!(),
+                };
+
+                if !matches!(new_cr, ChildRendering::Skip) {
+                    let mut child_opt = node.last_child();
+                    while let Some(child) = child_opt {
+                        stack.push((child, new_cr, Phase::Pre));
+                        child_opt = child.previous_sibling();
+                    }
+                }
+            }
+            Phase::Post => {
+                format_node_default(&mut context, node, false)?;
+            }
+        }
+    }
+
+    context.finish()
+}
+
+/// Render a node in plain text mode (for alt text, etc.).
+fn render_plain(context: &mut Context, node: &AstNode<'_>) -> fmt::Result {
+    let ast = node.data.borrow();
+    match &ast.value {
+        NodeValue::Text(text) => {
+            context.escape(text)?;
+        }
+        NodeValue::Code(code) => {
+            context.escape(&code.literal)?;
+        }
+        NodeValue::SoftBreak | NodeValue::HardBreak => {
+            context.write_str(" ")?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Default node formatting function.
+fn format_node_default(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    let ast = node.data.borrow();
+
+    match &ast.value {
+        NodeValue::Document => Ok(ChildRendering::HTML),
+        NodeValue::BlockQuote => render_block_quote(context, node, entering),
+        NodeValue::List(list) => render_list(context, node, entering, list),
+        NodeValue::Item(_) => render_item(context, node, entering),
+        NodeValue::CodeBlock(code_block) => {
+            render_code_block(context, node, entering, code_block)
+        }
+        NodeValue::HtmlBlock(html_block) => {
+            render_html_block(context, entering, html_block)
+        }
+        NodeValue::Paragraph => render_paragraph(context, node, entering),
+        NodeValue::Heading(heading) => render_heading(context, node, entering, heading),
+        NodeValue::ThematicBreak => render_thematic_break(context, node, entering),
+        NodeValue::Text(text) => render_text(context, entering, text),
+        NodeValue::SoftBreak => render_soft_break(context, node, entering),
+        NodeValue::HardBreak => render_hard_break(context, node, entering),
+        NodeValue::Code(code) => render_code(context, entering, code),
+        NodeValue::HtmlInline(html) => render_html_inline(context, entering, html),
+        NodeValue::Emph => render_emph(context, node, entering),
+        NodeValue::Strong => render_strong(context, node, entering),
+        NodeValue::Link(link) => render_link(context, node, entering, link),
+        NodeValue::Image(link) => render_image(context, node, entering, link),
+        NodeValue::Strikethrough => render_strikethrough(context, node, entering),
+        NodeValue::TaskItem(task_item) => {
+            render_task_item(context, node, entering, task_item)
+        }
+        NodeValue::Table(table) => render_table(context, node, entering, table),
+        NodeValue::TableRow(is_header) => {
+            render_table_row(context, node, entering, *is_header)
+        }
+        NodeValue::TableCell => render_table_cell(context, node, entering),
+        NodeValue::FootnoteDefinition(def) => {
+            render_footnote_definition(context, node, entering, def)
+        }
+        NodeValue::FootnoteReference(reference) => {
+            render_footnote_reference(context, node, entering, reference)
+        }
+        NodeValue::Math(math) => render_math(context, node, entering, math),
+        _ => Ok(ChildRendering::HTML),
+    }
+}
+
+// Block element renderers
+fn render_block_quote(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        context.write_str("<blockquote")?;
+        render_sourcepos(context, node)?;
+        context.write_str(">")?;
+        context.lf()?;
+    } else {
+        context.cr()?;
+        context.write_str("</blockquote>")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_list(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+    list: &NodeList,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        match list.list_type {
+            ListType::Bullet => {
+                context.write_str("<ul")?;
+                render_sourcepos(context, node)?;
+                context.write_str(">")?;
+            }
+            ListType::Ordered => {
+                context.write_str("<ol")?;
+                render_sourcepos(context, node)?;
+                if list.start != 1 {
+                    write!(context, " start=\"{}\"", list.start)?;
+                }
+                context.write_str(">")?;
+            }
+        }
+        context.lf()?;
+    } else {
+        match list.list_type {
+            ListType::Bullet => {
+                context.write_str("</ul>")?;
+            }
+            ListType::Ordered => {
+                context.write_str("</ol>")?;
+            }
+        }
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_item(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        context.write_str("<li")?;
+        render_sourcepos(context, node)?;
+        context.write_str(">")?;
+    } else {
+        context.write_str("</li>")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_code_block(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    code_block: &NodeCodeBlock,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+
+        if let Some(highlighter) = &context.plugins.render.codefence_syntax_highlighter {
+            let mut attrs = std::collections::HashMap::new();
+            if !code_block.info.is_empty() {
+                let lang = code_block.info.split_whitespace().next().unwrap_or("");
+                if !lang.is_empty() {
+                    attrs.insert(
+                        "class",
+                        std::borrow::Cow::Owned(format!("language-{}", lang)),
+                    );
+                }
+            }
+
+            highlighter.write_pre_tag(context, attrs.clone())?;
+            highlighter.write_code_tag(context, attrs)?;
+            highlighter.write_highlighted(
+                context,
+                Some(&code_block.info),
+                &code_block.literal,
+            )?;
+            context.write_str("</code></pre>")?;
+        } else {
+            context.write_str("<pre><code")?;
+            if !code_block.info.is_empty() {
+                let lang = code_block.info.split_whitespace().next().unwrap_or("");
+                if !lang.is_empty() {
+                    write!(context, " class=\"language-{}\"", lang)?;
+                }
+            }
+            context.write_str(">")?;
+            escape_html(context, &code_block.literal)?;
+            context.write_str("</code></pre>")?;
+        }
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_html_block(
+    context: &mut Context,
+    entering: bool,
+    html_block: &NodeHtmlBlock,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        if context.options.render.escape {
+            escape_html(context, &html_block.literal)?;
+        } else {
+            context.write_str(&html_block.literal)?;
+        }
+        context.cr()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_paragraph(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    let tight = node
+        .parent()
+        .and_then(|n| n.parent())
+        .map(|n| {
+            let ast = n.data.borrow();
+            match &ast.value {
+                NodeValue::List(list) => list.tight,
+                _ => false,
+            }
+        })
+        .unwrap_or(false);
+
+    if !tight {
+        if entering {
+            context.cr()?;
+            context.write_str("<p")?;
+            render_sourcepos(context, node)?;
+            context.write_str(">")?;
+        } else {
+            context.write_str("</p>")?;
+            context.lf()?;
+        }
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_heading(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+    heading: &NodeHeading,
+) -> Result<ChildRendering, fmt::Error> {
+    match &context.plugins.render.heading_adapter {
+        None => {
+            if entering {
+                context.cr()?;
+                write!(context, "<h{}", heading.level)?;
+                render_sourcepos(context, node)?;
+                context.write_str(">")?;
+            } else {
+                write!(context, "</h{}>", heading.level)?;
+                context.lf()?;
+            }
+        }
+        Some(adapter) => {
+            use crate::adapters::HeadingMeta;
+
+            let text_content = collect_text(node);
+            let meta = HeadingMeta {
+                level: heading.level,
+                content: text_content,
+            };
+
+            if entering {
+                context.cr()?;
+                let sp = if context.options.render.sourcepos {
+                    let ast = node.data.borrow();
+                    Some(ast.sourcepos)
+                } else {
+                    None
+                };
+                adapter.enter(context, &meta, sp)?;
+            } else {
+                adapter.exit(context, &meta)?;
+            }
+        }
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_thematic_break(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        context.write_str("<hr")?;
+        render_sourcepos(context, node)?;
+        context.write_str(" />")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+// Inline element renderers
+fn render_text(
+    context: &mut Context,
+    entering: bool,
+    text: &str,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        escape_html(context, text)?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_soft_break(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        if context.options.render.hardbreaks {
+            context.write_str("<br />\n")?;
+        } else {
+            context.write_str("\n")?;
+        }
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_hard_break(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<br")?;
+        render_sourcepos(context, node)?;
+        context.write_str(" />\n")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_code(
+    context: &mut Context,
+    entering: bool,
+    code: &NodeCode,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<code>")?;
+        escape_html(context, &code.literal)?;
+        context.write_str("</code>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_html_inline(
+    context: &mut Context,
+    entering: bool,
+    html: &str,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        if context.options.render.escape {
+            escape_html(context, html)?;
+        } else {
+            context.write_str(html)?;
+        }
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_emph(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<em>")?;
+    } else {
+        context.write_str("</em>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_strong(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<strong>")?;
+    } else {
+        context.write_str("</strong>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_link(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    link: &NodeLink,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<a href=\"")?;
+        escape_href(context, &link.url)?;
+        context.write_str("\"")?;
+        if !link.title.is_empty() {
+            context.write_str(" title=\"")?;
+            escape_html(context, &link.title)?;
+            context.write_str("\"")?;
+        }
+        context.write_str(">")?;
+    } else {
+        context.write_str("</a>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_image(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    link: &NodeLink,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<img src=\"")?;
+        escape_href(context, &link.url)?;
+        context.write_str("\" alt=\"")?;
+        return Ok(ChildRendering::Plain);
+    } else {
+        if !link.title.is_empty() {
+            context.write_str("\" title=\"")?;
+            escape_html(context, &link.title)?;
+        }
+        context.write_str("\" />")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_strikethrough(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<del>")?;
+    } else {
+        context.write_str("</del>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+// GFM extension renderers
+fn render_task_item(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+    task_item: &NodeTaskItem,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        context.write_str("<li")?;
+        render_sourcepos(context, node)?;
+        context.write_str(">")?;
+
+        let checked = task_item.symbol.is_some();
+        context.write_str("<input type=\"checkbox\" disabled=\"disabled\"")?;
+        if checked {
+            context.write_str(" checked=\"checked\"")?;
+        }
+        context.write_str(" /> ")?;
+    } else {
+        context.write_str("</li>")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_table(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+    _table: &NodeTable,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        context.write_str("<table")?;
+        render_sourcepos(context, node)?;
+        context.write_str(">")?;
+        context.lf()?;
+    } else {
+        context.cr()?;
+        context.write_str("</table>")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_table_row(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    is_header: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.cr()?;
+        if is_header {
+            context.write_str("<thead>")?;
+            context.lf()?;
+        }
+        context.write_str("<tr>")?;
+        context.lf()?;
+    } else {
+        context.cr()?;
+        context.write_str("</tr>")?;
+        if is_header {
+            context.lf()?;
+            context.cr()?;
+            context.write_str("</thead>")?;
+            context.lf()?;
+            context.write_str("<tbody>")?;
+        }
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_table_cell(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+) -> Result<ChildRendering, fmt::Error> {
+    let is_header = node
+        .parent()
+        .map(|parent| {
+            let ast = parent.data.borrow();
+            matches!(ast.value, NodeValue::TableRow(true))
+        })
+        .unwrap_or(false);
+
+    if entering {
+        context.cr()?;
+        if is_header {
+            context.write_str("<th>")?;
+        } else {
+            context.write_str("<td>")?;
+        }
+    } else if is_header {
+        context.write_str("</th>")?;
+    } else {
+        context.write_str("</td>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_footnote_definition(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    def: &NodeFootnoteDefinition,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        if context.footnote_ix == 0 {
+            context.cr()?;
+            context.write_str("<section class=\"footnotes\">")?;
+            context.lf()?;
+            context.write_str("<ol>")?;
+            context.lf()?;
+        }
+        context.footnote_ix += 1;
+        context.cr()?;
+        context.write_str("<li id=\"fn-")?;
+        escape_html(context, &def.name)?;
+        context.write_str("\">")?;
+    } else {
+        context.write_str("</li>")?;
+        context.lf()?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_footnote_reference(
+    context: &mut Context,
+    _node: &AstNode<'_>,
+    entering: bool,
+    reference: &NodeFootnoteReference,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        context.write_str("<sup class=\"footnote-ref\"><a href=\"#fn-")?;
+        escape_html(context, &reference.name)?;
+        context.write_str("\" id=\"fnref-")?;
+        escape_html(context, &reference.name)?;
+        context.write_str("\">[")?;
+        escape_html(context, &reference.name)?;
+        context.write_str("]</a></sup>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+fn render_math(
+    context: &mut Context,
+    node: &AstNode<'_>,
+    entering: bool,
+    math: &NodeMath,
+) -> Result<ChildRendering, fmt::Error> {
+    if entering {
+        let style = if math.display_math {
+            "display"
+        } else {
+            "inline"
+        };
+        context.write_str("<span data-math-style=\"")?;
+        context.write_str(style)?;
+        context.write_str("\"")?;
+        render_sourcepos(context, node)?;
+        context.write_str(">")?;
+        escape_html(context, &math.literal)?;
+        context.write_str("</span>")?;
+    }
+    Ok(ChildRendering::HTML)
+}
+
+// Helper functions
+fn render_sourcepos(context: &mut Context, node: &AstNode<'_>) -> fmt::Result {
+    if context.options.render.sourcepos {
+        let ast = node.data.borrow();
+        if ast.sourcepos.start.line > 0 {
+            write!(context, " data-sourcepos=\"{}\"", ast.sourcepos)
+        } else {
+            Ok(())
+        }
+    } else {
+        Ok(())
+    }
+}
+
+/// Collect text content from a node and its children.
+pub fn collect_text(node: &AstNode<'_>) -> String {
+    let mut text = String::new();
+    collect_text_append(node, &mut text);
+    text
+}
+
+/// Append text content from a node and its children to a buffer.
+pub fn collect_text_append(node: &AstNode<'_>, output: &mut String) {
+    let ast = node.data.borrow();
+    match &ast.value {
+        NodeValue::Text(text) => output.push_str(text),
+        NodeValue::Code(code) => output.push_str(&code.literal),
+        NodeValue::SoftBreak | NodeValue::HardBreak => output.push(' '),
+        _ => {
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                collect_text_append(child, output);
+                child_opt = child.next_sibling();
+            }
+        }
+    }
+}
+
+/// Escape HTML special characters.
+pub fn escape_html(output: &mut dyn Write, text: &str) -> fmt::Result {
+    let bytes = text.as_bytes();
+    let mut last = 0;
+
+    for (i, &b) in bytes.iter().enumerate() {
+        let escaped = match b {
+            b'&' => Some("&amp;"),
+            b'<' => Some("&lt;"),
+            b'>' => Some("&gt;"),
+            b'"' => Some("&quot;"),
+            _ => None,
+        };
+
+        if let Some(esc) = escaped {
+            if i > last {
+                output.write_str(&text[last..i])?;
+            }
+            output.write_str(esc)?;
+            last = i + 1;
+        }
+    }
+
+    if last < text.len() {
+        output.write_str(&text[last..])?;
+    }
+
+    Ok(())
+}
+
+/// Escape a string for use in HTML attribute context.
+pub fn escape_href(output: &mut dyn Write, url: &str) -> fmt::Result {
+    if !is_safe_url(url) {
+        return output.write_str("#");
+    }
+
+    let bytes = url.as_bytes();
+    let mut last = 0;
+
+    for (i, &b) in bytes.iter().enumerate() {
+        let escaped = match b {
+            b'&' => Some("&amp;"),
+            b'"' => Some("&quot;"),
+            b'<' => Some("&lt;"),
+            b'>' => Some("&gt;"),
+            b'\'' => Some("&#x27;"),
+            b'`' => Some("&#x60;"),
+            _ => None,
+        };
+
+        if let Some(esc) = escaped {
+            if i > last {
+                output.write_str(&url[last..i])?;
+            }
+            output.write_str(esc)?;
+            last = i + 1;
+        }
+    }
+
+    if last < url.len() {
+        output.write_str(&url[last..])?;
+    }
+
+    Ok(())
+}
+
+/// Check if a URL is safe to use in an href attribute.
+pub fn is_safe_url(url: &str) -> bool {
+    let url_lower = url.to_lowercase();
+
+    let dangerous_protocols = [
+        "javascript:",
+        "vbscript:",
+        "file:",
+        "data:text/html",
+        "data:text/javascript",
+    ];
+
+    for protocol in &dangerous_protocols {
+        if url_lower.starts_with(protocol) {
+            return false;
+        }
+    }
+
+    true
+}
+
+// Legacy compatibility
+/// Render an arena_tree node to HTML (legacy compatibility).
 pub fn render_from_node<'a>(root: crate::nodes::Node<'a>, _options: u32) -> String {
-    let mut renderer = ArenaTreeHtmlRenderer::new();
+    use crate::parser::options::Options;
+
+    let options = Options::default();
+    let mut output = String::new();
+    let _ = format_document_legacy(&options, &mut output, root);
+    output
+}
+
+/// Render a node tree as HTML (legacy API).
+///
+/// This function provides compatibility with the old arena-based API.
+/// New code should use [`format_document`] instead.
+pub fn render(arena: &crate::arena::NodeArena, root: crate::arena::NodeId, options: u32) -> String {
+    let mut renderer = HtmlRenderer::new(arena, options);
     renderer.render(root)
 }
 
-/// HTML renderer for arena_tree nodes
-struct ArenaTreeHtmlRenderer {
+/// HTML renderer for arena-based AST (legacy).
+struct HtmlRenderer<'a> {
+    arena: &'a crate::arena::NodeArena,
     output: String,
-    tag_stack: Vec<&'static str>,
-    tight_list_stack: Vec<bool>,
-    in_code_block: bool,
-    last_out: char,
 }
 
-impl ArenaTreeHtmlRenderer {
-    fn new() -> Self {
-        ArenaTreeHtmlRenderer {
+impl<'a> HtmlRenderer<'a> {
+    fn new(arena: &'a crate::arena::NodeArena, _options: u32) -> Self {
+        HtmlRenderer {
+            arena,
             output: String::new(),
-            tag_stack: Vec::new(),
-            tight_list_stack: Vec::new(),
-            in_code_block: false,
-            last_out: '\n',
         }
     }
 
-    fn cr(&mut self) {
-        if self.last_out != '\n' {
-            self.output.push('\n');
-            self.last_out = '\n';
-        }
-    }
-
-    fn lit(&mut self, s: &str) {
-        if s.is_empty() {
-            return;
-        }
-        self.output.push_str(s);
-        self.last_out = s.chars().last().unwrap_or('\n');
-    }
-
-    fn in_tight_list(&self) -> bool {
-        self.tight_list_stack.last().copied().unwrap_or(false)
-    }
-
-    fn render(&mut self, root: crate::nodes::Node<'_>) -> String {
+    fn render(&mut self, root: crate::arena::NodeId) -> String {
         self.render_node(root);
         while self.output.ends_with('\n') {
             self.output.pop();
@@ -59,836 +985,188 @@ impl ArenaTreeHtmlRenderer {
         self.output.clone()
     }
 
-    fn render_node(&mut self, node: crate::nodes::Node<'_>) {
-        self.enter_node(node);
-
-        // Render children
-        let is_image = matches!(node.data.borrow().value, NodeValue::Image(..));
-        if !is_image {
-            if let Some(child) = node.first_child() {
-                self.render_node_recursive(child);
+    fn render_node(&mut self, node_id: crate::arena::NodeId) {
+        let node = self.arena.get(node_id);
+        match &node.value {
+            NodeValue::Document => {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
             }
-        }
-
-        self.exit_node(node);
-    }
-
-    fn render_node_recursive(&mut self, node: crate::nodes::Node<'_>) {
-        self.render_node(node);
-        if let Some(sibling) = node.next_sibling() {
-            self.render_node_recursive(sibling);
-        }
-    }
-
-    fn enter_node(&mut self, node: crate::nodes::Node<'_>) {
-        let ast = node.data.borrow();
-        match &ast.value {
-            NodeValue::Document => {}
+            NodeValue::Paragraph => {
+                self.output.push_str("<p>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</p>");
+            }
+            NodeValue::Text(text) => {
+                self.output.push_str(&escape_html_str(text));
+            }
+            NodeValue::Emph => {
+                self.output.push_str("<em>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</em>");
+            }
+            NodeValue::Strong => {
+                self.output.push_str("<strong>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</strong>");
+            }
+            NodeValue::Code(code) => {
+                self.output.push_str("<code>");
+                self.output.push_str(&escape_html_str(&code.literal));
+                self.output.push_str("</code>");
+            }
+            NodeValue::Heading(heading) => {
+                self.output.push_str(&format!("<h{}>", heading.level));
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str(&format!("</h{}>", heading.level));
+            }
+            NodeValue::Link(link) => {
+                self.output.push_str(&format!("<a href=\"{}\">", escape_href_str(&link.url)));
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("</a>");
+            }
             NodeValue::BlockQuote => {
-                self.cr();
-                self.lit("<blockquote>");
-                self.lit("\n");
-                self.tag_stack.push("blockquote");
-                self.tight_list_stack.push(false);
-            }
-            NodeValue::List(NodeList {
-                tight,
-                list_type,
-                start,
-                ..
-            }) => {
-                self.tight_list_stack.push(*tight);
-                self.cr();
-                match list_type {
-                    ListType::Bullet => {
-                        self.lit("<ul>");
-                        self.tag_stack.push("ul");
-                    }
-                    ListType::Ordered => {
-                        if *start != 1 {
-                            self.lit(&format!("<ol start=\"{}\">", start));
-                        } else {
-                            self.lit("<ol>");
-                        }
-                        self.tag_stack.push("ol");
-                    }
+                self.output.push_str("<blockquote>");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
                 }
-                self.lit("\n");
-            }
-            NodeValue::Item(..) => {
-                self.lit("<li>");
-                self.tag_stack.push("li");
-                if !self.in_tight_list() {
-                    self.lit("\n");
-                }
+                self.output.push_str("</blockquote>");
             }
             NodeValue::CodeBlock(code_block) => {
-                self.cr();
-                self.in_code_block = true;
-                self.lit("<pre><code");
+                self.output.push_str("<pre><code");
                 if !code_block.info.is_empty() {
                     let lang = code_block.info.split_whitespace().next().unwrap_or("");
                     if !lang.is_empty() {
-                        self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
+                        self.output.push_str(&format!(" class=\"language-{}\"", escape_html_str(lang)));
                     }
                 }
-                self.lit(">");
-                self.lit(&escape_html(&code_block.literal));
-                self.lit("</code></pre>");
-                self.lit("\n");
-                self.in_code_block = false;
+                self.output.push_str(">");
+                self.output.push_str(&escape_html_str(&code_block.literal));
+                self.output.push_str("</code></pre>");
             }
-            NodeValue::HtmlBlock(html_block) => {
-                self.cr();
-                self.lit(&html_block.literal);
-                self.lit("\n");
-            }
-            NodeValue::Paragraph => {
-                if !self.in_tight_list() {
-                    self.lit("<p>");
-                    self.tag_stack.push("p");
+            NodeValue::List(list) => {
+                match list.list_type {
+                    ListType::Bullet => self.output.push_str("<ul>"),
+                    ListType::Ordered => self.output.push_str("<ol>"),
                 }
-            }
-            NodeValue::Heading(NodeHeading { level, .. }) => {
-                self.lit(&format!("<h{}>", level));
-                self.tag_stack.push("h");
-            }
-            NodeValue::ThematicBreak => {
-                self.cr();
-                self.lit("<hr />");
-                self.lit("\n");
-            }
-            NodeValue::Text(literal) => {
-                if self.in_code_block {
-                    self.lit(literal);
-                } else {
-                    self.lit(&escape_html(literal));
-                }
-            }
-            NodeValue::SoftBreak => {
-                if self.in_code_block {
-                    self.lit("\n");
-                } else if self.in_tight_list() {
-                    self.lit(" ");
-                } else {
-                    self.lit("\n");
-                }
-            }
-            NodeValue::HardBreak => {
-                self.lit("<br />");
-                self.lit("\n");
-            }
-            NodeValue::Code(code) => {
-                self.lit("<code>");
-                self.lit(&escape_html(&code.literal));
-                self.lit("</code>");
-            }
-            NodeValue::HtmlInline(literal) => {
-                self.lit(literal.as_ref());
-            }
-            NodeValue::Emph => {
-                self.lit("<em>");
-            }
-            NodeValue::Strong => {
-                self.lit("<strong>");
-            }
-            NodeValue::Link(link) => {
-                self.lit("<a href=\"");
-                self.lit(&escape_href(&link.url));
-                self.lit("\"");
-                if !link.title.is_empty() {
-                    self.lit(" title=\"");
-                    self.lit(&escape_html(&link.title));
-                    self.lit("\"");
-                }
-                self.lit(">");
-            }
-            NodeValue::Image(link) => {
-                self.lit("<img src=\"");
-                self.lit(&escape_href(&link.url));
-                self.lit("\" alt=\"");
-                // Collect alt text from children
-                let alt_text = self.collect_alt_text(node);
-                self.lit(&escape_html(&alt_text));
-                if !link.title.is_empty() {
-                    self.lit("\" title=\"");
-                    self.lit(&escape_html(&link.title));
-                }
-                self.lit("\" />");
-            }
-            NodeValue::Strikethrough => {
-                self.lit("<del>");
-            }
-            _ => {}
-        }
-    }
-
-    fn exit_node(&mut self, node: crate::nodes::Node<'_>) {
-        let ast = node.data.borrow();
-        match &ast.value {
-            NodeValue::Document => {}
-            NodeValue::BlockQuote => {
-                self.lit("</blockquote>");
-                self.lit("\n");
-                self.tag_stack.pop();
-                self.tight_list_stack.pop();
-            }
-            NodeValue::List(..) => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-                self.tight_list_stack.pop();
-            }
-            NodeValue::Item(..) => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-            }
-            NodeValue::Paragraph => {
-                if !self.in_tight_list() {
-                    if let Some(tag) = self.tag_stack.pop() {
-                        self.lit(&format!("</{}>", tag));
-                        self.lit("\n");
-                    }
-                }
-            }
-            NodeValue::Heading(NodeHeading { level, .. }) => {
-                self.lit(&format!("</h{}>", level));
-                self.lit("\n");
-                self.tag_stack.pop();
-            }
-            NodeValue::Emph => {
-                self.lit("</em>");
-            }
-            NodeValue::Strong => {
-                self.lit("</strong>");
-            }
-            NodeValue::Link(..) => {
-                self.lit("</a>");
-            }
-            NodeValue::Strikethrough => {
-                self.lit("</del>");
-            }
-            _ => {}
-        }
-    }
-
-    fn collect_alt_text(&self, node: crate::nodes::Node<'_>) -> String {
-        let mut alt_text = String::new();
-        if let Some(child) = node.first_child() {
-            self.collect_alt_text_recursive(child, &mut alt_text);
-        }
-        alt_text
-    }
-
-    fn collect_alt_text_recursive(
-        &self,
-        node: crate::nodes::Node<'_>,
-        alt_text: &mut String,
-    ) {
-        let ast = node.data.borrow();
-        match &ast.value {
-            NodeValue::Text(literal) => {
-                alt_text.push_str(literal);
-            }
-            NodeValue::SoftBreak | NodeValue::HardBreak => {
-                alt_text.push(' ');
-            }
-            _ => {
-                if let Some(child) = node.first_child() {
-                    self.collect_alt_text_recursive(child, alt_text);
-                }
-            }
-        }
-        if let Some(sibling) = node.next_sibling() {
-            self.collect_alt_text_recursive(sibling, alt_text);
-        }
-    }
-}
-
-/// Render a node tree as HTML
-pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    let mut renderer = HtmlRenderer::new(arena, options);
-    renderer.render(root)
-}
-
-/// HTML renderer state
-struct HtmlRenderer<'a> {
-    arena: &'a NodeArena,
-    output: String,
-    /// Stack for tracking whether we need to close a tag
-    tag_stack: Vec<&'static str>,
-    /// Track if we're in a tight list
-    tight_list_stack: Vec<bool>,
-    /// Track footnotes for rendering at the end
-    footnotes: Vec<(String, NodeId)>,
-    /// Track if we're in a code block
-    in_code_block: bool,
-    /// Track the last output character for cr() logic
-    last_out: char,
-    /// Counter to disable tag rendering (for image alt text)
-    disable_tags: i32,
-    /// Track if we're at the first child of a list item (for tight lists)
-    item_child_count: Vec<usize>,
-}
-
-impl<'a> HtmlRenderer<'a> {
-    fn new(arena: &'a NodeArena, _options: u32) -> Self {
-        HtmlRenderer {
-            arena,
-            output: String::new(),
-            tag_stack: Vec::new(),
-            tight_list_stack: Vec::new(),
-            footnotes: Vec::new(),
-            in_code_block: false,
-            last_out: '\n', // Initialize to newline like commonmark.js
-            disable_tags: 0,
-            item_child_count: Vec::new(),
-        }
-    }
-
-    /// Output a newline if the last output wasn't already a newline
-    fn cr(&mut self) {
-        if self.last_out != '\n' {
-            self.output.push('\n');
-            self.last_out = '\n';
-        }
-    }
-
-    /// Output a literal string and track last character
-    fn lit(&mut self, s: &str) {
-        if s.is_empty() {
-            return;
-        }
-
-        self.output.push_str(s);
-        self.last_out = s.chars().last().unwrap_or('\n');
-    }
-
-    /// Check if we're currently inside a tight list
-    fn in_tight_list(&self) -> bool {
-        self.tight_list_stack.last().copied().unwrap_or(false)
-    }
-
-    /// Check if we're inside a list item and track block-level children
-    /// Returns true if we should add a newline before this block element
-    fn track_item_child(&mut self) -> bool {
-        let in_tight_list = self.in_tight_list();
-        if let Some(count) = self.item_child_count.last_mut() {
-            *count += 1;
-            // In tight lists, add newline before block elements after the first one
-            if in_tight_list && *count > 1 {
-                return true;
-            }
-        }
-        false
-    }
-
-    fn render(&mut self, root: NodeId) -> String {
-        self.render_node(root, true);
-
-        // Render footnotes if any
-        if !self.footnotes.is_empty() {
-            self.render_footnotes();
-        }
-
-        // Remove trailing newline to match CommonMark spec test format
-        while self.output.ends_with('\n') {
-            self.output.pop();
-        }
-
-        self.output.clone()
-    }
-
-    fn render_node(&mut self, node_id: NodeId, entering: bool) {
-        if entering {
-            self.enter_node(node_id);
-            let node = self.arena.get(node_id);
-
-            // For image nodes, don't render children as they are used for alt text
-            let is_image = matches!(node.value, NodeValue::Image(..));
-
-            if !is_image {
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.render_node(child_id, true);
+                    self.render_node(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
-            }
-
-            self.exit_node(node_id);
-        }
-    }
-
-    fn enter_node(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-
-        match &node.value {
-            NodeValue::Document => {}
-            NodeValue::BlockQuote => {
-                // In tight list items, add newline before blockquote if not first child
-                if self.track_item_child() {
-                    self.lit("\n");
-                } else {
-                    self.cr();
+                match list.list_type {
+                    ListType::Bullet => self.output.push_str("</ul>"),
+                    ListType::Ordered => self.output.push_str("</ol>"),
                 }
-                self.lit("<blockquote>");
-                self.lit("\n");
-                self.tag_stack.push("blockquote");
-                // Push false to tight_list_stack to disable tight mode for blockquote contents
-                self.tight_list_stack.push(false);
-            }
-            NodeValue::List(NodeList {
-                tight,
-                list_type,
-                start,
-                ..
-            }) => {
-                // Push tight status to stack
-                self.tight_list_stack.push(*tight);
-                self.cr(); // Add newline before list if needed (for nested lists)
-                match list_type {
-                    ListType::Bullet => {
-                        self.lit("<ul>");
-                        self.tag_stack.push("ul");
-                    }
-                    ListType::Ordered => {
-                        if *start != 1 {
-                            self.lit(&format!("<ol start=\"{}\">", start));
-                        } else {
-                            self.lit("<ol>");
-                        }
-                        self.tag_stack.push("ol");
-                    }
-                }
-                self.lit("\n");
             }
             NodeValue::Item(..) => {
-                self.lit("<li>");
-                self.tag_stack.push("li");
-                // In loose lists, add newline after <li>, but not for empty items
-                let has_children = node.first_child.is_some();
-                if !self.in_tight_list() && has_children {
-                    self.lit("\n");
-                }
-                // Initialize child counter for this item
-                self.item_child_count.push(0);
-            }
-            NodeValue::CodeBlock(..) => {
-                // In tight list items, add newline before code block if not first child
-                if self.track_item_child() {
-                    self.lit("\n");
-                } else {
-                    self.cr();
-                }
-                self.render_code_block(node_id);
-            }
-            NodeValue::HtmlBlock(html_block) => {
-                // In tight list items, add newline before HTML block if not first child
-                if self.track_item_child() {
-                    self.lit("\n");
-                } else {
-                    self.cr();
-                }
-                // HTML blocks are always output as raw HTML
-                self.lit(&html_block.literal);
-                self.lit("\n");
-            }
-            NodeValue::Paragraph => {
-                // In tight lists, paragraphs are not wrapped in <p> tags
-                if !self.in_tight_list() {
-                    // Track as item child in loose lists too
-                    self.track_item_child();
-                    self.lit("<p>");
-                    self.tag_stack.push("p");
-                }
-            }
-            NodeValue::Heading(NodeHeading { level, .. }) => {
-                // In tight list items, add newline before heading
-                // The first heading in a list item should also have a newline
-                if !self.item_child_count.is_empty() {
-                    self.track_item_child();
-                    self.lit("\n");
-                }
-                self.lit(&format!("<h{}>", level));
-                self.tag_stack.push("h");
-            }
-            NodeValue::ThematicBreak => {
-                // In tight list items, add newline before thematic break if not first child
-                if self.track_item_child() {
-                    self.lit("\n");
-                } else {
-                    self.cr();
-                }
-                self.lit("<hr />");
-                self.lit("\n");
-            }
-            NodeValue::Text(literal) => {
-                // Track text nodes as item children in tight lists
-                // This ensures proper newline handling for subsequent block elements
-                if self.in_tight_list() && !self.item_child_count.is_empty() {
-                    self.track_item_child();
-                }
-                if self.in_code_block {
-                    self.lit(literal);
-                } else {
-                    self.lit(&escape_html(literal));
-                }
-            }
-            NodeValue::SoftBreak => {
-                if self.in_code_block {
-                    self.lit("\n");
-                } else if self.in_tight_list() {
-                    self.lit(" ");
-                } else {
-                    self.lit("\n");
-                }
-            }
-            NodeValue::HardBreak => {
-                self.lit("<br />");
-                self.lit("\n");
-            }
-            NodeValue::Code(code) => {
-                self.lit("<code>");
-                self.lit(&escape_html(&code.literal));
-                self.lit("</code>");
-            }
-            NodeValue::HtmlInline(literal) => {
-                self.lit(literal.as_ref());
-            }
-            NodeValue::Emph => {
-                self.lit("<em>");
-            }
-            NodeValue::Strong => {
-                self.lit("<strong>");
-            }
-            NodeValue::Link(link) => {
-                if self.disable_tags > 0 {
-                    // We're inside an image's alt text
-                    // Links in alt text are replaced by their link text
-                } else {
-                    self.lit("<a href=\"");
-                    self.lit(&escape_href(&link.url));
-                    self.lit("\"");
-                    if !link.title.is_empty() {
-                        self.lit(" title=\"");
-                        self.lit(&escape_html(&link.title));
-                        self.lit("\"");
-                    }
-                    self.lit(">");
-                }
-            }
-            NodeValue::Image(link) => {
-                self.lit("<img src=\"");
-                self.lit(&escape_href(&link.url));
-                self.lit("\" alt=\"");
-                // Collect alt text from children
-                let alt_text = self.collect_alt_text(node_id);
-                self.lit(&escape_html(&alt_text));
-                if !link.title.is_empty() {
-                    self.lit("\" title=\"");
-                    self.lit(&escape_html(&link.title));
-                }
-                self.lit("\" />");
-            }
-            NodeValue::Strikethrough => {
-                self.lit("<del>");
-            }
-            NodeValue::TaskItem(task_item) => {
-                let checked = task_item.symbol.is_some();
-                self.lit(&format!(
-                    "<input type=\"checkbox\" disabled=\"disabled\"{} />",
-                    if checked { " checked=\"checked\"" } else { "" }
-                ));
-            }
-            NodeValue::FootnoteReference(footnote_ref) => {
-                // Collect footnote for rendering at the end
-                if let Some(def_id) = self.find_footnote_def(&footnote_ref.name) {
-                    self.footnotes.push((footnote_ref.name.clone(), def_id));
-                }
-                self.lit(&format!(
-                    "<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"fnref-{}\">[{}]</a></sup>",
-                    escape_html(&footnote_ref.name),
-                    escape_html(&footnote_ref.name),
-                    escape_html(&footnote_ref.name)
-                ));
-            }
-            NodeValue::FootnoteDefinition(footnote_def) => {
-                // Footnote definitions are rendered at the end
-                self.lit(&format!(
-                    "<li id=\"fn-{}\">",
-                    escape_html(&footnote_def.name)
-                ));
-                self.tag_stack.push("li");
-            }
-            NodeValue::Table(table) => {
-                self.lit("<table>");
-                self.lit("\n");
-                if !table.alignments.is_empty() {
-                    self.lit("<thead>");
-                    self.lit("\n");
-                    self.lit("<tr>");
-                    self.lit("\n");
-                    for alignment in &table.alignments {
-                        let align_attr = match alignment {
-                            TableAlignment::Left => " align=\"left\"",
-                            TableAlignment::Center => " align=\"center\"",
-                            TableAlignment::Right => " align=\"right\"",
-                            TableAlignment::None => "",
-                        };
-                        self.lit(&format!("<th{}>", align_attr));
-                        self.lit("\n");
-                        self.tag_stack.push("th");
-                    }
-                }
-            }
-            NodeValue::TableRow(is_header) => {
-                if *is_header {
-                    self.lit("</tr>");
-                    self.lit("\n");
-                    self.lit("</thead>");
-                    self.lit("\n");
-                    self.lit("<tbody>");
-                    self.lit("\n");
-                } else {
-                    self.lit("<tr>");
-                    self.lit("\n");
-                }
-            }
-            NodeValue::TableCell => {
-                self.lit("<td>");
-                self.tag_stack.push("td");
-            }
-            _ => {}
-        }
-    }
-
-    fn exit_node(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-
-        match &node.value {
-            NodeValue::Document => {}
-            NodeValue::BlockQuote => {
-                self.lit("</blockquote>");
-                self.lit("\n");
-                self.tag_stack.pop();
-                // Pop the false we pushed when entering blockquote
-                self.tight_list_stack.pop();
-            }
-            NodeValue::List(..) => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-                // Pop tight status from stack
-                self.tight_list_stack.pop();
-            }
-            NodeValue::Item(..) => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-                // Pop child counter for this item
-                self.item_child_count.pop();
-            }
-            NodeValue::CodeBlock(..) => {}
-            NodeValue::HtmlBlock(..) => {}
-            NodeValue::Paragraph => {
-                // In tight lists, paragraphs are not wrapped in <p> tags
-                if !self.in_tight_list() {
-                    if let Some(tag) = self.tag_stack.pop() {
-                        self.lit(&format!("</{}>", tag));
-                        self.lit("\n");
-                    }
-                }
-            }
-            NodeValue::Heading(NodeHeading { level, .. }) => {
-                self.lit(&format!("</h{}>", level));
-                self.lit("\n");
-                self.tag_stack.pop();
-            }
-            NodeValue::ThematicBreak => {}
-            NodeValue::Text(..) => {}
-            NodeValue::SoftBreak => {}
-            NodeValue::HardBreak => {}
-            NodeValue::Code(..) => {}
-            NodeValue::HtmlInline(..) => {}
-            NodeValue::Emph => {
-                self.lit("</em>");
-            }
-            NodeValue::Strong => {
-                self.lit("</strong>");
-            }
-            NodeValue::Link(..) => {
-                if self.disable_tags == 0 {
-                    self.lit("</a>");
-                }
-            }
-            NodeValue::Image(..) => {
-                // Image tag is already output in enter_node
-                // No need to do anything here
-            }
-            NodeValue::Strikethrough => {
-                self.lit("</del>");
-            }
-            NodeValue::FootnoteDefinition(..) => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-                self.lit("</li>");
-                self.lit("\n");
-            }
-            NodeValue::Table(..) => {
-                self.lit("</tbody>");
-                self.lit("\n");
-                self.lit("</table>");
-                self.lit("\n");
-            }
-            NodeValue::TableRow(..) => {
-                self.lit("</tr>");
-                self.lit("\n");
-            }
-            NodeValue::TableCell => {
-                if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
-                    self.lit("\n");
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn render_code_block(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-        if let NodeValue::CodeBlock(code_block) = &node.value {
-            self.in_code_block = true;
-
-            self.lit("<pre><code");
-            if !code_block.info.is_empty() {
-                let lang = code_block.info.split_whitespace().next().unwrap_or("");
-                if !lang.is_empty() {
-                    self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
-                }
-            }
-            self.lit(">");
-
-            // Write code content
-            self.lit(&escape_html(&code_block.literal));
-
-            self.lit("</code></pre>");
-            self.lit("\n");
-            self.in_code_block = false;
-        }
-    }
-
-    fn render_footnotes(&mut self) {
-        self.lit("<section class=\"footnotes\">");
-        self.lit("\n");
-        self.lit("<ol>");
-        self.lit("\n");
-
-        // Collect footnotes to avoid borrow issues
-        let footnotes: Vec<(String, NodeId)> = self.footnotes.clone();
-
-        for (name, def_id) in footnotes {
-            self.lit(&format!("<li id=\"fn-{}\">", escape_html(&name)));
-            // Render footnote content
-            self.render_node(def_id, true);
-            self.lit(&format!(
-                " <a href=\"#fnref-{}\" class=\"footnote-backref\">↩</a>",
-                escape_html(&name)
-            ));
-            self.lit("</li>");
-            self.lit("\n");
-        }
-
-        self.lit("</ol>");
-        self.lit("\n");
-        self.lit("</section>");
-        self.lit("\n");
-    }
-
-    fn find_footnote_def(&self, name: &str) -> Option<NodeId> {
-        // Search the arena for the footnote definition with matching name
-        for (id, node) in self.arena.iter() {
-            if let NodeValue::FootnoteDefinition(def) = &node.value {
-                if def.name == name {
-                    return Some(id);
-                }
-            }
-        }
-        None
-    }
-
-    /// Collect alt text from image node's children
-    /// Alt text is the plain text content of the image's children, without HTML tags
-    fn collect_alt_text(&self, node_id: NodeId) -> String {
-        let mut alt_text = String::new();
-        self.collect_alt_text_recursive(node_id, &mut alt_text);
-        alt_text
-    }
-
-    fn collect_alt_text_recursive(&self, node_id: NodeId, alt_text: &mut String) {
-        let node = self.arena.get(node_id);
-        match &node.value {
-            NodeValue::Text(literal) => {
-                alt_text.push_str(literal);
-            }
-            NodeValue::SoftBreak => {
-                alt_text.push(' ');
-            }
-            NodeValue::HardBreak => {
-                alt_text.push(' ');
-            }
-            _ => {
-                // For other node types, recursively collect from children
+                self.output.push_str("<li>");
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
-                    self.collect_alt_text_recursive(child_id, alt_text);
+                    self.render_node(child_id);
                     child_opt = self.arena.get(child_id).next;
                 }
+                self.output.push_str("</li>");
             }
+            NodeValue::ThematicBreak => {
+                self.output.push_str("<hr />");
+            }
+            _ => {}
         }
     }
 }
 
-/// Escape URL for use in href attribute
-///
-/// This function performs two important security checks:
-/// 1. Validates the URL scheme to prevent javascript: and other unsafe protocols
-/// 2. Escapes special HTML characters to prevent XSS attacks
-///
-/// # Arguments
-///
-/// * `url` - The URL to escape
-///
-/// # Returns
-///
-/// The escaped URL string, or "#" if the URL is considered unsafe
-fn escape_href(url: &str) -> String {
-    // First check if the URL is safe (prevents javascript: and other unsafe protocols)
-    if !is_safe_url(url) {
-        return "#".to_string();
-    }
+fn escape_html_str(text: &str) -> String {
+    let mut output = String::new();
+    escape_html(&mut output, text).unwrap();
+    output
+}
 
-    // Escape special HTML characters for attribute context
-    // This is more comprehensive than basic HTML escaping
-    let mut result = String::with_capacity(url.len() * 2);
-    for c in url.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '"' => result.push_str("&quot;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '\'' => result.push_str("&#x27;"),
-            '`' => result.push_str("&#x60;"), // Backtick can be used in IE attribute injection
-            _ => result.push(c),
+fn escape_href_str(url: &str) -> String {
+    let mut output = String::new();
+    escape_href(&mut output, url).unwrap();
+    output
+}
+
+fn format_document_legacy(
+    options: &Options,
+    output: &mut dyn Write,
+    root: crate::nodes::Node<'_>,
+) -> fmt::Result {
+    render_node_legacy(options, output, root)
+}
+
+fn render_node_legacy(
+    options: &Options,
+    output: &mut dyn Write,
+    node: crate::nodes::Node<'_>,
+) -> fmt::Result {
+    let ast = node.data.borrow();
+
+    match &ast.value {
+        NodeValue::Document => {
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                render_node_legacy(options, output, child)?;
+                child_opt = child.next_sibling();
+            }
+        }
+        NodeValue::Paragraph => {
+            write!(output, "<p>")?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                render_node_legacy(options, output, child)?;
+                child_opt = child.next_sibling();
+            }
+            write!(output, "</p>\n")?;
+        }
+        NodeValue::Text(text) => {
+            escape_html(output, text)?;
+        }
+        NodeValue::Heading(heading) => {
+            write!(output, "<h{}>", heading.level)?;
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                render_node_legacy(options, output, child)?;
+                child_opt = child.next_sibling();
+            }
+            write!(output, "</h{}>\n", heading.level)?;
+        }
+        _ => {
+            let mut child_opt = node.first_child();
+            while let Some(child) = child_opt {
+                render_node_legacy(options, output, child)?;
+                child_opt = child.next_sibling();
+            }
         }
     }
-    result
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -899,9 +1177,40 @@ mod tests {
 
     #[test]
     fn test_escape_html() {
-        assert_eq!(escape_html("<div>"), "&lt;div&gt;");
-        assert_eq!(escape_html("&"), "&amp;");
-        assert_eq!(escape_html("\"test\""), "&quot;test&quot;");
+        let mut output = String::new();
+        escape_html(&mut output, "<div>").unwrap();
+        assert_eq!(output, "&lt;div&gt;");
+
+        output.clear();
+        escape_html(&mut output, "&").unwrap();
+        assert_eq!(output, "&amp;");
+
+        output.clear();
+        escape_html(&mut output, "\"test\"").unwrap();
+        assert_eq!(output, "&quot;test&quot;");
+    }
+
+    #[test]
+    fn test_is_safe_url() {
+        assert!(!is_safe_url("javascript:alert('xss')"));
+        assert!(!is_safe_url("JAVASCRIPT:alert('xss')"));
+        assert!(!is_safe_url("vbscript:msgbox('xss')"));
+        assert!(!is_safe_url("file:///etc/passwd"));
+        assert!(is_safe_url("https://example.com"));
+        assert!(is_safe_url("http://example.com"));
+        assert!(is_safe_url("/path/to/page"));
+        assert!(is_safe_url("#anchor"));
+    }
+
+    #[test]
+    fn test_escape_href() {
+        let mut output = String::new();
+        escape_href(&mut output, "https://example.com?a=1&b=2").unwrap();
+        assert_eq!(output, "https://example.com?a=1&amp;b=2");
+
+        output.clear();
+        escape_href(&mut output, "javascript:alert('xss')").unwrap();
+        assert_eq!(output, "#");
     }
 
     #[test]
@@ -915,12 +1224,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, text);
 
         let html = render(&arena, root, 0);
-        println!("HTML output: {:?}", html);
-        assert!(
-            html.contains("<p>Hello world</p>"),
-            "Expected <p>Hello world</p> in {}",
-            html
-        );
+        assert!(html.contains("<p>Hello world</p>"), "Expected <p>Hello world</p> in {}", html);
     }
 
     #[test]
@@ -1094,60 +1398,54 @@ mod tests {
         assert!(html.contains("<hr />"));
     }
 
-    // Security tests for XSS prevention
     #[test]
     fn test_escape_href_blocks_javascript() {
-        // javascript: protocol should be blocked
-        let result = escape_href("javascript:alert('xss')");
+        let result = escape_href_str("javascript:alert('xss')");
         assert_eq!(result, "#");
 
-        // Case variations
-        let result = escape_href("JAVASCRIPT:alert('xss')");
+        let result = escape_href_str("JAVASCRIPT:alert('xss')");
         assert_eq!(result, "#");
 
-        let result = escape_href("JavaScript:alert('xss')");
+        let result = escape_href_str("JavaScript:alert('xss')");
         assert_eq!(result, "#");
     }
 
     #[test]
     fn test_escape_href_blocks_vbscript() {
-        let result = escape_href("vbscript:msgbox('xss')");
+        let result = escape_href_str("vbscript:msgbox('xss')");
         assert_eq!(result, "#");
     }
 
     #[test]
     fn test_escape_href_blocks_file_protocol() {
-        let result = escape_href("file:///etc/passwd");
+        let result = escape_href_str("file:///etc/passwd");
         assert_eq!(result, "#");
     }
 
     #[test]
     fn test_escape_href_allows_safe_urls() {
-        // HTTP/HTTPS should be allowed
-        let result = escape_href("https://example.com");
+        let result = escape_href_str("https://example.com");
         assert_eq!(result, "https://example.com");
 
-        let result = escape_href("http://example.com/path?query=value");
+        let result = escape_href_str("http://example.com/path?query=value");
         assert_eq!(result, "http://example.com/path?query=value");
     }
 
     #[test]
     fn test_escape_href_escapes_special_chars() {
-        // Special characters should be escaped
-        let result = escape_href("https://example.com?a=1&b=2");
+        let result = escape_href_str("https://example.com?a=1&b=2");
         assert_eq!(result, "https://example.com?a=1&amp;b=2");
 
-        let result = escape_href("https://example.com/<script>");
+        let result = escape_href_str("https://example.com/<script>");
         assert_eq!(result, "https://example.com/&lt;script&gt;");
 
-        let result = escape_href("https://example.com/\"quoted\"");
+        let result = escape_href_str("https://example.com/\"quoted\"");
         assert_eq!(result, "https://example.com/&quot;quoted&quot;");
 
-        // Single quotes and backticks should be escaped for attribute context
-        let result = escape_href("https://example.com/path'");
+        let result = escape_href_str("https://example.com/path'");
         assert_eq!(result, "https://example.com/path&#x27;");
 
-        let result = escape_href("https://example.com/`backtick`");
+        let result = escape_href_str("https://example.com/`backtick`");
         assert_eq!(result, "https://example.com/&#x60;backtick&#x60;");
     }
 
@@ -1167,7 +1465,6 @@ mod tests {
         TreeOps::append_child(&mut arena, link, text);
 
         let html = render(&arena, root, 0);
-        // Unsafe URL should be replaced with "#"
         assert!(
             html.contains("href=\"#\""),
             "Unsafe URL should be replaced with #"
@@ -1176,5 +1473,18 @@ mod tests {
             !html.contains("javascript:"),
             "javascript: should not appear in output"
         );
+    }
+
+    // Helper function for tests
+    fn escape_href_str(url: &str) -> String {
+        let mut output = String::new();
+        escape_href(&mut output, url).unwrap();
+        output
+    }
+
+    fn escape_html_str(text: &str) -> String {
+        let mut output = String::new();
+        escape_html(&mut output, text).unwrap();
+        output
     }
 }

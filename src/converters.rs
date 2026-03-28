@@ -8,6 +8,7 @@ use crate::nodes::NodeValue;
 use std::io::Write;
 
 /// Export format options
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportFormat {
     /// Microsoft Word format (.docx)
@@ -38,6 +39,7 @@ impl Default for ExportOptions {
 }
 
 /// Page size for PDF export
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PageSize {
     /// A4 page size
@@ -49,6 +51,7 @@ pub enum PageSize {
 }
 
 /// Converter error
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConverterError {
     /// IO error

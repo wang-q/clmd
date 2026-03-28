@@ -84,6 +84,7 @@ pub fn is_line_end_char(b: u8) -> bool {
 }
 
 /// The character used in a setext heading underline
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SetextChar {
     /// Equals sign `=` (for level 1 headings)

@@ -1,41 +1,15 @@
-//! Plugin system for extending Markdown rendering
+//! Owned plugins for clmd
 //!
-//! This module provides a plugin architecture that allows users to customize
-//! various aspects of Markdown rendering, such as syntax highlighting,
-//! heading rendering, and code block handling.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use clmd::plugins::{Plugins, SyntaxHighlighterAdapter};
-//! use clmd::parser::options::Options;
-//!
-//! // Create a custom syntax highlighter
-//! struct MyHighlighter;
-//!
-//! impl SyntaxHighlighterAdapter for MyHighlighter {
-//!     fn highlight(&self, code: &str, language: Option<&str>) -> String {
-//!         format!("<pre><code class=\"lang-{lang}\">{code}</code></pre>",
-//!             lang = language.unwrap_or("text"),
-//!             code = code)
-//!     }
-//! }
-//!
-//! // Configure plugins
-//! let mut plugins = Plugins::new();
-//! plugins.render.set_syntax_highlighter(&MyHighlighter);
-//! ```
+//! This module provides owned versions of plugins for use cases where
+//! lifetime management is not desired.
 
 use std::collections::HashMap;
 use std::fmt;
 
-// Re-export from parser::options for unified API
-pub use crate::parser::options::{Plugins, RenderPlugins};
-
-// Re-export adapter traits for convenience
-pub use crate::adapters::{
+use crate::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
+use crate::parser::options::{Plugins, RenderPlugins};
 
 /// A collection of plugins for customizing rendering behavior (owned version).
 ///
@@ -225,12 +199,6 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_plugins_default() {
-        let plugins = Plugins::new();
-        assert!(plugins.render.is_empty());
-    }
-
-    #[test]
     fn test_owned_plugins_default() {
         let plugins = OwnedPlugins::new();
         assert!(plugins.is_empty());
@@ -335,51 +303,5 @@ mod tests {
 
         let debug = format!("{:?}", plugins);
         assert!(debug.contains("has_syntax_highlighter: true"));
-    }
-
-    #[test]
-    fn test_render_plugins_default() {
-        let plugins = RenderPlugins::new();
-        assert!(plugins.is_empty());
-        assert!(plugins.syntax_highlighter().is_none());
-        assert!(plugins.heading_adapter().is_none());
-    }
-
-    #[test]
-    fn test_render_plugins_with_highlighter() {
-        struct TestHighlighter;
-        impl SyntaxHighlighterAdapter for TestHighlighter {
-            fn write_highlighted(
-                &self,
-                output: &mut dyn fmt::Write,
-                _lang: Option<&str>,
-                code: &str,
-            ) -> fmt::Result {
-                write!(output, "<code>{}</code>", code)
-            }
-
-            fn write_pre_tag<'s>(
-                &self,
-                output: &mut dyn fmt::Write,
-                _attrs: HashMap<&str, Cow<'s, str>>,
-            ) -> fmt::Result {
-                output.write_str("<pre>")
-            }
-
-            fn write_code_tag<'s>(
-                &self,
-                output: &mut dyn fmt::Write,
-                _attrs: HashMap<&str, Cow<'s, str>>,
-            ) -> fmt::Result {
-                output.write_str("<code>")
-            }
-        }
-
-        let highlighter = TestHighlighter;
-        let mut plugins = RenderPlugins::new();
-        plugins.set_syntax_highlighter(&highlighter);
-
-        assert!(!plugins.is_empty());
-        assert!(plugins.syntax_highlighter().is_some());
     }
 }

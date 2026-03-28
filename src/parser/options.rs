@@ -21,6 +21,9 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
+use bon::Builder;
+use arbitrary::Arbitrary;
+
 /// Umbrella options struct for the Markdown parser and renderer.
 ///
 /// This struct provides a convenient way to configure all aspects of
@@ -41,7 +44,7 @@ use std::sync::Arc;
 /// let html = clmd::markdown_to_html("Hello **world**!", &options);
 /// assert!(html.contains("<strong>world</strong>"));
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder, Arbitrary)]
 pub struct Options<'c> {
     /// Enable CommonMark extensions.
     pub extension: Extension<'c>,
@@ -76,7 +79,7 @@ impl<'c> Options<'c> {
 ///
 /// The lifetime parameter `'c` allows extensions to hold references to
 /// external data such as URL rewriters.
-#[derive(Clone)]
+#[derive(Clone, Builder, Arbitrary)]
 pub struct Extension<'c> {
     /// Enables the strikethrough extension from the GFM spec.
     ///
@@ -194,9 +197,11 @@ pub struct Extension<'c> {
     pub subtext: bool,
 
     /// Wraps embedded image URLs using a function or custom trait object.
+    #[arbitrary(default)]
     pub image_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
 
     /// Wraps link URLs using a function or custom trait object.
+    #[arbitrary(default)]
     pub link_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
 }
 
@@ -290,7 +295,7 @@ impl<'c> Extension<'c> {
 
 /// Selects between wikilinks with the title first or the URL first.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Arbitrary)]
 pub enum WikiLinksMode {
     /// Indicates that the URL precedes the title.
     /// For example: `[[http://example.com|link title]]`.
@@ -305,7 +310,7 @@ pub enum WikiLinksMode {
 ///
 /// The lifetime parameter `'c` allows parse options to hold references to
 /// external data such as broken link callbacks.
-#[derive(Clone)]
+#[derive(Clone, Builder, Arbitrary)]
 pub struct Parse<'c> {
     /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
     ///
@@ -363,6 +368,7 @@ pub struct Parse<'c> {
     /// When the parser encounters a potential link that has a broken reference
     /// (e.g `[foo]` when there is no `[foo]: url` entry), this callback is called
     /// to potentially resolve the reference.
+    #[arbitrary(default)]
     pub broken_link_callback: Option<Arc<dyn BrokenLinkCallback + 'c>>,
 }
 
@@ -406,7 +412,7 @@ impl<'c> Debug for Parse<'c> {
 }
 
 /// Options for formatter functions.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Builder, Arbitrary)]
 pub struct Render {
     /// Soft line breaks in the input translate into hard line breaks in the output.
     ///
@@ -517,7 +523,7 @@ impl Default for Render {
 
 /// Style type for bullet lists.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
 pub enum ListStyleType {
     /// Use `-` for bullet lists.
     #[default]

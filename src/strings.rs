@@ -6,6 +6,7 @@
 use std::borrow::Cow;
 
 /// Case sensitivity for label normalization
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Case {
     /// Case-insensitive normalization (fold to lowercase)

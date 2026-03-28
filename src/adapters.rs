@@ -705,43 +705,8 @@ pub trait CodefenceRendererAdapter {
     ) -> fmt::Result;
 }
 
-/// Adapter for URL rewriting.
-///
-/// This trait allows you to customize how URLs are rewritten during rendering.
-/// You can use this to implement features like base URL prepending, CDN rewriting,
-/// or link validation.
-///
-/// # Example
-///
-/// ```
-/// use clmd::adapters::UrlRewriter;
-///
-/// struct CdnRewriter {
-///     base_url: String,
-/// }
-///
-/// impl UrlRewriter for CdnRewriter {
-///     fn rewrite(&self, url: &str) -> String {
-///         if url.starts_with("http") {
-///             url.to_string()
-///         } else {
-///             format!("{}{}", self.base_url, url)
-///         }
-///     }
-/// }
-/// ```
-pub trait UrlRewriter {
-    /// Rewrite a URL.
-    ///
-    /// # Arguments
-    ///
-    /// * `url` - The original URL
-    ///
-    /// # Returns
-    ///
-    /// The rewritten URL
-    fn rewrite(&self, url: &str) -> String;
-}
+// Re-export URLRewriter from parser::options for unified API
+pub use crate::parser::options::URLRewriter as UrlRewriter;
 
 #[cfg(test)]
 mod tests {
