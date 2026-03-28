@@ -223,7 +223,7 @@ const AST_SIZE_ASSERTION: [u8; 128] = [0; std::mem::size_of::<Ast>()];
 
 #[allow(dead_code)]
 #[cfg(target_pointer_width = "64")]
-const AST_NODE_SIZE_ASSERTION: [u8; 176] = [0; std::mem::size_of::<AstNode<'_>>()];
+const AST_NODE_SIZE_ASSERTION: [u8; 184] = [0; std::mem::size_of::<AstNode<'_>>()];
 
 impl std::fmt::Debug for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

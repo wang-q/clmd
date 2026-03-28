@@ -5,8 +5,7 @@
 //!
 //! # Safety
 //!
-//! This crate uses `unsafe` code for performance optimizations in the arena allocator
-//! and string pool. All unsafe code is carefully audited and tested.
+//! This crate is 100% safe Rust - it contains no `unsafe` code.
 //!
 //! # Quick Start
 //!
@@ -68,7 +67,8 @@
     trivial_casts,
     trivial_numeric_casts,
     unstable_features,
-    unused_import_braces
+    unused_import_braces,
+    unsafe_code
 )]
 #![allow(
     unknown_lints,

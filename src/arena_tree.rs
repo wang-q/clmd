@@ -23,6 +23,10 @@
 
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Global counter for generating unique node IDs.
+static NODE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// A node inside a DOM-like tree.
 ///
@@ -38,6 +42,9 @@ pub struct Node<'a, T: 'a> {
 
     /// The data held by the node.
     pub data: T,
+
+    /// Unique identifier for this node.
+    id: u64,
 }
 
 impl<'a, T: 'a> fmt::Debug for Node<'a, T>
@@ -72,6 +79,7 @@ impl<'a, T: 'a> Node<'a, T> {
             previous_sibling: Cell::new(None),
             next_sibling: Cell::new(None),
             data,
+            id: NODE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
         }
     }
 
@@ -117,7 +125,7 @@ impl<'a, T: 'a> Node<'a, T> {
 
     /// Returns whether two references point to the same node.
     pub fn same_node(&self, other: &Node<'a, T>) -> bool {
-        std::ptr::eq(self, other)
+        self.id == other.id
     }
 
     /// Return an iterator of references to this node and its ancestors.
@@ -245,14 +253,13 @@ impl<'a, T: 'a> Node<'a, T> {
         new_sibling.parent.set(self.parent.get());
         new_sibling.previous_sibling.set(Some(self));
         if let Some(next_sibling) = self.next_sibling.take() {
-            debug_assert!(std::ptr::eq(
-                next_sibling.previous_sibling.get().unwrap(),
-                self
-            ));
+            debug_assert!(
+                next_sibling.previous_sibling.get().unwrap().same_node(self)
+            );
             next_sibling.previous_sibling.set(Some(new_sibling));
             new_sibling.next_sibling.set(Some(next_sibling));
         } else if let Some(parent) = self.parent.get() {
-            debug_assert!(std::ptr::eq(parent.last_child.get().unwrap(), self));
+            debug_assert!(parent.last_child.get().unwrap().same_node(self));
             parent.last_child.set(Some(new_sibling));
         }
         self.next_sibling.set(Some(new_sibling));
@@ -265,13 +272,12 @@ impl<'a, T: 'a> Node<'a, T> {
         new_sibling.next_sibling.set(Some(self));
         if let Some(previous_sibling) = self.previous_sibling.take() {
             new_sibling.previous_sibling.set(Some(previous_sibling));
-            debug_assert!(std::ptr::eq(
-                previous_sibling.next_sibling.get().unwrap(),
-                self
-            ));
+            debug_assert!(
+                previous_sibling.next_sibling.get().unwrap().same_node(self)
+            );
             previous_sibling.next_sibling.set(Some(new_sibling));
         } else if let Some(parent) = self.parent.get() {
-            debug_assert!(std::ptr::eq(parent.first_child.get().unwrap(), self));
+            debug_assert!(parent.first_child.get().unwrap().same_node(self));
             parent.first_child.set(Some(new_sibling));
         }
         self.previous_sibling.set(Some(new_sibling));

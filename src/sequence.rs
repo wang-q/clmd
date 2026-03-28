@@ -135,6 +135,8 @@ impl<'a> BasedSequence<'a> {
 
     /// Check if this sequence is continued by another in the original source
     pub fn is_continued_by(&self, other: &BasedSequence<'a>) -> bool {
+        // Use pointer equality to check if both sequences reference the same base string
+        // This is safe because we're only comparing pointers, not dereferencing them
         self.base.as_ptr() == other.base.as_ptr() && self.end == other.start
     }
 
