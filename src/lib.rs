@@ -138,6 +138,9 @@ pub mod test_utils;
 /// String processing utilities.
 pub mod strings;
 
+/// Unicode display width calculation.
+pub mod unicode_width;
+
 /// Scanner utilities for CommonMark syntax.
 pub mod scanners;
 
