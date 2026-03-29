@@ -155,10 +155,7 @@ fn bench_memory_allocation_patterns(c: &mut Criterion) {
     // Document with many footnotes (tests footnote reference generation)
     let mut footnote_doc = String::from("# Document with Footnotes\n\n");
     for i in 0..50 {
-        footnote_doc.push_str(&format!(
-            "Text with footnote[^{}] and more text. ",
-            i
-        ));
+        footnote_doc.push_str(&format!("Text with footnote[^{}] and more text. ", i));
     }
     footnote_doc.push_str("\n\n");
     for i in 0..50 {
@@ -176,8 +173,7 @@ fn bench_memory_allocation_patterns(c: &mut Criterion) {
 fn bench_smart_punctuation_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("smart_punctuation_comparison");
 
-    let text_with_quotes =
-        "'This is a quote' and \"another quote\". ".repeat(100);
+    let text_with_quotes = "'This is a quote' and \"another quote\". ".repeat(100);
 
     // Without smart punctuation (tests optimized path)
     let options_no_smart = Options::default();
@@ -188,7 +184,10 @@ fn bench_smart_punctuation_comparison(c: &mut Criterion) {
 
     // With smart punctuation (tests regular path)
     let options_smart = Options {
-        parse: clmd::parser::options::Parse { smart: true, ..Default::default() },
+        parse: clmd::parser::options::Parse {
+            smart: true,
+            ..Default::default()
+        },
         ..Default::default()
     };
     group.throughput(Throughput::Bytes(text_with_quotes.len() as u64));

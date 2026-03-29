@@ -27,9 +27,14 @@ comrak = { path = "./comrak-0.51.0", optional = true }
 pulldown-cmark = { path = "./pulldown-cmark-0.13.3/pulldown-cmark", optional = true }
 bon = "3.0"
 arbitrary = { version = "1.3", features = ["derive"] }
+clap = { version = "4.5", features = ["cargo"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [dev-dependencies]
 criterion = "0.5"
+tempfile = "3.0"
 
 [profile.release]
 debug = true
@@ -67,4 +72,9 @@ harness = false
 [[example]]
 name = "benchmark"
 path = "examples/bench/benchmark.rs"
+
+# Binary
+[[bin]]
+name = "clmd"
+path = "src/bin/clmd.rs"
 

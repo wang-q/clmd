@@ -327,7 +327,8 @@ impl<'a> HtmlRenderer<'a> {
                     self.output,
                     "<li id=\"fn-{}\">",
                     escape_html(&footnote_def.name)
-                ).unwrap();
+                )
+                .unwrap();
                 self.last_out = '>';
                 self.tag_stack.push("li");
             }

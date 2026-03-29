@@ -233,10 +233,10 @@ impl<'a> BlockParser<'a> {
 
         // Optimization: avoid String allocation for common case (no NUL characters)
         let has_nul = line.contains('\u{0000}');
-        
+
         // Ensure line ends with newline
         let needs_newline = !line.ends_with('\n');
-        
+
         if has_nul || needs_newline {
             // Need to create a modified line
             self.current_line.clear();

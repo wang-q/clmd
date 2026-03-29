@@ -807,8 +807,7 @@ impl<'a> Subject<'a> {
             } else {
                 text_slice.into()
             };
-            let text_node =
-                arena.alloc(Node::with_value(NodeValue::Text(literal)));
+            let text_node = arena.alloc(Node::with_value(NodeValue::Text(literal)));
             TreeOps::append_child(arena, parent, text_node);
             true
         } else {
@@ -878,7 +877,9 @@ impl<'a> Subject<'a> {
                                 _ => 0,
                             };
                             let (next_len, next_text) = match &next_node.value {
-                                NodeValue::Text(literal) => (literal.len(), Some(literal.clone())),
+                                NodeValue::Text(literal) => {
+                                    (literal.len(), Some(literal.clone()))
+                                }
                                 _ => (0, None),
                             };
                             (current_len, next_len, next_text)
@@ -888,7 +889,8 @@ impl<'a> Subject<'a> {
                             let current_node = arena.get_mut(current);
                             if let NodeValue::Text(ref mut literal) = current_node.value
                             {
-                                let mut new_literal = String::with_capacity(current_len + next_len);
+                                let mut new_literal =
+                                    String::with_capacity(current_len + next_len);
                                 new_literal.push_str(literal.as_ref());
                                 // Append next's text
                                 if let Some(ref next_text) = next_text {
@@ -936,7 +938,8 @@ impl<'a> Subject<'a> {
                 // Optimization: pre-allocate capacity to avoid reallocations
                 let last_node = arena.get_mut(last_child);
                 if let NodeValue::Text(ref mut literal) = last_node.value {
-                    let mut new_literal = String::with_capacity(literal.len() + text.len());
+                    let mut new_literal =
+                        String::with_capacity(literal.len() + text.len());
                     new_literal.push_str(literal.as_ref());
                     new_literal.push_str(text);
                     *literal = new_literal.into_boxed_str();
@@ -946,8 +949,7 @@ impl<'a> Subject<'a> {
         }
 
         // Create new text node
-        let text_node =
-            arena.alloc(Node::with_value(NodeValue::Text(text.into())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(text.into())));
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }

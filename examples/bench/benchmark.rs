@@ -1,21 +1,21 @@
 //! Comprehensive benchmark runner
-//! 
+//!
 //! This binary provides multiple benchmark modes for clmd:
 //! 1. Cross-language comparison (cmark, commonmark.js)
 //! 2. Cross-Rust parser comparison (comrak, pulldown-cmark)
 //! 3. Flamegraph generation support
 //! 4. Arena performance comparison
-//! 
+//!
 //! Usage:
 //!   cargo build --release --example benchmark [--features "comrak pulldown-cmark"]
 //!   ./target/release/examples/benchmark [OPTIONS] [FILE]
-//! 
+//!
 //! Options:
 //!   -h, --help                Show this help message
 //!   --mode MODE               Benchmark mode: cross-language, cross-rust, flamegraph, arena
 //!   -i, --iterations N        Number of iterations (for flamegraph mode)
 //!   --no-optimization         Prevent compiler optimizations
-//! 
+//!
 //! Examples:
 //!   ./target/release/examples/benchmark --mode cross-language sample.md
 //!   ./target/release/examples/benchmark --mode cross-rust --features comrak,pulldown-cmark sample.md
@@ -25,8 +25,8 @@ use clmd::markdown_to_html as clmd_to_html;
 use clmd::parser::options::Options as ClmdOptions;
 use std::env;
 use std::fs;
-use std::time::Instant;
 use std::process::exit;
+use std::time::Instant;
 
 #[cfg(feature = "comrak")]
 use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
@@ -62,7 +62,7 @@ fn parse_args() -> BenchConfig {
             "-h" | "--help" => {
                 print_help();
                 exit(0);
-            },
+            }
             "--mode" => {
                 if i + 1 < args.len() {
                     mode = match args[i + 1].as_str() {
@@ -73,14 +73,14 @@ fn parse_args() -> BenchConfig {
                         _ => {
                             eprintln!("Error: Invalid mode. Use --help for options.");
                             exit(1);
-                        },
+                        }
                     };
                     i += 1;
                 } else {
                     eprintln!("Error: --mode requires an argument.");
                     exit(1);
                 }
-            },
+            }
             "-i" | "--iterations" => {
                 if i + 1 < args.len() {
                     iterations = args[i + 1].parse().unwrap_or_else(|_| {
@@ -92,10 +92,10 @@ fn parse_args() -> BenchConfig {
                     eprintln!("Error: --iterations requires an argument.");
                     exit(1);
                 }
-            },
+            }
             "--no-optimization" => {
                 prevent_optimization = true;
-            },
+            }
             _ => {
                 if input.is_none() {
                     input = Some(args[i].clone());
@@ -103,7 +103,7 @@ fn parse_args() -> BenchConfig {
                     eprintln!("Error: Too many arguments. Use --help for options.");
                     exit(1);
                 }
-            },
+            }
         }
         i += 1;
     }
@@ -184,7 +184,8 @@ fn run_cross_rust_bench(config: &BenchConfig) {
     println!("  Time: {:?}", clmd_duration);
     println!("  Output size: {} bytes", clmd_result.len());
 
-    #[cfg(feature = "comrak")] {
+    #[cfg(feature = "comrak")]
+    {
         let start = Instant::now();
         let comrak_result = comrak_to_html(&config.input, &ComrakOptions::default());
         let comrak_duration = start.elapsed();
@@ -198,7 +199,8 @@ fn run_cross_rust_bench(config: &BenchConfig) {
         }
     }
 
-    #[cfg(feature = "pulldown-cmark")] {
+    #[cfg(feature = "pulldown-cmark")]
+    {
         let start = Instant::now();
         let mut pulldown_result = String::new();
         let parser = Parser::new(&config.input);
@@ -216,7 +218,9 @@ fn run_cross_rust_bench(config: &BenchConfig) {
 
     if !cfg!(feature = "comrak") && !cfg!(feature = "pulldown-cmark") {
         println!("\nNote: comrak and pulldown-cmark comparisons are disabled.");
-        println!("      Build with --features \"comrak pulldown-cmark\" to enable them.");
+        println!(
+            "      Build with --features \"comrak pulldown-cmark\" to enable them."
+        );
     }
 
     if config.prevent_optimization {
@@ -241,14 +245,18 @@ fn run_flamegraph_bench(config: &BenchConfig) {
         }
     }
 
-    println!("Completed {0} iterations in approximately {1:.2} seconds per 1000 iterations", 
-             config.iterations, 
-             config.iterations as f64 / 1000.0 * 0.01);
+    println!(
+        "Completed {0} iterations in approximately {1:.2} seconds per 1000 iterations",
+        config.iterations,
+        config.iterations as f64 / 1000.0 * 0.01
+    );
 }
 
 fn run_arena_bench(config: &BenchConfig) {
     println!("=== Arena Performance Benchmark ===");
-    println!("This test demonstrates the performance of clmd's arena-based memory management");
+    println!(
+        "This test demonstrates the performance of clmd's arena-based memory management"
+    );
     println!();
 
     let options = ClmdOptions::default();
@@ -260,28 +268,30 @@ fn run_arena_bench(config: &BenchConfig) {
     // Measure performance
     let iterations = 1000;
     let start = Instant::now();
-    
+
     for _ in 0..iterations {
         let result = clmd_to_html(input, &options);
         if config.prevent_optimization {
             std::hint::black_box(result);
         }
     }
-    
+
     let duration = start.elapsed();
     let per_iteration = duration / iterations as u32;
-    
+
     println!("Results:");
     println!("  Iterations: {}", iterations);
     println!("  Total time: {:?}", duration);
     println!("  Per iteration: {:?}", per_iteration);
-    println!("  Throughput: {:.2} MB/s", 
-             (input.len() as f64 * iterations as f64) / duration.as_secs_f64() / 1_000_000.0);
+    println!(
+        "  Throughput: {:.2} MB/s",
+        (input.len() as f64 * iterations as f64) / duration.as_secs_f64() / 1_000_000.0
+    );
 }
 
 fn main() {
     let config = parse_args();
-    
+
     match config.mode {
         BenchMode::CrossLanguage => run_cross_language_bench(&config),
         BenchMode::CrossRust => run_cross_rust_bench(&config),
