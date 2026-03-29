@@ -194,7 +194,8 @@ impl<'a> PdfRenderer<'a> {
 
         match value {
             NodeValue::Heading(heading) => {
-                self.output.push_str(&format!("Heading {}: ", heading.level));
+                self.output
+                    .push_str(&format!("Heading {}: ", heading.level));
                 self.write_children_text(node_id);
                 self.output.push('\n');
             }

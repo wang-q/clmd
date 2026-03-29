@@ -195,8 +195,6 @@ pub struct Extension<'c> {
     pub link_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
 }
 
-
-
 impl<'c> Debug for Extension<'c> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Extension")
@@ -330,8 +328,6 @@ pub struct Parse<'c> {
     pub broken_link_callback: Option<Arc<dyn BrokenLinkCallback + 'c>>,
 }
 
-
-
 impl<'c> Debug for Parse<'c> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Parse")
@@ -354,8 +350,7 @@ impl<'c> Debug for Parse<'c> {
 }
 
 /// Options for formatter functions.
-#[derive(Debug, Clone, Copy, Builder, Arbitrary)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Builder, Arbitrary, Default)]
 pub struct Render {
     /// Soft line breaks in the input translate into hard line breaks in the output.
     ///
@@ -439,7 +434,6 @@ pub struct Render {
     /// parse option to be enabled.
     pub escaped_char_spans: bool,
 }
-
 
 /// Style type for bullet lists.
 #[non_exhaustive]

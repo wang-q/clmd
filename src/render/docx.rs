@@ -9,15 +9,13 @@ use crate::nodes::NodeValue;
 use std::io::Write;
 
 /// DOCX export options
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DocxOptions {
     /// Document title
     pub title: Option<String>,
     /// Document author
     pub author: Option<String>,
 }
-
 
 /// Render an AST as DOCX
 ///

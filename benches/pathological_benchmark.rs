@@ -17,7 +17,9 @@ fn bench_nested_emphasis(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(depth),
             &input,
-            |b, input| b.iter(|| markdown_to_html(black_box(input), &Options::default())),
+            |b, input| {
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+            },
         );
     }
 
@@ -39,7 +41,9 @@ fn bench_many_link_defs(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(count),
             &input,
-            |b, input| b.iter(|| markdown_to_html(black_box(input), &Options::default())),
+            |b, input| {
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+            },
         );
     }
 
@@ -61,7 +65,9 @@ fn bench_deep_nested_lists(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(depth),
             &input,
-            |b, input| b.iter(|| markdown_to_html(black_box(input), &Options::default())),
+            |b, input| {
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+            },
         );
     }
 
@@ -80,7 +86,9 @@ fn bench_long_inline_code(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(length),
             &input,
-            |b, input| b.iter(|| markdown_to_html(black_box(input), &Options::default())),
+            |b, input| {
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+            },
         );
     }
 
@@ -98,7 +106,9 @@ fn bench_many_backticks(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(count),
             &input,
-            |b, input| b.iter(|| markdown_to_html(black_box(input), &Options::default())),
+            |b, input| {
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+            },
         );
     }
 

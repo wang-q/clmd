@@ -117,5 +117,4 @@ impl<'a> BlockParser<'a> {
             None
         }
     }
-
 }
