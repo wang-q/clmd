@@ -63,21 +63,8 @@ harness = false
 name = "string_optimization_benchmark"
 harness = false
 
-# Examples - Benchmarks
+# Examples
 [[example]]
-name = "cross_language_bench"
-path = "examples/bench/cross_language_bench.rs"
+name = "benchmark"
+path = "examples/bench/benchmark.rs"
 
-[[example]]
-name = "cross_rust_bench"
-path = "examples/bench/cross_rust_bench.rs"
-required-features = ["comrak", "pulldown-cmark"]
-
-[[example]]
-name = "flamegraph_bench"
-path = "examples/bench/flamegraph_bench.rs"
-
-# Examples - Comparisons
-[[example]]
-name = "arena_comparison"
-path = "examples/compare/arena_comparison.rs"
