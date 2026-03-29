@@ -193,8 +193,10 @@ impl<'a> XmlRenderer<'a> {
     }
 
     fn render(&mut self, root: NodeId) -> String {
-        self.output.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        self.output.push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
+        self.output
+            .push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        self.output
+            .push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
         self.render_node(root);
         self.output.clone()
     }
@@ -208,21 +210,20 @@ impl<'a> XmlRenderer<'a> {
 
         // Add type-specific attributes
         match &node.value {
-            NodeValue::List(list) => {
-                match list.list_type {
-                    ListType::Bullet => {
-                        self.output.push_str(" type=\"bullet\"");
-                    }
-                    ListType::Ordered => {
-                        self.output.push_str(" type=\"ordered\"");
-                        if list.start != 1 {
-                            self.output.push_str(&format!(" start=\"{}\"", list.start));
-                        }
+            NodeValue::List(list) => match list.list_type {
+                ListType::Bullet => {
+                    self.output.push_str(" type=\"bullet\"");
+                }
+                ListType::Ordered => {
+                    self.output.push_str(" type=\"ordered\"");
+                    if list.start != 1 {
+                        self.output.push_str(&format!(" start=\"{}\"", list.start));
                     }
                 }
-            }
+            },
             NodeValue::Heading(heading) => {
-                self.output.push_str(&format!(" level=\"{}\"", heading.level));
+                self.output
+                    .push_str(&format!(" level=\"{}\"", heading.level));
             }
             _ => {}
         }

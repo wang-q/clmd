@@ -222,8 +222,6 @@ impl Ast {
     }
 }
 
-
-
 /// Represents a position in the source document.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LineColumn {

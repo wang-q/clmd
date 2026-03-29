@@ -175,8 +175,6 @@ pub type NodeId = arena::NodeId;
 /// Invalid node ID constant.
 pub use arena::INVALID_NODE_ID;
 
-
-
 /// Parse a Markdown document to an AST.
 ///
 /// This is the main entry point for parsing. Returns a tuple of (arena, root_node_id).
@@ -190,10 +188,7 @@ pub use arena::INVALID_NODE_ID;
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
 /// ```
 #[inline]
-pub fn parse_document(
-    md: &str,
-    options: &Options,
-) -> (Arena, NodeId) {
+pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
     parser::parse_document(md, options)
 }
 
@@ -727,7 +722,7 @@ fn format_node_xml(
 ) -> std::fmt::Result {
     let node = arena.get(node_id);
     let indent = "  ".repeat(depth);
-    
+
     let tag_name = match &node.value {
         NodeValue::Document => "document",
         NodeValue::Paragraph => "paragraph",
@@ -747,18 +742,18 @@ fn format_node_xml(
         NodeValue::HardBreak => "linebreak",
         _ => "unknown",
     };
-    
+
     writeln!(output, "{}<{}>", indent, tag_name)?;
-    
+
     // Process children
     let mut child_opt = node.first_child;
     while let Some(child_id) = child_opt {
         format_node_xml(arena, child_id, output, depth + 1)?;
         child_opt = arena.get(child_id).next;
     }
-    
+
     writeln!(output, "{}</{}>", indent, tag_name)?;
-    
+
     Ok(())
 }
 

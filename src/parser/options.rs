@@ -21,8 +21,8 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use bon::Builder;
 use arbitrary::Arbitrary;
+use bon::Builder;
 
 /// Umbrella options struct for the Markdown parser and renderer.
 ///

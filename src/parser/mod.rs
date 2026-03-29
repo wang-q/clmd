@@ -35,10 +35,7 @@ use options::Options;
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
 /// ```
-pub fn parse_document(
-    md: &str,
-    options: &Options,
-) -> (NodeArena, NodeId) {
+pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
     // Use BlockParser for parsing (which includes proper inline parsing)
     let mut node_arena = NodeArena::new();
     let options_flags = options_to_flags(options);
@@ -172,11 +169,14 @@ mod tests {
         if let NodeValue::Link(link_data) = &arena.get(link).value {
             assert_eq!(link_data.url, "/url");
             assert_eq!(link_data.title, "title");
-            
+
             // Also test HTML output
             let html = crate::html::render(&arena, root, 0);
             println!("HTML output: {:?}", html);
-            assert!(html.contains("title=\"title\""), "HTML should contain title attribute");
+            assert!(
+                html.contains("title=\"title\""),
+                "HTML should contain title attribute"
+            );
         } else {
             panic!("Expected link node");
         }

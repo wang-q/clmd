@@ -317,11 +317,17 @@ fn test_regression() {
 
     let tests = parse_spec_tests(&spec_content);
     println!("DEBUG: Found {} regression test cases", tests.len());
-    
+
     // Print first few tests for debugging
     for (i, test) in tests.iter().take(3).enumerate() {
-        println!("DEBUG: Test {} - Section: {}, Number: {}", i, test.section, test.number);
-        println!("DEBUG: Markdown: {:?}", &test.markdown[..test.markdown.len().min(50)]);
+        println!(
+            "DEBUG: Test {} - Section: {}, Number: {}",
+            i, test.section, test.number
+        );
+        println!(
+            "DEBUG: Markdown: {:?}",
+            &test.markdown[..test.markdown.len().min(50)]
+        );
     }
 
     let mut passed = 0;

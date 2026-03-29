@@ -3,14 +3,14 @@
 //! This benchmark measures the performance impact of converting from
 //! NodeArena to arena_tree::Node format.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use clmd::{Arena, parse_document, Options};
+use clmd::{parse_document, Arena, Options};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 /// Small document benchmark
 fn bench_small(c: &mut Criterion) {
     let input = "# Hello\n\nWorld";
     let options = Options::default();
-    
+
     c.bench_function("parse_small", |b| {
         b.iter(|| {
             let arena = Arena::new();
@@ -42,7 +42,7 @@ fn main() {
 [Link](https://example.com)
 "#;
     let options = Options::default();
-    
+
     c.bench_function("parse_medium", |b| {
         b.iter(|| {
             let arena = Arena::new();
@@ -55,7 +55,7 @@ fn main() {
 fn bench_large(c: &mut Criterion) {
     let input = include_str!("samples/lorem-large.md");
     let options = Options::default();
-    
+
     c.bench_function("parse_large", |b| {
         b.iter(|| {
             let arena = Arena::new();
@@ -75,28 +75,36 @@ This is **bold** and *italic*.
 
 [link](http://example.com)
 "#;
-    
+
     let mut group = c.benchmark_group("parse_options");
-    
+
     // Default options
     let options = Options::default();
-    group.bench_with_input(BenchmarkId::new("options", "default"), &options, |b, opts| {
-        b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), opts);
-        });
-    });
-    
+    group.bench_with_input(
+        BenchmarkId::new("options", "default"),
+        &options,
+        |b, opts| {
+            b.iter(|| {
+                let arena = Arena::new();
+                let _root = parse_document(&arena, black_box(input), opts);
+            });
+        },
+    );
+
     // With source positions
     let mut options = Options::default();
     options.parse.sourcepos = true;
-    group.bench_with_input(BenchmarkId::new("options", "sourcepos"), &options, |b, opts| {
-        b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), opts);
-        });
-    });
-    
+    group.bench_with_input(
+        BenchmarkId::new("options", "sourcepos"),
+        &options,
+        |b, opts| {
+            b.iter(|| {
+                let arena = Arena::new();
+                let _root = parse_document(&arena, black_box(input), opts);
+            });
+        },
+    );
+
     // With smart punctuation
     let mut options = Options::default();
     options.parse.smart = true;
@@ -106,14 +114,14 @@ This is **bold** and *italic*.
             let _root = parse_document(&arena, black_box(input), opts);
         });
     });
-    
+
     group.finish();
 }
 
 /// Pathological cases
 fn bench_pathological(c: &mut Criterion) {
     let mut group = c.benchmark_group("pathological");
-    
+
     // Deeply nested emphasis
     let deep_emphasis = "*".repeat(1000) + "x" + &"*".repeat(1000);
     let options = Options::default();
@@ -123,7 +131,7 @@ fn bench_pathological(c: &mut Criterion) {
             let _root = parse_document(&arena, black_box(&deep_emphasis), &options);
         });
     });
-    
+
     // Many links
     let many_links: String = (0..100)
         .map(|i| format!("[link{}](http://example.com/{}) ", i, i))
@@ -134,7 +142,7 @@ fn bench_pathological(c: &mut Criterion) {
             let _root = parse_document(&arena, black_box(&many_links), &options);
         });
     });
-    
+
     group.finish();
 }
 
