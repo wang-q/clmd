@@ -4,7 +4,7 @@ This document records the performance benchmark results for clmd.
 
 ## Test Environment
 
-- **Date**: 2026-03-27
+- **Date**: 2026-03-29
 - **CPU**: Apple Silicon (M-series)
 - **OS**: macOS
 - **Rust Version**: Latest stable
@@ -17,71 +17,112 @@ Benchmarks are based on cmark's sample files, organized into three categories:
 - **Inline**: Parsing of inline elements (emphasis, links, entities, etc.)
 - **Full Document**: Complete document parsing
 
-## Latest Results (2026-03-27)
+## Latest Results (2026-03-29)
 
 ### Block-level Benchmarks
 
 | Test | Time | Description |
 |------|------|-------------|
-| block_quotes_flat | **4.49 µs** | Flat block quotes |
-| block_quotes_nested | **8.19 µs** | Nested block quotes |
-| block_code | **1.64 µs** | Indented code blocks |
-| block_fences | **3.31 µs** | Fenced code blocks |
-| block_heading | **5.41 µs** | ATX headings |
-| block_hr | **1.92 µs** | Horizontal rules |
-| block_list_flat | **26.66 µs** | Flat lists |
-| block_list_nested | **21.67 µs** | Nested lists |
-| block_html | **7.79 µs** | HTML blocks |
-| block_lheading | **3.14 µs** | Setext headings |
-| block_ref_flat | **22.72 µs** | Flat reference links |
-| block_ref_nested | **28.84 µs** | Nested reference links |
+| block_quotes_flat | **5.34 µs** | Flat block quotes |
+| block_quotes_nested | **8.80 µs** | Nested block quotes |
+| block_code | **1.97 µs** | Indented code blocks |
+| block_fences | **2.75 µs** | Fenced code blocks |
+| block_heading | **7.35 µs** | ATX headings |
+| block_hr | **2.33 µs** | Horizontal rules |
+| block_list_flat | **29.78 µs** | Flat lists |
+| block_list_nested | **24.33 µs** | Nested lists |
+| block_html | **8.80 µs** | HTML blocks |
+| block_lheading | **3.63 µs** | Setext headings |
+| block_ref_flat | **32.25 µs** | Flat reference links |
+| block_ref_nested | **39.03 µs** | Nested reference links |
 
 ### Inline Benchmarks
 
 | Test | Time | Description |
 |------|------|-------------|
-| inline_autolink | **15.61 µs** | Autolinks |
-| inline_backticks | **2.95 µs** | Code spans |
-| inline_em_flat | **11.40 µs** | Flat emphasis |
-| inline_em_nested | **9.40 µs** | Nested emphasis |
-| inline_em_worst | **8.81 µs** | Worst-case emphasis |
-| inline_entity | **7.40 µs** | HTML entities |
-| inline_escape | **6.16 µs** | Escape sequences |
-| inline_html | **13.36 µs** | Inline HTML |
-| inline_links_flat | **20.20 µs** | Flat links |
-| inline_links_nested | **19.88 µs** | Nested links |
-| inline_newlines | **7.27 µs** | Hard line breaks |
+| inline_autolink | **20.33 µs** | Autolinks |
+| inline_backticks | **3.31 µs** | Code spans |
+| inline_em_flat | **16.19 µs** | Flat emphasis |
+| inline_em_nested | **12.25 µs** | Nested emphasis |
+| inline_em_worst | **17.17 µs** | Worst-case emphasis |
+| inline_entity | **10.69 µs** | HTML entities |
+| inline_escape | **19.92 µs** | Escape sequences |
+| inline_html | **31.13 µs** | Inline HTML |
+| inline_links_flat | **25.07 µs** | Flat links |
+| inline_links_nested | **42.33 µs** | Nested links |
+| inline_newlines | **7.67 µs** | Hard line breaks |
 
 ### Full Document Benchmarks
 
 | Test | Time | Description |
 |------|------|-------------|
-| lorem1_full_document | **14.90 µs** | Complete Lorem Ipsum document (~1KB) |
-| rawtabs | **5.15 µs** | Document with raw tabs |
-| lorem_large_7kb | **114.90 µs** | Large document (~7KB) |
-| lorem_xlarge_110kb | **1.64 ms** | Extra large document (~110KB) |
+| lorem1_full_document | **18.31 µs** | Complete Lorem Ipsum document (~1KB) |
+| rawtabs | **6.08 µs** | Document with raw tabs |
+| lorem_large_7kb | **129.04 µs** | Large document (~7KB) |
+| lorem_xlarge_110kb | **1.85 ms** | Extra large document (~110KB) |
 | fair_comparison_doc | **134.07 µs** | Fair comparison document |
+
+### Synthetic Benchmarks
+
+| Test | Time | Description |
+|------|------|-------------|
+| synthetic_small_document | **7.56 µs** | Small synthetic document |
+| synthetic_medium_document | **32.02 µs** | Medium synthetic document |
+| synthetic_large_document | **182.22 µs** | Large synthetic document |
+
+### Feature Benchmarks
+
+| Test | Time | Throughput | Description |
+|------|------|------------|-------------|
+| smart_punctuation | **3.62 µs** | 35.08 MiB/s | Smart quotes, dashes, ellipses |
+| links_and_emphasis | **10.20 µs** | 11.59 MiB/s | Links and emphasis |
+| code_blocks | **4.01 µs** | 22.59 MiB/s | Fenced code blocks |
+| tables | **3.47 µs** | 38.25 MiB/s | GFM tables |
+| autolinks | **2.71 µs** | 38.41 MiB/s | Automatic links |
+| html_entities | **5.39 µs** | 20.01 MiB/s | HTML entity decoding |
+
+### Pathological Benchmarks
+
+Stress tests with extreme inputs:
+
+| Test | Parameter | Time | Throughput |
+|------|-----------|------|------------|
+| nested_emphasis | 10 | **3.62 µs** | 6.32 MiB/s |
+| nested_emphasis | 50 | **10.98 µs** | 9.03 MiB/s |
+| nested_emphasis | 100 | **19.13 µs** | 10.17 MiB/s |
+| nested_emphasis | 200 | **36.33 µs** | 10.61 MiB/s |
+| many_link_defs | 100 | **116.57 µs** | 26.89 MiB/s |
+| many_link_defs | 500 | **563.05 µs** | 29.28 MiB/s |
+| many_link_defs | 1000 | **1.25 ms** | 26.59 MiB/s |
+| deep_nested_lists | 10 | **12.85 µs** | 11.88 MiB/s |
+| deep_nested_lists | 50 | **134.77 µs** | 19.81 MiB/s |
+| deep_nested_lists | 100 | **651.77 µs** | 15.51 MiB/s |
+| long_inline_code | 100 | **1.55 µs** | 62.68 MiB/s |
+| long_inline_code | 500 | **2.71 µs** | 176.50 MiB/s |
+| long_inline_code | 1000 | **4.05 µs** | 236.18 MiB/s |
+| long_inline_code | 5000 | **14.69 µs** | 324.74 MiB/s |
+| many_backticks | 10 | **1.11 µs** | 85.83 MiB/s |
 
 ### Performance Highlights
 
 #### Fastest Operations
-1. **block_code**: 1.64 µs - Simple indented code blocks
-2. **block_hr**: 1.92 µs - Horizontal rules
-3. **block_lheading**: 3.14 µs - Setext headings
-4. **block_fences**: 3.31 µs - Fenced code blocks
-5. **inline_backticks**: 2.95 µs - Code spans
+1. **block_code**: 1.97 µs - Simple indented code blocks
+2. **block_hr**: 2.33 µs - Horizontal rules
+3. **block_fences**: 2.75 µs - Fenced code blocks
+4. **block_lheading**: 3.63 µs - Setext headings
+5. **inline_backticks**: 3.31 µs - Code spans
 
 #### Throughput Analysis
 
 | Document Size | Time | Throughput |
 |---------------|------|------------|
-| ~1KB | 14.90 µs | ~67 MB/s |
-| ~7KB | 114.90 µs | ~61 MB/s |
-| ~110KB | 1.64 ms | ~67 MB/s |
+| ~1KB | 18.31 µs | ~54 MB/s |
+| ~7KB | 129.04 µs | ~54 MB/s |
+| ~110KB | 1.85 ms | ~59 MB/s |
 
-**Conclusion**: clmd maintains stable throughput (~61-67 MB/s) across different document sizes.
+**Conclusion**: clmd maintains stable throughput (~54-59 MB/s) across different document sizes.
 
-## Cross-Language Comparison (2026-03-27)
+## Cross-Language Comparison (2026-03-29)
 
 ### Small File (lorem1.md, ~1KB)
 
@@ -128,8 +169,13 @@ clmd uses an Arena-based memory management system for optimal performance.
 
 ## Historical Performance Data
 
-### 2026-03-27 (Latest Results)
+### 2026-03-29 (Latest Results)
 - Current performance baseline
+- Small file: 18.31 µs for ~1KB document
+- Large file: 1.85 ms for ~110KB document
+- Cross-language comparison shows clmd is competitive with cmark
+
+### 2026-03-27 (Previous Results)
 - Small file: 14.90 µs for ~1KB document
 - Large file: 1.64 ms for ~110KB document
 - Cross-language comparison shows clmd is competitive with cmark

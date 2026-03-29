@@ -35,3 +35,20 @@ Based on hyperfine measurements (lower is better):
 3. comrak (Rust): 2.8 ms (+27%)
 4. clmd (Rust): 3.1 ms (+40%)
 5. commonmark.js (JS): 75.2 ms (+34x)
+
+## Feature Comparison
+
+| Feature | clmd | comrak | pulldown-cmark | cmark | commonmark.js |
+|---------|------|--------|----------------|-------|---------------|
+| CommonMark 100% | ✅ | ✅ | ✅ | ✅ | ✅ |
+| GFM Tables | ✅ | ✅ | ✅ | ❌ | ❌ |
+| GFM Strikethrough | ✅ | ✅ | ✅ | ❌ | ❌ |
+| GFM Tasklists | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Footnotes | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Definition Lists | ✅ | ✅ | ❌ | ❌ | ❌ |
+| LaTeX Output | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Man Page Output | ✅ | ❌ | ❌ | ❌ | ❌ |
+| XML Output | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Streaming | ❌ | ❌ | ✅ | ❌ | ❌ |
+
+*Last updated: 2026-03-29*

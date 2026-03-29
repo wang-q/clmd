@@ -73,6 +73,12 @@ pub(crate) struct Tree<T> {
     cur: Option<TreeIndex>,
 }
 
+pub(crate) struct Node<T> {
+    pub child: Option<TreeIndex>,
+    pub next: Option<TreeIndex>,
+    pub item: T,
+}
+
 pub(crate) struct TreeIndex(NonZeroUsize);
 ```
 
@@ -81,7 +87,7 @@ pub(crate) struct TreeIndex(NonZeroUsize);
 - `spine` stack for efficient parent navigation
 - 1-based indexing (0 as sentinel)
 
-## Performance Comparison
+## Performance Comparison (2026-03-29)
 
 | Metric | pulldown-cmark | clmd | Difference |
 |--------|----------------|------|------------|
@@ -125,7 +131,7 @@ pub(crate) struct TreeIndex(NonZeroUsize);
 | Memory | Low (streaming) | Higher (full AST) |
 | Flexibility | Limited | High |
 | Use Case | Simple rendering | Complex processing |
-| Performance | Better small files | Better large files |
+| Performance | Better small files | Similar large files |
 
 ## SIMD Optimizations
 
@@ -143,3 +149,5 @@ This gives significant speedup for:
 - Whitespace skipping
 
 clmd could benefit from similar optimizations.
+
+*Last updated: 2026-03-29*

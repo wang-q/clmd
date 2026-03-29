@@ -2,7 +2,7 @@
 //!
 //! Benchmarks using real-world Markdown documents.
 
-use clmd::{markdown_to_html, options};
+use clmd::{markdown_to_html, Options};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use std::fs::{read_dir, read_to_string};
 use std::path::Path;
@@ -32,7 +32,7 @@ fn bench_samples(c: &mut Criterion) {
 
                     group.bench_function("clmd", |b| {
                         b.iter(|| {
-                            markdown_to_html(black_box(&content), options::DEFAULT)
+                            markdown_to_html(black_box(&content), &Options::default())
                         })
                     });
 
@@ -50,7 +50,7 @@ fn bench_lorem1(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(input.len() as u64));
 
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
     });
 
     group.finish();
@@ -62,7 +62,7 @@ fn bench_lorem_large(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(input.len() as u64));
 
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
     });
 
     group.finish();
@@ -74,7 +74,7 @@ fn bench_lorem_xlarge(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(input.len() as u64));
 
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), options::DEFAULT))
+        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
     });
 
     group.finish();

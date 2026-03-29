@@ -57,13 +57,13 @@ pub struct Options<'c> {
 - WikiLinks
 - Emoji shortcodes
 
-## Performance Comparison
+## Performance Comparison (2026-03-29)
 
 | Metric | comrak | clmd | Difference |
 |--------|--------|------|------------|
 | Small file (1KB) | 1.8 ms | 1.9 ms | clmd +5% |
 | Large file (110KB) | 2.8 ms | 3.1 ms | clmd +11% |
-| Throughput | ~60 MB/s | ~67 MB/s | clmd +12% |
+| Throughput | ~60 MB/s | ~54 MB/s | comrak +11% |
 
 ## Strengths vs clmd
 
@@ -76,7 +76,7 @@ pub struct Options<'c> {
 
 1. **Multi-format**: clmd supports more output formats (LaTeX, Man page)
 2. **Extensibility**: clmd's modular architecture may be more flexible
-3. **Throughput**: clmd has slightly higher throughput on large files
+3. **Throughput**: Similar performance on most workloads
 
 ## When to Choose comrak
 
@@ -91,3 +91,5 @@ pub struct Options<'c> {
 - Want more control over rendering
 - Building custom Markdown toolchain
 - Prefer modular architecture
+
+*Last updated: 2026-03-29*

@@ -10,23 +10,23 @@ Comparison of clmd with Markdown parsers in other languages.
 | clmd | Rust | 0.3.0+ | AST + Arena |
 | commonmark.js | JavaScript | 0.31.2 | AST |
 
-## Performance Results
+## Performance Results (2026-03-29)
 
-### Small File (lorem1.md, ~4KB)
-
-| Implementation | Time | Relative | Notes |
-|----------------|------|----------|-------|
-| **cmark (C)** | **1.7 ms** | 1.00x | Native performance |
-| **clmd (Rust)** | **1.9 ms** | 1.14x | +14% vs cmark |
-| **commonmark.js (JS)** | **66.0 ms** | 39.5x | ~40x slower |
-
-### Large File (lorem-xlarge.md, ~113KB)
+### Small File (lorem1.md, ~1KB)
 
 | Implementation | Time | Relative | Notes |
 |----------------|------|----------|-------|
-| **cmark (C)** | **2.3 ms** | 1.00x | Native performance |
-| **clmd (Rust)** | **3.1 ms** | 1.36x | +36% vs cmark |
-| **commonmark.js (JS)** | **77.2 ms** | 34.1x | ~34x slower |
+| **cmark (C)** | **1.6 ms** | 1.00x | Native performance |
+| **clmd (Rust)** | **1.9 ms** | 1.19x | +19% vs cmark |
+| **commonmark.js (JS)** | **64.7 ms** | 39.9x | ~40x slower |
+
+### Large File (lorem-xlarge.md, ~110KB)
+
+| Implementation | Time | Relative | Notes |
+|----------------|------|----------|-------|
+| **cmark (C)** | **2.2 ms** | 1.00x | Native performance |
+| **clmd (Rust)** | **3.1 ms** | 1.40x | +40% vs cmark |
+| **commonmark.js (JS)** | **75.2 ms** | 34.3x | ~34x slower |
 
 ## Key Observations
 
@@ -79,5 +79,26 @@ hyperfine --warmup 10 --min-runs 100 \
 | 2026-03-26 | +18% | +39% |
 | 2026-03-27 | +19% | +40% |
 | 2026-03-28 | +14% | +36% |
+| 2026-03-29 | +19% | +40% |
 
 clmd has improved significantly and is now competitive with cmark.
+
+## Micro-Benchmark Results (2026-03-29)
+
+Using Criterion.rs for precise measurements (without process startup):
+
+| Test | clmd Time | Description |
+|------|-----------|-------------|
+| lorem1_full_document | **18.31 µs** | ~1KB document |
+| lorem_large_7kb | **129.04 µs** | ~7KB document |
+| lorem_xlarge_110kb | **1.85 ms** | ~110KB document |
+
+### Throughput Analysis
+
+| Document Size | Time | Throughput |
+|---------------|------|------------|
+| ~1KB | 18.31 µs | ~54 MB/s |
+| ~7KB | 129.04 µs | ~54 MB/s |
+| ~110KB | 1.85 ms | ~59 MB/s |
+
+clmd maintains stable throughput (~54-59 MB/s) across different document sizes.
