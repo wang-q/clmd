@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.1.0 - 2026-03-29
+
 ### 🎉 Initial Release
 
 First public release of clmd - a high-performance CommonMark parser written in Rust.

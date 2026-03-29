@@ -150,7 +150,7 @@ TreeOps::append_child(&mut arena, root, para);
 
 ## Development
 
-Current release: 0.0.0
+Current release: 0.1.0
 
 ### Building
 
