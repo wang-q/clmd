@@ -801,13 +801,14 @@ impl<'a> Subject<'a> {
             let text_slice = &self.input[start..self.pos];
 
             // Create text node with the content
-            let literal = if self.smart {
-                apply_smart_punctuation(text_slice)
+            // Optimization: avoid String allocation when smart punctuation is disabled
+            let literal: Box<str> = if self.smart {
+                apply_smart_punctuation(text_slice).into_boxed_str()
             } else {
-                text_slice.to_string()
+                text_slice.into()
             };
             let text_node =
-                arena.alloc(Node::with_value(NodeValue::Text(literal.into())));
+                arena.alloc(Node::with_value(NodeValue::Text(literal)));
             TreeOps::append_child(arena, parent, text_node);
             true
         } else {
@@ -868,23 +869,32 @@ impl<'a> Subject<'a> {
 
                     if can_merge {
                         // Get next's literal and merge into current
-                        let next_literal: Box<str> = {
-                            match &arena.get(next).value {
-                                NodeValue::Text(literal) => literal.clone(),
-                                _ => "".into(),
-                            }
+                        // Optimization: pre-allocate capacity
+                        let (current_len, next_len, next_text) = {
+                            let current_node = arena.get(current);
+                            let next_node = arena.get(next);
+                            let current_len = match &current_node.value {
+                                NodeValue::Text(literal) => literal.len(),
+                                _ => 0,
+                            };
+                            let (next_len, next_text) = match &next_node.value {
+                                NodeValue::Text(literal) => (literal.len(), Some(literal.clone())),
+                                _ => (0, None),
+                            };
+                            (current_len, next_len, next_text)
                         };
 
-                        {
+                        if next_len > 0 {
                             let current_node = arena.get_mut(current);
                             if let NodeValue::Text(ref mut literal) = current_node.value
                             {
-                                *literal = format!(
-                                    "{}{}",
-                                    literal.as_ref(),
-                                    next_literal.as_ref()
-                                )
-                                .into_boxed_str();
+                                let mut new_literal = String::with_capacity(current_len + next_len);
+                                new_literal.push_str(literal.as_ref());
+                                // Append next's text
+                                if let Some(ref next_text) = next_text {
+                                    new_literal.push_str(next_text.as_ref());
+                                }
+                                *literal = new_literal.into_boxed_str();
                             }
                         }
 
@@ -923,9 +933,13 @@ impl<'a> Subject<'a> {
         if let Some(last_child) = last_child_opt {
             if matches!(arena.get(last_child).value, NodeValue::Text(..)) {
                 // Merge with existing text node
+                // Optimization: pre-allocate capacity to avoid reallocations
                 let last_node = arena.get_mut(last_child);
                 if let NodeValue::Text(ref mut literal) = last_node.value {
-                    *literal = format!("{}{}", literal.as_ref(), text).into();
+                    let mut new_literal = String::with_capacity(literal.len() + text.len());
+                    new_literal.push_str(literal.as_ref());
+                    new_literal.push_str(text);
+                    *literal = new_literal.into_boxed_str();
                 }
                 return last_child;
             }
@@ -933,7 +947,7 @@ impl<'a> Subject<'a> {
 
         // Create new text node
         let text_node =
-            arena.alloc(Node::with_value(NodeValue::Text(text.to_string().into())));
+            arena.alloc(Node::with_value(NodeValue::Text(text.into())));
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }

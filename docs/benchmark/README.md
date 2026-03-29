@@ -4,9 +4,8 @@ This directory contains benchmark-related documentation for clmd.
 
 ## Files
 
-- **results.md**: Latest benchmark results
+- **results.md**: Latest benchmark results including string optimization benchmarks
 - **methodology.md**: Testing methodology and cross-language comparison
-- **history.md**: Historical performance data
 
 ## Quick Links
 
@@ -25,6 +24,7 @@ cargo bench --bench categorized_benchmark
 cargo bench --bench feature_benchmark
 cargo bench --bench pathological_benchmark
 cargo bench --bench real_world_benchmark
+cargo bench --bench string_optimization_benchmark
 ```
 
 ## Benchmark Categories
@@ -33,6 +33,9 @@ cargo bench --bench real_world_benchmark
 2. **feature_benchmark**: Specific Markdown features (smart punctuation, tables, etc.)
 3. **pathological_benchmark**: Stress tests with extreme inputs
 4. **real_world_benchmark**: Real-world document samples
+5. **string_optimization_benchmark**: String processing optimizations
+6. **sequence_benchmark**: BasedSequence performance tests
+7. **ast_conversion_benchmark**: AST parsing performance
 
 ## Cross-Language Comparison
 

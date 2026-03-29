@@ -231,17 +231,35 @@ impl<'a> BlockParser<'a> {
         self.blank = false;
         self.partially_consumed_tab = false;
 
-        // Check if we need to modify the line (NUL replacement)
-        if line.contains('\u{0000}') {
-            self.current_line = line.replace('\u{0000}', "\u{FFFD}");
+        // Optimization: avoid String allocation for common case (no NUL characters)
+        let has_nul = line.contains('\u{0000}');
+        
+        // Ensure line ends with newline
+        let needs_newline = !line.ends_with('\n');
+        
+        if has_nul || needs_newline {
+            // Need to create a modified line
+            self.current_line.clear();
+            if has_nul {
+                // Replace NUL characters
+                for c in line.chars() {
+                    if c == '\u{0000}' {
+                        self.current_line.push('\u{FFFD}');
+                    } else {
+                        self.current_line.push(c);
+                    }
+                }
+            } else {
+                self.current_line.push_str(line);
+            }
+            if needs_newline {
+                self.current_line.push('\n');
+            }
         } else {
+            // Optimization: use the line directly without copying
+            // This avoids the String allocation entirely
             self.current_line.clear();
             self.current_line.push_str(line);
-        }
-
-        // Ensure line ends with newline
-        if !self.current_line.ends_with('\n') {
-            self.current_line.push('\n');
         }
 
         self.incorporate_line();

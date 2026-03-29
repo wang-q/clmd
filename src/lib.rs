@@ -130,7 +130,7 @@ pub mod plugins;
 pub mod render;
 
 /// Text sequence utilities.
-pub(crate) mod sequence;
+pub mod sequence;
 
 /// Test utilities.
 pub mod test_utils;
@@ -165,6 +165,12 @@ pub type NodeId = arena::NodeId;
 
 /// Invalid node ID constant.
 pub use arena::INVALID_NODE_ID;
+
+/// Re-export iterator types for tree traversal.
+pub use arena::{
+    AncestorIterator, ChildrenIterator, DescendantIterator, FollowingSiblingsIterator,
+    PrecedingSiblingsIterator, SiblingsIterator,
+};
 
 /// Parse a Markdown document to an AST.
 ///

@@ -3,6 +3,7 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::{escape_html, is_safe_url};
 use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue, TableAlignment};
+use std::fmt::Write;
 
 /// Render a node tree as HTML
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -32,9 +33,12 @@ struct HtmlRenderer<'a> {
 
 impl<'a> HtmlRenderer<'a> {
     fn new(arena: &'a NodeArena, _options: u32) -> Self {
+        // Optimization: pre-allocate output buffer with estimated capacity
+        // Typical HTML output is about 2x the input size
+        let estimated_capacity = arena.len() * 64;
         HtmlRenderer {
             arena,
-            output: String::new(),
+            output: String::with_capacity(estimated_capacity),
             tag_stack: Vec::new(),
             tight_list_stack: Vec::new(),
             footnotes: Vec::new(),
@@ -208,7 +212,9 @@ impl<'a> HtmlRenderer<'a> {
                     self.track_item_child();
                     self.lit("\n");
                 }
-                self.lit(&format!("<h{}>", level));
+                // Optimization: use write! instead of format!
+                write!(self.output, "<h{}>", level).unwrap();
+                self.last_out = '>';
                 self.tag_stack.push("h");
             }
             NodeValue::ThematicBreak => {
@@ -294,29 +300,35 @@ impl<'a> HtmlRenderer<'a> {
             }
             NodeValue::TaskItem(task_item) => {
                 let checked = task_item.symbol.is_some();
-                self.lit(&format!(
-                    "<input type=\"checkbox\" disabled=\"disabled\"{} />",
-                    if checked { " checked=\"checked\"" } else { "" }
-                ));
+                // Optimization: avoid format! for simple string concatenation
+                self.lit("<input type=\"checkbox\" disabled=\"disabled\"");
+                if checked {
+                    self.lit(" checked=\"checked\"");
+                }
+                self.lit(" />");
             }
             NodeValue::FootnoteReference(footnote_ref) => {
                 // Collect footnote for rendering at the end
                 if let Some(def_id) = self.find_footnote_def(&footnote_ref.name) {
                     self.footnotes.push((footnote_ref.name.clone(), def_id));
                 }
-                self.lit(&format!(
+                // Optimization: use write! instead of format!
+                let name_escaped = escape_html(&footnote_ref.name);
+                write!(
+                    self.output,
                     "<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"fnref-{}\">[{}]</a></sup>",
-                    escape_html(&footnote_ref.name),
-                    escape_html(&footnote_ref.name),
-                    escape_html(&footnote_ref.name)
-                ));
+                    name_escaped, name_escaped, name_escaped
+                ).unwrap();
+                self.last_out = '>';
             }
             NodeValue::FootnoteDefinition(footnote_def) => {
                 // Footnote definitions are rendered at the end
-                self.lit(&format!(
+                write!(
+                    self.output,
                     "<li id=\"fn-{}\">",
                     escape_html(&footnote_def.name)
-                ));
+                ).unwrap();
+                self.last_out = '>';
                 self.tag_stack.push("li");
             }
             NodeValue::Table(table) => {
@@ -328,13 +340,12 @@ impl<'a> HtmlRenderer<'a> {
                     self.lit("<tr>");
                     self.lit("\n");
                     for alignment in &table.alignments {
-                        let align_attr = match alignment {
-                            TableAlignment::Left => " align=\"left\"",
-                            TableAlignment::Center => " align=\"center\"",
-                            TableAlignment::Right => " align=\"right\"",
-                            TableAlignment::None => "",
+                        match alignment {
+                            TableAlignment::Left => self.lit("<th align=\"left\">"),
+                            TableAlignment::Center => self.lit("<th align=\"center\">"),
+                            TableAlignment::Right => self.lit("<th align=\"right\">"),
+                            TableAlignment::None => self.lit("<th>"),
                         };
-                        self.lit(&format!("<th{}>", align_attr));
                         self.lit("\n");
                         self.tag_stack.push("th");
                     }

@@ -13,6 +13,7 @@ cargo bench --bench categorized_benchmark
 cargo bench --bench feature_benchmark
 cargo bench --bench pathological_benchmark
 cargo bench --bench real_world_benchmark
+cargo bench --bench string_optimization_benchmark
 ```
 
 ## Benchmark Categories
@@ -21,6 +22,21 @@ cargo bench --bench real_world_benchmark
 - **feature_benchmark**: Specific Markdown features (smart punctuation, tables, code blocks, etc.)
 - **pathological_benchmark**: Stress tests with extreme inputs (nested emphasis, many links, deep lists)
 - **real_world_benchmark**: Real-world document samples
+- **string_optimization_benchmark**: String processing optimizations (text-heavy docs, HTML output, line processing)
+- **sequence_benchmark**: BasedSequence performance vs standard String operations
+- **ast_conversion_benchmark**: AST parsing performance benchmarks
+
+## String Optimization Benchmarks
+
+The `string_optimization_benchmark` specifically tests the performance improvements from recent optimizations:
+
+- **text_heavy**: Tests `parse_string` optimization with plain and formatted text
+- **text_node_merging**: Tests `merge_adjacent_text_nodes` optimization
+- **html_output**: Tests `write!` vs `format!` optimization in HTML generation
+- **line_processing**: Tests `process_line` optimization for line handling
+- **memory_allocation**: Tests output buffer pre-allocation for large documents
+- **smart_punctuation_comparison**: Compares performance with/without smart punctuation
+- **append_text**: Tests text node appending performance
 
 ## Sample Files
 

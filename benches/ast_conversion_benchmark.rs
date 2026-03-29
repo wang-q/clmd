@@ -1,7 +1,6 @@
-//! Benchmark for AST conversion overhead
+//! Benchmark for AST parsing performance
 //!
-//! This benchmark measures the performance impact of converting from
-//! NodeArena to arena_tree::Node format.
+//! This benchmark measures the performance of parsing Markdown to AST.
 
 use clmd::{parse_document, Arena, Options};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -13,8 +12,7 @@ fn bench_small(c: &mut Criterion) {
 
     c.bench_function("parse_small", |b| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), &options);
+            let _result = parse_document(black_box(input), &options);
         });
     });
 }
@@ -45,8 +43,7 @@ fn main() {
 
     c.bench_function("parse_medium", |b| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), &options);
+            let _result = parse_document(black_box(input), &options);
         });
     });
 }
@@ -58,8 +55,7 @@ fn bench_large(c: &mut Criterion) {
 
     c.bench_function("parse_large", |b| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), &options);
+            let _result = parse_document(black_box(input), &options);
         });
     });
 }
@@ -85,8 +81,7 @@ This is **bold** and *italic*.
         &options,
         |b, opts| {
             b.iter(|| {
-                let arena = Arena::new();
-                let _root = parse_document(&arena, black_box(input), opts);
+                let _result = parse_document(black_box(input), opts);
             });
         },
     );
@@ -99,8 +94,7 @@ This is **bold** and *italic*.
         &options,
         |b, opts| {
             b.iter(|| {
-                let arena = Arena::new();
-                let _root = parse_document(&arena, black_box(input), opts);
+                let _result = parse_document(black_box(input), opts);
             });
         },
     );
@@ -110,8 +104,7 @@ This is **bold** and *italic*.
     options.parse.smart = true;
     group.bench_with_input(BenchmarkId::new("options", "smart"), &options, |b, opts| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(input), opts);
+            let _result = parse_document(black_box(input), opts);
         });
     });
 
@@ -127,8 +120,7 @@ fn bench_pathological(c: &mut Criterion) {
     let options = Options::default();
     group.bench_function("deep_emphasis", |b| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(&deep_emphasis), &options);
+            let _result = parse_document(black_box(&deep_emphasis), &options);
         });
     });
 
@@ -138,8 +130,7 @@ fn bench_pathological(c: &mut Criterion) {
         .collect();
     group.bench_function("many_links", |b| {
         b.iter(|| {
-            let arena = Arena::new();
-            let _root = parse_document(&arena, black_box(&many_links), &options);
+            let _result = parse_document(black_box(&many_links), &options);
         });
     });
 

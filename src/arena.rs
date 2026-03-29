@@ -356,6 +356,151 @@ impl NodeArena {
     pub fn prev_sibling(&self, node: NodeId) -> Option<NodeId> {
         self.get(node).prev
     }
+
+    /// Returns an iterator over all siblings of the given node (excluding the node itself).
+    ///
+    /// The iterator yields `NodeId`s in order from first sibling to last sibling.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    ///
+    /// let mut arena = Arena::new();
+    /// let root = arena.alloc(Node::with_value(NodeValue::Document));
+    /// let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// TreeOps::append_child(&mut arena, root, child1);
+    /// TreeOps::append_child(&mut arena, root, child2);
+    /// TreeOps::append_child(&mut arena, root, child3);
+    ///
+    /// // Get siblings of child2 (should be child1 and child3)
+    /// let siblings: Vec<_> = arena.siblings(child2).collect();
+    /// assert_eq!(siblings, vec![child1, child3]);
+    /// ```
+    pub fn siblings(&self, node: NodeId) -> SiblingsIterator<'_> {
+        let parent = self.get(node).parent;
+        SiblingsIterator {
+            arena: self,
+            current: self.first_child_of_parent(parent),
+            exclude: Some(node),
+        }
+    }
+
+    /// Returns an iterator over all following siblings of the given node.
+    ///
+    /// The iterator yields `NodeId`s in order from the next sibling to the last sibling.
+    pub fn following_siblings(&self, node: NodeId) -> FollowingSiblingsIterator<'_> {
+        FollowingSiblingsIterator {
+            arena: self,
+            current: self.get(node).next,
+        }
+    }
+
+    /// Returns an iterator over all preceding siblings of the given node.
+    ///
+    /// The iterator yields `NodeId`s in reverse order (from previous sibling to first sibling).
+    pub fn preceding_siblings(&self, node: NodeId) -> PrecedingSiblingsIterator<'_> {
+        PrecedingSiblingsIterator {
+            arena: self,
+            current: self.get(node).prev,
+        }
+    }
+
+    /// Traverse the tree starting from the given node.
+    ///
+    /// This method calls the provided callback for each node in the tree,
+    /// passing `true` when entering a node and `false` when exiting.
+    /// This allows for pre-order and post-order traversal patterns.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    ///
+    /// let mut arena = Arena::new();
+    /// let root = arena.alloc(Node::with_value(NodeValue::Document));
+    /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+    /// TreeOps::append_child(&mut arena, root, para);
+    ///
+    /// arena.traverse(root, |node_id, entering| {
+    ///     if entering {
+    ///         println!("Entering node {:?}", arena.get(node_id).value);
+    ///     } else {
+    ///         println!("Exiting node {:?}", arena.get(node_id).value);
+    ///     }
+    /// });
+    /// ```
+    pub fn traverse<F>(&self, root: NodeId, mut callback: F)
+    where
+        F: FnMut(NodeId, bool),
+    {
+        self.traverse_with_data(root, &mut callback);
+    }
+
+    /// Internal implementation of traverse that works with trait objects.
+    fn traverse_with_data<F>(&self, root: NodeId, callback: &mut F)
+    where
+        F: FnMut(NodeId, bool),
+    {
+        // Stack of (node_id, visited_children)
+        let mut stack: Vec<(NodeId, bool)> = vec![(root, false)];
+
+        while let Some((node_id, visited)) = stack.pop() {
+            if visited {
+                // Exiting the node
+                callback(node_id, false);
+            } else {
+                // Entering the node - push exit marker first
+                stack.push((node_id, true));
+                callback(node_id, true);
+
+                // Push children in reverse order so first child is processed first
+                let node = self.get(node_id);
+                let mut child = node.last_child;
+                while let Some(child_id) = child {
+                    stack.push((child_id, false));
+                    child = self.get(child_id).prev;
+                }
+            }
+        }
+    }
+
+    /// Traverse the tree with mutable access to nodes.
+    ///
+    /// Similar to `traverse`, but provides mutable access to nodes.
+    /// Note: This uses a simpler pre-order traversal to avoid borrow checker issues.
+    pub fn traverse_mut<F>(&mut self, root: NodeId, mut callback: F)
+    where
+        F: FnMut(&mut NodeArena, NodeId),
+    {
+        // Simple pre-order traversal using a stack
+        let mut stack: Vec<NodeId> = vec![root];
+
+        while let Some(node_id) = stack.pop() {
+            callback(self, node_id);
+
+            // Collect children first to avoid borrow issues
+            let node = self.get(node_id);
+            let mut children: Vec<NodeId> = Vec::new();
+            let mut child = node.last_child;
+            while let Some(child_id) = child {
+                children.push(child_id);
+                child = self.get(child_id).prev;
+            }
+
+            // Push children in reverse order
+            for child_id in children {
+                stack.push(child_id);
+            }
+        }
+    }
+
+    /// Helper to get first child of a parent (handling Option<NodeId>)
+    fn first_child_of_parent(&self, parent: Option<NodeId>) -> Option<NodeId> {
+        parent.and_then(|p| self.get(p).first_child)
+    }
 }
 
 impl Default for NodeArena {
@@ -549,6 +694,71 @@ impl<'a> Iterator for AncestorIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.current.map(|node_id| {
             self.current = self.arena.get(node_id).parent;
+            node_id
+        })
+    }
+}
+
+/// Iterator for traversing all siblings of a node
+#[derive(Debug)]
+pub struct SiblingsIterator<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+    exclude: Option<NodeId>,
+}
+
+impl<'a> Iterator for SiblingsIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let current = self.current?;
+            self.current = self.arena.get(current).next;
+
+            // Skip the excluded node (the original node we started from)
+            if self.exclude != Some(current) {
+                return Some(current);
+            }
+
+            // If we've exhausted all siblings, return None
+            if self.current.is_none() {
+                return None;
+            }
+        }
+    }
+}
+
+/// Iterator for traversing following siblings of a node
+#[derive(Debug)]
+pub struct FollowingSiblingsIterator<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for FollowingSiblingsIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current.map(|node_id| {
+            self.current = self.arena.get(node_id).next;
+            node_id
+        })
+    }
+}
+
+/// Iterator for traversing preceding siblings of a node
+#[derive(Debug)]
+pub struct PrecedingSiblingsIterator<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for PrecedingSiblingsIterator<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current.map(|node_id| {
+            self.current = self.arena.get(node_id).prev;
             node_id
         })
     }
@@ -827,5 +1037,154 @@ mod tests {
         arena.alloc(Node::with_value(NodeValue::Paragraph));
         let (_, allocs, _) = arena.memory_stats();
         assert_eq!(allocs, 3);
+    }
+
+    #[test]
+    fn test_siblings_iterator() {
+        let mut arena = NodeArena::new();
+
+        // Create tree: root -> [child1, child2, child3]
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, root, child3);
+
+        // Test siblings of child2 (should be child1 and child3)
+        let siblings: Vec<NodeId> = arena.siblings(child2).collect();
+        assert_eq!(siblings, vec![child1, child3]);
+
+        // Test siblings of child1 (should be child2 and child3)
+        let siblings: Vec<NodeId> = arena.siblings(child1).collect();
+        assert_eq!(siblings, vec![child2, child3]);
+
+        // Test siblings of root (no parent, so no siblings)
+        let siblings: Vec<NodeId> = arena.siblings(root).collect();
+        assert!(siblings.is_empty());
+    }
+
+    #[test]
+    fn test_following_siblings_iterator() {
+        let mut arena = NodeArena::new();
+
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, root, child3);
+
+        // Test following siblings of child1
+        let following: Vec<NodeId> = arena.following_siblings(child1).collect();
+        assert_eq!(following, vec![child2, child3]);
+
+        // Test following siblings of child2
+        let following: Vec<NodeId> = arena.following_siblings(child2).collect();
+        assert_eq!(following, vec![child3]);
+
+        // Test following siblings of child3 (none)
+        let following: Vec<NodeId> = arena.following_siblings(child3).collect();
+        assert!(following.is_empty());
+    }
+
+    #[test]
+    fn test_preceding_siblings_iterator() {
+        let mut arena = NodeArena::new();
+
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, root, child3);
+
+        // Test preceding siblings of child3
+        let preceding: Vec<NodeId> = arena.preceding_siblings(child3).collect();
+        assert_eq!(preceding, vec![child2, child1]);
+
+        // Test preceding siblings of child2
+        let preceding: Vec<NodeId> = arena.preceding_siblings(child2).collect();
+        assert_eq!(preceding, vec![child1]);
+
+        // Test preceding siblings of child1 (none)
+        let preceding: Vec<NodeId> = arena.preceding_siblings(child1).collect();
+        assert!(preceding.is_empty());
+    }
+
+    #[test]
+    fn test_traverse() {
+        let mut arena = NodeArena::new();
+
+        // Create tree:
+        // root
+        //   ├── child1
+        //   │     └── grandchild
+        //   └── child2
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let grandchild = arena.alloc(Node::with_value(NodeValue::Text("test".into())));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+        TreeOps::append_child(&mut arena, child1, grandchild);
+
+        // Collect traverse events
+        let mut events: Vec<(NodeId, bool)> = Vec::new();
+        arena.traverse(root, |node_id, entering| {
+            events.push((node_id, entering));
+        });
+
+        // Expected order: root(in), child1(in), grandchild(in), grandchild(out), child1(out), child2(in), child2(out), root(out)
+        assert_eq!(events.len(), 8);
+        assert_eq!(events[0], (root, true));
+        assert_eq!(events[1], (child1, true));
+        assert_eq!(events[2], (grandchild, true));
+        assert_eq!(events[3], (grandchild, false));
+        assert_eq!(events[4], (child1, false));
+        assert_eq!(events[5], (child2, true));
+        assert_eq!(events[6], (child2, false));
+        assert_eq!(events[7], (root, false));
+    }
+
+    #[test]
+    fn test_traverse_mut() {
+        let mut arena = NodeArena::new();
+
+        // Create tree: root -> [child1, child2]
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, child1);
+        TreeOps::append_child(&mut arena, root, child2);
+
+        // Traverse and modify nodes
+        let mut visited = Vec::new();
+        arena.traverse_mut(root, |arena, node_id| {
+            visited.push(node_id);
+            // Modify the node
+            let node = arena.get_mut(node_id);
+            if matches!(node.value, NodeValue::Paragraph) {
+                node.value = NodeValue::BlockQuote;
+            }
+        });
+
+        // Should visit all 3 nodes
+        assert_eq!(visited.len(), 3);
+        assert!(visited.contains(&root));
+        assert!(visited.contains(&child1));
+        assert!(visited.contains(&child2));
+
+        // Verify modifications
+        assert!(matches!(arena.get(child1).value, NodeValue::BlockQuote));
+        assert!(matches!(arena.get(child2).value, NodeValue::BlockQuote));
     }
 }

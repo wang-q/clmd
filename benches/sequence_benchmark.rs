@@ -65,10 +65,10 @@ fn bench_slicing(c: &mut Criterion) {
         b.iter(|| {
             let text = black_box(text);
             let seq = BasedSequence::new(text);
-            let lines: Vec<BasedSequence> = seq.lines().collect();
-            let _result: Vec<BasedSequence> = lines
+            let lines: Vec<BasedSequence<'_>> = seq.lines().collect();
+            let _result: Vec<BasedSequence<'_>> = lines
                 .iter()
-                .map(|line| {
+                .map(|line: &BasedSequence<'_>| {
                     if line.len() > 10 {
                         line.sub_sequence(0, 10)
                     } else {
@@ -204,11 +204,11 @@ fn bench_parsing_simulation(c: &mut Criterion) {
         b.iter(|| {
             let text = black_box(text);
             let seq = BasedSequence::new(text);
-            let lines: Vec<BasedSequence> = seq.lines().collect();
+            let lines: Vec<BasedSequence<'_>> = seq.lines().collect();
             let mut results = Vec::new();
 
             for line in lines {
-                let trimmed = line.trim();
+                let trimmed: BasedSequence<'_> = line.trim();
                 if trimmed.starts_with("#") {
                     // Heading
                     let level =

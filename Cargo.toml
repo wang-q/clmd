@@ -58,6 +58,10 @@ harness = false
 name = "ast_conversion_benchmark"
 harness = false
 
+[[bench]]
+name = "string_optimization_benchmark"
+harness = false
+
 # Examples - Benchmarks
 [[example]]
 name = "cross_language_bench"
