@@ -3,9 +3,8 @@ use clap::{Arg, ArgMatches, Command};
 use crate::cmd::utils;
 
 pub fn make_subcommand() -> Command {
-    Command::new("commonmark")
-        .about("Convert Markdown to CommonMark")
-        .visible_alias("cm")
+    Command::new("fmt")
+        .about("Format Markdown to canonical CommonMark")
         .arg(
             Arg::new("input")
                 .help("Input Markdown file (default: stdin)")

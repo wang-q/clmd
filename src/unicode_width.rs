@@ -520,7 +520,7 @@ mod tests {
         // Newlines and various whitespace - control chars are treated as width 1
         assert_eq!(width("hello\nworld"), 11); // 5 + 1 + 5
         assert_eq!(width("hello\tworld"), 11); // 5 + 1 + 5
-        assert_eq!(width("hello world"), 11);  // 5 + 1 + 5
+        assert_eq!(width("hello world"), 11); // 5 + 1 + 5
     }
 
     #[test]
@@ -548,8 +548,8 @@ mod tests {
     fn test_mixed_emoji_and_text() {
         // Mixed emoji and text
         assert_eq!(width("Hello 🦀 World"), 14); // 5 + 1 + 2 + 1 + 5
-        // Rust🦀is🔥awesome: R-u-s-t-🦀-i-s-🔥-a-w-e-s-o-m-e
-        // 1+1+1+1 + 2 + 1+1 + 2 + 1+1+1+1+1+1+1 = 17
+                                                 // Rust🦀is🔥awesome: R-u-s-t-🦀-i-s-🔥-a-w-e-s-o-m-e
+                                                 // 1+1+1+1 + 2 + 1+1 + 2 + 1+1+1+1+1+1+1 = 17
         assert_eq!(width("Rust🦀is🔥awesome"), 17);
     }
 

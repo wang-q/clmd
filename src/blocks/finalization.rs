@@ -159,7 +159,9 @@ impl<'a> BlockParser<'a> {
                         self.line_number,
                     ) {
                         // Add the row to the table
-                        crate::arena::TreeOps::append_child(self.arena, container, row_node);
+                        crate::arena::TreeOps::append_child(
+                            self.arena, container, row_node,
+                        );
                     }
                 }
                 // Update tip to the table

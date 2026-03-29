@@ -1184,7 +1184,9 @@ impl<'a> BlockParser<'a> {
         // For now, just parse the table header and delimiter
         // Data rows will be added in subsequent processing
         let lines = vec![&para_content[..], line];
-        if let Some((table_node, _)) = tables::try_parse_table(self.arena, &lines, start_line) {
+        if let Some((table_node, _)) =
+            tables::try_parse_table(self.arena, &lines, start_line)
+        {
             // Replace paragraph with table
             self.close_unmatched_blocks();
 

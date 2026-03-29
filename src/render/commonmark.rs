@@ -1,7 +1,9 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue};
+use crate::nodes::{
+    ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue,
+};
 use crate::render::table_formatter;
 
 /// Render a node tree as CommonMark

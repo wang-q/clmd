@@ -28,16 +28,19 @@ fn main() -> anyhow::Result<()> {
         .subcommand(cmd::extract::make_subcommand())
         .subcommand(cmd::stats::make_subcommand())
         .subcommand(cmd::toc::make_subcommand())
+        .subcommand(cmd::fmt::make_subcommand())
         .after_help(
             r###"Subcommand groups:
 
-* Conversion: to (html, commonmark, xml), from (html)
+* Conversion: to (html, xml), from (html)
+* Formatting: fmt
 * Extraction: extract (links, headings, code)
 * Analysis: stats
 * Utilities: toc
 
 Examples:
   clmd to html README.md
+  clmd fmt input.md
   clmd stats input.md
   clmd toc input.md
 "###,
@@ -74,6 +77,7 @@ Examples:
         Some(("extract", sub_matches)) => cmd::extract::execute(sub_matches, &options),
         Some(("stats", sub_matches)) => cmd::stats::execute(sub_matches, &options),
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),
+        Some(("fmt", sub_matches)) => cmd::fmt::execute(sub_matches, &options),
         _ => unreachable!(),
     }
 }

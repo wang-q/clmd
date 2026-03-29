@@ -304,9 +304,7 @@ pub fn parse_table_row(
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
 
         // Create text node for content
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            cell_content.into(),
-        )));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(cell_content.into())));
 
         // Build tree: cell -> para -> text
         TreeOps::append_child(arena, para, text);

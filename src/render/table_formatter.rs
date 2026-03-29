@@ -110,7 +110,10 @@ fn get_alignment_cell_minimum_width(alignment: TableAlignment) -> usize {
 ///
 /// - `content_rows`: All rows of the table except for the delimiter row
 /// - `alignments`: Column alignments from the delimiter row
-fn get_col_max_widths(content_rows: &[Vec<Cell>], alignments: &[TableAlignment]) -> Vec<usize> {
+fn get_col_max_widths(
+    content_rows: &[Vec<Cell>],
+    alignments: &[TableAlignment],
+) -> Vec<usize> {
     let mut max_widths: Vec<usize> = Vec::with_capacity(alignments.len());
 
     for (index, alignment) in alignments.iter().enumerate() {
@@ -286,10 +289,14 @@ fn format_row(
     let mut aligned_cells: Vec<String> = Vec::new();
 
     for (index, cell) in cells.iter().enumerate() {
-        let align = alignments.get(index).copied().unwrap_or(TableAlignment::None);
-        let length = column_max_widths.get(index).copied().unwrap_or_else(|| {
-            unicode_width(&cell.content) as usize
-        });
+        let align = alignments
+            .get(index)
+            .copied()
+            .unwrap_or(TableAlignment::None);
+        let length = column_max_widths
+            .get(index)
+            .copied()
+            .unwrap_or_else(|| unicode_width(&cell.content) as usize);
 
         aligned_cells.push(align_cell(cell, align, length));
     }
@@ -366,8 +373,30 @@ pub fn format_table_lines(lines: &[&str], alignments: &[TableAlignment]) -> Stri
 ///
 /// The formatted table string.
 pub fn format_table_str(table_text: &str, alignments: &[TableAlignment]) -> String {
-    let lines: Vec<&str> = table_text.lines().collect();
-    format_table_lines(&lines, alignments)
+    // Extract indentation from the first line
+    let first_line = table_text.lines().next().unwrap_or("");
+    let indentation = get_table_indentation(first_line);
+
+    // Remove indentation from all lines for processing
+    let lines: Vec<&str> = table_text
+        .lines()
+        .map(|line| {
+            if let Some(ref indent) = indentation {
+                line.strip_prefix(indent).unwrap_or(line)
+            } else {
+                line
+            }
+        })
+        .collect();
+
+    let formatted = format_table_lines(&lines, alignments);
+
+    // Re-apply indentation to the formatted output
+    if let Some(ref indent) = indentation {
+        apply_indentation(&formatted, indent)
+    } else {
+        formatted
+    }
 }
 
 /// Gets the indentation (leading spaces and > characters) from a table header line.
@@ -522,7 +551,8 @@ mod tests {
         ];
         let result = format_table_str(input, &alignments);
         // Actual output uses minimum width for delimiter cells
-        let expected = "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
+        let expected =
+            "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
         assert_eq!(result, expected);
     }
 
@@ -580,14 +610,8 @@ mod tests {
     #[test]
     fn test_get_table_indentation() {
         assert_eq!(get_table_indentation("| A | B |"), None);
-        assert_eq!(
-            get_table_indentation("  | A | B |"),
-            Some("  ".to_string())
-        );
-        assert_eq!(
-            get_table_indentation("> | A | B |"),
-            Some("> ".to_string())
-        );
+        assert_eq!(get_table_indentation("  | A | B |"), Some("  ".to_string()));
+        assert_eq!(get_table_indentation("> | A | B |"), Some("> ".to_string()));
         assert_eq!(
             get_table_indentation(">>  | A | B |"),
             Some(">>  ".to_string())
@@ -615,7 +639,9 @@ mod tests {
         // Test with explicit CRLF flag by checking the internal logic
         // When lines contain "\r", it should be preserved
         let lines_with_cr = vec!["|A|B|\r", "|-|-|\r", "|C|D|"];
-        let has_crlf = lines_with_cr.iter().any(|line| line.contains("\r\n") || line.ends_with('\r'));
+        let has_crlf = lines_with_cr
+            .iter()
+            .any(|line| line.contains("\r\n") || line.ends_with('\r'));
         assert!(has_crlf);
     }
 
@@ -701,7 +727,8 @@ mod tests {
         ];
         let result = format_table_str(input, &alignments);
         // Actual output uses minimum delimiter width based on alignment
-        let expected = "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
+        let expected =
+            "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
         assert_eq!(result, expected);
     }
 
@@ -719,7 +746,11 @@ mod tests {
     fn test_mixed_content_widths() {
         // Mix of short and long content
         let input = "| A | VeryLongHeader | C |\n|:-|:-|:-|\n| X | Y | ZZZZZZZZZZ |";
-        let alignments = vec![TableAlignment::Left, TableAlignment::Left, TableAlignment::Left];
+        let alignments = vec![
+            TableAlignment::Left,
+            TableAlignment::Left,
+            TableAlignment::Left,
+        ];
         let result = format_table_str(input, &alignments);
         // All columns should expand to fit the longest content
         // Column 0 uses max(1, 4) = 4 for "A" and delimiter min 4
