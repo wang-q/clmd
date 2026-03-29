@@ -4,7 +4,7 @@ use crate::cmd::utils;
 
 pub fn make_subcommand() -> Command {
     Command::new("fmt")
-        .about("Format Markdown to canonical CommonMark")
+        .about("Format Markdown to canonical CommonMark/GFM")
         .arg(
             Arg::new("input")
                 .help("Input Markdown file (default: stdin)")
