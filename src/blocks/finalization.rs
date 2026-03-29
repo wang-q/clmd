@@ -25,6 +25,10 @@ impl<'a> BlockParser<'a> {
         // Based on commonmark.js: blank && !(block_quote || heading || thematicBreak ||
         //   (code_block && fenced) || (item && firstChild == null && startLine == lineNumber))
         let container_value = &self.arena.get(container).value;
+
+        // Check if container is a table (needed for lazy continuation check)
+        let is_table = matches!(container_value, NodeValue::Table(..));
+
         let last_line_blank = self.blank
             && !matches!(
                 container_value,
@@ -54,9 +58,11 @@ impl<'a> BlockParser<'a> {
         }
 
         // Check for lazy continuation
+        // Tables should not use lazy continuation - data rows need special handling
         let is_lazy = self.tip != self.last_matched_container
             && container == self.last_matched_container
             && !self.blank
+            && !is_table
             && matches!(self.arena.get(self.tip).value, NodeValue::Paragraph);
 
         if is_lazy {
@@ -141,6 +147,25 @@ impl<'a> BlockParser<'a> {
                 }
             } else if self.blank {
                 // Do nothing for blank lines
+            } else if let NodeValue::Table(_) = *container_value {
+                // For tables, parse the data row and add it to the table
+                self.advance_next_nonspace();
+                let line = &self.current_line[self.next_nonspace..];
+                if crate::ext::tables::is_table_row(line) {
+                    // Parse the row and add cells to the table
+                    if let Some(row_node) = crate::ext::tables::parse_table_row(
+                        self.arena,
+                        line,
+                        self.line_number,
+                    ) {
+                        // Add the row to the table
+                        crate::arena::TreeOps::append_child(self.arena, container, row_node);
+                    }
+                }
+                // Update tip to the table
+                self.tip = container;
+                // Consume the entire line to prevent infinite loop
+                self.offset = self.current_line.len();
             } else if self.accepts_lines(container) {
                 if matches!(container_value, NodeValue::Heading(..))
                     && !self.is_setext(container)
@@ -267,6 +292,10 @@ impl<'a> BlockParser<'a> {
             let last_matched = self.last_matched_container;
             let mut old_tip = self.old_tip;
             while old_tip != last_matched {
+                // Stop if we've reached the document and last_matched is not the document
+                if old_tip == doc {
+                    break;
+                }
                 let parent = self.arena.get(old_tip).parent.unwrap_or(doc);
                 self.finalize_block(old_tip);
                 old_tip = parent;

@@ -76,6 +76,27 @@ impl<'a> BlockParser<'a> {
                     0
                 }
             }
+            NodeValue::Table(..) => {
+                // Tables can continue if the current line looks like a table row
+                if self.blank {
+                    1 // Blank line ends table
+                } else {
+                    let line = &self.current_line[self.next_nonspace..];
+                    if crate::ext::tables::is_table_row(line) {
+                        0 // Continue table
+                    } else {
+                        1 // Not a table row, end table
+                    }
+                }
+            }
+            NodeValue::TableRow(..) => {
+                // Table rows don't continue - they are complete when created
+                1
+            }
+            NodeValue::TableCell => {
+                // Table cells don't continue - they are complete when created
+                1
+            }
             _ => 0,
         }
     }

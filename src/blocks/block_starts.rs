@@ -4,11 +4,13 @@
 
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
+use crate::ext::tables;
 use crate::inlines::unescape_string;
 use crate::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };
+use crate::parser::OPT_TABLE;
 use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.
@@ -107,6 +109,15 @@ impl<'a> BlockParser<'a> {
             // Try list item
             if let BlockStartResult::Opened(node) =
                 self.try_open_list_item(indented, current_container)
+            {
+                current_container = node;
+                maybe_lazy = false;
+                continue;
+            }
+
+            // Try table (GFM extension)
+            if let BlockStartResult::Opened(node) =
+                self.try_open_table(indented, current_container, maybe_lazy)
             {
                 current_container = node;
                 maybe_lazy = false;
@@ -1123,5 +1134,101 @@ impl<'a> BlockParser<'a> {
         } else {
             false
         }
+    }
+
+    /// Try to open a table (GFM extension)
+    ///
+    /// Tables can interrupt paragraphs and are detected when:
+    /// 1. The current line looks like a table row (contains |)
+    /// 2. The next line is a valid delimiter row
+    fn try_open_table(
+        &mut self,
+        indented: bool,
+        container: NodeId,
+        _maybe_lazy: bool,
+    ) -> BlockStartResult {
+        // Check if table extension is enabled
+        if (self.options & OPT_TABLE) == 0 {
+            return BlockStartResult::None;
+        }
+
+        // Tables can't be indented
+        if indented {
+            return BlockStartResult::None;
+        }
+
+        // Check if container is a paragraph
+        if !matches!(self.arena.get(container).value, NodeValue::Paragraph) {
+            return BlockStartResult::None;
+        }
+
+        // Get paragraph content
+        let para_content = self.get_string_content(container);
+
+        // Check if paragraph content looks like a table header
+        if !tables::is_table_row(&para_content) {
+            return BlockStartResult::None;
+        }
+
+        // Get the current line
+        let line = &self.current_line[self.next_nonspace..];
+
+        // Check if current line is a delimiter row
+        if !tables::is_delimiter_row(line) {
+            return BlockStartResult::None;
+        }
+
+        // Store values we need before mutable borrow
+        let start_line = self.line_number;
+
+        // For now, just parse the table header and delimiter
+        // Data rows will be added in subsequent processing
+        let lines = vec![&para_content[..], line];
+        if let Some((table_node, _)) = tables::try_parse_table(self.arena, &lines, start_line) {
+            // Replace paragraph with table
+            self.close_unmatched_blocks();
+
+            // Get the parent of the paragraph
+            let parent = self.arena.get(container).parent;
+
+            // Replace paragraph with table in the tree
+            if let Some(parent_id) = parent {
+                // Remove paragraph from parent
+                let para_prev = self.arena.get(container).prev;
+                let para_next = self.arena.get(container).next;
+
+                // Update siblings
+                if let Some(prev_id) = para_prev {
+                    self.arena.get_mut(prev_id).next = Some(table_node);
+                } else {
+                    // Paragraph was first child, update parent's first_child
+                    self.arena.get_mut(parent_id).first_child = Some(table_node);
+                }
+
+                if let Some(next_id) = para_next {
+                    self.arena.get_mut(next_id).prev = Some(table_node);
+                } else {
+                    // Paragraph was last child, update parent's last_child
+                    self.arena.get_mut(parent_id).last_child = Some(table_node);
+                }
+
+                // Update table's parent and siblings
+                self.arena.get_mut(table_node).parent = Some(parent_id);
+                self.arena.get_mut(table_node).prev = para_prev;
+                self.arena.get_mut(table_node).next = para_next;
+            }
+
+            // Set block info for the table node (mark as open)
+            self.set_block_info(table_node, crate::blocks::BlockInfo::new());
+
+            // Advance past the delimiter line - consume entire current line
+            self.offset = self.current_line.len();
+
+            // Return Opened so table becomes the current container
+            // This allows subsequent data rows to be added to the table
+            return BlockStartResult::Opened(table_node);
+        }
+
+        BlockStartResult::None
     }
 }

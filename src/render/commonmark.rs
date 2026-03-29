@@ -74,11 +74,17 @@ impl<'a> CommonMarkRenderer<'a> {
         if entering {
             self.enter_node(node_id);
             let node = self.arena.get(node_id);
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                self.render_node(child_id, true);
-                child_opt = self.arena.get(child_id).next;
+
+            // For table nodes, don't recursively render children
+            // because render_table handles everything internally
+            if !matches!(node.value, NodeValue::Table(..)) {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id, true);
+                    child_opt = self.arena.get(child_id).next;
+                }
             }
+
             self.exit_node(node_id);
         }
     }
@@ -399,25 +405,55 @@ impl<'a> CommonMarkRenderer<'a> {
             let child = self.arena.get(child_id);
 
             match &child.value {
-                NodeValue::TableRow(_is_header) => {
-                    // Process row children to get cell contents
-                    let mut cell_contents = Vec::new();
-                    let mut cell_opt = child.first_child;
+                NodeValue::TableRow(is_header) => {
+                    if *is_header {
+                        // This is a thead wrapper, process its children (the actual header row)
+                        let mut row_opt = child.first_child;
+                        while let Some(row_id) = row_opt {
+                            let row = self.arena.get(row_id);
+                            if matches!(row.value, NodeValue::TableRow(..)) {
+                                // Process this header row
+                                let mut cell_contents = Vec::new();
+                                let mut cell_opt = row.first_child;
 
-                    while let Some(cell_id) = cell_opt {
-                        let cell = self.arena.get(cell_id);
+                                while let Some(cell_id) = cell_opt {
+                                    let cell = self.arena.get(cell_id);
 
-                        if matches!(cell.value, NodeValue::TableCell) {
-                            // Collect text content from the cell
-                            let content = self.collect_cell_content(cell_id);
-                            cell_contents.push(content);
+                                    if matches!(cell.value, NodeValue::TableCell) {
+                                        // Collect text content from the cell
+                                        let content = self.collect_cell_content(cell_id);
+                                        cell_contents.push(content);
+                                    }
+
+                                    cell_opt = cell.next;
+                                }
+
+                                if !cell_contents.is_empty() {
+                                    rows.push(cell_contents);
+                                }
+                            }
+                            row_opt = row.next;
+                        }
+                    } else {
+                        // This is a data row
+                        let mut cell_contents = Vec::new();
+                        let mut cell_opt = child.first_child;
+
+                        while let Some(cell_id) = cell_opt {
+                            let cell = self.arena.get(cell_id);
+
+                            if matches!(cell.value, NodeValue::TableCell) {
+                                // Collect text content from the cell
+                                let content = self.collect_cell_content(cell_id);
+                                cell_contents.push(content);
+                            }
+
+                            cell_opt = cell.next;
                         }
 
-                        cell_opt = cell.next;
-                    }
-
-                    if !cell_contents.is_empty() {
-                        rows.push(cell_contents);
+                        if !cell_contents.is_empty() {
+                            rows.push(cell_contents);
+                        }
                     }
                 }
                 _ => {}

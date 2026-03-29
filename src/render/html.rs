@@ -2,7 +2,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::{escape_html, is_safe_url};
-use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue, TableAlignment};
+use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 use std::fmt::Write;
 
 /// Render a node tree as HTML
@@ -29,6 +29,8 @@ struct HtmlRenderer<'a> {
     disable_tags: i32,
     /// Track if we're at the first child of a list item (for tight lists)
     item_child_count: Vec<usize>,
+    /// Track table row index (0 = header, 1 = header end marker, 2+ = body)
+    table_row_index: usize,
 }
 
 impl<'a> HtmlRenderer<'a> {
@@ -46,6 +48,7 @@ impl<'a> HtmlRenderer<'a> {
             last_out: '\n', // Initialize to newline like commonmark.js
             disable_tags: 0,
             item_child_count: Vec::new(),
+            table_row_index: 0,
         }
     }
 
@@ -332,42 +335,41 @@ impl<'a> HtmlRenderer<'a> {
                 self.last_out = '>';
                 self.tag_stack.push("li");
             }
-            NodeValue::Table(table) => {
+            NodeValue::Table(_table) => {
                 self.lit("<table>");
                 self.lit("\n");
-                if !table.alignments.is_empty() {
-                    self.lit("<thead>");
-                    self.lit("\n");
-                    self.lit("<tr>");
-                    self.lit("\n");
-                    for alignment in &table.alignments {
-                        match alignment {
-                            TableAlignment::Left => self.lit("<th align=\"left\">"),
-                            TableAlignment::Center => self.lit("<th align=\"center\">"),
-                            TableAlignment::Right => self.lit("<th align=\"right\">"),
-                            TableAlignment::None => self.lit("<th>"),
-                        };
-                        self.lit("\n");
-                        self.tag_stack.push("th");
-                    }
-                }
+                self.table_row_index = 0;
             }
             NodeValue::TableRow(is_header) => {
                 if *is_header {
-                    self.lit("</tr>");
-                    self.lit("\n");
+                    // Header end marker: close thead and start tbody
+                    // Note: the </tr> for the header row was already output by the header row's exit_node
                     self.lit("</thead>");
                     self.lit("\n");
                     self.lit("<tbody>");
                     self.lit("\n");
+                    self.table_row_index = 2; // Next row will be body row
                 } else {
+                    // Regular row
+                    if self.table_row_index == 0 {
+                        // First row is header
+                        self.lit("<thead>");
+                        self.lit("\n");
+                    }
                     self.lit("<tr>");
                     self.lit("\n");
                 }
             }
             NodeValue::TableCell => {
-                self.lit("<td>");
-                self.tag_stack.push("td");
+                if self.table_row_index == 0 {
+                    // Header row
+                    self.lit("<th>");
+                    self.tag_stack.push("th");
+                } else {
+                    // Body row
+                    self.lit("<td>");
+                    self.tag_stack.push("td");
+                }
             }
             _ => {}
         }
@@ -450,14 +452,17 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("\n");
             }
             NodeValue::Table(..) => {
-                self.lit("</tbody>");
-                self.lit("\n");
                 self.lit("</table>");
                 self.lit("\n");
             }
-            NodeValue::TableRow(..) => {
-                self.lit("</tr>");
-                self.lit("\n");
+            NodeValue::TableRow(is_header) => {
+                if !*is_header {
+                    // Only output </tr> for non-header-marker rows
+                    self.lit("</tr>");
+                    self.lit("\n");
+                }
+                // Increment row index after processing each row
+                self.table_row_index += 1;
             }
             NodeValue::TableCell => {
                 if let Some(tag) = self.tag_stack.pop() {

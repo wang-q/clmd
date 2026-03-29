@@ -39,6 +39,8 @@ tempfile = "3.0"
 
 [profile.release]
 debug = true
+codegen-units = 1
+lto = true
 
 # Benchmarks
 [[bench]]

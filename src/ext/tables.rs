@@ -47,7 +47,7 @@ pub fn is_delimiter_row(line: &str) -> bool {
             i += 1;
         }
 
-        // Need at least 3 dashes
+        // Need at least 3 dashes (GFM spec requirement)
         let dash_start = i;
         while i < bytes.len() && bytes[i] == b'-' {
             i += 1;
@@ -177,15 +177,12 @@ pub fn try_parse_table(
         table.source_pos = SourcePos::new(start_line, 1, start_line, header_line.len());
     }
 
-    // Create table head
-    let thead_node = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
-    {
-        let thead = arena.get_mut(thead_node);
-        thead.source_pos = SourcePos::new(start_line, 1, start_line, header_line.len());
-    }
-
-    // Create header row
+    // Create header row (TableRow(false) for data row style, but will be rendered as header)
     let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
+    {
+        let row = arena.get_mut(header_row);
+        row.source_pos = SourcePos::new(start_line, 1, start_line, header_line.len());
+    }
 
     // Create header cells
     for cell_content in header_cells.iter() {
@@ -205,8 +202,12 @@ pub fn try_parse_table(
         TreeOps::append_child(arena, header_row, cell);
     }
 
-    TreeOps::append_child(arena, thead_node, header_row);
-    TreeOps::append_child(arena, table_node, thead_node);
+    // Add header row to table
+    TreeOps::append_child(arena, table_node, header_row);
+
+    // Create a marker row to indicate end of header (TableRow(true) triggers </thead><tbody>)
+    let header_end_marker = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
+    TreeOps::append_child(arena, table_node, header_end_marker);
 
     // Parse body rows (optional)
     let mut lines_consumed = 2;
@@ -265,6 +266,57 @@ pub fn try_parse_table(
     Some((table_node, lines_consumed))
 }
 
+/// Parse a single table row and return the row node.
+/// This is used when adding data rows to an existing table.
+pub fn parse_table_row(
+    arena: &mut NodeArena,
+    line: &str,
+    line_number: usize,
+) -> Option<NodeId> {
+    // Check if this is a table row
+    if !is_table_row(line) {
+        return None;
+    }
+
+    // Parse row cells
+    let row_cells = parse_row_cells(line);
+    if row_cells.is_empty() {
+        return None;
+    }
+
+    // Create row node
+    let row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
+
+    // Set source position
+    {
+        let row_node = arena.get_mut(row);
+        row_node.source_pos.start.line = line_number;
+        row_node.source_pos.start.column = 1;
+        row_node.source_pos.end.line = line_number;
+        row_node.source_pos.end.column = line.len();
+    }
+
+    // Create cells
+    for cell_content in row_cells {
+        let cell = arena.alloc(Node::with_value(NodeValue::TableCell));
+
+        // Create paragraph for cell content
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        // Create text node for content
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            cell_content.into(),
+        )));
+
+        // Build tree: cell -> para -> text
+        TreeOps::append_child(arena, para, text);
+        TreeOps::append_child(arena, cell, para);
+        TreeOps::append_child(arena, row, cell);
+    }
+
+    Some(row)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,6 +351,21 @@ mod tests {
 
         let cells = parse_row_cells("a | b | c");
         assert_eq!(cells, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_parse_table_row() {
+        let mut arena = NodeArena::new();
+        let row = parse_table_row(&mut arena, "| C | D |", 3);
+        assert!(row.is_some());
+
+        let row_node = row.unwrap();
+        let row_value = &arena.get(row_node).value;
+        assert!(matches!(row_value, NodeValue::TableRow(false)));
+
+        // Check cells
+        let first_cell = arena.get(row_node).first_child;
+        assert!(first_cell.is_some());
     }
 
     #[test]
