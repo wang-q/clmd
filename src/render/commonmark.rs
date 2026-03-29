@@ -5,10 +5,11 @@ use crate::nodes::{
     ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue,
 };
 use crate::render::table_formatter;
+use crate::unicode_width::width as unicode_width;
 
 /// Render a node tree as CommonMark
-pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    let mut renderer = CommonMarkRenderer::new(arena, options);
+pub fn render(arena: &NodeArena, root: NodeId, _options: u32, wrap_width: usize) -> String {
+    let mut renderer = CommonMarkRenderer::new(arena, _options, wrap_width);
     renderer.render(root)
 }
 
@@ -43,10 +44,12 @@ struct CommonMarkRenderer<'a> {
     tight_list_stack: Vec<bool>,
     /// Track if we need to add a blank line before next block
     need_blank_line: bool,
+    /// Maximum line width for wrapping (0 = no wrapping)
+    wrap_width: usize,
 }
 
 impl<'a> CommonMarkRenderer<'a> {
-    fn new(arena: &'a NodeArena, _options: u32) -> Self {
+    fn new(arena: &'a NodeArena, _options: u32, wrap_width: usize) -> Self {
         CommonMarkRenderer {
             arena,
             output: String::new(),
@@ -55,6 +58,7 @@ impl<'a> CommonMarkRenderer<'a> {
             list_prefixes: Vec::new(),
             tight_list_stack: Vec::new(),
             need_blank_line: false,
+            wrap_width,
         }
     }
 
@@ -149,7 +153,7 @@ impl<'a> CommonMarkRenderer<'a> {
                 self.need_blank_line = true;
             }
             NodeValue::Text(literal) => {
-                self.write_inline(&escape_markdown(literal));
+                self.write_wrapped(&escape_markdown(literal));
             }
             NodeValue::SoftBreak => {
                 if self.in_tight_list() {
@@ -369,8 +373,40 @@ impl<'a> CommonMarkRenderer<'a> {
             self.write_prefixes();
         }
         self.output.push_str(text);
-        self.column += text.chars().count();
+        self.column += unicode_width(text) as usize;
         self.beginning_of_line = false;
+    }
+
+    /// Write text with wrapping at wrap_width.
+    /// Handles word wrapping using Unicode width for proper CJK support.
+    fn write_wrapped(&mut self, text: &str) {
+        if self.wrap_width == 0 {
+            // No wrapping, just write inline
+            self.write_inline(text);
+            return;
+        }
+
+        // Split text into words and handle wrapping
+        let words: Vec<&str> = text.split_whitespace().collect();
+        for (i, word) in words.iter().enumerate() {
+            let word_width = unicode_width(word) as usize;
+            let space_width = if i > 0 { 1 } else { 0 };
+
+            // Check if we need to wrap
+            if self.column + space_width + word_width > self.wrap_width && !self.beginning_of_line {
+                self.output.push('\n');
+                self.column = 0;
+                self.beginning_of_line = true;
+                self.write_prefixes();
+            } else if i > 0 {
+                self.output.push(' ');
+                self.column += 1;
+            }
+
+            self.output.push_str(word);
+            self.column += word_width;
+            self.beginning_of_line = false;
+        }
     }
 
     fn write_line(&mut self, text: &str) {
@@ -662,7 +698,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "Hello world");
     }
 
@@ -678,7 +714,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, emph);
         TreeOps::append_child(&mut arena, emph, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "*emphasized*");
     }
 
@@ -694,7 +730,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, strong);
         TreeOps::append_child(&mut arena, strong, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "**strong**");
     }
 
@@ -711,7 +747,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "`code`");
     }
 
@@ -728,7 +764,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "``code `with` backticks``");
     }
 
@@ -746,7 +782,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, heading, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         // The renderer outputs "## \nHeading" for ATX headings
         assert!(cm.contains("##"));
         assert!(cm.contains("Heading"));
@@ -767,7 +803,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, link);
         TreeOps::append_child(&mut arena, link, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "[link](https://example.com)");
     }
 
@@ -787,7 +823,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, image);
         TreeOps::append_child(&mut arena, image, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert_eq!(cm.trim(), "![alt](image.png)");
     }
 
@@ -803,7 +839,7 @@ mod tests {
         TreeOps::append_child(&mut arena, blockquote, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert!(cm.contains("> Quote"));
     }
 
@@ -825,7 +861,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, code_block);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert!(cm.contains("```rust"));
         assert!(cm.contains("fn main() {}"));
         assert!(cm.contains("```"));
@@ -839,7 +875,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, hr);
 
-        let cm = render(&arena, root, 0);
+        let cm = render(&arena, root, 0, 0);
         assert!(cm.contains("***"));
     }
 

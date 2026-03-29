@@ -635,11 +635,11 @@ pub fn format_commonmark(
 pub fn format_commonmark_with_plugins(
     arena: &Arena,
     root: NodeId,
-    _options: &Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    write!(output, "{}", render::commonmark::render(arena, root, 0))
+    write!(output, "{}", render::commonmark::render(arena, root, 0, options.render.width))
 }
 
 /// Format an existing AST to XML.

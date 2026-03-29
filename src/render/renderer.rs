@@ -155,8 +155,8 @@ fn escape_xml(text: &str) -> String {
 /// Render to CommonMark format
 ///
 /// This is a convenience function that uses the CommonMark renderer.
-pub fn render_to_commonmark(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    commonmark::render(arena, root, options)
+pub fn render_to_commonmark(arena: &NodeArena, root: NodeId, options: u32, width: usize) -> String {
+    commonmark::render(arena, root, options, width)
 }
 
 /// Render to LaTeX format
@@ -197,6 +197,7 @@ pub enum OutputFormat {
 /// * `arena` - The node arena containing the AST
 /// * `root` - The root node ID
 /// * `options` - Rendering options
+/// * `width` - Line width for CommonMark wrapping (0 = no wrapping)
 ///
 /// # Returns
 ///
@@ -210,7 +211,7 @@ pub enum OutputFormat {
 /// let mut arena = Arena::new();
 /// let options = Options::default();
 /// let doc = parse_document(&mut arena, "# Hello", &options);
-/// let html = render(OutputFormat::Html, &arena, doc, 0);
+/// let html = render(OutputFormat::Html, &arena, doc, 0, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
 pub fn render(
@@ -218,11 +219,12 @@ pub fn render(
     arena: &NodeArena,
     root: NodeId,
     options: u32,
+    width: usize,
 ) -> String {
     match format {
         OutputFormat::Html => render_to_html(arena, root, options),
         OutputFormat::Xml => render_to_xml(arena, root, options),
-        OutputFormat::CommonMark => render_to_commonmark(arena, root, options),
+        OutputFormat::CommonMark => render_to_commonmark(arena, root, options, width),
         OutputFormat::Latex => render_to_latex(arena, root, options),
         OutputFormat::Man => render_to_man(arena, root, options),
     }
@@ -267,11 +269,11 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(OutputFormat::Html, &arena, root, 0);
+        let html = render(OutputFormat::Html, &arena, root, 0, 0);
         println!("HTML output: {:?}", html);
         assert!(html.contains("<p>Hello</p>"));
 
-        let xml = render(OutputFormat::Xml, &arena, root, 0);
+        let xml = render(OutputFormat::Xml, &arena, root, 0, 0);
         println!("XML output: {:?}", xml);
         assert!(xml.contains("<paragraph>"));
     }
