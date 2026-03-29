@@ -23,7 +23,7 @@ fn get_backtick_sequence(content: &str) -> String {
     }
 
     let count = (max_backticks + 1).max(1);
-    std::iter::repeat('`').take(count).collect()
+    "`".repeat(count)
 }
 
 /// CommonMark renderer state
@@ -272,7 +272,7 @@ impl<'a> CommonMarkRenderer<'a> {
                 }
             }
 
-            let fence: String = std::iter::repeat('`').take(fence_len).collect();
+            let fence: String = "`".repeat(fence_len);
             self.write_line(&fence);
 
             if !code_block.info.is_empty() {
@@ -304,7 +304,7 @@ impl<'a> CommonMarkRenderer<'a> {
         let node = self.arena.get(node_id);
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.value {
             // Use ATX style headings
-            let hashes: String = std::iter::repeat('#').take(*level as usize).collect();
+            let hashes: String = "#".repeat(*level as usize);
             self.write_inline(&hashes);
             self.write_inline(" ");
 

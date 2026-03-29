@@ -172,7 +172,7 @@ fn format_node_xml(
             child_opt = arena.get(child_id).next;
         }
 
-        write!(output, "</{tag_name}>\n")?;
+        writeln!(output, "</{tag_name}>")?;
     }
 
     Ok(())

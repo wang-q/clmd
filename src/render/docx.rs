@@ -10,6 +10,7 @@ use std::io::Write;
 
 /// DOCX export options
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct DocxOptions {
     /// Document title
     pub title: Option<String>,
@@ -17,14 +18,6 @@ pub struct DocxOptions {
     pub author: Option<String>,
 }
 
-impl Default for DocxOptions {
-    fn default() -> Self {
-        Self {
-            title: None,
-            author: None,
-        }
-    }
-}
 
 /// Render an AST as DOCX
 ///

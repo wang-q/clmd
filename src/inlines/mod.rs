@@ -559,7 +559,7 @@ impl<'a> Subject<'a> {
                 }
             }
         } else {
-            std::iter::repeat_n(c, res.num_delims).collect()
+            std::iter::repeat(c).take(res.num_delims).collect()
         };
         let text_node =
             arena.alloc(Node::with_value(NodeValue::Text(delim_text.into())));

@@ -44,7 +44,7 @@ use bon::Builder;
 /// let html = clmd::markdown_to_html("Hello **world**!", &options);
 /// assert!(html.contains("<strong>world</strong>"));
 /// ```
-#[derive(Debug, Clone, Builder, Arbitrary)]
+#[derive(Debug, Clone, Builder, Arbitrary, Default)]
 pub struct Options<'c> {
     /// Enable CommonMark extensions.
     pub extension: Extension<'c>,
@@ -54,16 +54,6 @@ pub struct Options<'c> {
 
     /// Configure render-time options.
     pub render: Render,
-}
-
-impl<'c> Default for Options<'c> {
-    fn default() -> Self {
-        Self {
-            extension: Extension::default(),
-            parse: Parse::default(),
-            render: Render::default(),
-        }
-    }
 }
 
 impl<'c> Options<'c> {
@@ -79,7 +69,7 @@ impl<'c> Options<'c> {
 ///
 /// The lifetime parameter `'c` allows extensions to hold references to
 /// external data such as URL rewriters.
-#[derive(Clone, Builder, Arbitrary)]
+#[derive(Clone, Builder, Arbitrary, Default)]
 pub struct Extension<'c> {
     /// Enables the strikethrough extension from the GFM spec.
     ///
@@ -205,39 +195,7 @@ pub struct Extension<'c> {
     pub link_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,
 }
 
-impl<'c> Default for Extension<'c> {
-    fn default() -> Self {
-        Self {
-            strikethrough: false,
-            tagfilter: false,
-            table: false,
-            autolink: false,
-            tasklist: false,
-            superscript: false,
-            subscript: false,
-            header_ids: None,
-            footnotes: false,
-            inline_footnotes: false,
-            description_lists: false,
-            front_matter_delimiter: None,
-            multiline_block_quotes: false,
-            alerts: false,
-            math_dollars: false,
-            math_code: false,
-            wikilinks_title_after_pipe: false,
-            wikilinks_title_before_pipe: false,
-            underline: false,
-            spoiler: false,
-            greentext: false,
-            highlight: false,
-            insert: false,
-            cjk_friendly_emphasis: false,
-            subtext: false,
-            image_url_rewriter: None,
-            link_url_rewriter: None,
-        }
-    }
-}
+
 
 impl<'c> Debug for Extension<'c> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -310,7 +268,7 @@ pub enum WikiLinksMode {
 ///
 /// The lifetime parameter `'c` allows parse options to hold references to
 /// external data such as broken link callbacks.
-#[derive(Clone, Builder, Arbitrary)]
+#[derive(Clone, Builder, Arbitrary, Default)]
 pub struct Parse<'c> {
     /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
     ///
@@ -372,23 +330,7 @@ pub struct Parse<'c> {
     pub broken_link_callback: Option<Arc<dyn BrokenLinkCallback + 'c>>,
 }
 
-impl<'c> Default for Parse<'c> {
-    fn default() -> Self {
-        Self {
-            smart: false,
-            sourcepos: false,
-            validate_utf8: false,
-            default_info_string: None,
-            relaxed_tasklist_matching: false,
-            ignore_setext: false,
-            leave_footnote_definitions: false,
-            tasklist_in_table: false,
-            relaxed_autolinks: false,
-            escaped_char_spans: false,
-            broken_link_callback: None,
-        }
-    }
-}
+
 
 impl<'c> Debug for Parse<'c> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -413,6 +355,7 @@ impl<'c> Debug for Parse<'c> {
 
 /// Options for formatter functions.
 #[derive(Debug, Clone, Copy, Builder, Arbitrary)]
+#[derive(Default)]
 pub struct Render {
     /// Soft line breaks in the input translate into hard line breaks in the output.
     ///
@@ -497,29 +440,6 @@ pub struct Render {
     pub escaped_char_spans: bool,
 }
 
-impl Default for Render {
-    fn default() -> Self {
-        Self {
-            hardbreaks: false,
-            nobreaks: false,
-            r#unsafe: false,
-            escape: false,
-            github_pre_lang: false,
-            full_info_string: false,
-            width: 0,
-            list_style: ListStyleType::default(),
-            prefer_fenced: false,
-            ignore_empty_links: false,
-            tasklist_classes: false,
-            compact_html: false,
-            sourcepos: false,
-            gfm_quirks: false,
-            figure_with_caption: false,
-            ol_width: 0,
-            escaped_char_spans: false,
-        }
-    }
-}
 
 /// Style type for bullet lists.
 #[non_exhaustive]
