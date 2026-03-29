@@ -68,7 +68,7 @@ cargo build --release --example cross_language_bench
 hyperfine --warmup 10 --min-runs 100 \
   './target/release/examples/cross_language_bench benches/samples/lorem1.md' \
   'cmark benches/samples/lorem1.md' \
-  'node bench_commonmark.js benches/samples/lorem1.md'
+  'node examples/bench/bench_commonmark.js benches/samples/lorem1.md'
 ```
 
 ## Historical Trends

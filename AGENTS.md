@@ -9,7 +9,24 @@
 **语言约定**: 为了便于指导，本文件 (`AGENTS.md`) 使用中文编写，且**与用户交流时请使用中文**。但项目代码中的
 **所有文档注释 (doc comments)**、**行内注释**以及**提交信息**必须使用**英文**。
 
-`clmd` 是将 [](./cmark-0.31.2/) [](./commonmark.js-0.31.2) 项目转换为 Rust 语言的实现。
+`clmd` 是一个 100% [CommonMark](http://commonmark.org/) 和 [GFM](https://github.github.com/gfm/) 兼容的 Markdown 解析器，使用 Rust 语言实现。
+
+### 核心特性
+
+- 100% CommonMark 和 GFM 规范兼容
+- 100% 安全 Rust 代码（无 `unsafe` 代码）
+- 支持多种渲染格式：HTML、CommonMark、XML、Typst 等
+- 插件系统，支持自定义渲染
+- 丰富的扩展功能：表格、脚注、删除线、任务列表、自动链接等
+- 内存高效的 AST 实现，基于 Arena 内存分配
+- 提供便捷的 API 和迭代器用于 AST 遍历和操作
+
+### 设计理念
+
+- **性能优先**：优化关键路径的字符串处理，减少不必要的内存分配
+- **类型安全**：使用统一的 `NodeValue` 枚举提供更好的类型安全和 ergonomics
+- **模块化设计**：清晰的代码结构，便于维护和扩展
+- **兼容性**：严格遵循 CommonMark 规范，确保 100% 通过测试
 
 实现功能时，核心算法**一定**要多参考 cmark 与 commonmark.js。使用 TDD 开发策略。
 
@@ -18,16 +35,28 @@
 ```
 src/
 ├── lib.rs          # 公共 API 和选项定义
-├── node.rs         # AST 节点定义和操作
-├── parser.rs       # 解析器入口
-├── blocks.rs       # 块级元素解析
-├── inlines.rs      # 内联元素解析
-├── lexer.rs        # 词法分析器
+├── arena.rs        # 内存分配器
+├── error.rs        # 错误处理
+├── from.rs         # 从其他格式转换
+├── html_utils.rs   # HTML 工具函数
 ├── iterator.rs     # AST 遍历器
+├── nodes.rs        # AST 节点定义和操作
+├── options.rs      # 配置选项
+├── prelude.rs      # 预导入模块
 ├── render.rs       # 渲染器基类
-└── render/
-    ├── html.rs     # HTML 渲染器
-    └── xml.rs      # XML 渲染器
+├── scanners.rs     # 扫描器工具
+├── sequence.rs     # 序列处理
+├── strings.rs      # 字符串处理
+├── adapters.rs     # 适配器
+├── blocks/         # 块级元素解析（包含解析器、块检测、延续、终处理等）
+├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表等）
+├── from/           # 从其他格式转换（HTML）
+├── inlines/        # 内联元素解析（强调、链接、实体、HTML标签、文本处理等）
+├── parser/         # 解析器核心
+├── plugins/        # 插件系统
+├── render/         # 渲染器（HTML、XML、CommonMark、LaTeX、Man、PDF、Typst等）
+├── test_utils/     # 测试工具
+└── tests/          # 测试用例
 ```
 
 ## 构建命令
@@ -68,18 +97,49 @@ cargo clippy
 
 在实现或修复以下功能时，优先参考对应源码：
 
-| 功能 | cmark (C) | commonmark.js (JS) |
-|------|-----------|-------------------|
-| 块级解析 | `blocks.c` | `blocks.js` |
-| 内联解析 | `inlines.c` | `inlines.js` |
-| 强调处理 | `inlines.c` 中 `process_emphasis` | `inlines.js` 中 `processEmphasis` |
-| 链接处理 | `inlines.c` 中 `parse_link` | `inlines.js` 中 `parseLink` |
-| HTML 渲染 | `html.c` | `render/html.js` |
+| 功能 | cmark (C) | commonmark.js (JS) | 本项目实现 |
+|------|-----------|-------------------|-----------|
+| 块级解析 | `blocks.c` | `blocks.js` | `src/blocks/parser.rs` |
+| 块级元素起始检测 | `blocks.c` | `blocks.js` | `src/blocks/block_starts.rs` |
+| 块级元素延续 | `blocks.c` | `blocks.js` | `src/blocks/continuation.rs` |
+| 块级元素终处理 | `blocks.c` | `blocks.js` | `src/blocks/finalization.rs` |
+| 内联解析 | `inlines.c` | `inlines.js` | `src/inlines/mod.rs` |
+| 强调处理 | `inlines.c` 中 `process_emphasis` | `inlines.js` 中 `processEmphasis` | `src/inlines/emphasis.rs` |
+| 链接处理 | `inlines.c` 中 `parse_link` | `inlines.js` 中 `parseLink` | `src/inlines/links.rs` |
+| 自动链接 | `inlines.c` 中 `match_url_autolink` | `inlines.js` 中 `matchURLAutolink` | `src/inlines/autolinks.rs` |
+| 实体解析 | `inlines.c` 中 `parse_entity` | `inlines.js` 中 `parseEntity` | `src/inlines/entities.rs` |
+| HTML 标签解析 | `inlines.c` 中 `match_html_tag` | `inlines.js` 中 `matchHTMLTag` | `src/inlines/html_tags.rs` |
+| 文本处理 | `inlines.c` 中 `parse_string` | `inlines.js` 中 `parseString` | `src/inlines/text.rs` |
+| HTML 渲染 | `html.c` | `render/html.js` | `src/render/html.rs` |
+| CommonMark 渲染 | - | `render/commonmark.js` | `src/render/commonmark.rs` |
+| XML 渲染 | - | `render/xml.js` | `src/render/xml.rs` |
 
 ## 开发者文档规范
 
 `docs/developer.md` 是供项目开发者参考的内部指南，不要包含在最终生成的用户文档（mdBook 站点）中。
 
+### 文档内容
+
+* **项目概述**: 项目背景、核心功能、参考项目
+* **技术架构**: 解析流程、AST 内存管理、节点类型
+* **开发计划**: 已完成功能、进行中功能、待开始功能
+* **测试统计**: 测试套件概览、测试运行命令
+* **开发规范**: 技术选型、工作流、代码规范
+* **性能测试**: 基准测试命令
+* **架构演进**: 从旧系统到新系统的迁移
+* **扩展功能架构**: 扩展模块设计和实现
+* **参考项目分析**: 其他 Markdown 解析器的分析和借鉴点
+
+### 文档格式
+
 * **语言**: 使用**中文**编写。
 * **格式**: 避免过多的加粗 (Bold) 或强调格式，以保持在纯文本编辑器中的可读性。
-* **内容**: 包含测试策略、架构设计、功能计划和开发工作流。
+* **结构**: 使用清晰的标题层级组织内容
+* **代码示例**: 包含完整的命令和代码片段，便于复制使用
+* **表格**: 使用表格展示比较信息，提高可读性
+
+### 维护要求
+
+* 定期更新文档，反映项目的最新状态
+* 保持文档与代码的一致性
+* 新增功能或架构变更后及时更新相关文档

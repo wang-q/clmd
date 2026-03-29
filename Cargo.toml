@@ -8,6 +8,7 @@ repository = "https://github.com/clmd/clmd"
 keywords = ["markdown", "commonmark", "gfm", "parser"]
 categories = ["text-processing", "parser-implementations"]
 rust-version = "1.70"
+publish = false
 
 [package.metadata.docs.rs]
 all-features = true
