@@ -3,7 +3,7 @@
 //! Tests for Markdown -> HTML -> Markdown roundtrip consistency.
 //! Based on cmark's roundtrip_tests.py.
 
-use clmd::html_to_md;
+use clmd::from::html as html_to_md;
 use clmd::markdown_to_html;
 use clmd::parser::options::Options;
 use std::fs;

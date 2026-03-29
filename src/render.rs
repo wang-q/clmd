@@ -25,9 +25,11 @@
 //! ```
 
 pub mod commonmark;
+pub mod docx;
 pub mod html;
 pub mod latex;
 pub mod man;
+pub mod pdf;
 pub mod renderer;
 pub mod typst;
 pub mod xml;

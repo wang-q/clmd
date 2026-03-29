@@ -5,8 +5,8 @@
 
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
-use crate::lexer::{is_space_or_tab, CODE_INDENT};
 use crate::nodes::NodeValue;
+use crate::{is_space_or_tab, CODE_INDENT};
 
 impl<'a> BlockParser<'a> {
     /// Check which open blocks can continue on this line

@@ -5,11 +5,11 @@
 use crate::arena::NodeId;
 use crate::blocks::BlockParser;
 use crate::inlines::unescape_string;
-use crate::lexer::{is_space_or_tab, CODE_INDENT};
 use crate::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };
+use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.
 ///

@@ -178,9 +178,8 @@ pub struct Ast {
 
 // Size assertions to monitor type sizes (matching comrak's approach)
 // These help ensure we don't accidentally bloat the node sizes
-#[allow(dead_code)]
 #[cfg(target_pointer_width = "64")]
-const AST_SIZE_ASSERTION: [u8; 128] = [0; std::mem::size_of::<Ast>()];
+const _AST_SIZE_ASSERTION: [u8; 128] = [0; std::mem::size_of::<Ast>()];
 
 impl std::fmt::Debug for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

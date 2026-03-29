@@ -92,14 +92,11 @@ pub mod error;
 /// Block-level parsing for CommonMark documents.
 mod blocks;
 
-/// Document converters (HTML, LaTeX, etc.).
-pub mod converters;
+/// Format converters for importing content to Markdown.
+pub mod from;
 
 /// Markdown extensions (GFM and others).
 pub mod ext;
-
-/// HTML to Markdown conversion
-pub mod html_to_md;
 
 // HTML rendering for the CommonMark AST is now in render::html
 pub use render::html;
@@ -112,9 +109,6 @@ pub(crate) mod inlines;
 
 /// AST iteration and traversal
 pub mod iterator;
-
-/// Lexical analysis utilities
-pub(crate) mod lexer;
 
 /// AST node definitions (unified API, inspired by comrak)
 ///
@@ -244,6 +238,21 @@ pub use nodes::NodeValue;
 // =============================================================================
 
 pub use inlines::unescape_string;
+
+// =============================================================================
+// CommonMark Constants
+// =============================================================================
+
+/// Code indent threshold (4 spaces or 1 tab)
+pub const CODE_INDENT: usize = 4;
+
+/// Tab stop size
+pub const TAB_STOP: usize = 4;
+
+/// Check if a character is a space or tab
+pub fn is_space_or_tab(c: char) -> bool {
+    c == ' ' || c == '\t'
+}
 
 // =============================================================================
 // Deprecated Type Aliases (for backward compatibility)

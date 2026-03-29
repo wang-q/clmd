@@ -22,9 +22,6 @@ pub struct Bracket {
     pub image: bool,
     /// Whether this bracket is still active
     pub active: bool,
-    /// Whether there was a bracket after this one
-    #[allow(dead_code)]
-    pub bracket_after: bool,
     /// Previous delimiter in stack (for emphasis processing)
     /// This is a marker to identify which delimiter was on the stack before this bracket
     pub previous_delimiter_marker: Option<(NodeId, usize)>, // (inl_text, orig_delims)

@@ -610,7 +610,6 @@ impl<'a> Subject<'a> {
             position: self.pos - 1,
             image: false,
             active: true,
-            bracket_after: false,
             previous_delimiter_marker,
         });
 
@@ -758,7 +757,6 @@ impl<'a> Subject<'a> {
                 position: self.pos - 2,
                 image: true,
                 active: true,
-                bracket_after: false,
                 previous_delimiter_marker,
             });
 

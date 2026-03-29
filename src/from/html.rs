@@ -4,7 +4,7 @@
 //!
 //! Example:
 //! ```
-//! use clmd::html_to_md::convert;
+//! use clmd::from::html::convert;
 //!
 //! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
 //! let markdown = convert(html);
