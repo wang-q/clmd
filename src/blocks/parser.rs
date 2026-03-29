@@ -56,20 +56,17 @@ pub struct BlockParser<'a> {
     pub options: u32,
     /// Parser limits for input validation
     pub limits: ParserLimits,
-    /// Current nesting depth
-    #[allow(dead_code)]
-    pub nesting_depth: usize,
 }
 
 impl<'a> BlockParser<'a> {
     /// Create a new block parser with the given arena
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(arena: &'a mut NodeArena) -> Self {
         Self::new_with_options(arena, 0)
     }
 
     /// Create a new block parser with the given arena and options
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new_with_options(arena: &'a mut NodeArena, options: u32) -> Self {
         Self::new_with_limits(arena, options, ParserLimits::default())
     }
@@ -107,7 +104,6 @@ impl<'a> BlockParser<'a> {
             block_info: FxHashMap::default(),
             options,
             limits,
-            nesting_depth: 0,
         };
 
         // Initialize block info for document
@@ -117,7 +113,7 @@ impl<'a> BlockParser<'a> {
     }
 
     /// Parse a complete document
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn parse(arena: &'a mut NodeArena, input: &str) -> NodeId {
         Self::parse_with_options(arena, input, 0)
     }
@@ -131,7 +127,6 @@ impl<'a> BlockParser<'a> {
     ///
     /// This function will panic if parsing fails (e.g., input too large).
     /// For error handling, use `parse_with_limits` instead.
-    #[allow(dead_code)]
     pub fn parse_with_options(
         arena: &'a mut NodeArena,
         input: &str,
@@ -311,7 +306,7 @@ impl<'a> BlockParser<'a> {
         self.collect_leaf_blocks(self.doc, &mut leaf_blocks);
 
         // Check if smart punctuation is enabled
-        let smart = (self.options & crate::OPT_SMART) != 0;
+        let smart = (self.options & crate::parser::OPT_SMART) != 0;
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {

@@ -29,8 +29,6 @@ fn get_backtick_sequence(content: &str) -> String {
 /// CommonMark renderer state
 struct CommonMarkRenderer<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    options: u32,
     output: String,
     /// Current column position for width wrapping
     column: usize,
@@ -45,10 +43,9 @@ struct CommonMarkRenderer<'a> {
 }
 
 impl<'a> CommonMarkRenderer<'a> {
-    fn new(arena: &'a NodeArena, options: u32) -> Self {
+    fn new(arena: &'a NodeArena, _options: u32) -> Self {
         CommonMarkRenderer {
             arena,
-            options,
             output: String::new(),
             column: 0,
             beginning_of_line: true,

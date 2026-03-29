@@ -202,8 +202,6 @@ impl<'a> ArenaNodeIterator<'a> {
 /// A walker that can be used to iterate through the node tree
 #[derive(Debug)]
 pub struct ArenaNodeWalker<'a> {
-    #[allow(dead_code)]
-    root: NodeId,
     iterator: ArenaNodeIterator<'a>,
 }
 
@@ -211,7 +209,6 @@ impl<'a> ArenaNodeWalker<'a> {
     /// Create a new walker for the given arena and root node
     pub fn new(arena: &'a NodeArena, root: NodeId) -> Self {
         ArenaNodeWalker {
-            root,
             iterator: ArenaNodeIterator::new(arena, root),
         }
     }

@@ -101,9 +101,6 @@ pub mod ext;
 /// HTML to Markdown conversion
 pub mod html_to_md;
 
-/// String pool for efficient memory reuse.
-pub(crate) mod pool;
-
 // HTML rendering for the CommonMark AST is now in render::html
 pub use render::html;
 
@@ -247,23 +244,6 @@ pub use nodes::NodeValue;
 // =============================================================================
 
 pub use inlines::unescape_string;
-
-// =============================================================================
-// Legacy Option Flags (internal use)
-// =============================================================================
-
-#[allow(dead_code)]
-const OPT_SOURCEPOS: u32 = 1 << 0;
-#[allow(dead_code)]
-const OPT_HARDBREAKS: u32 = 1 << 1;
-#[allow(dead_code)]
-const OPT_NOBREAKS: u32 = 1 << 2;
-#[allow(dead_code)]
-const OPT_VALIDATE_UTF8: u32 = 1 << 3;
-#[allow(dead_code)]
-const OPT_SMART: u32 = 1 << 4;
-#[allow(dead_code)]
-const OPT_UNSAFE: u32 = 1 << 5;
 
 // =============================================================================
 // Deprecated Type Aliases (for backward compatibility)

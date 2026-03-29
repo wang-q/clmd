@@ -61,15 +61,6 @@ pub struct Subject<'a> {
     pub input: &'a str,
     /// Current position in the input
     pub pos: usize,
-    /// Line number (for source positions)
-    #[allow(dead_code)]
-    pub line: usize,
-    /// Column offset (for source positions)
-    #[allow(dead_code)]
-    pub column_offset: usize,
-    /// Block offset (for source positions)
-    #[allow(dead_code)]
-    pub block_offset: usize,
     /// Stack of delimiters for emphasis/strong
     pub delimiters: Option<Box<Delimiter>>,
     /// Stack of brackets for links/images
@@ -82,65 +73,18 @@ pub struct Subject<'a> {
     pub smart: bool,
 }
 
-/// Static empty refmap for Subject::new
-#[allow(dead_code)]
-static EMPTY_REFMAP: once_cell::sync::Lazy<FxHashMap<String, (String, String)>> =
-    once_cell::sync::Lazy::new(FxHashMap::default);
-
 impl<'a> Subject<'a> {
-    /// Create a new subject from a string
-    #[allow(dead_code)]
-    pub fn new(input: &'a str, line: usize, block_offset: usize) -> Self {
-        Subject {
-            input,
-            pos: 0,
-            line,
-            column_offset: 0,
-            block_offset,
-            delimiters: None,
-            brackets: None,
-            no_link_openers: false,
-            refmap: &EMPTY_REFMAP,
-            smart: false,
-        }
-    }
-
-    /// Create a new subject with a reference map
-    #[allow(dead_code)]
-    pub fn with_refmap(
-        input: &'a str,
-        line: usize,
-        block_offset: usize,
-        refmap: &'a FxHashMap<String, (String, String)>,
-    ) -> Self {
-        Subject {
-            input,
-            pos: 0,
-            line,
-            column_offset: 0,
-            block_offset,
-            delimiters: None,
-            brackets: None,
-            no_link_openers: false,
-            refmap,
-            smart: false,
-        }
-    }
-
     /// Create a new subject with a reference map and smart punctuation option
     pub fn with_refmap_and_smart(
         input: &'a str,
-        line: usize,
-        block_offset: usize,
+        _line: usize,
+        _block_offset: usize,
         refmap: &'a FxHashMap<String, (String, String)>,
         smart: bool,
     ) -> Self {
         Subject {
             input,
             pos: 0,
-            line,
-            column_offset: 0,
-            block_offset,
             delimiters: None,
             brackets: None,
             no_link_openers: false,
@@ -163,17 +107,6 @@ impl<'a> Subject<'a> {
         }
         // Slow path for UTF-8
         self.input[self.pos..].chars().next()
-    }
-
-    /// Peek at the next character code
-    #[inline(always)]
-    #[allow(dead_code)]
-    pub fn peek_char_code(&self) -> i32 {
-        if self.pos < self.input.len() {
-            self.input.as_bytes()[self.pos] as i32
-        } else {
-            -1
-        }
     }
 
     /// Advance position by one character (optimized byte-level)
@@ -1006,40 +939,6 @@ impl<'a> Subject<'a> {
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }
-}
-
-/// Parse inline content into the given parent node
-#[allow(dead_code)]
-pub fn parse_inlines(
-    arena: &mut NodeArena,
-    parent: NodeId,
-    content: &str,
-    line: usize,
-    block_offset: usize,
-) {
-    let mut subject = Subject::new(content, line, block_offset);
-    subject.parse_inlines(arena, parent);
-}
-
-/// Parse inline content with reference map
-#[allow(dead_code)]
-pub fn parse_inlines_with_refmap(
-    arena: &mut NodeArena,
-    parent: NodeId,
-    content: &str,
-    line: usize,
-    block_offset: usize,
-    refmap: &FxHashMap<String, (String, String)>,
-) {
-    parse_inlines_with_options(
-        arena,
-        parent,
-        content,
-        line,
-        block_offset,
-        refmap,
-        false,
-    );
 }
 
 /// Parse inlines with reference map and smart punctuation option

@@ -57,20 +57,6 @@ pub fn is_punctuation_fast(b: u8) -> bool {
     CHAR_TABLE[b as usize] & 0b001 != 0
 }
 
-/// Fast check if a byte is whitespace using lookup table
-#[inline(always)]
-#[allow(dead_code)]
-pub fn is_whitespace_fast(b: u8) -> bool {
-    CHAR_TABLE[b as usize] & 0b010 != 0
-}
-
-/// Fast check if a byte is a special inline character
-#[inline(always)]
-#[allow(dead_code)]
-pub fn is_special_fast(b: u8) -> bool {
-    CHAR_TABLE[b as usize] & 0b100 != 0
-}
-
 /// Check if a character is punctuation
 pub fn is_punctuation(c: char) -> bool {
     // Fast path for ASCII using lookup table

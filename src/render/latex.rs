@@ -12,8 +12,6 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// LaTeX renderer state
 struct LatexRenderer<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    options: u32,
     output: String,
     beginning_of_line: bool,
     list_stack: Vec<ListType>,
@@ -21,10 +19,9 @@ struct LatexRenderer<'a> {
 }
 
 impl<'a> LatexRenderer<'a> {
-    fn new(arena: &'a NodeArena, options: u32) -> Self {
+    fn new(arena: &'a NodeArena, _options: u32) -> Self {
         LatexRenderer {
             arena,
-            options,
             output: String::new(),
             beginning_of_line: true,
             list_stack: Vec::new(),

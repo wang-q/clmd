@@ -12,8 +12,6 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 /// Man page renderer state
 struct ManRenderer<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    options: u32,
     output: String,
     /// Whether we're at the beginning of a line
     beginning_of_line: bool,
@@ -28,10 +26,9 @@ struct ManRenderer<'a> {
 }
 
 impl<'a> ManRenderer<'a> {
-    fn new(arena: &'a NodeArena, options: u32) -> Self {
+    fn new(arena: &'a NodeArena, _options: u32) -> Self {
         ManRenderer {
             arena,
-            options,
             output: String::new(),
             beginning_of_line: true,
             indent_stack: Vec::new(),

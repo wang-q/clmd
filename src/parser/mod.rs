@@ -74,12 +74,12 @@ pub fn parse_document_with_limits(
 }
 
 // Legacy option flags (for backward compatibility)
-const OPT_SOURCEPOS: u32 = 1 << 0;
-const OPT_HARDBREAKS: u32 = 1 << 1;
-const OPT_NOBREAKS: u32 = 1 << 2;
-const OPT_VALIDATE_UTF8: u32 = 1 << 3;
-const OPT_SMART: u32 = 1 << 4;
-const OPT_UNSAFE: u32 = 1 << 5;
+pub(crate) const OPT_SOURCEPOS: u32 = 1 << 0;
+pub(crate) const OPT_HARDBREAKS: u32 = 1 << 1;
+pub(crate) const OPT_NOBREAKS: u32 = 1 << 2;
+pub(crate) const OPT_VALIDATE_UTF8: u32 = 1 << 3;
+pub(crate) const OPT_SMART: u32 = 1 << 4;
+pub(crate) const OPT_UNSAFE: u32 = 1 << 5;
 
 /// Convert Options to legacy u32 flags.
 ///

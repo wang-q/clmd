@@ -118,16 +118,4 @@ impl<'a> BlockParser<'a> {
         }
     }
 
-    /// Check if line might start a special block
-    #[allow(dead_code)]
-    pub(crate) fn maybe_special(&self) -> bool {
-        if let Some(c) = self.peek_next_nonspace() {
-            matches!(
-                c,
-                '#' | '`' | '~' | '*' | '_' | '+' | '=' | '<' | '-' | '0'..='9'
-            )
-        } else {
-            false
-        }
-    }
 }

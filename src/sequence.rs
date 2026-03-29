@@ -412,107 +412,6 @@ impl<'a> Iterator for SplitIterator<'a> {
     }
 }
 
-/// A collection of BasedSequences
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-pub struct SequenceList<'a> {
-    sequences: Vec<BasedSequence<'a>>,
-}
-
-impl<'a> SequenceList<'a> {
-    /// Create a new empty sequence list
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            sequences: Vec::new(),
-        }
-    }
-
-    /// Add a sequence to the list
-    #[allow(dead_code)]
-    pub fn push(&mut self, seq: BasedSequence<'a>) {
-        self.sequences.push(seq);
-    }
-
-    /// Get the number of sequences
-    #[allow(dead_code)]
-    pub fn len(&self) -> usize {
-        self.sequences.len()
-    }
-
-    /// Check if the list is empty
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.sequences.is_empty()
-    }
-
-    /// Get a sequence at index
-    #[allow(dead_code)]
-    pub fn get(&self, index: usize) -> Option<&BasedSequence<'a>> {
-        self.sequences.get(index)
-    }
-
-    /// Iterate over sequences
-    #[allow(dead_code)]
-    pub fn iter(&self) -> impl Iterator<Item = &BasedSequence<'a>> {
-        self.sequences.iter()
-    }
-
-    /// Join all sequences into a single string
-    #[allow(dead_code)]
-    pub fn join(&self, sep: &str) -> String {
-        self.sequences
-            .iter()
-            .map(|s| s.as_str())
-            .collect::<Vec<_>>()
-            .join(sep)
-    }
-}
-
-impl<'a> Default for SequenceList<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Utility functions for sequence operations
-#[allow(dead_code)]
-pub mod utils {
-    use super::BasedSequence;
-
-    /// Normalize end-of-line characters to \n
-    pub fn normalize_eol<'a>(seq: BasedSequence<'a>) -> BasedSequence<'a> {
-        // For now, return as-is. In full implementation, this would handle \r\n and \r
-        seq
-    }
-
-    /// Count leading whitespace characters
-    pub fn count_leading_whitespace(seq: &BasedSequence) -> usize {
-        seq.count_leading(|c| c.is_whitespace())
-    }
-
-    /// Count trailing whitespace characters
-    pub fn count_trailing_whitespace(seq: &BasedSequence) -> usize {
-        seq.count_trailing(|c| c.is_whitespace())
-    }
-
-    /// Check if a character is a line ending
-    pub fn is_line_end(c: char) -> bool {
-        c == '\n' || c == '\r'
-    }
-
-    /// Get the line containing a position
-    pub fn get_line_at<'a>(seq: BasedSequence<'a>, offset: usize) -> BasedSequence<'a> {
-        let base = seq.base();
-        let line_start = base[..offset].rfind('\n').map(|i| i + 1).unwrap_or(0);
-        let line_end = base[offset..]
-            .find('\n')
-            .map(|i| offset + i)
-            .unwrap_or(base.len());
-        BasedSequence::with_offsets(base, line_start, line_end)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -625,16 +524,5 @@ mod tests {
         let seq = BasedSequence::new(text);
         let s: String = seq.into();
         assert_eq!(s, text);
-    }
-
-    #[test]
-    fn test_sequence_list() {
-        let text = "Hello, World!";
-        let seq = BasedSequence::new(text);
-        let mut list = SequenceList::new();
-        list.push(seq.sub_sequence(0, 5));
-        list.push(seq.sub_sequence(7, 12));
-        assert_eq!(list.len(), 2);
-        assert_eq!(list.join(" "), "Hello World");
     }
 }
