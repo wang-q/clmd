@@ -57,7 +57,6 @@ fn format_node_typst(
         NodeValue::Text(text) => {
             // Escape special Typst characters
             let escaped = text
-                .replace('\\', "\\")
                 .replace('*', "\\*")
                 .replace('_', "\\_")
                 .replace('#', "\\#")
@@ -214,7 +213,6 @@ impl<'a> TypstRenderer<'a> {
             }
             NodeValue::Text(text) => {
                 let escaped = text
-                    .replace('\\', "\\")
                     .replace('*', "\\*")
                     .replace('_', "\\_")
                     .replace('#', "\\#")

@@ -304,14 +304,12 @@ impl<'a> BasedSequence<'a> {
         F: Fn(char) -> bool,
     {
         let mut end = self.end;
-        let mut count = 0;
 
-        for c in self.base[self.end..].chars() {
+        for (count, c) in self.base[self.end..].chars().enumerate() {
             if count >= max_count || !f(c) {
                 break;
             }
             end += c.len_utf8();
-            count += 1;
         }
 
         Self {

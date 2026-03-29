@@ -527,8 +527,8 @@ pub fn format_html(
     _options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    html::render(arena, root, 0);
-    write!(output, "{}", html::render(arena, root, 0))
+    let html = html::render(arena, root, 0);
+    write!(output, "{}", html)
 }
 
 /// Format an existing AST to HTML with plugins.
