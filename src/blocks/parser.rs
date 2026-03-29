@@ -8,6 +8,9 @@ use crate::error::{ParseError, ParseResult, ParserLimits};
 use crate::nodes::NodeValue;
 use rustc_hash::FxHashMap;
 
+/// Type alias for the reference map: label -> (url, title)
+pub type RefMap = FxHashMap<String, (String, String)>;
+
 /// Block parser state using Arena allocation
 #[derive(Debug)]
 pub struct BlockParser<'a> {
@@ -185,7 +188,7 @@ impl<'a> BlockParser<'a> {
         input: &str,
         options: u32,
         limits: ParserLimits,
-    ) -> ParseResult<(NodeId, FxHashMap<String, (String, String)>)> {
+    ) -> ParseResult<(NodeId, RefMap)> {
         // Validate input size
         let input_size = input.len();
         if input_size > limits.max_input_size {

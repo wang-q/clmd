@@ -28,7 +28,7 @@ pub fn convert(html: &str) -> String {
 
 /// Convert HTML to Markdown with custom rules
 pub fn convert_with_rules(html: &str, rules: &ConversionRules) -> String {
-    let mut converter = HtmlToMarkdown::new(rules.clone());
+    let mut converter = HtmlToMarkdown::new(*rules);
     converter.convert(html)
 }
 

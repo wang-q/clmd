@@ -137,7 +137,7 @@ impl<'a> BlockParser<'a> {
         if indented && !maybe_lazy && !self.blank {
             self.close_unmatched_blocks();
             let code_block = self.add_child(
-                NodeValue::CodeBlock(Box::new(NodeCodeBlock::default())),
+                NodeValue::CodeBlock(Box::default()),
                 self.offset,
             );
             self.set_fence_info(code_block, '\0', 0, 0);
@@ -507,7 +507,7 @@ impl<'a> BlockParser<'a> {
         let _list_container = if can_continue_list {
             container
         } else {
-            let new_list = self.add_child(
+            self.add_child(
                 NodeValue::List(NodeList {
                     list_type,
                     marker_offset,
@@ -519,8 +519,7 @@ impl<'a> BlockParser<'a> {
                     is_task_list: false,
                 }),
                 self.next_nonspace,
-            );
-            new_list
+            )
         };
 
         // Add list item

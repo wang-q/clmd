@@ -168,7 +168,7 @@ pub fn try_parse_table(
     // Create table node
     let table_node = arena.alloc(Node::with_value(NodeValue::table(NodeTable {
         num_columns,
-        alignments: alignments.iter().map(|a| *a).collect(),
+        alignments: alignments.to_vec(),
         num_rows: 0,
         num_nonempty_cells: 0,
     })));
