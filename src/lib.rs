@@ -383,7 +383,7 @@ pub fn markdown_to_html(md: &str, options: &Options) -> String {
 pub fn markdown_to_html_with_plugins(
     md: &str,
     options: &Options,
-    plugins: &Plugins<'_>,
+    _plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parser::parse_document(md, options);
     let mut out = String::new();
@@ -540,7 +540,7 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
-    options: &Options,
+    _options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     html::render(arena, root, 0);
@@ -575,7 +575,7 @@ pub fn format_html(
 pub fn format_html_with_plugins(
     arena: &Arena,
     root: NodeId,
-    options: &Options,
+    _options: &Options,
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
