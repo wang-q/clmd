@@ -31,6 +31,7 @@ pub mod latex;
 pub mod man;
 pub mod pdf;
 pub mod renderer;
+pub mod table_formatter;
 pub mod typst;
 pub mod xml;
 

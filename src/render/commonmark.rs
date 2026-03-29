@@ -1,7 +1,8 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
+use crate::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue};
+use crate::render::table_formatter;
 
 /// Render a node tree as CommonMark
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
@@ -190,6 +191,16 @@ impl<'a> CommonMarkRenderer<'a> {
             NodeValue::FootnoteDefinition(footnote_def) => {
                 self.write_inline(&format!("[^{}]: ", footnote_def.name));
             }
+            NodeValue::Table(table) => {
+                self.render_table(node_id, table);
+                self.need_blank_line = true;
+            }
+            NodeValue::TableRow(_is_header) => {
+                // Table rows are handled within render_table
+            }
+            NodeValue::TableCell => {
+                // Table cells are handled within render_table
+            }
             _ => {}
         }
     }
@@ -373,6 +384,190 @@ impl<'a> CommonMarkRenderer<'a> {
 
     fn in_tight_list(&self) -> bool {
         self.tight_list_stack.last().copied().unwrap_or(false)
+    }
+
+    /// Render a table node and its children
+    fn render_table(&mut self, node_id: NodeId, table: &NodeTable) {
+        // Collect all cell contents from the table
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        // Walk through table children to collect cell contents
+        let node = self.arena.get(node_id);
+        let mut child_opt = node.first_child;
+
+        while let Some(child_id) = child_opt {
+            let child = self.arena.get(child_id);
+
+            match &child.value {
+                NodeValue::TableRow(_is_header) => {
+                    // Process row children to get cell contents
+                    let mut cell_contents = Vec::new();
+                    let mut cell_opt = child.first_child;
+
+                    while let Some(cell_id) = cell_opt {
+                        let cell = self.arena.get(cell_id);
+
+                        if matches!(cell.value, NodeValue::TableCell) {
+                            // Collect text content from the cell
+                            let content = self.collect_cell_content(cell_id);
+                            cell_contents.push(content);
+                        }
+
+                        cell_opt = cell.next;
+                    }
+
+                    if !cell_contents.is_empty() {
+                        rows.push(cell_contents);
+                    }
+                }
+                _ => {}
+            }
+
+            child_opt = child.next;
+        }
+
+        // Build table text for formatting
+        if rows.is_empty() {
+            return;
+        }
+
+        // Build the table text
+        let mut table_lines: Vec<String> = Vec::new();
+
+        // Header row (first row)
+        if let Some(header) = rows.first() {
+            let header_line = format!("|{}|", header.join("|"));
+            table_lines.push(header_line);
+        }
+
+        // Delimiter row
+        let delimiter_cells: Vec<String> = table
+            .alignments
+            .iter()
+            .map(|align| match align {
+                crate::nodes::TableAlignment::None => "---".to_string(),
+                crate::nodes::TableAlignment::Left => ":---".to_string(),
+                crate::nodes::TableAlignment::Right => "---:".to_string(),
+                crate::nodes::TableAlignment::Center => ":---:".to_string(),
+            })
+            .collect();
+        let delimiter_line = format!("|{}|", delimiter_cells.join("|"));
+        table_lines.push(delimiter_line);
+
+        // Data rows (remaining rows)
+        for row in rows.iter().skip(1) {
+            let row_line = format!("|{}|", row.join("|"));
+            table_lines.push(row_line);
+        }
+
+        // Convert to format expected by table_formatter
+        let table_text = table_lines.join("\n");
+        let lines: Vec<&str> = table_text.lines().collect();
+
+        // Format the table
+        let formatted = table_formatter::format_table_lines(&lines, &table.alignments);
+
+        // Write formatted table
+        for line in formatted.lines() {
+            self.write_line(line);
+        }
+    }
+
+    /// Collect text content from a table cell
+    fn collect_cell_content(&self, cell_id: NodeId) -> String {
+        let mut content = String::new();
+        let cell = self.arena.get(cell_id);
+        let mut child_opt = cell.first_child;
+
+        while let Some(child_id) = child_opt {
+            let child = self.arena.get(child_id);
+
+            match &child.value {
+                NodeValue::Text(text) => {
+                    content.push_str(text);
+                }
+                NodeValue::Code(code) => {
+                    content.push('`');
+                    content.push_str(&code.literal);
+                    content.push('`');
+                }
+                NodeValue::Emph => {
+                    content.push('*');
+                    content.push_str(&self.collect_inline_content(child_id));
+                    content.push('*');
+                }
+                NodeValue::Strong => {
+                    content.push_str("**");
+                    content.push_str(&self.collect_inline_content(child_id));
+                    content.push_str("**");
+                }
+                NodeValue::Strikethrough => {
+                    content.push_str("~~");
+                    content.push_str(&self.collect_inline_content(child_id));
+                    content.push_str("~~");
+                }
+                NodeValue::Link(link) => {
+                    content.push('[');
+                    content.push_str(&self.collect_inline_content(child_id));
+                    content.push_str("](");
+                    content.push_str(&link.url);
+                    if !link.title.is_empty() {
+                        content.push_str(&format!(" \"{}\"", link.title));
+                    }
+                    content.push(')');
+                }
+                NodeValue::Image(link) => {
+                    content.push_str("![");
+                    content.push_str(&self.collect_inline_content(child_id));
+                    content.push_str("](");
+                    content.push_str(&link.url);
+                    if !link.title.is_empty() {
+                        content.push_str(&format!(" \"{}\"", link.title));
+                    }
+                    content.push(')');
+                }
+                NodeValue::SoftBreak | NodeValue::HardBreak => {
+                    content.push(' ');
+                }
+                _ => {
+                    // For other nodes, recursively collect content
+                    content.push_str(&self.collect_inline_content(child_id));
+                }
+            }
+
+            child_opt = child.next;
+        }
+
+        content.trim().to_string()
+    }
+
+    /// Collect inline content from a node
+    fn collect_inline_content(&self, node_id: NodeId) -> String {
+        let mut content = String::new();
+        let node = self.arena.get(node_id);
+        let mut child_opt = node.first_child;
+
+        while let Some(child_id) = child_opt {
+            let child = self.arena.get(child_id);
+
+            match &child.value {
+                NodeValue::Text(text) => {
+                    content.push_str(text);
+                }
+                NodeValue::Code(code) => {
+                    content.push('`');
+                    content.push_str(&code.literal);
+                    content.push('`');
+                }
+                _ => {
+                    content.push_str(&self.collect_inline_content(child_id));
+                }
+            }
+
+            child_opt = child.next;
+        }
+
+        content
     }
 }
 
