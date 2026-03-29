@@ -258,18 +258,6 @@ fn is_ascii_punct(b: u8) -> bool {
     )
 }
 
-/// Check if a byte is a space or tab
-#[inline(always)]
-pub fn is_space_or_tab(b: u8) -> bool {
-    matches!(b, b' ' | b'\t')
-}
-
-/// Check if a byte is a line ending character
-#[inline(always)]
-pub fn is_line_end_char(b: u8) -> bool {
-    matches!(b, b'\n' | b'\r')
-}
-
 /// Check if a string is blank (empty or only whitespace)
 pub fn is_blank(s: &str) -> bool {
     s.chars().all(|c| c.is_whitespace())
