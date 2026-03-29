@@ -15,7 +15,7 @@
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let html = markdown_to_html("Hello, **world**!", &Options::default());
-//! assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>\n");
+//! assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>");
 //! ```
 //!
 //! # Working with the AST
@@ -85,12 +85,6 @@ pub mod adapters;
 
 /// Arena-based memory management for AST nodes.
 pub mod arena;
-
-/// DOM-like tree data structure based on `&Node` references.
-/// 
-/// Deprecated: Use `arena` module with NodeArena instead.
-#[deprecated(note = "Use arena module with NodeArena instead")]
-pub mod arena_tree;
 
 /// Error types and parsing limits.
 pub mod error;
@@ -181,13 +175,7 @@ pub type NodeId = arena::NodeId;
 /// Invalid node ID constant.
 pub use arena::INVALID_NODE_ID;
 
-/// Legacy arena type alias for backward compatibility.
-#[deprecated(note = "Use Arena (NodeArena) instead")]
-pub type TypedArena<'a> = typed_arena::Arena<nodes::AstNode<'a>>;
 
-/// Legacy node type alias for backward compatibility.
-#[deprecated(note = "Use NodeId with Arena instead")]
-pub type Node<'a> = nodes::Node<'a>;
 
 /// Parse a Markdown document to an AST.
 ///
@@ -359,7 +347,7 @@ pub type RenderPlugins<'p> = parser::options::RenderPlugins<'p>;
 ///
 /// // Basic usage
 /// let html = markdown_to_html("Hello, **world**!", &Options::default());
-/// assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>\n");
+/// assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>");
 ///
 /// // With headings and lists
 /// let markdown = "# Title\n\n- Item 1\n- Item 2";

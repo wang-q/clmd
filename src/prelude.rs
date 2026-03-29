@@ -15,8 +15,8 @@ pub use crate::{
     format_html_with_plugins, format_xml, format_xml_with_plugins,
     markdown_to_commonmark, markdown_to_commonmark_with_plugins,
     markdown_to_commonmark_xml, markdown_to_commonmark_xml_with_plugins,
-    markdown_to_html, markdown_to_html_with_plugins, parse_document, Arena, Node,
-    NodeValue, Options, Plugins,
+    markdown_to_html, markdown_to_html_with_plugins, parse_document, Arena,
+    NodeId, NodeValue, Options, Plugins,
 };
 
 // Re-export from options module

@@ -4,8 +4,6 @@
 //! It is inspired by comrak's design, combining node values with metadata
 //! into a unified structure.
 
-use std::cell::RefCell;
-
 /// Shorthand for checking if a node's value matches the given expression.
 ///
 /// Note this will call `node.data()`, which will fail if the node is already
@@ -178,52 +176,11 @@ pub struct Ast {
     pub(crate) line_offsets: Vec<usize>,
 }
 
-/// The type of a node within the document.
-///
-/// It is bound by the lifetime `'a`, which corresponds to the `Arena` nodes are
-/// allocated in. Child `Ast`s are wrapped in `RefCell` for interior mutability.
-///
-/// You can construct a new `AstNode` from a `NodeValue` using the `From` trait:
-///
-/// ```ignore
-/// # use clmd::nodes::{AstNode, NodeValue};
-/// let root = AstNode::from(NodeValue::Document);
-/// ```
-///
-/// Note that no sourcepos information is given to the created node. If you wish
-/// to assign sourcepos information, use the `From` trait to create an `AstNode`
-/// from an `Ast`:
-///
-/// ```ignore
-/// # use clmd::nodes::{Ast, AstNode, NodeValue};
-/// let root = AstNode::from(Ast::new_with_sourcepos(
-///     NodeValue::Paragraph,
-///     SourcePos::new(4, 1, 4, 10),
-/// ));
-/// ```
-///
-/// For practical use, you'll probably need it allocated in an `Arena`, in which
-/// case you can use `.into()` to simplify creation:
-///
-/// ```ignore
-/// # use clmd::{nodes::{AstNode, NodeValue}, Arena};
-/// # let arena = Arena::new();
-/// let node_in_arena = arena.alloc(NodeValue::Document.into());
-/// ```
-pub type AstNode<'a> = crate::arena_tree::Node<'a, RefCell<Ast>>;
-
-/// A reference to a node in an arena.
-pub type Node<'a> = &'a AstNode<'a>;
-
 // Size assertions to monitor type sizes (matching comrak's approach)
 // These help ensure we don't accidentally bloat the node sizes
 #[allow(dead_code)]
 #[cfg(target_pointer_width = "64")]
 const AST_SIZE_ASSERTION: [u8; 128] = [0; std::mem::size_of::<Ast>()];
-
-#[allow(dead_code)]
-#[cfg(target_pointer_width = "64")]
-const AST_NODE_SIZE_ASSERTION: [u8; 184] = [0; std::mem::size_of::<AstNode<'_>>()];
 
 impl std::fmt::Debug for Ast {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -265,22 +222,7 @@ impl Ast {
     }
 }
 
-impl<'a> From<NodeValue> for AstNode<'a> {
-    /// Create a new AST node with the given value. The sourcepos is set to (0,0)-(0,0).
-    fn from(value: NodeValue) -> Self {
-        crate::arena_tree::Node::new(RefCell::new(Ast::new(
-            value,
-            LineColumn::default(),
-        )))
-    }
-}
 
-impl<'a> From<Ast> for AstNode<'a> {
-    /// Create a new AST node with the given Ast.
-    fn from(ast: Ast) -> Self {
-        crate::arena_tree::Node::new(RefCell::new(ast))
-    }
-}
 
 /// Represents a position in the source document.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -1289,152 +1231,3 @@ impl std::fmt::Display for ValidationError {
 }
 
 impl std::error::Error for ValidationError {}
-
-/// Validate an AST node and its children.
-///
-/// This function checks that the AST structure is valid according to CommonMark
-/// rules. It verifies parent-child relationships, ensures leaf nodes don't have
-/// children, and checks for other structural constraints.
-///
-/// # Arguments
-///
-/// * `node` - The root node to validate
-///
-/// # Returns
-///
-/// `Ok(())` if the AST is valid, or a `ValidationError` describing the first
-/// problem found.
-///
-/// # Example
-///
-/// ```
-/// use clmd::{Arena, parse_document, Options, nodes::validate};
-///
-/// let arena = Arena::new();
-/// let options = Options::default();
-/// let root = parse_document(&arena, "# Hello\n\nWorld", &options);
-///
-/// assert!(validate(root).is_ok());
-/// ```
-pub fn validate(node: &AstNode<'_>) -> Result<(), ValidationError> {
-    validate_node(node, None)
-}
-
-/// Internal validation function that tracks the parent.
-fn validate_node(
-    node: &AstNode<'_>,
-    parent: Option<&NodeValue>,
-) -> Result<(), ValidationError> {
-    let ast = node.data.borrow();
-    let value = &ast.value;
-
-    // Check parent-child relationship
-    if let Some(parent_value) = parent {
-        if !can_contain_type(parent_value, value) {
-            return Err(ValidationError::InvalidParentChild {
-                parent: parent_value.xml_node_name(),
-                child: value.xml_node_name(),
-            });
-        }
-    }
-
-    // Check that leaf nodes don't have children
-    if value.is_leaf() && node.first_child().is_some() {
-        return Err(ValidationError::LeafNodeWithChildren {
-            node_type: value.xml_node_name(),
-        });
-    }
-
-    // Validate specific node types
-    match value {
-        NodeValue::Heading(heading) => {
-            if heading.level == 0 || heading.level > 6 {
-                return Err(ValidationError::InvalidProperty {
-                    node_type: "heading",
-                    property: "level",
-                    value: heading.level.to_string(),
-                });
-            }
-        }
-        NodeValue::List(_list) => {
-            // Check that lists have at least one item
-            if node.first_child().is_none() {
-                return Err(ValidationError::MissingRequiredChild {
-                    parent: "list",
-                    description: "at least one list item",
-                });
-            }
-        }
-        NodeValue::Table(table) => {
-            // Check that tables have at least one row
-            if node.first_child().is_none() {
-                return Err(ValidationError::MissingRequiredChild {
-                    parent: "table",
-                    description: "at least one table row",
-                });
-            }
-            // Check column count consistency
-            let mut child_opt = node.first_child();
-            while let Some(child) = child_opt {
-                let child_ast = child.data.borrow();
-                if let NodeValue::TableRow(_) = &child_ast.value {
-                    let cell_count = child.children().count();
-                    if cell_count != table.num_columns {
-                        return Err(ValidationError::InvalidProperty {
-                            node_type: "table_row",
-                            property: "cell_count",
-                            value: format!(
-                                "{} (expected {})",
-                                cell_count, table.num_columns
-                            ),
-                        });
-                    }
-                }
-                child_opt = child.next_sibling();
-            }
-        }
-        _ => {}
-    }
-
-    // Recursively validate children
-    let mut child_opt = node.first_child();
-    while let Some(child) = child_opt {
-        validate_node(child, Some(value))?;
-        child_opt = child.next_sibling();
-    }
-
-    Ok(())
-}
-
-/// Extension trait for AST nodes providing validation methods.
-pub trait NodeValidationExt {
-    /// Validate this node and its children.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if the AST is valid, or a `ValidationError` describing the first
-    /// problem found.
-    fn validate(&self) -> Result<(), ValidationError>;
-
-    /// Check if this node can contain another node type.
-    ///
-    /// # Arguments
-    ///
-    /// * `child` - The child node value to check
-    ///
-    /// # Returns
-    ///
-    /// `true` if this node can contain the given child type.
-    fn can_contain(&self, child: &NodeValue) -> bool;
-}
-
-impl NodeValidationExt for AstNode<'_> {
-    fn validate(&self) -> Result<(), ValidationError> {
-        validate(self)
-    }
-
-    fn can_contain(&self, child: &NodeValue) -> bool {
-        let ast = self.data.borrow();
-        can_contain_type(&ast.value, child)
-    }
-}

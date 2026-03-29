@@ -3,60 +3,72 @@
 //! This module provides XML output generation for documents parsed using the Arena-based parser.
 //! Useful for debugging and AST inspection.
 
-use crate::nodes::{AstNode, ListDelimType, ListType, NodeValue};
+use crate::arena::{NodeArena, NodeId};
+use crate::nodes::{ListDelimType, ListType, NodeValue};
 use crate::parser::options::{Options, Plugins};
 use std::fmt;
+
+/// Render an AST as XML.
+///
+/// This is a convenience function that doesn't use plugins.
+pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+    let mut renderer = XmlRenderer::new(arena);
+    renderer.render(root)
+}
 
 /// Format an AST as XML.
 ///
 /// This is a convenience function that doesn't use plugins.
-pub fn format_document<'a>(
-    root: &'a AstNode<'a>,
+pub fn format_document(
+    arena: &NodeArena,
+    root: NodeId,
     options: &Options,
     output: &mut dyn fmt::Write,
 ) -> fmt::Result {
-    format_document_with_plugins(root, options, output, &Plugins::default())
+    format_document_with_plugins(arena, root, options, output, &Plugins::default())
 }
 
 /// Format an AST as XML with plugins (comrak-style API).
 ///
-/// This is a temporary implementation that provides basic XML output.
-pub fn format_document_with_plugins<'a>(
-    root: &'a AstNode<'a>,
+/// This implementation uses the new NodeArena-based AST.
+pub fn format_document_with_plugins(
+    arena: &NodeArena,
+    root: NodeId,
     options: &Options,
     output: &mut dyn fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> fmt::Result {
     output.write_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")?;
     output.write_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n")?;
-    format_node_xml(root, options, output)
+    format_node_xml(arena, root, options, output)
 }
 
 fn format_node_xml(
-    node: &AstNode<'_>,
+    arena: &NodeArena,
+    node_id: NodeId,
     options: &Options,
     output: &mut dyn fmt::Write,
 ) -> fmt::Result {
-    let ast = node.data.borrow();
-    let tag_name = ast.value.xml_node_name();
+    let node = arena.get(node_id);
+    let tag_name = node.value.xml_node_name();
 
     output.write_str("<")?;
     output.write_str(tag_name)?;
 
     // Add source position if enabled
-    if options.render.sourcepos && ast.sourcepos.start.line > 0 {
+    if options.render.sourcepos && node.source_pos.start.line > 0 {
         write!(
             output,
             " sourcepos=\"{}:{}-{}:{}\"",
-            ast.sourcepos.start.line,
-            ast.sourcepos.start.column,
-            ast.sourcepos.end.line,
-            ast.sourcepos.end.column
+            node.source_pos.start.line,
+            node.source_pos.start.column,
+            node.source_pos.end.line,
+            node.source_pos.end.column
         )?;
     }
 
     // Add type-specific attributes
-    match &ast.value {
+    match &node.value {
         NodeValue::List(list) => {
             match list.list_type {
                 ListType::Bullet => {
@@ -99,8 +111,8 @@ fn format_node_xml(
     }
 
     // Handle leaf nodes with literal content
-    if ast.value.is_leaf() {
-        match &ast.value {
+    if node.value.is_leaf() {
+        match &node.value {
             NodeValue::Text(text) => {
                 if !text.is_empty() {
                     output.write_str(">")?;
@@ -154,16 +166,96 @@ fn format_node_xml(
         output.write_str(">\n")?;
 
         // Render children
-        let mut child_opt = node.first_child();
-        while let Some(child) = child_opt {
-            format_node_xml(child, options, output)?;
-            child_opt = child.next_sibling();
+        let mut child_opt = node.first_child;
+        while let Some(child_id) = child_opt {
+            format_node_xml(arena, child_id, options, output)?;
+            child_opt = arena.get(child_id).next;
         }
 
         write!(output, "</{tag_name}>\n")?;
     }
 
     Ok(())
+}
+
+/// XML renderer state
+struct XmlRenderer<'a> {
+    arena: &'a NodeArena,
+    output: String,
+}
+
+impl<'a> XmlRenderer<'a> {
+    fn new(arena: &'a NodeArena) -> Self {
+        XmlRenderer {
+            arena,
+            output: String::new(),
+        }
+    }
+
+    fn render(&mut self, root: NodeId) -> String {
+        self.output.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        self.output.push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
+        self.render_node(root);
+        self.output.clone()
+    }
+
+    fn render_node(&mut self, node_id: NodeId) {
+        let node = self.arena.get(node_id);
+        let tag_name = node.value.xml_node_name();
+
+        self.output.push('<');
+        self.output.push_str(tag_name);
+
+        // Add type-specific attributes
+        match &node.value {
+            NodeValue::List(list) => {
+                match list.list_type {
+                    ListType::Bullet => {
+                        self.output.push_str(" type=\"bullet\"");
+                    }
+                    ListType::Ordered => {
+                        self.output.push_str(" type=\"ordered\"");
+                        if list.start != 1 {
+                            self.output.push_str(&format!(" start=\"{}\"", list.start));
+                        }
+                    }
+                }
+            }
+            NodeValue::Heading(heading) => {
+                self.output.push_str(&format!(" level=\"{}\"", heading.level));
+            }
+            _ => {}
+        }
+
+        // Handle leaf nodes
+        if node.value.is_leaf() {
+            match &node.value {
+                NodeValue::Text(text) => {
+                    if !text.is_empty() {
+                        self.output.push('>');
+                        self.output.push_str(&escape_xml(text));
+                        self.output.push_str(&format!("</{tag_name}>"));
+                    } else {
+                        self.output.push_str(" />");
+                    }
+                }
+                _ => {
+                    self.output.push_str(" />");
+                }
+            }
+        } else {
+            self.output.push_str(">\n");
+
+            // Render children
+            let mut child_opt = node.first_child;
+            while let Some(child_id) = child_opt {
+                self.render_node(child_id);
+                child_opt = self.arena.get(child_id).next;
+            }
+
+            self.output.push_str(&format!("</{tag_name}>\n"));
+        }
+    }
 }
 
 /// Escape XML special characters
@@ -192,8 +284,4 @@ mod tests {
         assert_eq!(escape_xml("&"), "&amp;");
         assert_eq!(escape_xml("'test'"), "&apos;test&apos;");
     }
-
-    // Note: Tests requiring tree manipulation are disabled due to lifetime issues
-    // with the arena-based tree structure. The XML renderer itself is tested
-    // through integration tests.
 }
