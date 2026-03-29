@@ -324,4 +324,245 @@ mod tests {
         assert_eq!(width("ന്‍"), 1);
         assert_eq!(width("ര്‍"), 1);
     }
+
+    // Edge cases from documentation analysis
+
+    #[test]
+    fn test_zalgo_text() {
+        // Corrupted text with many combining marks
+        // Each base character is width 1, combining marks don't add width
+        let zalgo = "Ẓ̌á̲l͔̝̞̄̑͌g̖̘̘̔̔͢͞͝o̪̔T̢̙̫̈̍͞e̬͈͕͌̏͑x̺̍ṭ̓̓ͅ";
+        assert_eq!(width(zalgo), 9);
+    }
+
+    #[test]
+    fn test_emoji_vs_text_style() {
+        // Emoji with text style variation selector (VS15) should be width 1
+        assert_eq!(width("\u{2764}\u{FE0E}"), 1);
+        // Emoji with emoji style variation selector (VS16) should be width 2
+        assert_eq!(width("\u{2764}\u{FE0F}"), 2);
+    }
+
+    #[test]
+    fn test_single_width_emojis() {
+        // Some emojis are single width
+        assert_eq!(width("🗡"), 1); // Dagger emoji
+    }
+
+    #[test]
+    fn test_scientist_emoji() {
+        // Woman scientist emoji (combination of 👩 + 🔬)
+        assert_eq!(width("👩‍🔬"), 2);
+    }
+
+    #[test]
+    fn test_flag_emojis() {
+        // Country flag emojis (regional indicator symbols)
+        assert_eq!(width("🇺🇸"), 2);
+        assert_eq!(width("🇨🇳"), 2);
+        assert_eq!(width("🇯🇵"), 2);
+    }
+
+    #[test]
+    fn test_skin_tone_modifiers() {
+        // Emojis with skin tone modifiers
+        assert_eq!(width("👍"), 2);
+        assert_eq!(width("👍🏻"), 2);
+        assert_eq!(width("👍🏿"), 2);
+    }
+
+    #[test]
+    fn test_gender_modifiers() {
+        // Emojis with gender modifiers
+        assert_eq!(width("🧑‍⚕️"), 2); // Health worker
+        assert_eq!(width("👨‍⚕️"), 2); // Man health worker
+        assert_eq!(width("👩‍⚕️"), 2); // Woman health worker
+    }
+
+    #[test]
+    fn test_fullwidth_ascii() {
+        // Fullwidth ASCII characters (width 2)
+        assert_eq!(width("Ａ"), 2);
+        assert_eq!(width("Ｂ"), 2);
+        assert_eq!(width("１"), 2);
+        assert_eq!(width("＠"), 2);
+    }
+
+    #[test]
+    fn test_halfwidth_katakana() {
+        // Halfwidth Katakana (width 1)
+        assert_eq!(width("ｱ"), 1);
+        assert_eq!(width("ｶ"), 1);
+    }
+
+    #[test]
+    fn test_hangul_syllables() {
+        // Precomposed Hangul syllables (width 2)
+        assert_eq!(width("가"), 2);
+        assert_eq!(width("힣"), 2);
+    }
+
+    #[test]
+    fn test_hangul_jamo() {
+        // Hangul Jamo (width 2)
+        assert_eq!(width("ㄱ"), 2);
+        assert_eq!(width("ㅏ"), 2);
+    }
+
+    #[test]
+    fn test_cjk_punctuation() {
+        // CJK punctuation (width 2)
+        assert_eq!(width("。"), 2);
+        assert_eq!(width("、"), 2);
+        assert_eq!(width("「"), 2);
+        assert_eq!(width("」"), 2);
+    }
+
+    #[test]
+    fn test_control_characters() {
+        // Control characters are treated as regular characters (width 1 each)
+        // This is the behavior of unicode-segmentation treating them as graphemes
+        assert_eq!(width("\n"), 1);
+        assert_eq!(width("\t"), 1);
+        assert_eq!(width("\r"), 1);
+    }
+
+    #[test]
+    fn test_zero_width_joiner() {
+        // Zero width joiner alone - treated as width 1 by current implementation
+        // In practice, ZWJ is always used with other characters
+        assert_eq!(width("\u{200D}"), 1);
+    }
+
+    #[test]
+    fn test_zero_width_non_joiner() {
+        // Zero width non-joiner - treated as width 1 by current implementation
+        assert_eq!(width("\u{200C}"), 1);
+    }
+
+    #[test]
+    fn test_combining_characters() {
+        // Combining characters (should not add width when following base)
+        assert_eq!(width("e\u{0301}"), 1); // e + combining acute
+        assert_eq!(width("a\u{0300}"), 1); // a + combining grave
+    }
+
+    #[test]
+    fn test_mixed_cjk_and_ascii() {
+        // Mixed CJK and ASCII
+        assert_eq!(width("Hello世界"), 9); // 5 + 4
+        assert_eq!(width("Test测试123"), 11); // 4 + 4 + 3
+    }
+
+    #[test]
+    fn test_mathematical_symbols() {
+        // Mathematical alphanumeric symbols (width 1 or 2 depending)
+        assert_eq!(width("𝐀"), 1); // Mathematical bold A
+        assert_eq!(width("𝐴"), 1); // Mathematical italic A
+    }
+
+    #[test]
+    fn test_box_drawing() {
+        // Box drawing characters (width 1)
+        assert_eq!(width("┌"), 1);
+        assert_eq!(width("─"), 1);
+        assert_eq!(width("┐"), 1);
+    }
+
+    #[test]
+    fn test_block_elements() {
+        // Block elements (width 1)
+        assert_eq!(width("█"), 1);
+        assert_eq!(width("▓"), 1);
+        assert_eq!(width("░"), 1);
+    }
+
+    #[test]
+    fn test_arabic_text() {
+        // Arabic text (width 1)
+        assert_eq!(width("مرحبا"), 5);
+    }
+
+    #[test]
+    fn test_hebrew_text() {
+        // Hebrew text (width 1)
+        assert_eq!(width("שלום"), 4);
+    }
+
+    #[test]
+    fn test_thai_text() {
+        // Thai text - some characters may be combined into single graphemes
+        // สวัสดี has combining characters that form fewer graphemes
+        assert_eq!(width("สวัสดี"), 4);
+    }
+
+    #[test]
+    fn test_russian_text() {
+        // Cyrillic text (width 1)
+        assert_eq!(width("Привет"), 6);
+    }
+
+    #[test]
+    fn test_greek_text() {
+        // Greek text (width 1)
+        assert_eq!(width("Γειά"), 4);
+    }
+
+    #[test]
+    fn test_devanagari() {
+        // Devanagari - some characters combine into single graphemes
+        // नमस्ते has combining marks that reduce the grapheme count
+        assert_eq!(width("नमस्ते"), 3);
+    }
+
+    #[test]
+    fn test_newlines_and_whitespace() {
+        // Newlines and various whitespace - control chars are treated as width 1
+        assert_eq!(width("hello\nworld"), 11); // 5 + 1 + 5
+        assert_eq!(width("hello\tworld"), 11); // 5 + 1 + 5
+        assert_eq!(width("hello world"), 11);  // 5 + 1 + 5
+    }
+
+    #[test]
+    fn test_empty_and_whitespace_only() {
+        assert_eq!(width(""), 0);
+        assert_eq!(width("   "), 3);
+        assert_eq!(width("\t\n\r"), 3); // Each control char is width 1
+    }
+
+    #[test]
+    fn test_very_long_string() {
+        // Test with a very long string to ensure no overflow
+        let long_string = "a".repeat(10000);
+        assert_eq!(width(&long_string), 10000);
+    }
+
+    #[test]
+    fn test_repeated_emojis() {
+        // Repeated emojis
+        assert_eq!(width("🦀🦀🦀"), 6);
+        assert_eq!(width("🔥🔥🔥🔥🔥"), 10);
+    }
+
+    #[test]
+    fn test_mixed_emoji_and_text() {
+        // Mixed emoji and text
+        assert_eq!(width("Hello 🦀 World"), 14); // 5 + 1 + 2 + 1 + 5
+        // Rust🦀is🔥awesome: R-u-s-t-🦀-i-s-🔥-a-w-e-s-o-m-e
+        // 1+1+1+1 + 2 + 1+1 + 2 + 1+1+1+1+1+1+1 = 17
+        assert_eq!(width("Rust🦀is🔥awesome"), 17);
+    }
+
+    #[test]
+    fn test_unicode_version_coverage() {
+        // Test characters from various Unicode versions
+        // Unicode 1.1
+        assert_eq!(width("©"), 1);
+        // Unicode 6.0
+        assert_eq!(width("🀄"), 2);
+        // Unicode 9.0
+        assert_eq!(width("🤣"), 2);
+        // Unicode 15.0
+        assert_eq!(width("🫨"), 2);
+    }
 }
