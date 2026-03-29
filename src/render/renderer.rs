@@ -155,7 +155,12 @@ fn escape_xml(text: &str) -> String {
 /// Render to CommonMark format
 ///
 /// This is a convenience function that uses the CommonMark renderer.
-pub fn render_to_commonmark(arena: &NodeArena, root: NodeId, options: u32, width: usize) -> String {
+pub fn render_to_commonmark(
+    arena: &NodeArena,
+    root: NodeId,
+    options: u32,
+    width: usize,
+) -> String {
     commonmark::render(arena, root, options, width)
 }
 

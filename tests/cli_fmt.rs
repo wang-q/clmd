@@ -52,14 +52,8 @@ fn test_fmt_output_to_file() {
     let input = b"# Heading";
     let output_file = NamedTempFile::new().unwrap();
 
-    let output = run_with_stdin(
-        &[
-            "fmt",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
-        input,
-    );
+    let output =
+        run_with_stdin(&["fmt", "-o", output_file.path().to_str().unwrap()], input);
 
     assert!(output.status.success());
     let cm = std::fs::read_to_string(output_file.path()).unwrap();

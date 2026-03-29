@@ -8,7 +8,12 @@ use crate::render::table_formatter;
 use crate::unicode_width::width as unicode_width;
 
 /// Render a node tree as CommonMark
-pub fn render(arena: &NodeArena, root: NodeId, _options: u32, wrap_width: usize) -> String {
+pub fn render(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: u32,
+    wrap_width: usize,
+) -> String {
     let mut renderer = CommonMarkRenderer::new(arena, _options, wrap_width);
     renderer.render(root)
 }
@@ -393,7 +398,9 @@ impl<'a> CommonMarkRenderer<'a> {
             let space_width = if i > 0 { 1 } else { 0 };
 
             // Check if we need to wrap
-            if self.column + space_width + word_width > self.wrap_width && !self.beginning_of_line {
+            if self.column + space_width + word_width > self.wrap_width
+                && !self.beginning_of_line
+            {
                 self.output.push('\n');
                 self.column = 0;
                 self.beginning_of_line = true;

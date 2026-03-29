@@ -639,7 +639,11 @@ pub fn format_commonmark_with_plugins(
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    write!(output, "{}", render::commonmark::render(arena, root, 0, options.render.width))
+    write!(
+        output,
+        "{}",
+        render::commonmark::render(arena, root, 0, options.render.width)
+    )
 }
 
 /// Format an existing AST to XML.
