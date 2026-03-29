@@ -11,23 +11,6 @@ A high-performance CommonMark parser written in Rust, inspired by cmark (C imple
 - **Smart Punctuation**: Converts straight quotes to curly quotes, `--` to en dash, `---` to em dash
 - **Safe by Default**: Sanitizes raw HTML and unsafe links to prevent XSS
 
-## Installation
-
-Add clmd to your `Cargo.toml`:
-
-```toml
-[dependencies]
-clmd = "0.1.0"
-```
-
-Or build from source:
-
-```bash
-git clone <repository-url>
-cd clmd
-cargo build --release
-```
-
 ## Usage
 
 ### Basic Usage
@@ -166,6 +149,8 @@ TreeOps::append_child(&mut arena, root, para);
 ```
 
 ## Development
+
+Current release: 0.1.0
 
 ### Building
 
