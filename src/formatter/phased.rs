@@ -4,12 +4,10 @@
 //! multi-phase rendering, inspired by flexmark-java's PhasedNodeFormatter.
 
 use crate::arena::NodeId;
-use crate::render::formatter::context::NodeFormatterContext;
-use crate::render::formatter::node::{
-    NodeFormatter, NodeFormattingHandler, NodeValueType,
-};
-use crate::render::formatter::phase::FormattingPhase;
-use crate::render::formatter::writer::MarkdownWriter;
+use crate::formatter::context::NodeFormatterContext;
+use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::formatter::phase::FormattingPhase;
+use crate::formatter::writer::MarkdownWriter;
 
 /// A node formatter that supports multi-phase rendering
 ///

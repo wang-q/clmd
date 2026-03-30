@@ -3,7 +3,7 @@
 //! This module provides a writer for generating Markdown output with
 //! proper prefix handling, indentation, and formatting control.
 
-use crate::render::formatter::options::FormatFlags;
+use crate::formatter::options::FormatFlags;
 
 /// Markdown output writer
 ///

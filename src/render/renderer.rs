@@ -6,16 +6,16 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;
 
-// Re-export formatter module and its submodules
-pub use super::formatter;
-pub use super::formatter::context;
-pub use super::formatter::node;
-pub use super::formatter::options;
-pub use super::formatter::phase;
-pub use super::formatter::phased;
-pub use super::formatter::purpose;
-pub use super::formatter::utils;
-pub use super::formatter::writer;
+// Re-export formatter module and its submodules from crate root
+pub use crate::formatter;
+pub use crate::formatter::context;
+pub use crate::formatter::node;
+pub use crate::formatter::options;
+pub use crate::formatter::phase;
+pub use crate::formatter::phased;
+pub use crate::formatter::purpose;
+pub use crate::formatter::utils;
+pub use crate::formatter::writer;
 
 /// Common trait for all renderers
 ///
@@ -185,10 +185,10 @@ pub fn render_to_commonmark(
 ///
 /// ```no_run
 /// use clmd::{parse_document, render::renderer::render_to_commonmark_with_options};
-/// use clmd::render::formatter::options::FormatterOptions;
+/// use clmd::formatter::options::FormatterOptions;
 ///
 /// let options = FormatterOptions::new()
-///     .with_heading_style(clmd::render::formatter::options::HeadingStyle::Atx)
+///     .with_heading_style(clmd::formatter::options::HeadingStyle::Atx)
 ///     .with_right_margin(80);
 /// let (arena, root) = parse_document("# Hello", &Default::default());
 /// let cm = render_to_commonmark_with_options(&arena, root, options);

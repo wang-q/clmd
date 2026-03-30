@@ -782,7 +782,7 @@ mod tests {
 
     #[test]
     fn test_format_document_with_commonmark_formatter() {
-        use crate::render::formatter::CommonMarkNodeFormatter;
+        use crate::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -812,7 +812,7 @@ mod tests {
 
     #[test]
     fn test_format_document_paragraphs() {
-        use crate::render::formatter::CommonMarkNodeFormatter;
+        use crate::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -853,7 +853,7 @@ mod tests {
 
     #[test]
     fn test_format_document_with_emphasis() {
-        use crate::render::formatter::CommonMarkNodeFormatter;
+        use crate::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -904,8 +904,8 @@ mod tests {
 
     #[test]
     fn test_format_document_with_table() {
+        use crate::formatter::CommonMarkNodeFormatter;
         use crate::nodes::{NodeTable, TableAlignment};
-        use crate::render::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));

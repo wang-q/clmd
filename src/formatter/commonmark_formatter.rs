@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::render::formatter::{CommonMarkNodeFormatter, FormatterOptions};
+//! use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
 //!
 //! let formatter = CommonMarkNodeFormatter::new();
 //! let options = FormatterOptions::new().with_right_margin(80);
@@ -14,15 +14,13 @@
 //! ```
 
 use crate::arena::NodeId;
+use crate::formatter::context::NodeFormatterContext;
+use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::formatter::options::FormatterOptions;
+use crate::formatter::phase::FormattingPhase;
+use crate::formatter::phased::PhasedNodeFormatter;
+use crate::formatter::writer::MarkdownWriter;
 use crate::nodes::NodeValue;
-use crate::render::formatter::context::NodeFormatterContext;
-use crate::render::formatter::node::{
-    NodeFormatter, NodeFormattingHandler, NodeValueType,
-};
-use crate::render::formatter::options::FormatterOptions;
-use crate::render::formatter::phase::FormattingPhase;
-use crate::render::formatter::phased::PhasedNodeFormatter;
-use crate::render::formatter::writer::MarkdownWriter;
 
 /// CommonMark node formatter
 ///
@@ -65,7 +63,7 @@ impl CommonMarkNodeFormatter {
     /// # Example
     ///
     /// ```
-    /// use clmd::render::formatter::CommonMarkNodeFormatter;
+    /// use clmd::formatter::CommonMarkNodeFormatter;
     ///
     /// let formatter = CommonMarkNodeFormatter::new();
     /// ```
@@ -82,7 +80,7 @@ impl CommonMarkNodeFormatter {
     /// # Example
     ///
     /// ```
-    /// use clmd::render::formatter::{CommonMarkNodeFormatter, FormatterOptions};
+    /// use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
     ///
     /// let options = FormatterOptions::new()
     ///     .with_right_margin(80)
@@ -789,7 +787,7 @@ fn render_formatted_table(
     alignments: &[crate::nodes::TableAlignment],
     writer: &mut MarkdownWriter,
 ) {
-    use crate::render::formatter::table;
+    use crate::formatter::table;
 
     // Filter out empty rows (e.g., header end markers)
     let rows: Vec<&Vec<String>> = rows.iter().filter(|row| !row.is_empty()).collect();
@@ -845,7 +843,7 @@ fn render_formatted_table(
 /// # Examples
 ///
 /// ```
-/// use clmd::render::formatter::commonmark_formatter::get_backtick_sequence;
+/// use clmd::formatter::commonmark_formatter::get_backtick_sequence;
 ///
 /// assert_eq!(get_backtick_sequence("code"), "`");
 /// assert_eq!(get_backtick_sequence("code `with` backticks"), "``");
@@ -876,7 +874,7 @@ pub fn get_backtick_sequence(content: &str) -> String {
 /// # Examples
 ///
 /// ```
-/// use clmd::render::formatter::commonmark_formatter::escape_markdown;
+/// use clmd::formatter::commonmark_formatter::escape_markdown;
 ///
 /// assert_eq!(escape_markdown("*text*"), "\\*text\\*");
 /// assert_eq!(escape_markdown("_text_"), "\\_text\\_");
@@ -1384,8 +1382,8 @@ mod tests {
     #[test]
     fn test_render_document_with_nested_lists() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
 
@@ -1493,8 +1491,8 @@ mod tests {
     #[test]
     fn test_render_code_block_with_backticks() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::{NodeCodeBlock, NodeValue};
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1539,8 +1537,8 @@ mod tests {
     #[test]
     fn test_render_heading_atx() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::{NodeHeading, NodeValue};
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1570,8 +1568,8 @@ mod tests {
     #[test]
     fn test_render_blockquote() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::NodeValue;
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1600,8 +1598,8 @@ mod tests {
     #[test]
     fn test_render_link_and_image() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::{NodeLink, NodeValue};
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1649,8 +1647,8 @@ mod tests {
     #[test]
     fn test_render_emphasis_and_strong() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::NodeValue;
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1796,8 +1794,8 @@ mod tests {
     #[test]
     fn test_render_task_list() {
         use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::formatter::{Formatter, FormatterOptions};
         use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::render::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
 

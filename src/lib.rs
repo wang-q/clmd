@@ -235,6 +235,9 @@ pub mod plugins;
 /// HTML rendering for Arena-based AST (legacy).
 pub mod render;
 
+/// Markdown formatter for CommonMark output.
+pub mod formatter;
+
 /// Text sequence utilities.
 pub mod sequence;
 

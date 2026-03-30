@@ -1,7 +1,7 @@
 //! CommonMark renderer
 
 use crate::arena::{NodeArena, NodeId};
-use crate::render::formatter::{CommonMarkNodeFormatter, Formatter, FormatterOptions};
+use crate::formatter::{CommonMarkNodeFormatter, Formatter, FormatterOptions};
 
 /// Render a node tree as CommonMark
 ///

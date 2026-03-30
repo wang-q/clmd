@@ -3,10 +3,10 @@
 //! This module provides utility functions for formatting Markdown content,
 //! inspired by flexmark-java's FormatterUtils class.
 
+use crate::formatter::context::NodeFormatterContext;
+use crate::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
+use crate::formatter::writer::MarkdownWriter;
 use crate::nodes::{NodeCodeBlock, NodeList};
-use crate::render::formatter::context::NodeFormatterContext;
-use crate::render::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
-use crate::render::formatter::writer::MarkdownWriter;
 
 /// Render a list
 pub fn render_list(

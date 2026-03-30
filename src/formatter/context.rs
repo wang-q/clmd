@@ -4,12 +4,12 @@
 //! inspired by flexmark-java's NodeFormatterContext interface.
 
 use crate::arena::{NodeArena, NodeId};
+use crate::formatter::node::NodeValueType;
+use crate::formatter::options::FormatterOptions;
+use crate::formatter::phase::FormattingPhase;
+use crate::formatter::purpose::RenderPurpose;
+use crate::formatter::writer::MarkdownWriter;
 use crate::nodes::NodeValue;
-use crate::render::formatter::node::NodeValueType;
-use crate::render::formatter::options::FormatterOptions;
-use crate::render::formatter::phase::FormattingPhase;
-use crate::render::formatter::purpose::RenderPurpose;
-use crate::render::formatter::writer::MarkdownWriter;
 
 /// Context for node formatting operations
 ///
@@ -460,9 +460,9 @@ impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena};
+    use crate::formatter::options::FormatterOptions;
+    use crate::formatter::purpose::RenderPurpose;
     use crate::nodes::NodeValue;
-    use crate::render::formatter::options::FormatterOptions;
-    use crate::render::formatter::purpose::RenderPurpose;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
