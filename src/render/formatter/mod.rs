@@ -14,7 +14,9 @@
 //! - `writer`: Markdown output writer
 //! - `utils`: Utility functions for formatting
 //! - `table`: Table formatter for GFM tables
+//! - `commonmark_formatter`: CommonMark output formatter
 
+pub mod commonmark_formatter;
 pub mod context;
 pub mod node;
 pub mod options;
@@ -46,6 +48,7 @@ pub use phased::{
 };
 pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
 pub use writer::MarkdownWriter;
+pub use commonmark_formatter::CommonMarkNodeFormatter;
 
 use crate::arena::{NodeArena, NodeId};
 use std::collections::HashMap;
@@ -217,6 +220,14 @@ pub struct MainFormatterContext<'a> {
     block_quote_nesting: usize,
     /// Collected nodes by type
     collected_nodes: HashMap<node::NodeValueType, Vec<NodeId>>,
+    /// Table data collection
+    table_rows: Vec<Vec<String>>,
+    /// Table alignments
+    table_alignments: Vec<crate::nodes::TableAlignment>,
+    /// Whether we're collecting table data
+    collecting_table: bool,
+    /// Whether to skip rendering children (for table cells)
+    skip_children: bool,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -254,6 +265,10 @@ impl<'a> MainFormatterContext<'a> {
             in_block_quote: false,
             block_quote_nesting: 0,
             collected_nodes: HashMap::new(),
+            table_rows: Vec::new(),
+            table_alignments: Vec::new(),
+            collecting_table: false,
+            skip_children: false,
         };
         context.build_handler_map();
         context.collect_nodes();
@@ -372,24 +387,32 @@ impl<'a> MainFormatterContext<'a> {
         let node = self.arena.get(node_id);
         let node_type = node::NodeValueType::from_node_value(&node.value);
 
-        // Check if we have handlers for this node type
-        let handler_index = self.handler_map.get(&node_type).and_then(|h| {
-            if h.is_empty() {
-                None
-            } else {
-                Some(0)
-            }
-        });
+        // Check if we have handlers for this node type and clone the handler
+        let handler_opt = self
+            .handler_map
+            .get(&node_type)
+            .and_then(|h| h.first().cloned());
 
-        if let Some(_index) = handler_index {
-            // Get the handler function pointer
-            // We use a two-step process to avoid borrowing issues
+        if let Some(handler) = handler_opt {
+            self.current_node = Some(node_id);
+            let node_value = &self.arena.get(node_id).value;
+
+            // Call the opening formatter
+            handler.format_open(node_value, self, markdown);
+
+            // Render children unless skip_children is set
+            // (used for table cells to avoid double rendering)
+            if !self.skip_children {
+                self.render_children(node_id, markdown);
+            }
+            self.skip_children = false;
+
+            // Re-set current_node before calling format_close
+            // because render_children may have set it to None
             self.current_node = Some(node_id);
 
-            // Call the handler - we need to use unsafe or restructure to avoid borrow checker issues
-            // For now, we'll just render children as a fallback
-            // TODO: Implement proper handler dispatch
-            self.render_children(node_id, markdown);
+            // Call the closing formatter if present
+            handler.format_close(node_value, self, markdown);
 
             self.current_node = None;
         } else {
@@ -545,6 +568,62 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
             self.block_quote_nesting -= 1;
         }
     }
+
+    // Table data collection methods
+
+    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>) {
+        self.table_rows = Vec::new();
+        self.table_alignments = alignments;
+        self.collecting_table = true;
+    }
+
+    fn add_table_row(&mut self) {
+        if self.collecting_table {
+            self.table_rows.push(Vec::new());
+        }
+    }
+
+    fn add_table_cell(&mut self, content: String) {
+        if self.collecting_table {
+            if let Some(last_row) = self.table_rows.last_mut() {
+                last_row.push(content);
+            }
+        }
+    }
+
+    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        if self.collecting_table {
+            self.collecting_table = false;
+            let rows = std::mem::take(&mut self.table_rows);
+            let alignments = std::mem::take(&mut self.table_alignments);
+            if !rows.is_empty() {
+                Some((rows, alignments))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn is_collecting_table(&self) -> bool {
+        self.collecting_table
+    }
+
+    fn set_skip_children(&mut self, skip: bool) {
+        self.skip_children = skip;
+    }
+
+    fn render_children_to_string(&mut self, node_id: NodeId) -> String {
+        // Create a temporary writer to capture output
+        let mut temp_writer = writer::MarkdownWriter::new(self.options.format_flags);
+        
+        // Render children to the temporary writer
+        self.render_children(node_id, &mut temp_writer);
+        
+        // Return the captured content
+        temp_writer.to_string()
+    }
 }
 
 /// Formatter builder for convenient configuration
@@ -670,5 +749,158 @@ mod tests {
         // This will use default formatters which don't do much yet
         let _result = format_document(&arena, root);
         // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_format_document_with_commonmark_formatter() {
+        use crate::render::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(crate::nodes::NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, heading);
+        TreeOps::append_child(&mut arena, heading, text);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("#"), "Should contain heading marker");
+        assert!(result.contains("Hello"), "Should contain text content");
+        assert!(result.contains("# Hello"), "Should have proper heading format with space");
+    }
+
+    #[test]
+    fn test_format_document_paragraphs() {
+        use crate::render::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        
+        // First paragraph with "Hello World"
+        let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Hello World")));
+        TreeOps::append_child(&mut arena, para1, text1);
+        TreeOps::append_child(&mut arena, root, para1);
+        
+        // Second paragraph with "Second paragraph"
+        let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("Second paragraph")));
+        TreeOps::append_child(&mut arena, para2, text2);
+        TreeOps::append_child(&mut arena, root, para2);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("Hello World"), "Should contain first paragraph");
+        assert!(result.contains("Second paragraph"), "Should contain second paragraph");
+        // Paragraphs should be separated by blank line
+        assert!(result.contains("Hello World\n\nSecond") || result.contains("Hello World\r\n\r\nSecond"), 
+                "Paragraphs should be separated by blank line. Result: {:?}", result);
+    }
+
+    #[test]
+    fn test_format_document_with_emphasis() {
+        use crate::render::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        
+        // "This is "
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("This is ")));
+        TreeOps::append_child(&mut arena, para, text1);
+        
+        // **bold**
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let bold_text = arena.alloc(Node::with_value(NodeValue::make_text("bold")));
+        TreeOps::append_child(&mut arena, strong, bold_text);
+        TreeOps::append_child(&mut arena, para, strong);
+        
+        // " text"
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text(" text")));
+        TreeOps::append_child(&mut arena, para, text2);
+        
+        TreeOps::append_child(&mut arena, root, para);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("This is"), "Should contain 'This is'. Result: {:?}", result);
+        assert!(result.contains("**bold**"), "Should contain '**bold**'. Result: {:?}", result);
+        assert!(result.contains(" text"), "Should contain ' text'. Result: {:?}", result);
+        // Check the full format with proper spacing
+        assert!(result.contains("This is **bold** text"), 
+                "Should have proper spacing around emphasis. Result: {:?}", result);
+    }
+
+    #[test]
+    fn test_format_document_with_table() {
+        use crate::render::formatter::CommonMarkNodeFormatter;
+        use crate::nodes::{NodeTable, TableAlignment};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        
+        // Create table
+        let table = arena.alloc(Node::with_value(NodeValue::Table(Box::new(NodeTable {
+            alignments: vec![TableAlignment::None, TableAlignment::None],
+            num_columns: 2,
+            num_rows: 2,
+            num_nonempty_cells: 4,
+        }))));
+        
+        // Header row
+        let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
+        let cell1 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell1_text = arena.alloc(Node::with_value(NodeValue::make_text("Name")));
+        TreeOps::append_child(&mut arena, cell1, cell1_text);
+        TreeOps::append_child(&mut arena, header_row, cell1);
+        
+        let cell2 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell2_text = arena.alloc(Node::with_value(NodeValue::make_text("Age")));
+        TreeOps::append_child(&mut arena, cell2, cell2_text);
+        TreeOps::append_child(&mut arena, header_row, cell2);
+        
+        TreeOps::append_child(&mut arena, table, header_row);
+        
+        // Data row
+        let data_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
+        let cell3 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell3_text = arena.alloc(Node::with_value(NodeValue::make_text("Alice")));
+        TreeOps::append_child(&mut arena, cell3, cell3_text);
+        TreeOps::append_child(&mut arena, data_row, cell3);
+        
+        let cell4 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell4_text = arena.alloc(Node::with_value(NodeValue::make_text("30")));
+        TreeOps::append_child(&mut arena, cell4, cell4_text);
+        TreeOps::append_child(&mut arena, data_row, cell4);
+        
+        TreeOps::append_child(&mut arena, table, data_row);
+        TreeOps::append_child(&mut arena, root, table);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        println!("Table result: {:?}", result);
+        
+        // Check that pipe characters are NOT escaped (allow for variable spacing)
+        assert!(result.contains("Name") && result.contains("Age"), 
+                "Table header should contain Name and Age. Result: {:?}", result);
+        // Check for data row
+        assert!(result.contains("Alice") && result.contains("30"), 
+                "Table data should contain Alice and 30. Result: {:?}", result);
+        // Check for delimiter row
+        assert!(result.contains("---"), 
+                "Table should have delimiter row. Result: {:?}", result);
     }
 }

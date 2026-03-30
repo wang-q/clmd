@@ -3,28 +3,37 @@
 //! This module defines the core traits for node formatters,
 //! inspired by flexmark-java's NodeFormatter interface.
 
+use std::rc::Rc;
+
 use crate::nodes::NodeValue;
 use crate::render::formatter::context::NodeFormatterContext;
 use crate::render::formatter::writer::MarkdownWriter;
 
 /// A handler for formatting a specific node type
+///
+/// This handler supports both opening and closing callbacks for nodes
+/// that need special handling at the end (like links and images).
+#[derive(Clone)]
 pub struct NodeFormattingHandler {
     /// The node type this handler can format
     pub node_type: NodeValueType,
-    /// The formatting function
-    pub formatter: NodeFormatterFn,
+    /// The opening formatter (called when entering the node)
+    pub open_formatter: NodeFormatterFn,
+    /// The closing formatter (called when exiting the node, optional)
+    pub close_formatter: Option<NodeFormatterFn>,
 }
 
 impl std::fmt::Debug for NodeFormattingHandler {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NodeFormattingHandler")
             .field("node_type", &self.node_type)
+            .field("has_close_formatter", &self.close_formatter.is_some())
             .finish_non_exhaustive()
     }
 }
 
 impl NodeFormattingHandler {
-    /// Create a new node formatting handler
+    /// Create a new node formatting handler with only an opening formatter
     pub fn new<F>(node_type: NodeValueType, formatter: F) -> Self
     where
         F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
@@ -34,7 +43,27 @@ impl NodeFormattingHandler {
     {
         Self {
             node_type,
-            formatter: Box::new(formatter),
+            open_formatter: Rc::new(formatter),
+            close_formatter: None,
+        }
+    }
+
+    /// Create a new handler with both opening and closing formatters
+    pub fn with_close<F, G>(node_type: NodeValueType, open: F, close: G) -> Self
+    where
+        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
+        G: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
+    {
+        Self {
+            node_type,
+            open_formatter: Rc::new(open),
+            close_formatter: Some(Rc::new(close)),
         }
     }
 
@@ -48,13 +77,36 @@ impl NodeFormattingHandler {
     {
         Self {
             node_type: NodeValueType::from_formatter::<F>(),
-            formatter: Box::new(formatter),
+            open_formatter: Rc::new(formatter),
+            close_formatter: None,
+        }
+    }
+
+    /// Call the opening formatter
+    pub fn format_open(
+        &self,
+        value: &NodeValue,
+        ctx: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
+    ) {
+        (self.open_formatter)(value, ctx, writer);
+    }
+
+    /// Call the closing formatter if present
+    pub fn format_close(
+        &self,
+        value: &NodeValue,
+        ctx: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
+    ) {
+        if let Some(ref close) = self.close_formatter {
+            (close)(value, ctx, writer);
         }
     }
 }
 
 /// Type alias for node formatter functions
-pub type NodeFormatterFn = Box<
+pub type NodeFormatterFn = Rc<
     dyn Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter) + Send + Sync,
 >;
 

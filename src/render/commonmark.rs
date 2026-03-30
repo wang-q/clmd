@@ -5,6 +5,9 @@ use crate::nodes::{
     ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue,
 };
 use crate::render::formatter::table;
+use crate::render::formatter::{
+    CommonMarkNodeFormatter, Formatter, FormatterOptions,
+};
 use crate::unicode_width::width as unicode_width;
 
 /// Render a node tree as CommonMark
@@ -14,8 +17,11 @@ pub fn render(
     _options: u32,
     wrap_width: usize,
 ) -> String {
-    let mut renderer = CommonMarkRenderer::new(arena, _options, wrap_width);
-    renderer.render(root)
+    // Use the new CommonMarkNodeFormatter via the Formatter framework
+    let options = FormatterOptions::new().with_right_margin(wrap_width);
+    let mut formatter = Formatter::with_options(options);
+    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+    formatter.render(arena, root)
 }
 
 fn get_backtick_sequence(content: &str) -> String {

@@ -34,9 +34,10 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(80);
 
-    // Create options with width setting
+    // Create options with width setting and enable table extension
     let mut options = options.clone();
     options.render.width = width;
+    options.extension.table = true;
 
     let cm = clmd::markdown_to_commonmark(&input, &options);
 

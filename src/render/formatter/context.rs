@@ -60,6 +60,12 @@ pub trait NodeFormatterContext {
     /// Get the current node being rendered
     fn get_current_node(&self) -> Option<NodeId>;
 
+    /// Get the parent of the current node
+    fn get_current_node_parent(&self) -> Option<NodeId> {
+        self.get_current_node()
+            .and_then(|id| self.get_arena().get(id).parent)
+    }
+
     /// Get the current node's value
     fn get_current_node_value(&self) -> Option<&NodeValue> {
         self.get_current_node()
@@ -71,6 +77,40 @@ pub trait NodeFormatterContext {
     /// Returns an iterator over all nodes of the given type in the document,
     /// in depth-first order.
     fn get_nodes_of_type(&self, node_type: NodeValueType) -> Vec<NodeId>;
+
+    // Table data collection methods
+
+    /// Start collecting table data
+    ///
+    /// Called when entering a table node to begin collecting row and cell data.
+    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>);
+
+    /// Add a table row
+    ///
+    /// Called when entering a table row.
+    fn add_table_row(&mut self);
+
+    /// Add a table cell
+    ///
+    /// Called when rendering a table cell with its content.
+    fn add_table_cell(&mut self, content: String);
+
+    /// Get collected table data and clear it
+    ///
+    /// Called when exiting a table node to get all collected data for formatting.
+    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)>;
+
+    /// Check if we're currently collecting table data
+    fn is_collecting_table(&self) -> bool;
+
+    /// Set whether to skip rendering children (for table cells)
+    fn set_skip_children(&mut self, skip: bool);
+
+    /// Render children to a string and return the content
+    ///
+    /// This is used to capture the rendered output of child nodes
+    /// without writing to the main output.
+    fn render_children_to_string(&mut self, node_id: NodeId) -> String;
 
     /// Get nodes of multiple types
     fn get_nodes_of_types(&self, node_types: &[NodeValueType]) -> Vec<NodeId>;
@@ -307,6 +347,36 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         if self.block_quote_nesting > 0 {
             self.block_quote_nesting -= 1;
         }
+    }
+
+    // Table data collection methods - delegate to parent
+
+    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>) {
+        self.parent.start_table_collection(alignments);
+    }
+
+    fn add_table_row(&mut self) {
+        self.parent.add_table_row();
+    }
+
+    fn add_table_cell(&mut self, content: String) {
+        self.parent.add_table_cell(content);
+    }
+
+    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        self.parent.take_table_data()
+    }
+
+    fn is_collecting_table(&self) -> bool {
+        self.parent.is_collecting_table()
+    }
+
+    fn set_skip_children(&mut self, skip: bool) {
+        self.parent.set_skip_children(skip);
+    }
+
+    fn render_children_to_string(&mut self, node_id: NodeId) -> String {
+        self.parent.render_children_to_string(node_id)
     }
 }
 
