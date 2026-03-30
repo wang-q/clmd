@@ -3,6 +3,7 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::html_utils::{escape_html, is_safe_url};
 use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
+use crate::parser::OPT_SOURCEPOS;
 use std::fmt::Write;
 
 /// Render a node tree as HTML
@@ -15,6 +16,8 @@ pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
 struct HtmlRenderer<'a> {
     arena: &'a NodeArena,
     output: String,
+    /// Render options
+    options: u32,
     /// Stack for tracking whether we need to close a tag
     tag_stack: Vec<&'static str>,
     /// Track if we're in a tight list
@@ -34,13 +37,14 @@ struct HtmlRenderer<'a> {
 }
 
 impl<'a> HtmlRenderer<'a> {
-    fn new(arena: &'a NodeArena, _options: u32) -> Self {
+    fn new(arena: &'a NodeArena, options: u32) -> Self {
         // Optimization: pre-allocate output buffer with estimated capacity
         // Typical HTML output is about 2x the input size
         let estimated_capacity = arena.len() * 64;
         HtmlRenderer {
             arena,
             output: String::with_capacity(estimated_capacity),
+            options,
             tag_stack: Vec::new(),
             tight_list_stack: Vec::new(),
             footnotes: Vec::new(),
@@ -49,6 +53,26 @@ impl<'a> HtmlRenderer<'a> {
             disable_tags: 0,
             item_child_count: Vec::new(),
             table_row_index: 0,
+        }
+    }
+
+    /// Render data-sourcepos attribute if OPT_SOURCEPOS is enabled
+    fn render_sourcepos(&mut self, node_id: NodeId) {
+        if (self.options & OPT_SOURCEPOS) != 0 {
+            let node = self.arena.get(node_id);
+            let source_pos = &node.source_pos;
+            // Only render if source_pos is not default (0,0-0,0)
+            if source_pos.start.line != 0 {
+                write!(
+                    self.output,
+                    " data-sourcepos=\"{}:{}-{}:{}\"",
+                    source_pos.start.line,
+                    source_pos.start.column,
+                    source_pos.end.line,
+                    source_pos.end.column
+                )
+                .unwrap();
+            }
         }
     }
 
@@ -137,7 +161,9 @@ impl<'a> HtmlRenderer<'a> {
                 } else {
                     self.cr();
                 }
-                self.lit("<blockquote>");
+                self.lit("<blockquote");
+                self.render_sourcepos(node_id);
+                self.lit(">");
                 self.lit("\n");
                 self.tag_stack.push("blockquote");
                 // Push false to tight_list_stack to disable tight mode for blockquote contents
@@ -154,14 +180,18 @@ impl<'a> HtmlRenderer<'a> {
                 self.cr(); // Add newline before list if needed (for nested lists)
                 match list_type {
                     ListType::Bullet => {
-                        self.lit("<ul>");
+                        self.lit("<ul");
+                        self.render_sourcepos(node_id);
+                        self.lit(">");
                         self.tag_stack.push("ul");
                     }
                     ListType::Ordered => {
+                        self.lit("<ol");
+                        self.render_sourcepos(node_id);
                         if *start != 1 {
-                            self.lit(&format!("<ol start=\"{}\">", start));
+                            write!(self.output, " start=\"{}\">", start).unwrap();
                         } else {
-                            self.lit("<ol>");
+                            self.lit(">");
                         }
                         self.tag_stack.push("ol");
                     }
@@ -169,7 +199,9 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("\n");
             }
             NodeValue::Item(..) => {
-                self.lit("<li>");
+                self.lit("<li");
+                self.render_sourcepos(node_id);
+                self.lit(">");
                 self.tag_stack.push("li");
                 // In loose lists, add newline after <li>, but not for empty items
                 let has_children = node.first_child.is_some();
@@ -204,7 +236,9 @@ impl<'a> HtmlRenderer<'a> {
                 if !self.in_tight_list() {
                     // Track as item child in loose lists too
                     self.track_item_child();
-                    self.lit("<p>");
+                    self.lit("<p");
+                    self.render_sourcepos(node_id);
+                    self.lit(">");
                     self.tag_stack.push("p");
                 }
             }
@@ -216,7 +250,9 @@ impl<'a> HtmlRenderer<'a> {
                     self.lit("\n");
                 }
                 // Optimization: use write! instead of format!
-                write!(self.output, "<h{}>", level).unwrap();
+                write!(self.output, "<h{}", level).unwrap();
+                self.render_sourcepos(node_id);
+                write!(self.output, ">").unwrap();
                 self.last_out = '>';
                 self.tag_stack.push("h");
             }
@@ -227,7 +263,9 @@ impl<'a> HtmlRenderer<'a> {
                 } else {
                     self.cr();
                 }
-                self.lit("<hr />");
+                self.lit("<hr");
+                self.render_sourcepos(node_id);
+                self.lit(" />");
                 self.lit("\n");
             }
             NodeValue::Text(literal) => {
@@ -480,10 +518,12 @@ impl<'a> HtmlRenderer<'a> {
             self.in_code_block = true;
 
             self.lit("<pre><code");
+            self.render_sourcepos(node_id);
             if !code_block.info.is_empty() {
                 let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 if !lang.is_empty() {
-                    self.lit(&format!(" class=\"language-{}\"", escape_html(lang)));
+                    write!(self.output, " class=\"language-{}\"", escape_html(lang))
+                        .unwrap();
                 }
             }
             self.lit(">");
@@ -889,5 +929,160 @@ mod tests {
             !html.contains("javascript:"),
             "javascript: should not appear in output"
         );
+    }
+
+    // Sourcepos tests
+    #[test]
+    fn test_sourcepos_heading() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut heading = Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        }));
+        heading.source_pos = SourcePos::new(1, 1, 1, 7);
+        let heading_id = arena.alloc(heading);
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, heading_id);
+        TreeOps::append_child(&mut arena, heading_id, text);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("data-sourcepos=\"1:1-1:7\""));
+        assert!(html.contains("<h1 data-sourcepos=\"1:1-1:7\">"));
+    }
+
+    #[test]
+    fn test_sourcepos_paragraph() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut para = Node::with_value(NodeValue::Paragraph);
+        para.source_pos = SourcePos::new(2, 1, 2, 10);
+        let para_id = arena.alloc(para);
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Paragraph")));
+
+        TreeOps::append_child(&mut arena, root, para_id);
+        TreeOps::append_child(&mut arena, para_id, text);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("<p data-sourcepos=\"2:1-2:10\">"));
+    }
+
+    #[test]
+    fn test_sourcepos_blockquote() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut blockquote = Node::with_value(NodeValue::BlockQuote);
+        blockquote.source_pos = SourcePos::new(1, 1, 3, 5);
+        let blockquote_id = arena.alloc(blockquote);
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quote")));
+
+        TreeOps::append_child(&mut arena, root, blockquote_id);
+        TreeOps::append_child(&mut arena, blockquote_id, para);
+        TreeOps::append_child(&mut arena, para, text);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("<blockquote data-sourcepos=\"1:1-3:5\">"));
+    }
+
+    #[test]
+    fn test_sourcepos_list() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut list = Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            delimiter: crate::nodes::ListDelimType::Period,
+            start: 1,
+            tight: true,
+            bullet_char: b'-',
+            marker_offset: 0,
+            padding: 2,
+            is_task_list: false,
+        }));
+        list.source_pos = SourcePos::new(1, 1, 3, 5);
+        let list_id = arena.alloc(list);
+        let mut item = Node::with_value(NodeValue::Item(NodeList::default()));
+        item.source_pos = SourcePos::new(1, 1, 1, 5);
+        let item_id = arena.alloc(item);
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Item")));
+
+        TreeOps::append_child(&mut arena, root, list_id);
+        TreeOps::append_child(&mut arena, list_id, item_id);
+        TreeOps::append_child(&mut arena, item_id, para);
+        TreeOps::append_child(&mut arena, para, text);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("<ul data-sourcepos=\"1:1-3:5\">"));
+        assert!(html.contains("<li data-sourcepos=\"1:1-1:5\">"));
+    }
+
+    #[test]
+    fn test_sourcepos_code_block() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut code_block =
+            Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+                closed: true,
+            })));
+        code_block.source_pos = SourcePos::new(1, 1, 3, 3);
+        let code_block_id = arena.alloc(code_block);
+
+        TreeOps::append_child(&mut arena, root, code_block_id);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("data-sourcepos=\"1:1-3:3\""));
+        assert!(html.contains("<code data-sourcepos=\"1:1-3:3\""));
+    }
+
+    #[test]
+    fn test_sourcepos_thematic_break() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut hr = Node::with_value(NodeValue::ThematicBreak);
+        hr.source_pos = SourcePos::new(2, 1, 2, 3);
+        let hr_id = arena.alloc(hr);
+
+        TreeOps::append_child(&mut arena, root, hr_id);
+
+        let html = render(&arena, root, OPT_SOURCEPOS);
+        assert!(html.contains("<hr data-sourcepos=\"2:1-2:3\" />"));
+    }
+
+    #[test]
+    fn test_sourcepos_disabled() {
+        use crate::nodes::SourcePos;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let mut heading = Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        }));
+        heading.source_pos = SourcePos::new(1, 1, 1, 7);
+        let heading_id = arena.alloc(heading);
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, heading_id);
+        TreeOps::append_child(&mut arena, heading_id, text);
+
+        // Render without OPT_SOURCEPOS
+        let html = render(&arena, root, 0);
+        assert!(!html.contains("data-sourcepos"));
+        assert!(html.contains("<h1>"));
     }
 }

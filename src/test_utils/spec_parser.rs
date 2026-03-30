@@ -110,7 +110,10 @@ pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
 }
 
 /// Parse the example header line
-/// Format: ```````````````````````````````` example Section: Number [options]
+///
+/// Supports formats:
+/// - `example Section: Number [options]`
+/// - `example(Section: Number) options(opt1, opt2)`
 fn parse_example_header(line: &str) -> Option<(String, usize, Vec<String>)> {
     // Remove the backticks and "example" keyword
     let prefix = "```````````````````````````````` example";
@@ -120,7 +123,40 @@ fn parse_example_header(line: &str) -> Option<(String, usize, Vec<String>)> {
 
     let rest = line[prefix.len()..].trim();
 
-    // Parse section and number: "Section: Number" or "Section: Number [opt1, opt2]"
+    // Check for parenthesis format: example(Section: Number) options(...)
+    if rest.starts_with('(') {
+        // Format: example(Section: Number) or example(Section: Number) options(...)
+        let close_paren = rest.find(')')?;
+        let section_part = &rest[1..close_paren];
+
+        // Parse options if present after the closing parenthesis
+        let after_paren = &rest[close_paren + 1..].trim();
+        let options = if after_paren.starts_with("options(") {
+            let opts_start = after_paren.find('(')? + 1;
+            let opts_end = after_paren.rfind(')')?;
+            let opts_str = &after_paren[opts_start..opts_end];
+            opts_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        // Parse section and number
+        let section_parts: Vec<&str> = section_part.split(':').collect();
+        if section_parts.len() != 2 {
+            return None;
+        }
+
+        let section = section_parts[0].trim().to_string();
+        let number = section_parts[1].trim().parse::<usize>().ok()?;
+
+        return Some((section, number, options));
+    }
+
+    // Original format: "Section: Number" or "Section: Number [opt1, opt2]"
     let parts: Vec<&str> = rest.splitn(2, '[').collect();
     let section_part = parts[0].trim();
 

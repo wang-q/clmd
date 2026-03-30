@@ -28,6 +28,7 @@ pub mod utils;
 pub mod writer;
 
 // Re-export commonly used types
+pub use commonmark_formatter::CommonMarkNodeFormatter;
 pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
     SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
@@ -48,7 +49,6 @@ pub use phased::{
 };
 pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
 pub use writer::MarkdownWriter;
-pub use commonmark_formatter::CommonMarkNodeFormatter;
 
 use crate::arena::{NodeArena, NodeId};
 use std::collections::HashMap;
@@ -618,7 +618,9 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
-    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+    fn take_table_data(
+        &mut self,
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
         if self.collecting_table {
             self.collecting_table = false;
             let rows = std::mem::take(&mut self.table_rows);
@@ -644,10 +646,10 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     fn render_children_to_string(&mut self, node_id: NodeId) -> String {
         // Create a temporary writer to capture output
         let mut temp_writer = writer::MarkdownWriter::new(self.options.format_flags);
-        
+
         // Render children to the temporary writer
         self.render_children(node_id, &mut temp_writer);
-        
+
         // Return the captured content
         temp_writer.to_string()
     }
@@ -784,11 +786,13 @@ mod tests {
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(crate::nodes::NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
+            crate::nodes::NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            },
+        )));
         let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
 
         TreeOps::append_child(&mut arena, root, heading);
@@ -800,7 +804,10 @@ mod tests {
         let result = formatter.render(&arena, root);
         assert!(result.contains("#"), "Should contain heading marker");
         assert!(result.contains("Hello"), "Should contain text content");
-        assert!(result.contains("# Hello"), "Should have proper heading format with space");
+        assert!(
+            result.contains("# Hello"),
+            "Should have proper heading format with space"
+        );
     }
 
     #[test]
@@ -809,16 +816,17 @@ mod tests {
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        
+
         // First paragraph with "Hello World"
         let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Hello World")));
         TreeOps::append_child(&mut arena, para1, text1);
         TreeOps::append_child(&mut arena, root, para1);
-        
+
         // Second paragraph with "Second paragraph"
         let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("Second paragraph")));
+        let text2 =
+            arena.alloc(Node::with_value(NodeValue::make_text("Second paragraph")));
         TreeOps::append_child(&mut arena, para2, text2);
         TreeOps::append_child(&mut arena, root, para2);
 
@@ -826,11 +834,21 @@ mod tests {
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
         let result = formatter.render(&arena, root);
-        assert!(result.contains("Hello World"), "Should contain first paragraph");
-        assert!(result.contains("Second paragraph"), "Should contain second paragraph");
+        assert!(
+            result.contains("Hello World"),
+            "Should contain first paragraph"
+        );
+        assert!(
+            result.contains("Second paragraph"),
+            "Should contain second paragraph"
+        );
         // Paragraphs should be separated by blank line
-        assert!(result.contains("Hello World\n\nSecond") || result.contains("Hello World\r\n\r\nSecond"), 
-                "Paragraphs should be separated by blank line. Result: {:?}", result);
+        assert!(
+            result.contains("Hello World\n\nSecond")
+                || result.contains("Hello World\r\n\r\nSecond"),
+            "Paragraphs should be separated by blank line. Result: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -840,77 +858,93 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        
+
         // "This is "
         let text1 = arena.alloc(Node::with_value(NodeValue::make_text("This is ")));
         TreeOps::append_child(&mut arena, para, text1);
-        
+
         // **bold**
         let strong = arena.alloc(Node::with_value(NodeValue::Strong));
         let bold_text = arena.alloc(Node::with_value(NodeValue::make_text("bold")));
         TreeOps::append_child(&mut arena, strong, bold_text);
         TreeOps::append_child(&mut arena, para, strong);
-        
+
         // " text"
         let text2 = arena.alloc(Node::with_value(NodeValue::make_text(" text")));
         TreeOps::append_child(&mut arena, para, text2);
-        
+
         TreeOps::append_child(&mut arena, root, para);
 
         let mut formatter = Formatter::new();
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
         let result = formatter.render(&arena, root);
-        assert!(result.contains("This is"), "Should contain 'This is'. Result: {:?}", result);
-        assert!(result.contains("**bold**"), "Should contain '**bold**'. Result: {:?}", result);
-        assert!(result.contains(" text"), "Should contain ' text'. Result: {:?}", result);
+        assert!(
+            result.contains("This is"),
+            "Should contain 'This is'. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains("**bold**"),
+            "Should contain '**bold**'. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains(" text"),
+            "Should contain ' text'. Result: {:?}",
+            result
+        );
         // Check the full format with proper spacing
-        assert!(result.contains("This is **bold** text"), 
-                "Should have proper spacing around emphasis. Result: {:?}", result);
+        assert!(
+            result.contains("This is **bold** text"),
+            "Should have proper spacing around emphasis. Result: {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_format_document_with_table() {
-        use crate::render::formatter::CommonMarkNodeFormatter;
         use crate::nodes::{NodeTable, TableAlignment};
+        use crate::render::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        
+
         // Create table
-        let table = arena.alloc(Node::with_value(NodeValue::Table(Box::new(NodeTable {
-            alignments: vec![TableAlignment::None, TableAlignment::None],
-            num_columns: 2,
-            num_rows: 2,
-            num_nonempty_cells: 4,
-        }))));
-        
+        let table =
+            arena.alloc(Node::with_value(NodeValue::Table(Box::new(NodeTable {
+                alignments: vec![TableAlignment::None, TableAlignment::None],
+                num_columns: 2,
+                num_rows: 2,
+                num_nonempty_cells: 4,
+            }))));
+
         // Header row
         let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
         let cell1 = arena.alloc(Node::with_value(NodeValue::TableCell));
         let cell1_text = arena.alloc(Node::with_value(NodeValue::make_text("Name")));
         TreeOps::append_child(&mut arena, cell1, cell1_text);
         TreeOps::append_child(&mut arena, header_row, cell1);
-        
+
         let cell2 = arena.alloc(Node::with_value(NodeValue::TableCell));
         let cell2_text = arena.alloc(Node::with_value(NodeValue::make_text("Age")));
         TreeOps::append_child(&mut arena, cell2, cell2_text);
         TreeOps::append_child(&mut arena, header_row, cell2);
-        
+
         TreeOps::append_child(&mut arena, table, header_row);
-        
+
         // Data row
         let data_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
         let cell3 = arena.alloc(Node::with_value(NodeValue::TableCell));
         let cell3_text = arena.alloc(Node::with_value(NodeValue::make_text("Alice")));
         TreeOps::append_child(&mut arena, cell3, cell3_text);
         TreeOps::append_child(&mut arena, data_row, cell3);
-        
+
         let cell4 = arena.alloc(Node::with_value(NodeValue::TableCell));
         let cell4_text = arena.alloc(Node::with_value(NodeValue::make_text("30")));
         TreeOps::append_child(&mut arena, cell4, cell4_text);
         TreeOps::append_child(&mut arena, data_row, cell4);
-        
+
         TreeOps::append_child(&mut arena, table, data_row);
         TreeOps::append_child(&mut arena, root, table);
 
@@ -919,15 +953,24 @@ mod tests {
 
         let result = formatter.render(&arena, root);
         println!("Table result: {:?}", result);
-        
+
         // Check that pipe characters are NOT escaped (allow for variable spacing)
-        assert!(result.contains("Name") && result.contains("Age"), 
-                "Table header should contain Name and Age. Result: {:?}", result);
+        assert!(
+            result.contains("Name") && result.contains("Age"),
+            "Table header should contain Name and Age. Result: {:?}",
+            result
+        );
         // Check for data row
-        assert!(result.contains("Alice") && result.contains("30"), 
-                "Table data should contain Alice and 30. Result: {:?}", result);
+        assert!(
+            result.contains("Alice") && result.contains("30"),
+            "Table data should contain Alice and 30. Result: {:?}",
+            result
+        );
         // Check for delimiter row
-        assert!(result.contains("---"), 
-                "Table should have delimiter row. Result: {:?}", result);
+        assert!(
+            result.contains("---"),
+            "Table should have delimiter row. Result: {:?}",
+            result
+        );
     }
 }

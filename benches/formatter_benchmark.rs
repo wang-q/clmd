@@ -20,8 +20,7 @@ fn generate_large_document(paragraphs: usize) -> String {
 
         if i % 3 == 0 {
             doc.push_str("## Subheading\n\n");
-            doc.push_str("> This is a blockquote with some important information.\n\n",
-            );
+            doc.push_str("> This is a blockquote with some important information.\n\n");
         }
 
         if i % 5 == 0 {

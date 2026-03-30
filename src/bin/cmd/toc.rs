@@ -82,8 +82,8 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
         if numbered {
             counters[level as usize] += 1;
             // Reset counters for lower levels
-            for i in (level as usize + 1)..counters.len() {
-                counters[i] = 0;
+            for counter in counters.iter_mut().skip(level as usize + 1) {
+                *counter = 0;
             }
             let number = format_number(&counters, level as usize);
             if links {

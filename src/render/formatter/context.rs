@@ -98,7 +98,9 @@ pub trait NodeFormatterContext {
     /// Get collected table data and clear it
     ///
     /// Called when exiting a table node to get all collected data for formatting.
-    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)>;
+    fn take_table_data(
+        &mut self,
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)>;
 
     /// Check if we're currently collecting table data
     fn is_collecting_table(&self) -> bool;
@@ -363,7 +365,9 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.add_table_cell(content);
     }
 
-    fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+    fn take_table_data(
+        &mut self,
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
         self.parent.take_table_data()
     }
 
@@ -596,7 +600,10 @@ mod tests {
             }
         }
 
-        fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>) {
+        fn start_table_collection(
+            &mut self,
+            alignments: Vec<crate::nodes::TableAlignment>,
+        ) {
             self.table_data = Some((vec![], alignments));
         }
 
@@ -616,7 +623,9 @@ mod tests {
             }
         }
 
-        fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
             self.table_data.take()
         }
 
@@ -648,10 +657,10 @@ mod tests {
     fn test_mock_context_tight_list() {
         let mut ctx = MockContext::new();
         assert!(!ctx.is_in_tight_list());
-        
+
         ctx.set_tight_list(true);
         assert!(ctx.is_in_tight_list());
-        
+
         ctx.set_tight_list(false);
         assert!(!ctx.is_in_tight_list());
     }
@@ -660,19 +669,19 @@ mod tests {
     fn test_mock_context_list_nesting() {
         let mut ctx = MockContext::new();
         assert_eq!(ctx.get_list_nesting_level(), 0);
-        
+
         ctx.increment_list_nesting();
         assert_eq!(ctx.get_list_nesting_level(), 1);
-        
+
         ctx.increment_list_nesting();
         assert_eq!(ctx.get_list_nesting_level(), 2);
-        
+
         ctx.decrement_list_nesting();
         assert_eq!(ctx.get_list_nesting_level(), 1);
-        
+
         ctx.decrement_list_nesting();
         assert_eq!(ctx.get_list_nesting_level(), 0);
-        
+
         // Should not go below 0
         ctx.decrement_list_nesting();
         assert_eq!(ctx.get_list_nesting_level(), 0);
@@ -683,22 +692,22 @@ mod tests {
         let mut ctx = MockContext::new();
         assert!(!ctx.is_in_block_quote());
         assert_eq!(ctx.get_block_quote_nesting_level(), 0);
-        
+
         ctx.set_in_block_quote(true);
         assert!(ctx.is_in_block_quote());
-        
+
         ctx.increment_block_quote_nesting();
         assert_eq!(ctx.get_block_quote_nesting_level(), 1);
-        
+
         ctx.increment_block_quote_nesting();
         assert_eq!(ctx.get_block_quote_nesting_level(), 2);
-        
+
         ctx.decrement_block_quote_nesting();
         assert_eq!(ctx.get_block_quote_nesting_level(), 1);
-        
+
         ctx.decrement_block_quote_nesting();
         assert_eq!(ctx.get_block_quote_nesting_level(), 0);
-        
+
         // Should not go below 0
         ctx.decrement_block_quote_nesting();
         assert_eq!(ctx.get_block_quote_nesting_level(), 0);
@@ -709,30 +718,30 @@ mod tests {
         let mut ctx = MockContext::new();
         assert!(!ctx.is_collecting_table());
         assert!(ctx.take_table_data().is_none());
-        
+
         // Start collecting table data
         ctx.start_table_collection(vec![
             crate::nodes::TableAlignment::Left,
             crate::nodes::TableAlignment::Center,
         ]);
         assert!(ctx.is_collecting_table());
-        
+
         // Add rows and cells
         ctx.add_table_row();
         ctx.add_table_cell("Cell 1".to_string());
         ctx.add_table_cell("Cell 2".to_string());
-        
+
         ctx.add_table_row();
         ctx.add_table_cell("Cell 3".to_string());
         ctx.add_table_cell("Cell 4".to_string());
-        
+
         // Take table data
         let (rows, alignments) = ctx.take_table_data().unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0], vec!["Cell 1", "Cell 2"]);
         assert_eq!(rows[1], vec!["Cell 3", "Cell 4"]);
         assert_eq!(alignments.len(), 2);
-        
+
         // After taking, should be None
         assert!(!ctx.is_collecting_table());
         assert!(ctx.take_table_data().is_none());
@@ -741,27 +750,29 @@ mod tests {
     #[test]
     fn test_mock_context_get_current_node_parent() {
         let mut ctx = MockContext::new();
-        
+
         // Create a simple tree: Document -> Paragraph -> Text
         let doc = ctx.arena.alloc(Node::with_value(NodeValue::Document));
         let para = ctx.arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = ctx.arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
-        
+        let text = ctx
+            .arena
+            .alloc(Node::with_value(NodeValue::make_text("Hello")));
+
         // Set up parent relationships manually
         ctx.arena.get_mut(para).parent = Some(doc);
         ctx.arena.get_mut(text).parent = Some(para);
-        
+
         // No current node set
         assert!(ctx.get_current_node_parent().is_none());
-        
+
         // Set current node to text
         ctx.current_node = Some(text);
         assert_eq!(ctx.get_current_node_parent(), Some(para));
-        
+
         // Set current node to paragraph
         ctx.current_node = Some(para);
         assert_eq!(ctx.get_current_node_parent(), Some(doc));
-        
+
         // Set current node to document (no parent)
         ctx.current_node = Some(doc);
         assert!(ctx.get_current_node_parent().is_none());
@@ -770,14 +781,16 @@ mod tests {
     #[test]
     fn test_mock_context_get_current_node_value() {
         let mut ctx = MockContext::new();
-        
+
         // No current node
         assert!(ctx.get_current_node_value().is_none());
-        
+
         // Create and set a text node
-        let text = ctx.arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+        let text = ctx
+            .arena
+            .alloc(Node::with_value(NodeValue::make_text("Hello")));
         ctx.current_node = Some(text);
-        
+
         if let Some(NodeValue::Text(text_node)) = ctx.get_current_node_value() {
             assert_eq!(text_node.as_ref(), "Hello");
         } else {
@@ -795,9 +808,9 @@ mod tests {
     #[test]
     fn test_mock_context_block_quote_prefix() {
         let ctx = MockContext::new();
-        
+
         assert_eq!(ctx.get_block_quote_like_prefix_chars(), ">");
-        
+
         let predicate = ctx.get_block_quote_like_prefix_predicate();
         assert!(predicate('>'));
         assert!(!predicate(' '));
@@ -808,7 +821,7 @@ mod tests {
     fn test_sub_formatter_context_new() {
         let mut parent = MockContext::new();
         let sub = SubFormatterContext::new(&mut parent);
-        
+
         assert!(sub.get_current_node().is_none());
         assert!(!sub.is_in_tight_list());
         assert_eq!(sub.get_list_nesting_level(), 0);
@@ -820,10 +833,10 @@ mod tests {
     fn test_sub_formatter_context_tight_list() {
         let mut parent = MockContext::new();
         let mut sub = SubFormatterContext::new(&mut parent);
-        
+
         sub.set_tight_list(true);
         assert!(sub.is_in_tight_list());
-        
+
         sub.set_tight_list(false);
         assert!(!sub.is_in_tight_list());
     }
@@ -832,21 +845,21 @@ mod tests {
     fn test_sub_formatter_context_list_nesting() {
         let mut parent = MockContext::new();
         let mut sub = SubFormatterContext::new(&mut parent);
-        
+
         assert_eq!(sub.get_list_nesting_level(), 0);
-        
+
         sub.increment_list_nesting();
         assert_eq!(sub.get_list_nesting_level(), 1);
-        
+
         sub.increment_list_nesting();
         assert_eq!(sub.get_list_nesting_level(), 2);
-        
+
         sub.decrement_list_nesting();
         assert_eq!(sub.get_list_nesting_level(), 1);
-        
+
         sub.decrement_list_nesting();
         assert_eq!(sub.get_list_nesting_level(), 0);
-        
+
         // Should not go below 0
         sub.decrement_list_nesting();
         assert_eq!(sub.get_list_nesting_level(), 0);
@@ -856,15 +869,15 @@ mod tests {
     fn test_sub_formatter_context_block_quote() {
         let mut parent = MockContext::new();
         let mut sub = SubFormatterContext::new(&mut parent);
-        
+
         assert!(!sub.is_in_block_quote());
-        
+
         sub.set_in_block_quote(true);
         assert!(sub.is_in_block_quote());
-        
+
         sub.increment_block_quote_nesting();
         assert_eq!(sub.get_block_quote_nesting_level(), 1);
-        
+
         sub.decrement_block_quote_nesting();
         assert_eq!(sub.get_block_quote_nesting_level(), 0);
     }
@@ -873,7 +886,7 @@ mod tests {
     fn test_sub_formatter_context_delegates_to_parent() {
         let mut parent = MockContext::new();
         let sub = SubFormatterContext::new(&mut parent);
-        
+
         // These should delegate to parent without panicking
         let _ = sub.get_formatting_phase();
         let _ = sub.get_formatter_options();
@@ -898,9 +911,9 @@ mod tests {
         let mut parent = MockContext::new();
         let doc = parent.arena.alloc(Node::with_value(NodeValue::Document));
         parent.current_node = Some(doc);
-        
+
         let sub = SubFormatterContext::new(&mut parent);
-        
+
         // Should fall back to parent's current node
         assert_eq!(sub.get_current_node(), Some(doc));
     }

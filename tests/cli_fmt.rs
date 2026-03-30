@@ -92,7 +92,11 @@ fn test_fmt_code_block() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("```rust"), "Should contain opening fence: {}", cm);
+    assert!(
+        cm.contains("```rust"),
+        "Should contain opening fence: {}",
+        cm
+    );
     assert!(cm.contains("fn main()"), "Should contain code: {}", cm);
     assert!(cm.contains("```"), "Should contain closing fence: {}", cm);
 }
@@ -128,10 +132,26 @@ fn test_fmt_nested_list() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("- Item 1"), "Should contain outer item 1: {}", cm);
-    assert!(cm.contains("- Item 2"), "Should contain outer item 2: {}", cm);
-    assert!(cm.contains("  - Nested 1"), "Should contain nested item 1: {}", cm);
-    assert!(cm.contains("  - Nested 2"), "Should contain nested item 2: {}", cm);
+    assert!(
+        cm.contains("- Item 1"),
+        "Should contain outer item 1: {}",
+        cm
+    );
+    assert!(
+        cm.contains("- Item 2"),
+        "Should contain outer item 2: {}",
+        cm
+    );
+    assert!(
+        cm.contains("  - Nested 1"),
+        "Should contain nested item 1: {}",
+        cm
+    );
+    assert!(
+        cm.contains("  - Nested 2"),
+        "Should contain nested item 2: {}",
+        cm
+    );
 }
 
 #[test]
@@ -141,7 +161,11 @@ fn test_fmt_link() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("[example](https://example.com)"), "Should contain link: {}", cm);
+    assert!(
+        cm.contains("[example](https://example.com)"),
+        "Should contain link: {}",
+        cm
+    );
 }
 
 #[test]
@@ -151,7 +175,11 @@ fn test_fmt_image() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("![alt text](image.png)"), "Should contain image: {}", cm);
+    assert!(
+        cm.contains("![alt text](image.png)"),
+        "Should contain image: {}",
+        cm
+    );
 }
 
 #[test]
@@ -161,7 +189,11 @@ fn test_fmt_blockquote() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("> This is a quote"), "Should contain blockquote: {}", cm);
+    assert!(
+        cm.contains("> This is a quote"),
+        "Should contain blockquote: {}",
+        cm
+    );
 }
 
 #[test]
@@ -225,17 +257,37 @@ fn hello() {
     let cm = String::from_utf8(output.stdout).unwrap();
 
     // Verify all sections are present
-    assert!(cm.contains("# Document Title"), "Should contain title: {}", cm);
-    assert!(cm.contains("## Section 1: Lists"), "Should contain section 1: {}", cm);
-    assert!(cm.contains("## Section 2: Code"), "Should contain section 2: {}", cm);
-    assert!(cm.contains("## Section 3: Table"), "Should contain section 3: {}", cm);
+    assert!(
+        cm.contains("# Document Title"),
+        "Should contain title: {}",
+        cm
+    );
+    assert!(
+        cm.contains("## Section 1: Lists"),
+        "Should contain section 1: {}",
+        cm
+    );
+    assert!(
+        cm.contains("## Section 2: Code"),
+        "Should contain section 2: {}",
+        cm
+    );
+    assert!(
+        cm.contains("## Section 3: Table"),
+        "Should contain section 3: {}",
+        cm
+    );
 
     // Verify formatting is preserved
     assert!(cm.contains("**bold**"), "Should preserve bold: {}", cm);
     assert!(cm.contains("*italic*"), "Should preserve italic: {}", cm);
     assert!(cm.contains("```rust"), "Should preserve code block: {}", cm);
     assert!(cm.contains("| Name"), "Should preserve table: {}", cm);
-    assert!(cm.contains("> A blockquote"), "Should preserve blockquote: {}", cm);
+    assert!(
+        cm.contains("> A blockquote"),
+        "Should preserve blockquote: {}",
+        cm
+    );
 }
 
 #[test]
@@ -256,7 +308,11 @@ fn test_fmt_empty_input() {
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
     // Empty input should produce empty or minimal output
-    assert!(cm.is_empty() || cm.trim().is_empty(), "Empty input should produce empty output: {:?}", cm);
+    assert!(
+        cm.is_empty() || cm.trim().is_empty(),
+        "Empty input should produce empty output: {:?}",
+        cm
+    );
 }
 
 #[test]

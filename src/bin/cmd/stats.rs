@@ -36,13 +36,14 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
 
     let (arena, root) = clmd::parse_document(&input, options);
 
-    let mut stats = Stats::default();
-
     // Count lines and basic text stats
-    stats.lines = input.lines().count();
-    stats.words = utils::count_words(&input);
-    stats.characters = utils::count_chars(&input);
-    stats.bytes = input.len();
+    let mut stats = Stats {
+        lines: input.lines().count(),
+        words: utils::count_words(&input),
+        characters: utils::count_chars(&input),
+        bytes: input.len(),
+        ..Stats::default()
+    };
 
     // Traverse AST for element counts
     for node_id in arena.descendants(root) {

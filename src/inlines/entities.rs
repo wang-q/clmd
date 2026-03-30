@@ -175,8 +175,13 @@ pub fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     }
 
     // Try named entity from our table only (htmlescape has encoding issues)
-    if entity_str.len() > 2 {
-        let name = &entity_str[1..entity_str.len() - 1]; // Remove & and ;
+    // Use char_indices to handle multi-byte characters correctly
+    let mut char_indices = entity_str.char_indices();
+    let first_char = char_indices.next();
+    let last_char = char_indices.next_back();
+
+    if let (Some((_, '&')), Some((last_idx, ';'))) = (first_char, last_char) {
+        let name = &entity_str[1..last_idx]; // Remove & and ; using byte index
         if !name.is_empty() {
             if let Some(decoded) = get_html5_entity(name) {
                 return Some((decoded.to_string(), entity_str.len()));

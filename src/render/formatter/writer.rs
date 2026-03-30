@@ -51,6 +51,7 @@ impl MarkdownWriter {
     }
 
     /// Create a new Markdown writer with default flags
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         Self::new(FormatFlags::DEFAULT)
     }
@@ -246,6 +247,7 @@ impl MarkdownWriter {
     }
 
     /// Get the output as a string
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.output.clone()
     }

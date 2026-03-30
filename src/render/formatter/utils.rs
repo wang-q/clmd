@@ -103,11 +103,7 @@ pub fn render_code_block(
         writer.append(&marker);
     } else {
         // Indented code block
-        let indent = if options.indented_code_minimize_indent {
-            4
-        } else {
-            4 // Default indent
-        };
+        let indent = 4;
 
         let indent_str = " ".repeat(indent);
 
@@ -277,7 +273,7 @@ pub fn format_heading_marker(
         let ch = setext_char.unwrap_or('=');
         ch.to_string().repeat(level as usize)
     } else {
-        format!("{}", "#".repeat(level as usize))
+        "#".repeat(level as usize).to_string()
     }
 }
 

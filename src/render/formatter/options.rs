@@ -550,7 +550,10 @@ mod tests {
         assert!(matches!(opts.list_bullet_marker, BulletMarker::Dash));
         assert!(matches!(opts.list_numbered_marker, NumberedMarker::Period));
         assert!(matches!(opts.list_spacing, ListSpacing::AsIs));
-        assert!(matches!(opts.fenced_code_marker_type, CodeFenceMarker::BackTick));
+        assert!(matches!(
+            opts.fenced_code_marker_type,
+            CodeFenceMarker::BackTick
+        ));
         assert!(matches!(opts.block_quote_markers, BlockQuoteMarker::AsIs));
         assert!(matches!(opts.reference_placement, ElementPlacement::AsIs));
         assert!(matches!(opts.reference_sort, ElementPlacementSort::AsIs));
@@ -607,24 +610,39 @@ mod tests {
             .with_formatter_off_tag("off");
 
         assert!(matches!(opts.heading_style, HeadingStyle::Setext));
-        assert!(matches!(opts.space_after_atx_marker, DiscretionaryText::Remove));
-        assert!(matches!(opts.atx_heading_trailing_marker, TrailingMarker::Remove));
+        assert!(matches!(
+            opts.space_after_atx_marker,
+            DiscretionaryText::Remove
+        ));
+        assert!(matches!(
+            opts.atx_heading_trailing_marker,
+            TrailingMarker::Remove
+        ));
         assert!(!opts.setext_heading_equalize_marker);
         assert_eq!(opts.min_setext_marker_length, 5);
         assert!(matches!(opts.list_bullet_marker, BulletMarker::Asterisk));
         assert!(matches!(opts.list_numbered_marker, NumberedMarker::Paren));
         assert!(!opts.list_renumber_items);
         assert!(matches!(opts.list_spacing, ListSpacing::Loose));
-        assert!(matches!(opts.fenced_code_marker_type, CodeFenceMarker::Tilde));
+        assert!(matches!(
+            opts.fenced_code_marker_type,
+            CodeFenceMarker::Tilde
+        ));
         assert_eq!(opts.fenced_code_marker_length, 4);
         assert!(opts.block_quote_blank_lines);
-        assert!(matches!(opts.block_quote_markers, BlockQuoteMarker::AddCompact));
+        assert!(matches!(
+            opts.block_quote_markers,
+            BlockQuoteMarker::AddCompact
+        ));
         assert!(!opts.keep_hard_line_breaks);
         assert!(!opts.keep_soft_line_breaks);
         assert_eq!(opts.right_margin, 120);
         assert_eq!(opts.max_blank_lines, 3);
         assert_eq!(opts.thematic_break, Some("---".to_string()));
-        assert!(matches!(opts.reference_placement, ElementPlacement::DocumentBottom));
+        assert!(matches!(
+            opts.reference_placement,
+            ElementPlacement::DocumentBottom
+        ));
         assert!(matches!(opts.reference_sort, ElementPlacementSort::Sort));
         assert!(opts.formatter_tags_enabled);
         assert_eq!(opts.formatter_on_tag, "on");
@@ -658,7 +676,7 @@ mod tests {
         assert!(ElementPlacement::GroupWithFirst.is_change());
         assert!(ElementPlacement::GroupWithLast.is_change());
         assert!(!ElementPlacement::AsIs.is_change());
-        
+
         assert!(ElementPlacement::AsIs.is_no_change());
         assert!(!ElementPlacement::DocumentTop.is_no_change());
     }
@@ -719,7 +737,10 @@ mod tests {
 
     #[test]
     fn test_code_fence_marker_variants() {
-        assert!(matches!(CodeFenceMarker::BackTick, CodeFenceMarker::BackTick));
+        assert!(matches!(
+            CodeFenceMarker::BackTick,
+            CodeFenceMarker::BackTick
+        ));
         assert!(matches!(CodeFenceMarker::Tilde, CodeFenceMarker::Tilde));
         assert!(matches!(CodeFenceMarker::Any, CodeFenceMarker::Any));
     }
@@ -727,17 +748,32 @@ mod tests {
     #[test]
     fn test_block_quote_marker_variants() {
         assert!(matches!(BlockQuoteMarker::AsIs, BlockQuoteMarker::AsIs));
-        assert!(matches!(BlockQuoteMarker::AddCompact, BlockQuoteMarker::AddCompact));
-        assert!(matches!(BlockQuoteMarker::AddCompactWithSpace, BlockQuoteMarker::AddCompactWithSpace));
-        assert!(matches!(BlockQuoteMarker::AddSpaced, BlockQuoteMarker::AddSpaced));
+        assert!(matches!(
+            BlockQuoteMarker::AddCompact,
+            BlockQuoteMarker::AddCompact
+        ));
+        assert!(matches!(
+            BlockQuoteMarker::AddCompactWithSpace,
+            BlockQuoteMarker::AddCompactWithSpace
+        ));
+        assert!(matches!(
+            BlockQuoteMarker::AddSpaced,
+            BlockQuoteMarker::AddSpaced
+        ));
     }
 
     #[test]
     fn test_discretionary_text_variants() {
         assert!(matches!(DiscretionaryText::Add, DiscretionaryText::Add));
-        assert!(matches!(DiscretionaryText::Remove, DiscretionaryText::Remove));
+        assert!(matches!(
+            DiscretionaryText::Remove,
+            DiscretionaryText::Remove
+        ));
         assert!(matches!(DiscretionaryText::AsIs, DiscretionaryText::AsIs));
-        assert!(matches!(DiscretionaryText::Equalize, DiscretionaryText::Equalize));
+        assert!(matches!(
+            DiscretionaryText::Equalize,
+            DiscretionaryText::Equalize
+        ));
     }
 
     #[test]
@@ -759,10 +795,22 @@ mod tests {
     #[test]
     fn test_element_placement_variants() {
         assert!(matches!(ElementPlacement::AsIs, ElementPlacement::AsIs));
-        assert!(matches!(ElementPlacement::DocumentTop, ElementPlacement::DocumentTop));
-        assert!(matches!(ElementPlacement::DocumentBottom, ElementPlacement::DocumentBottom));
-        assert!(matches!(ElementPlacement::GroupWithFirst, ElementPlacement::GroupWithFirst));
-        assert!(matches!(ElementPlacement::GroupWithLast, ElementPlacement::GroupWithLast));
+        assert!(matches!(
+            ElementPlacement::DocumentTop,
+            ElementPlacement::DocumentTop
+        ));
+        assert!(matches!(
+            ElementPlacement::DocumentBottom,
+            ElementPlacement::DocumentBottom
+        ));
+        assert!(matches!(
+            ElementPlacement::GroupWithFirst,
+            ElementPlacement::GroupWithFirst
+        ));
+        assert!(matches!(
+            ElementPlacement::GroupWithLast,
+            ElementPlacement::GroupWithLast
+        ));
     }
 
     #[test]
@@ -770,7 +818,7 @@ mod tests {
         let opts = FormatterOptions::new()
             .with_right_margin(100)
             .with_heading_style(HeadingStyle::Atx);
-        
+
         let cloned = opts.clone();
         assert_eq!(cloned.right_margin, 100);
         assert!(matches!(cloned.heading_style, HeadingStyle::Atx));

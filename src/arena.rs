@@ -721,9 +721,7 @@ impl<'a> Iterator for SiblingsIterator<'a> {
             }
 
             // If we've exhausted all siblings, return None
-            if self.current.is_none() {
-                return None;
-            }
+            self.current?;
         }
     }
 }

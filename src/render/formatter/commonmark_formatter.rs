@@ -16,7 +16,9 @@
 use crate::arena::NodeId;
 use crate::nodes::NodeValue;
 use crate::render::formatter::context::NodeFormatterContext;
-use crate::render::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::render::formatter::node::{
+    NodeFormatter, NodeFormattingHandler, NodeValueType,
+};
 use crate::render::formatter::options::FormatterOptions;
 use crate::render::formatter::phase::FormattingPhase;
 use crate::render::formatter::phased::PhasedNodeFormatter;
@@ -109,343 +111,509 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             // Document
             NodeFormattingHandler::new(
                 NodeValueType::Document,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Document is handled at the top level
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Document is handled at the top level
+                    },
+                ),
             ),
             // Block elements
             NodeFormattingHandler::with_close(
                 NodeValueType::Paragraph,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Paragraph opening - nothing special needed
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Paragraph closing - add line break after paragraph
-                    // In tight lists, just add a single line break
-                    // In loose lists, add a blank line
-                    if ctx.is_in_tight_list() {
-                        writer.line();
-                    } else {
-                        writer.blank_line();
-                    }
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Paragraph opening - nothing special needed
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Paragraph closing - add line break after paragraph
+                        // In tight lists, just add a single line break
+                        // In loose lists, add a blank line
+                        if ctx.is_in_tight_list() {
+                            writer.line();
+                        } else {
+                            writer.blank_line();
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Heading,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::Heading(heading) = value {
-                        let hashes = "#".repeat(heading.level as usize);
-                        // Append hash and space together to avoid whitespace trimming
-                        writer.append_raw(format!("{} ", hashes));
-                    }
-                }),
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Heading closing - add blank line after heading
-                    writer.blank_line();
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::Heading(heading) = value {
+                            let hashes = "#".repeat(heading.level as usize);
+                            // Append hash and space together to avoid whitespace trimming
+                            writer.append_raw(format!("{} ", hashes));
+                        }
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Heading closing - add blank line after heading
+                        writer.blank_line();
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::BlockQuote,
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.push_prefix("> ");
-                    ctx.set_in_block_quote(true);
-                    ctx.increment_block_quote_nesting();
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.pop_prefix();
-                    ctx.decrement_block_quote_nesting();
-                    if ctx.get_block_quote_nesting_level() == 0 {
-                        ctx.set_in_block_quote(false);
-                    }
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.push_prefix("> ");
+                        ctx.set_in_block_quote(true);
+                        ctx.increment_block_quote_nesting();
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.pop_prefix();
+                        ctx.decrement_block_quote_nesting();
+                        if ctx.get_block_quote_nesting_level() == 0 {
+                            ctx.set_in_block_quote(false);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::CodeBlock,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::CodeBlock(code_block) = value {
-                        render_code_block(code_block, writer);
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::CodeBlock(code_block) = value {
+                            render_code_block(code_block, writer);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::List,
-                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    if let NodeValue::List(list) = value {
-                        ctx.set_tight_list(list.tight);
-                        ctx.increment_list_nesting();
-                    }
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    ctx.decrement_list_nesting();
-                    if ctx.get_list_nesting_level() == 0 {
-                        ctx.set_tight_list(false);
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        if let NodeValue::List(list) = value {
+                            ctx.set_tight_list(list.tight);
+                            ctx.increment_list_nesting();
+                        }
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        ctx.decrement_list_nesting();
+                        if ctx.get_list_nesting_level() == 0 {
+                            ctx.set_tight_list(false);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Item,
-                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Get the parent list to determine the marker and nesting level
-                    let (marker, nesting_level) = if let Some(parent_id) = ctx.get_current_node_parent() {
-                        let arena = ctx.get_arena();
-                        let parent = arena.get(parent_id);
-                        if let NodeValue::List(list) = &parent.value {
-                            // Find the nesting level by counting list ancestors
-                            let level = count_list_ancestors(arena, parent_id);
-                            // For ordered lists, calculate the item number based on position
-                            let item_number = get_item_number_in_list(arena, parent_id, ctx.get_current_node());
-                            let marker = format_list_item_marker_with_number(list, item_number);
-                            (marker, level)
+                Box::new(
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Get the parent list to determine the marker and nesting level
+                        let (marker, nesting_level) =
+                            if let Some(parent_id) = ctx.get_current_node_parent() {
+                                let arena = ctx.get_arena();
+                                let parent = arena.get(parent_id);
+                                if let NodeValue::List(list) = &parent.value {
+                                    // Find the nesting level by counting list ancestors
+                                    let level = count_list_ancestors(arena, parent_id);
+                                    // For ordered lists, calculate the item number based on position
+                                    let item_number = get_item_number_in_list(
+                                        arena,
+                                        parent_id,
+                                        ctx.get_current_node(),
+                                    );
+                                    let marker = format_list_item_marker_with_number(
+                                        list,
+                                        item_number,
+                                    );
+                                    (marker, level)
+                                } else {
+                                    ("- ".to_string(), 0)
+                                }
+                            } else {
+                                ("- ".to_string(), 0)
+                            };
+
+                        // Check if this specific item is a task list item
+                        let is_task_list = if let NodeValue::Item(item_data) = value {
+                            item_data.is_task_list
                         } else {
-                            ("- ".to_string(), 0)
-                        }
-                    } else {
-                        ("- ".to_string(), 0)
-                    };
-
-                    // Check if this specific item is a task list item
-                    let is_task_list = if let NodeValue::Item(item_data) = value {
-                        item_data.is_task_list
-                    } else {
-                        false
-                    };
-
-                    // Add indentation based on list nesting level
-                    let indent = "  ".repeat(nesting_level);
-
-                    // Output the list marker directly (not as a prefix)
-                    // This avoids the prefix stacking issue with nested lists
-                    writer.append_raw(&indent);
-                    writer.append_raw(&marker);
-
-                    // If this is a task list item, render the task marker
-                    if is_task_list {
-                        // Determine if this is a checked task
-                        let task_marker = if is_task_item_checked(ctx.get_arena(), ctx.get_current_node()) {
-                            "[x] "
-                        } else {
-                            "[ ] "
+                            false
                         };
-                        writer.append_raw(task_marker);
-                    }
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Add line break after each list item
-                    // In tight lists, don't add extra blank line
-                    if ctx.is_in_tight_list() {
-                        writer.line();
-                    } else {
-                        writer.blank_line();
-                    }
-                }),
+
+                        // Add indentation based on list nesting level
+                        let indent = "  ".repeat(nesting_level);
+
+                        // Output the list marker directly (not as a prefix)
+                        // This avoids the prefix stacking issue with nested lists
+                        writer.append_raw(&indent);
+                        writer.append_raw(&marker);
+
+                        // If this is a task list item, render the task marker
+                        if is_task_list {
+                            // Determine if this is a checked task
+                            let task_marker = if is_task_item_checked(
+                                ctx.get_arena(),
+                                ctx.get_current_node(),
+                            ) {
+                                "[x] "
+                            } else {
+                                "[ ] "
+                            };
+                            writer.append_raw(task_marker);
+                        }
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Add line break after each list item
+                        // In tight lists, don't add extra blank line
+                        if ctx.is_in_tight_list() {
+                            writer.line();
+                        } else {
+                            writer.blank_line();
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::ThematicBreak,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("***");
-                    writer.line();
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("***");
+                        writer.line();
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::HtmlBlock,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::HtmlBlock(html) = value {
-                        for line in html.literal.lines() {
-                            writer.append(line);
-                            writer.line();
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::HtmlBlock(html) = value {
+                            for line in html.literal.lines() {
+                                writer.append(line);
+                                writer.line();
+                            }
                         }
-                    }
-                }),
+                    },
+                ),
             ),
             // Inline elements
             NodeFormattingHandler::new(
                 NodeValueType::Text,
-                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::Text(text) = value {
-                        let text_str = text.as_ref();
+                Box::new(
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::Text(text) = value {
+                            let text_str = text.as_ref();
 
-                        // Check if we're in a task list item and need to skip the task marker
-                        let processed_text = if is_in_task_list_item(ctx) {
-                            skip_task_marker(text_str)
-                        } else {
-                            text_str.to_string()
-                        };
+                            // Check if we're in a task list item and need to skip the task marker
+                            let processed_text = if is_in_task_list_item(ctx) {
+                                skip_task_marker(text_str)
+                            } else {
+                                text_str.to_string()
+                            };
 
-                        let escaped = escape_markdown(&processed_text);
-                        // Use append_raw to preserve whitespace in text content
-                        writer.append_raw(&escaped);
-                    }
-                }),
+                            let escaped = escape_markdown(&processed_text);
+                            // Use append_raw to preserve whitespace in text content
+                            writer.append_raw(&escaped);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::Code,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::Code(code) = value {
-                        let backticks = get_backtick_sequence(&code.literal);
-                        writer.append(&backticks);
-                        writer.append(&code.literal);
-                        writer.append(&backticks);
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::Code(code) = value {
+                            let backticks = get_backtick_sequence(&code.literal);
+                            writer.append(&backticks);
+                            writer.append(&code.literal);
+                            writer.append(&backticks);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Emph,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("*");
-                }),
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("*");
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("*");
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("*");
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Strong,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("**");
-                }),
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("**");
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("**");
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("**");
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Link,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("[");
-                }),
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::Link(link) = value {
-                        writer.append("](");
-                        writer.append(&escape_link_url(&link.url));
-                        if !link.title.is_empty() {
-                            writer.append(&format!(" \"{}\"", escape_string(&link.title)));
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("[");
+                    },
+                ),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::Link(link) = value {
+                            writer.append("](");
+                            writer.append(escape_link_url(&link.url));
+                            if !link.title.is_empty() {
+                                writer.append(format!(
+                                    " \"{}\"",
+                                    escape_string(&link.title)
+                                ));
+                            }
+                            writer.append(")");
                         }
-                        writer.append(")");
-                    }
-                }),
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Image,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("![");
-                }),
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::Image(link) = value {
-                        writer.append("](");
-                        writer.append(&escape_link_url(&link.url));
-                        if !link.title.is_empty() {
-                            writer.append(&format!(" \"{}\"", escape_string(&link.title)));
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("![");
+                    },
+                ),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::Image(link) = value {
+                            writer.append("](");
+                            writer.append(escape_link_url(&link.url));
+                            if !link.title.is_empty() {
+                                writer.append(format!(
+                                    " \"{}\"",
+                                    escape_string(&link.title)
+                                ));
+                            }
+                            writer.append(")");
                         }
-                        writer.append(")");
-                    }
-                }),
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::Strikethrough,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("~~");
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("~~");
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::SoftBreak,
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if ctx.is_in_tight_list() {
-                        writer.append(" ");
-                    } else {
-                        writer.line();
-                    }
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if ctx.is_in_tight_list() {
+                            writer.append(" ");
+                        } else {
+                            writer.line();
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::HardBreak,
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.append("  ");
-                    writer.line();
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("  ");
+                        writer.line();
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::HtmlInline,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::HtmlInline(html) = value {
-                        writer.append(html);
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::HtmlInline(html) = value {
+                            writer.append(html);
+                        }
+                    },
+                ),
             ),
             // Table elements
             NodeFormattingHandler::with_close(
                 NodeValueType::Table,
-                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Table opening - start collecting data
-                    if let NodeValue::Table(table) = value {
-                        ctx.start_table_collection(table.alignments.clone());
-                    }
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Table closing - format and output using table.rs
-                    if let Some((rows, alignments)) = ctx.take_table_data() {
-                        render_formatted_table(&rows, &alignments, writer);
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Table opening - start collecting data
+                        if let NodeValue::Table(table) = value {
+                            ctx.start_table_collection(table.alignments.clone());
+                        }
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Table closing - format and output using table.rs
+                        if let Some((rows, alignments)) = ctx.take_table_data() {
+                            render_formatted_table(&rows, &alignments, writer);
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::TableRow,
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Row opening - add new row to collection
-                    ctx.add_table_row();
-                }),
-                Box::new(|_value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Row closing - nothing to do
-                }),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Row opening - add new row to collection
+                        ctx.add_table_row();
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Row closing - nothing to do
+                    },
+                ),
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::TableCell,
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Cell opening - if collecting table, skip rendering children
-                    // They will be collected on close
-                    if ctx.is_collecting_table() {
-                        ctx.set_skip_children(true);
-                    }
-                }),
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, _writer: &mut MarkdownWriter| {
-                    // Cell closing - collect text content directly without full rendering
-                    if ctx.is_collecting_table() {
-                        if let Some(node_id) = ctx.get_current_node() {
-                            let content = collect_cell_text_content(ctx.get_arena(), node_id);
-                            ctx.add_table_cell(content);
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Cell opening - if collecting table, skip rendering children
+                        // They will be collected on close
+                        if ctx.is_collecting_table() {
+                            ctx.set_skip_children(true);
                         }
-                    }
-                }),
+                    },
+                ),
+                Box::new(
+                    |_value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     _writer: &mut MarkdownWriter| {
+                        // Cell closing - collect text content directly without full rendering
+                        if ctx.is_collecting_table() {
+                            if let Some(node_id) = ctx.get_current_node() {
+                                let content =
+                                    collect_cell_text_content(ctx.get_arena(), node_id);
+                                ctx.add_table_cell(content);
+                            }
+                        }
+                    },
+                ),
             ),
             // Footnote elements
             NodeFormattingHandler::new(
                 NodeValueType::FootnoteReference,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::FootnoteReference(footnote) = value {
-                        writer.append(&format!("[^{}]", footnote.name));
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::FootnoteReference(footnote) = value {
+                            writer.append(format!("[^{}]", footnote.name));
+                        }
+                    },
+                ),
             ),
             NodeFormattingHandler::new(
                 NodeValueType::FootnoteDefinition,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    if let NodeValue::FootnoteDefinition(footnote) = value {
-                        writer.append(&format!("[^{}]:", footnote.name));
-                    }
-                }),
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::FootnoteDefinition(footnote) = value {
+                            writer.append(format!("[^{}]:", footnote.name));
+                        }
+                    },
+                ),
             ),
             // Task items
             NodeFormattingHandler::new(
                 NodeValueType::TaskItem,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    eprintln!("DEBUG: TaskItem handler called");
-                    if let NodeValue::TaskItem(task) = value {
-                        eprintln!("DEBUG: TaskItem symbol={:?}", task.symbol);
-                        // Use append_raw to prevent escaping of [ and ]
-                        if task.symbol.is_some() {
-                            writer.append_raw("[x] ");
-                        } else {
-                            writer.append_raw("[ ] ");
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        eprintln!("DEBUG: TaskItem handler called");
+                        if let NodeValue::TaskItem(task) = value {
+                            eprintln!("DEBUG: TaskItem symbol={:?}", task.symbol);
+                            // Use append_raw to prevent escaping of [ and ]
+                            if task.symbol.is_some() {
+                                writer.append_raw("[x] ");
+                            } else {
+                                writer.append_raw("[ ] ");
+                            }
                         }
-                    }
-                }),
+                    },
+                ),
             ),
         ]
     }
@@ -453,10 +621,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
 impl PhasedNodeFormatter for CommonMarkNodeFormatter {
     fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
-        vec![
-            FormattingPhase::Collect,
-            FormattingPhase::Document,
-        ]
+        vec![FormattingPhase::Collect, FormattingPhase::Document]
     }
 
     fn render_document(
@@ -484,7 +649,10 @@ impl PhasedNodeFormatter for CommonMarkNodeFormatter {
 ///
 /// Determines the appropriate fence length to avoid conflicts with
 /// backticks in the code content.
-fn render_code_block(code_block: &crate::nodes::NodeCodeBlock, writer: &mut MarkdownWriter) {
+fn render_code_block(
+    code_block: &crate::nodes::NodeCodeBlock,
+    writer: &mut MarkdownWriter,
+) {
     // Determine fence length
     let mut fence_len = 3;
     for seq in code_block.literal.split('\n') {
@@ -527,12 +695,15 @@ fn render_code_block(code_block: &crate::nodes::NodeCodeBlock, writer: &mut Mark
 /// This function recursively collects text from Text nodes and applies
 /// appropriate formatting for inline elements, but avoids escaping pipe
 /// characters which are used for table cell separation.
-fn collect_cell_text_content(arena: &crate::arena::NodeArena, node_id: crate::arena::NodeId) -> String {
+fn collect_cell_text_content(
+    arena: &crate::arena::NodeArena,
+    node_id: crate::arena::NodeId,
+) -> String {
     use crate::nodes::NodeValue;
-    
+
     let mut result = String::new();
     let node = arena.get(node_id);
-    
+
     match &node.value {
         NodeValue::Text(text) => {
             // Escape markdown special chars but not pipe
@@ -605,7 +776,7 @@ fn collect_cell_text_content(arena: &crate::arena::NodeArena, node_id: crate::ar
             }
         }
     }
-    
+
     result
 }
 
@@ -634,7 +805,7 @@ fn render_formatted_table(
 
     // Add header row (first row)
     if let Some(header_row) = rows.first() {
-        let cells: Vec<String> = header_row.iter().map(|cell| cell.clone()).collect();
+        let cells: Vec<String> = header_row.to_vec();
         let line = format!("| {} |", cells.join(" | "));
         lines.push(line);
     }
@@ -642,12 +813,13 @@ fn render_formatted_table(
     // Add a placeholder delimiter row (will be skipped by format_table_lines)
     // We use a simple delimiter that matches the number of columns
     let num_cols = alignments.len().max(1);
-    let placeholder_delimiter: Vec<String> = (0..num_cols).map(|_| "---".to_string()).collect();
+    let placeholder_delimiter: Vec<String> =
+        (0..num_cols).map(|_| "---".to_string()).collect();
     lines.push(format!("| {} |", placeholder_delimiter.join(" | ")));
 
     // Add data rows (remaining rows)
     for row in rows.iter().skip(1) {
-        let cells: Vec<String> = row.iter().map(|cell| cell.clone()).collect();
+        let cells: Vec<String> = row.to_vec();
         let line = format!("| {} |", cells.join(" | "));
         lines.push(line);
     }
@@ -732,9 +904,7 @@ pub fn escape_markdown(text: &str) -> String {
 fn escape_markdown_for_table(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     // Note: '|' is not included here as it's used for table cell separation
-    let special_chars = [
-        '*', '_', '[', ']', '(', ')', '<', '>', '#', '`', '\\', '!',
-    ];
+    let special_chars = ['*', '_', '[', ']', '(', ')', '<', '>', '#', '`', '\\', '!'];
 
     for c in text.chars() {
         if special_chars.contains(&c) {
@@ -773,6 +943,7 @@ pub fn escape_link_url(url: &str) -> String {
 /// Format list item marker based on list type
 ///
 /// Returns the appropriate marker for a list item (e.g., "- ", "1. ", "2) ")
+#[allow(dead_code)]
 fn format_list_item_marker(list: &crate::nodes::NodeList) -> String {
     use crate::nodes::{ListDelimType, ListType};
 
@@ -795,7 +966,10 @@ fn format_list_item_marker(list: &crate::nodes::NodeList) -> String {
 ///
 /// This is used for ordered lists where each item has its own number.
 /// The item_number is the 1-based index of the item in the list.
-fn format_list_item_marker_with_number(list: &crate::nodes::NodeList, item_number: usize) -> String {
+fn format_list_item_marker_with_number(
+    list: &crate::nodes::NodeList,
+    item_number: usize,
+) -> String {
     use crate::nodes::{ListDelimType, ListType};
 
     match list.list_type {
@@ -817,7 +991,10 @@ fn format_list_item_marker_with_number(list: &crate::nodes::NodeList, item_numbe
 ///
 /// This is used to determine the nesting level of a list item.
 /// Returns 0 for top-level items, 1 for items in nested lists, etc.
-fn count_list_ancestors(arena: &crate::arena::NodeArena, list_node_id: crate::arena::NodeId) -> usize {
+fn count_list_ancestors(
+    arena: &crate::arena::NodeArena,
+    list_node_id: crate::arena::NodeId,
+) -> usize {
     use crate::nodes::NodeValue;
 
     let mut count: usize = 0;
@@ -839,7 +1016,10 @@ fn count_list_ancestors(arena: &crate::arena::NodeArena, list_node_id: crate::ar
 ///
 /// This function examines the content of a task list item to determine
 /// if it starts with [x] or [X] (checked) or [ ] (unchecked).
-fn is_task_item_checked(arena: &crate::arena::NodeArena, item_node_id: Option<crate::arena::NodeId>) -> bool {
+fn is_task_item_checked(
+    arena: &crate::arena::NodeArena,
+    item_node_id: Option<crate::arena::NodeId>,
+) -> bool {
     use crate::nodes::NodeValue;
 
     let item_id = match item_node_id {
@@ -913,10 +1093,12 @@ fn is_in_task_list_item(ctx: &dyn NodeFormatterContext) -> bool {
 ///
 /// If the text starts with "[ ] " or "[x] " (or "[X] "), remove it.
 fn skip_task_marker(text: &str) -> String {
-    if text.starts_with("[ ] ") {
-        text[4..].to_string()
-    } else if text.starts_with("[x] ") || text.starts_with("[X] ") {
-        text[4..].to_string()
+    if let Some(rest) = text.strip_prefix("[ ] ") {
+        rest.to_string()
+    } else if let Some(rest) = text.strip_prefix("[x] ") {
+        rest.to_string()
+    } else if let Some(rest) = text.strip_prefix("[X] ") {
+        rest.to_string()
     } else {
         text.to_string()
     }
@@ -1053,7 +1235,10 @@ mod tests {
 
     #[test]
     fn test_escape_link_url() {
-        assert_eq!(escape_link_url("https://example.com"), "https://example.com");
+        assert_eq!(
+            escape_link_url("https://example.com"),
+            "https://example.com"
+        );
         assert_eq!(escape_link_url("url with space"), "url\\ with\\ space");
         assert_eq!(escape_link_url("(paren)"), "\\(paren\\)");
     }
@@ -1288,9 +1473,21 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("- Item 1"), "Should contain first item: {}", result);
-        assert!(result.contains("- Item 2"), "Should contain second item: {}", result);
-        assert!(result.contains("  - Nested"), "Should contain nested item with indent: {}", result);
+        assert!(
+            result.contains("- Item 1"),
+            "Should contain first item: {}",
+            result
+        );
+        assert!(
+            result.contains("- Item 2"),
+            "Should contain second item: {}",
+            result
+        );
+        assert!(
+            result.contains("  - Nested"),
+            "Should contain nested item with indent: {}",
+            result
+        );
     }
 
     #[test]
@@ -1302,15 +1499,17 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
-        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
-            fenced: true,
-            fence_char: b'`',
-            fence_length: 3,
-            fence_offset: 0,
-            info: "rust".to_string(),
-            literal: "fn main() {}".to_string(),
-            closed: true,
-        }))));
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
+            NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+                closed: true,
+            },
+        ))));
 
         TreeOps::append_child(&mut arena, root, code_block);
 
@@ -1320,9 +1519,21 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("```rust"), "Should contain opening fence with info: {}", result);
-        assert!(result.contains("fn main() {}"), "Should contain code content: {}", result);
-        assert!(result.contains("```"), "Should contain closing fence: {}", result);
+        assert!(
+            result.contains("```rust"),
+            "Should contain opening fence with info: {}",
+            result
+        );
+        assert!(
+            result.contains("fn main() {}"),
+            "Should contain code content: {}",
+            result
+        );
+        assert!(
+            result.contains("```"),
+            "Should contain closing fence: {}",
+            result
+        );
     }
 
     #[test]
@@ -1349,7 +1560,11 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("## Section Title"), "Should contain ATX heading: {}", result);
+        assert!(
+            result.contains("## Section Title"),
+            "Should contain ATX heading: {}",
+            result
+        );
     }
 
     #[test]
@@ -1375,7 +1590,11 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("> Quoted text"), "Should contain blockquote: {}", result);
+        assert!(
+            result.contains("> Quoted text"),
+            "Should contain blockquote: {}",
+            result
+        );
     }
 
     #[test]
@@ -1398,10 +1617,11 @@ mod tests {
         TreeOps::append_child(&mut arena, para, link);
 
         // Create image: ![alt](image.png)
-        let image = arena.alloc(Node::with_value(NodeValue::Image(Box::new(NodeLink {
-            url: "image.png".to_string(),
-            title: "".to_string(),
-        }))));
+        let image =
+            arena.alloc(Node::with_value(NodeValue::Image(Box::new(NodeLink {
+                url: "image.png".to_string(),
+                title: "".to_string(),
+            }))));
         let image_alt = arena.alloc(Node::with_value(NodeValue::make_text("alt")));
         TreeOps::append_child(&mut arena, image, image_alt);
         TreeOps::append_child(&mut arena, para, image);
@@ -1414,8 +1634,16 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("[example](https://example.com)"), "Should contain link: {}", result);
-        assert!(result.contains("![alt](image.png)"), "Should contain image: {}", result);
+        assert!(
+            result.contains("[example](https://example.com)"),
+            "Should contain link: {}",
+            result
+        );
+        assert!(
+            result.contains("![alt](image.png)"),
+            "Should contain image: {}",
+            result
+        );
     }
 
     #[test]
@@ -1447,8 +1675,16 @@ mod tests {
 
         let result = formatter.render(&arena, root);
 
-        assert!(result.contains("*emphasis*"), "Should contain emphasis: {}", result);
-        assert!(result.contains("**strong**"), "Should contain strong: {}", result);
+        assert!(
+            result.contains("*emphasis*"),
+            "Should contain emphasis: {}",
+            result
+        );
+        assert!(
+            result.contains("**strong**"),
+            "Should contain strong: {}",
+            result
+        );
     }
 
     #[test]
@@ -1483,7 +1719,8 @@ mod tests {
         })));
 
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
 
         TreeOps::append_child(&mut arena, para, text);
         TreeOps::append_child(&mut arena, item, para);
@@ -1491,7 +1728,10 @@ mod tests {
         TreeOps::append_child(&mut arena, root, list);
 
         // Test that is_task_item_checked returns true for [x]
-        assert!(is_task_item_checked(&arena, Some(item)), "Should detect checked task item");
+        assert!(
+            is_task_item_checked(&arena, Some(item)),
+            "Should detect checked task item"
+        );
 
         // Create another task list item with [ ]
         let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
@@ -1506,14 +1746,18 @@ mod tests {
         })));
 
         let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
+        let text2 =
+            arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
 
         TreeOps::append_child(&mut arena, para2, text2);
         TreeOps::append_child(&mut arena, item2, para2);
         TreeOps::append_child(&mut arena, list, item2);
 
         // Test that is_task_item_checked returns false for [ ]
-        assert!(!is_task_item_checked(&arena, Some(item2)), "Should detect unchecked task item");
+        assert!(
+            !is_task_item_checked(&arena, Some(item2)),
+            "Should detect unchecked task item"
+        );
 
         // Test with [X] (uppercase)
         let item3 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
@@ -1528,17 +1772,25 @@ mod tests {
         })));
 
         let para3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text3 = arena.alloc(Node::with_value(NodeValue::make_text("[X] Checked task uppercase")));
+        let text3 = arena.alloc(Node::with_value(NodeValue::make_text(
+            "[X] Checked task uppercase",
+        )));
 
         TreeOps::append_child(&mut arena, para3, text3);
         TreeOps::append_child(&mut arena, item3, para3);
         TreeOps::append_child(&mut arena, list, item3);
 
         // Test that is_task_item_checked returns true for [X]
-        assert!(is_task_item_checked(&arena, Some(item3)), "Should detect checked task item with uppercase X");
+        assert!(
+            is_task_item_checked(&arena, Some(item3)),
+            "Should detect checked task item with uppercase X"
+        );
 
         // Test with None
-        assert!(!is_task_item_checked(&arena, None), "Should return false for None");
+        assert!(
+            !is_task_item_checked(&arena, None),
+            "Should return false for None"
+        );
     }
 
     #[test]
@@ -1574,7 +1826,8 @@ mod tests {
             is_task_list: true,
         })));
         let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
+        let text1 =
+            arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
         TreeOps::append_child(&mut arena, para1, text1);
         TreeOps::append_child(&mut arena, item1, para1);
         TreeOps::append_child(&mut arena, list, item1);
@@ -1591,7 +1844,8 @@ mod tests {
             is_task_list: true,
         })));
         let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
+        let text2 =
+            arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
         TreeOps::append_child(&mut arena, para2, text2);
         TreeOps::append_child(&mut arena, item2, para2);
         TreeOps::append_child(&mut arena, list, item2);
@@ -1605,9 +1859,25 @@ mod tests {
         let result = formatter.render(&arena, root);
 
         // Check that task list markers are rendered
-        assert!(result.contains("- [ ]"), "Should contain unchecked task marker: {}", result);
-        assert!(result.contains("- [x]"), "Should contain checked task marker: {}", result);
-        assert!(result.contains("Unchecked task"), "Should contain unchecked task text: {}", result);
-        assert!(result.contains("Checked task"), "Should contain checked task text: {}", result);
+        assert!(
+            result.contains("- [ ]"),
+            "Should contain unchecked task marker: {}",
+            result
+        );
+        assert!(
+            result.contains("- [x]"),
+            "Should contain checked task marker: {}",
+            result
+        );
+        assert!(
+            result.contains("Unchecked task"),
+            "Should contain unchecked task text: {}",
+            result
+        );
+        assert!(
+            result.contains("Checked task"),
+            "Should contain checked task text: {}",
+            result
+        );
     }
 }

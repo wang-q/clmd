@@ -666,7 +666,11 @@ mod tests {
 
     #[test]
     fn test_node_formatting_handler_for_type() {
-        fn text_formatter(_: &NodeValue, _: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter) {
+        fn text_formatter(
+            _: &NodeValue,
+            _: &mut dyn NodeFormatterContext,
+            writer: &mut MarkdownWriter,
+        ) {
             writer.append("formatted");
         }
 
@@ -680,7 +684,7 @@ mod tests {
             writer.append("hello");
         });
 
-        let mut options = FormatterOptions::new();
+        let options = FormatterOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -698,7 +702,7 @@ mod tests {
             },
         );
 
-        let mut options = FormatterOptions::new();
+        let options = FormatterOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -709,7 +713,7 @@ mod tests {
     fn test_node_formatting_handler_format_close_without_close() {
         let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {});
 
-        let mut options = FormatterOptions::new();
+        let options = FormatterOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -760,7 +764,10 @@ mod tests {
         struct TestFormatter2;
         impl NodeFormatter for TestFormatter2 {
             fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-                vec![NodeFormattingHandler::new(NodeValueType::Heading, |_, _, _| {})]
+                vec![NodeFormattingHandler::new(
+                    NodeValueType::Heading,
+                    |_, _, _| {},
+                )]
             }
         }
 
@@ -804,7 +811,10 @@ mod tests {
         struct SimpleFormatter;
         impl NodeFormatter for SimpleFormatter {
             fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-                vec![NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {})]
+                vec![NodeFormattingHandler::new(
+                    NodeValueType::Text,
+                    |_, _, _| {},
+                )]
             }
 
             fn get_node_classes(&self) -> Vec<NodeValueType> {
@@ -829,7 +839,9 @@ mod tests {
             fn create(&self) -> Box<dyn NodeFormatter> {
                 struct DummyFormatter;
                 impl NodeFormatter for DummyFormatter {
-                    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                    fn get_node_formatting_handlers(
+                        &self,
+                    ) -> Vec<NodeFormattingHandler> {
                         vec![]
                     }
                 }
@@ -864,7 +876,9 @@ mod tests {
             fn create(&self) -> Box<dyn NodeFormatter> {
                 struct DummyFormatter;
                 impl NodeFormatter for DummyFormatter {
-                    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                    fn get_node_formatting_handlers(
+                        &self,
+                    ) -> Vec<NodeFormattingHandler> {
                         vec![]
                     }
                 }
@@ -897,7 +911,9 @@ mod tests {
         fn render_children(&mut self, _node_id: crate::arena::NodeId) {
             unimplemented!()
         }
-        fn get_formatting_phase(&self) -> crate::render::formatter::phase::FormattingPhase {
+        fn get_formatting_phase(
+            &self,
+        ) -> crate::render::formatter::phase::FormattingPhase {
             crate::render::formatter::phase::FormattingPhase::Document
         }
         fn delegate_render(&mut self) {
@@ -906,7 +922,9 @@ mod tests {
         fn get_formatter_options(&self) -> &FormatterOptions {
             unimplemented!()
         }
-        fn get_render_purpose(&self) -> crate::render::formatter::purpose::RenderPurpose {
+        fn get_render_purpose(
+            &self,
+        ) -> crate::render::formatter::purpose::RenderPurpose {
             crate::render::formatter::purpose::RenderPurpose::Format
         }
         fn get_arena(&self) -> &crate::arena::NodeArena {
@@ -915,10 +933,16 @@ mod tests {
         fn get_current_node(&self) -> Option<crate::arena::NodeId> {
             None
         }
-        fn get_nodes_of_type(&self, _node_type: NodeValueType) -> Vec<crate::arena::NodeId> {
+        fn get_nodes_of_type(
+            &self,
+            _node_type: NodeValueType,
+        ) -> Vec<crate::arena::NodeId> {
             vec![]
         }
-        fn get_nodes_of_types(&self, _node_types: &[NodeValueType]) -> Vec<crate::arena::NodeId> {
+        fn get_nodes_of_types(
+            &self,
+            _node_types: &[NodeValueType],
+        ) -> Vec<crate::arena::NodeId> {
             vec![]
         }
         fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
@@ -954,17 +978,26 @@ mod tests {
         }
         fn increment_block_quote_nesting(&mut self) {}
         fn decrement_block_quote_nesting(&mut self) {}
-        fn start_table_collection(&mut self, _alignments: Vec<crate::nodes::TableAlignment>) {}
+        fn start_table_collection(
+            &mut self,
+            _alignments: Vec<crate::nodes::TableAlignment>,
+        ) {
+        }
         fn add_table_row(&mut self) {}
         fn add_table_cell(&mut self, _content: String) {}
-        fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
             None
         }
         fn is_collecting_table(&self) -> bool {
             false
         }
         fn set_skip_children(&mut self, _skip: bool) {}
-        fn render_children_to_string(&mut self, _node_id: crate::arena::NodeId) -> String {
+        fn render_children_to_string(
+            &mut self,
+            _node_id: crate::arena::NodeId,
+        ) -> String {
             String::new()
         }
     }

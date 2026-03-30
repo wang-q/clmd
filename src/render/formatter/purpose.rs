@@ -3,17 +3,18 @@
 //! This module defines the different purposes for rendering,
 //! inspired by flexmark-java's RenderPurpose enum. This is primarily
 //! used for translation workflows where content needs to be extracted,
-/// translated, and then re-rendered.
+//! translated, and then re-rendered.
 
 /// Render purpose for controlling rendering behavior
 ///
 /// The render purpose determines how content should be rendered,
 /// especially in translation workflows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum RenderPurpose {
     /// Normal formatting
     ///
     /// Standard formatting without any special translation handling.
+    #[default]
     Format,
 
     /// Translation spans - extract translatable text
@@ -102,12 +103,6 @@ impl RenderPurpose {
             RenderPurpose::TranslatedSpans => RenderPurpose::Translated,
             RenderPurpose::Translated => RenderPurpose::Translated,
         }
-    }
-}
-
-impl Default for RenderPurpose {
-    fn default() -> Self {
-        RenderPurpose::Format
     }
 }
 

@@ -52,6 +52,7 @@ impl<'a> ArenaNodeIterator<'a> {
     }
 
     /// Advance the iterator and return the next event type
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> EventType {
         if self.event_type == EventType::None {
             // First call - start at root
@@ -214,6 +215,7 @@ impl<'a> ArenaNodeWalker<'a> {
     }
 
     /// Get the next event from the walker
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<ArenaWalkerEvent> {
         let event_type = self.iterator.next();
         if event_type == EventType::Done {

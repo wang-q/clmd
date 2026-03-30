@@ -192,6 +192,7 @@ impl PhasedNodeFormatter for ComposedPhasedFormatter {
 
 /// A simple phased formatter that only participates in specific phases
 /// without providing node handlers
+#[allow(clippy::type_complexity)]
 pub struct SimplePhasedFormatter {
     phases: Vec<FormattingPhase>,
     render_fn: Box<

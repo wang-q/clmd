@@ -237,7 +237,7 @@ fn align_cell(cell: &Cell, align: TableAlignment, length: usize) -> String {
 /// A vector of cells parsed from the row.
 pub fn parse_row_cells(line: &str) -> Vec<Cell> {
     // Remove any leading whitespace and blockquote nesting
-    let line = line.trim_start_matches(|c: char| c == ' ' || c == '>');
+    let line = line.trim_start_matches([' ', '>']);
 
     let mut previous_char_was_backslash = false;
     let mut char_iter = line.chars();

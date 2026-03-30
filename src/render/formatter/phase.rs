@@ -7,7 +7,7 @@
 ///
 /// The formatter can process documents in multiple phases, allowing
 /// for collection of information before the main rendering pass.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum FormattingPhase {
     /// Collection phase - gather information about the document
     ///
@@ -29,6 +29,7 @@ pub enum FormattingPhase {
     /// Document phase - main document rendering
     ///
     /// This is the main rendering phase where most content is rendered.
+    #[default]
     Document,
 
     /// Document bottom phase - render elements at the bottom of the document
@@ -98,12 +99,6 @@ impl FormattingPhase {
             FormattingPhase::Document => "Document",
             FormattingPhase::DocumentBottom => "DocumentBottom",
         }
-    }
-}
-
-impl Default for FormattingPhase {
-    fn default() -> Self {
-        FormattingPhase::Document
     }
 }
 

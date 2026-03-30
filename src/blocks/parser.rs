@@ -6,6 +6,7 @@ use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::error::{ParseError, ParseResult, ParserLimits};
 use crate::nodes::NodeValue;
+use crate::parser::OPT_VALIDATE_UTF8;
 use rustc_hash::FxHashMap;
 
 /// Type alias for the reference map: label -> (url, title)
@@ -231,17 +232,22 @@ impl<'a> BlockParser<'a> {
         self.blank = false;
         self.partially_consumed_tab = false;
 
+        // Check if we need to validate UTF-8
+        let validate_utf8 = (self.options & OPT_VALIDATE_UTF8) != 0;
+
         // Optimization: avoid String allocation for common case (no NUL characters)
         let has_nul = line.contains('\u{0000}');
 
         // Ensure line ends with newline
         let needs_newline = !line.ends_with('\n');
 
-        if has_nul || needs_newline {
+        // If validate_utf8 is enabled, we always process the line to ensure
+        // proper sanitization (even if no NUL characters are present)
+        if validate_utf8 || has_nul || needs_newline {
             // Need to create a modified line
             self.current_line.clear();
-            if has_nul {
-                // Replace NUL characters
+            if validate_utf8 || has_nul {
+                // Replace NUL characters with U+FFFD
                 for c in line.chars() {
                     if c == '\u{0000}' {
                         self.current_line.push('\u{FFFD}');
@@ -376,6 +382,87 @@ impl<'a> BlockParser<'a> {
                     current = self.arena.get(child).next;
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_utf8_replaces_nul() {
+        let arena = &mut NodeArena::new();
+        let options = OPT_VALIDATE_UTF8;
+
+        // Test with NUL character (should be replaced with U+FFFD)
+        let input = "Hello\x00World";
+        let doc = BlockParser::parse_with_options(arena, input, options);
+
+        // Verify the document was parsed
+        assert_eq!(arena.get(doc).value, NodeValue::Document);
+
+        // Check that the paragraph content has the NUL replaced
+        let first_child = arena.get(doc).first_child;
+        assert!(first_child.is_some());
+
+        let paragraph = first_child.unwrap();
+        assert_eq!(arena.get(paragraph).value, NodeValue::Paragraph);
+
+        // The text node should contain the replacement character
+        let text_node = arena.get(paragraph).first_child;
+        assert!(text_node.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(text_node.unwrap()).value {
+            assert!(text.contains('\u{FFFD}'));
+            assert!(!text.contains('\u{0000}'));
+        } else {
+            panic!("Expected text node");
+        }
+    }
+
+    #[test]
+    fn test_validate_utf8_without_option_preserves_nul() {
+        // Note: Currently clmd always replaces NUL, but with validate_utf8 disabled
+        // it might preserve them in the future. This test documents current behavior.
+        let arena = &mut NodeArena::new();
+        let options = 0; // No VALIDATE_UTF8
+
+        let input = "Hello\x00World";
+        let doc = BlockParser::parse_with_options(arena, input, options);
+
+        // Even without the option, NUL is currently replaced for security
+        let first_child = arena.get(doc).first_child.unwrap();
+        let paragraph = first_child;
+        let text_node = arena.get(paragraph).first_child.unwrap();
+
+        if let NodeValue::Text(text) = &arena.get(text_node).value {
+            // Current behavior: NUL is always replaced
+            assert!(text.contains('\u{FFFD}'));
+        } else {
+            panic!("Expected text node");
+        }
+    }
+
+    #[test]
+    fn test_validate_utf8_valid_utf8() {
+        let arena = &mut NodeArena::new();
+        let options = OPT_VALIDATE_UTF8;
+
+        // Test with valid UTF-8 (should parse normally)
+        let input = "Hello 世界 🌍";
+        let doc = BlockParser::parse_with_options(arena, input, options);
+
+        assert_eq!(arena.get(doc).value, NodeValue::Document);
+
+        let first_child = arena.get(doc).first_child.unwrap();
+        let paragraph = first_child;
+        let text_node = arena.get(paragraph).first_child.unwrap();
+
+        if let NodeValue::Text(text) = &arena.get(text_node).value {
+            assert_eq!(text.as_ref(), "Hello 世界 🌍");
+        } else {
+            panic!("Expected text node");
         }
     }
 }
