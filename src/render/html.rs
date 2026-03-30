@@ -71,7 +71,7 @@ impl<'a> HtmlRenderer<'a> {
                     source_pos.end.line,
                     source_pos.end.column
                 )
-                .unwrap();
+                .expect("write to String cannot fail");
             }
         }
     }
@@ -189,7 +189,8 @@ impl<'a> HtmlRenderer<'a> {
                         self.lit("<ol");
                         self.render_sourcepos(node_id);
                         if *start != 1 {
-                            write!(self.output, " start=\"{}\">", start).unwrap();
+                            write!(self.output, " start=\"{}\">", start)
+                                .expect("write to String cannot fail");
                         } else {
                             self.lit(">");
                         }
@@ -250,9 +251,9 @@ impl<'a> HtmlRenderer<'a> {
                     self.lit("\n");
                 }
                 // Optimization: use write! instead of format!
-                write!(self.output, "<h{}", level).unwrap();
+                write!(self.output, "<h{}", level).expect("write to String cannot fail");
                 self.render_sourcepos(node_id);
-                write!(self.output, ">").unwrap();
+                write!(self.output, ">").expect("write to String cannot fail");
                 self.last_out = '>';
                 self.tag_stack.push("h");
             }
@@ -359,7 +360,8 @@ impl<'a> HtmlRenderer<'a> {
                     self.output,
                     "<sup class=\"footnote-ref\"><a href=\"#fn-{}\" id=\"fnref-{}\">[{}]</a></sup>",
                     name_escaped, name_escaped, name_escaped
-                ).unwrap();
+                )
+                .expect("write to String cannot fail");
                 self.last_out = '>';
             }
             NodeValue::FootnoteDefinition(footnote_def) => {
@@ -369,7 +371,7 @@ impl<'a> HtmlRenderer<'a> {
                     "<li id=\"fn-{}\">",
                     escape_html(&footnote_def.name)
                 )
-                .unwrap();
+                .expect("write to String cannot fail");
                 self.last_out = '>';
                 self.tag_stack.push("li");
             }
@@ -523,7 +525,7 @@ impl<'a> HtmlRenderer<'a> {
                 let lang = code_block.info.split_whitespace().next().unwrap_or("");
                 if !lang.is_empty() {
                     write!(self.output, " class=\"language-{}\"", escape_html(lang))
-                        .unwrap();
+                        .expect("write to String cannot fail");
                 }
             }
             self.lit(">");

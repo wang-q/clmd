@@ -24,8 +24,10 @@ pub use super::formatter::writer;
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{Renderer, NodeArena, NodeId};
+/// ```no_run
+/// use clmd::render::renderer::Renderer;
+/// use clmd::arena::NodeArena;
+/// use clmd::arena::NodeId;
 ///
 /// fn render_document<R: Renderer>(renderer: &R, arena: &NodeArena, root: NodeId) -> String {
 ///     renderer.render(arena, root, 0)
@@ -59,12 +61,12 @@ pub use super::xml;
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{parse_document, render_to_html, parser::options::Options, Arena};
+/// ```no_run
+/// use clmd::{parse_document, render::renderer::render_to_html, Options};
+/// use clmd::Arena;
 ///
-/// let mut arena = Arena::new();
 /// let options = Options::default();
-/// let doc = parse_document(&mut arena, "# Hello", &options);
+/// let (arena, doc) = parse_document("# Hello", &options);
 /// let html = render_to_html(&arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
@@ -181,8 +183,9 @@ pub fn render_to_commonmark(
 ///
 /// # Example
 ///
-/// ```ignore
-/// use clmd::{parse_document, render_to_commonmark_with_options, FormatterOptions};
+/// ```no_run
+/// use clmd::{parse_document, render::renderer::render_to_commonmark_with_options};
+/// use clmd::render::formatter::options::FormatterOptions;
 ///
 /// let options = FormatterOptions::new()
 ///     .with_heading_style(clmd::render::formatter::options::HeadingStyle::Atx)

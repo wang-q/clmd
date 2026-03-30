@@ -5,6 +5,9 @@
 //!
 //! Inspired by flexmark-java's flexmark-util-html.
 
+// Re-export decode_entities from strings module for unified API
+pub use crate::strings::decode_entities;
+
 /// Escape special HTML characters
 ///
 /// Converts the following characters to their HTML entities:
@@ -245,12 +248,11 @@ pub mod entities {
     ];
 
     /// Decode HTML entities in a string
+    ///
+    /// This function uses the more complete implementation from `crate::strings::decode_entities`
+    /// which supports numeric entities (decimal and hex) in addition to named entities.
     pub fn decode_entities(input: &str) -> String {
-        let mut result = input.to_string();
-        for (entity, char_) in ENTITIES {
-            result = result.replace(*entity, char_);
-        }
-        result
+        crate::strings::decode_entities(input).into_owned()
     }
 }
 
