@@ -53,6 +53,117 @@
 //! let html = markdown_to_html(markdown, &options);
 //! assert!(html.contains("<table>"));
 //! ```
+//!
+//! # Parser Limits
+//!
+//! For security and resource control, you can set parser limits:
+//!
+//! ```ignore
+//! use clmd::parser::parse_document_with_limits;
+//! use clmd::{Options, ParserLimits};
+//!
+//! let options = Options::default();
+//! let limits = ParserLimits {
+//!     max_input_size: 1024 * 1024,  // 1MB max input
+//!     max_line_length: 10000,        // 10KB max line length
+//!     max_nesting_depth: 100,        // Max nesting depth
+//!     max_list_items: 10000,         // Max list items
+//!     max_links: 10000,              // Max links
+//! };
+//!
+//! let result = parse_document_with_limits("# Hello\n\nWorld!", &options, limits);
+//! assert!(result.is_ok());
+//! ```
+//!
+//! # Multiple Output Formats
+//!
+//! clmd supports multiple output formats:
+//!
+//! ```
+//! use clmd::{markdown_to_html, markdown_to_commonmark, Options};
+//!
+//! let markdown = "# Hello\n\n**Bold** text";
+//! let options = Options::default();
+//!
+//! // HTML output
+//! let html = markdown_to_html(markdown, &options);
+//! assert!(html.contains("<h1>"));
+//!
+//! // CommonMark output (formatting)
+//! let commonmark = markdown_to_commonmark(markdown, &options);
+//! assert!(commonmark.contains("# Hello"));
+//! ```
+//!
+//! # AST Iteration
+//!
+//! You can iterate over the AST to process nodes:
+//!
+//! ```ignore
+//! use clmd::{parse_document, Options};
+//! use clmd::iterator::ArenaNodeIterator;
+//! use clmd::nodes::NodeValue;
+//!
+//! let options = Options::default();
+//! let (arena, root) = parse_document("# Title\n\nParagraph", &options);
+//!
+//! // Iterate all nodes
+//! for node_id in ArenaNodeIterator::new(&arena, root) {
+//!     let node = arena.get(node_id);
+//!     match &node.value {
+//!         NodeValue::Heading(h) => println!("Heading level {}", h.level),
+//!         NodeValue::Paragraph => println!("Paragraph"),
+//!         _ => {}
+//!     }
+//! }
+//! ```
+//!
+//! # GFM Extensions
+//!
+//! Enable GitHub Flavored Markdown extensions:
+//!
+//! ```ignore
+//! use clmd::{markdown_to_html, Options};
+//!
+//! let mut options = Options::default();
+//! options.extension.table = true;
+//! options.extension.strikethrough = true;
+//! options.extension.tasklist = true;
+//! options.extension.autolink = true;
+//! options.extension.footnotes = true;
+//!
+//! // Tables
+//! let table = "| a | b |\n|---|---|\n| c | d |";
+//! let html = markdown_to_html(table, &options);
+//! assert!(html.contains("<table>"));
+//!
+//! // Strikethrough
+//! let strike = "~~deleted~~";
+//! let html = markdown_to_html(strike, &options);
+//! assert!(html.contains("<del>"));
+//!
+//! // Task lists
+//! let task = "- [x] Done\n- [ ] Todo";
+//! let html = markdown_to_html(task, &options);
+//! assert!(html.contains("checkbox"));
+//!
+//! // Autolinks
+//! let autolink = "Visit https://example.com";
+//! let html = markdown_to_html(autolink, &options);
+//! assert!(html.contains("<a href="));
+//! ```
+//!
+//! # HTML to Markdown
+//!
+//! Convert HTML back to Markdown:
+//!
+//! ```
+//! use clmd::from::html_to_markdown;
+//!
+//! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
+//! let markdown = html_to_markdown(html);
+//! assert!(markdown.contains("# Title"));
+//! assert!(markdown.contains("**bold**"));
+//! ```
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(

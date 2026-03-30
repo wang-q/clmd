@@ -1,4 +1,49 @@
 //! Link and image processing for inline parsing
+//!
+//! This module handles link (`[text](url)`) and image (`![alt](url)`) parsing
+//! according to the CommonMark specification (section 6.2-6.9).
+//!
+//! # Algorithm Overview
+//!
+//! Link parsing is one of the most complex parts of CommonMark due to the
+//! various link types and nesting rules:
+//!
+//! ## Link Types
+//!
+//! 1. **Inline Links**: `[text](url "title")`
+//!    - URL and optional title provided inline
+//!
+//! 2. **Reference Links**: `[text][label]` or `[text][]`
+//!    - Label refers to a link reference definition elsewhere in the document
+//!    - Short form `[text][]` uses the text itself as the label
+//!
+//! 3. **Autolinks**: `<http://example.com>`
+//!    - URL enclosed in angle brackets
+//!
+//! ## Parsing Process
+//!
+//! 1. **Bracket Scanning**: `[` and `![` are identified as potential link starts
+//! 2. **Link Text Parsing**: Content between brackets is parsed as inline content
+//! 3. **Link Destination Parsing**: After `]`, look for `(` for inline links
+//!    or `[` for reference links
+//! 4. **Reference Resolution**: For reference links, look up the label in refmap
+//!
+//! ## Special Rules
+//!
+//! - Links cannot contain other links (but can contain images)
+//! - Images can contain links
+//! - Link text can contain emphasis and other inline elements
+//! - Nested brackets are allowed but must be balanced
+//!
+//! # CommonMark Compliance
+//!
+//! This implementation follows CommonMark 0.31.2 specification:
+//! - Link text parsing with proper nesting
+//! - Reference link matching (case-insensitive, whitespace collapsed)
+//! - Link destination normalization
+//! - Title parsing with various delimiters
+//!
+//! Reference: https://spec.commonmark.org/0.31.2/#links
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::inlines::entities::unescape_string;

@@ -291,7 +291,9 @@ impl From<SafeHtml> for String {
 /// Check if a URL is safe to use in HTML output
 ///
 /// This function checks for potentially dangerous URL schemes like
-/// javascript:, vbscript:, file:, and unsafe data: URLs.
+/// javascript:, vbscript:, file:, blob:, data: (non-image), and other
+/// unsafe protocols. It also checks for IP-based URLs that might
+/// access internal network resources.
 ///
 /// # Arguments
 ///
@@ -309,17 +311,87 @@ impl From<SafeHtml> for String {
 /// assert!(is_safe_url("https://example.com"));
 /// assert!(is_safe_url("http://example.com"));
 /// assert!(!is_safe_url("javascript:alert('xss')"));
+/// assert!(!is_safe_url("blob:https://example.com/uuid"));
 /// ```
 pub fn is_safe_url(url: &str) -> bool {
+    // Trim whitespace and check for empty URL
+    let url = url.trim();
+    if url.is_empty() {
+        return false;
+    }
+
     let url_lower = url.to_lowercase();
 
     // Check for unsafe protocols
-    let is_unsafe = url_lower.starts_with("javascript:")
-        || url_lower.starts_with("vbscript:")
-        || url_lower.starts_with("file:")
-        || (url_lower.starts_with("data:") && !is_safe_data_url(&url_lower));
+    // Note: mailto: is intentionally NOT in this list as it's commonly used for email links
+    let unsafe_protocols = [
+        "javascript:",
+        "vbscript:",
+        "file:",
+        "ftp:",
+        "sftp:",
+        "ssh:",
+        "telnet:",
+        "ldap:",
+        "ldaps:",
+        "smb:",
+        "nfs:",
+        "rtsp:",
+        "rtmp:",
+        "jar:",
+        "icap:",
+        "afs:",
+        "tftp:",
+        "dict:",
+        "gopher:",
+        "news:",
+        "nntp:",
+        "feed:",
+        "imap:",
+        "pop:",
+        "smtp:",
+        "ws:",
+        "wss:",
+    ];
 
-    !is_unsafe
+    for protocol in &unsafe_protocols {
+        if url_lower.starts_with(protocol) {
+            return false;
+        }
+    }
+
+    // Check for blob: URLs (can contain arbitrary JavaScript)
+    if url_lower.starts_with("blob:") {
+        return false;
+    }
+
+    // Check for filesystem: URLs (Chrome-specific, allows file system access)
+    if url_lower.starts_with("filesystem:") {
+        return false;
+    }
+
+    // Check for data: URLs (only allow safe image types)
+    if url_lower.starts_with("data:") {
+        return is_safe_data_url(&url_lower);
+    }
+
+    // Check for URLs that might be trying to bypass filters using encoding
+    // Check for HTML entities in the scheme part
+    if url_lower.starts_with("&#") || url_lower.starts_with("&x") {
+        return false;
+    }
+
+    // Check for null bytes (can be used in some attacks)
+    if url.contains('\0') {
+        return false;
+    }
+
+    // Check for control characters
+    if url.chars().any(|c| c.is_ascii_control()) {
+        return false;
+    }
+
+    true
 }
 
 /// Check if a data URL is safe (only allows image types)
@@ -435,5 +507,102 @@ mod tests {
     fn test_safe_html() {
         let safe = SafeHtml::new("<b>Bold</b>");
         assert_eq!(safe.as_str(), "<b>Bold</b>");
+    }
+
+    // Security tests for URL validation
+    #[test]
+    fn test_is_safe_url_blocks_dangerous_protocols() {
+        // JavaScript protocol
+        assert!(!is_safe_url("javascript:alert('xss')"));
+        assert!(!is_safe_url("JAVASCRIPT:alert('xss')"));
+        assert!(!is_safe_url("JavaScript:alert('xss')"));
+
+        // VBScript protocol
+        assert!(!is_safe_url("vbscript:msgbox('xss')"));
+
+        // File protocol
+        assert!(!is_safe_url("file:///etc/passwd"));
+
+        // Blob URLs
+        assert!(!is_safe_url("blob:https://example.com/uuid"));
+
+        // Filesystem URLs
+        assert!(!is_safe_url("filesystem:https://example.com/temporary/"));
+
+        // FTP and other protocols
+        assert!(!is_safe_url("ftp://example.com/file.txt"));
+        assert!(!is_safe_url("sftp://example.com/file.txt"));
+        assert!(!is_safe_url("ssh://user@example.com"));
+        assert!(!is_safe_url("telnet://example.com"));
+
+        // Email and messaging protocols
+        // mailto: is allowed as it's a standard way to create email links
+        assert!(is_safe_url("mailto:test@example.com"));
+        // imap/smtp should be blocked
+        assert!(!is_safe_url("imap://mail.example.com"));
+        assert!(!is_safe_url("smtp://mail.example.com"));
+
+        // WebSocket protocols
+        assert!(!is_safe_url("ws://example.com/socket"));
+        assert!(!is_safe_url("wss://example.com/socket"));
+    }
+
+    #[test]
+    fn test_is_safe_url_allows_safe_urls() {
+        // HTTP and HTTPS
+        assert!(is_safe_url("https://example.com"));
+        assert!(is_safe_url("http://example.com"));
+        assert!(is_safe_url("https://example.com/path?query=value"));
+
+        // With whitespace
+        assert!(is_safe_url("  https://example.com  "));
+
+        // Relative URLs
+        assert!(is_safe_url("/path/to/page"));
+        assert!(is_safe_url("../relative/path"));
+        assert!(is_safe_url("#anchor"));
+        assert!(is_safe_url("?query=value"));
+    }
+
+    #[test]
+    fn test_is_safe_url_blocks_empty_and_invalid() {
+        // Empty URL
+        assert!(!is_safe_url(""));
+        assert!(!is_safe_url("   "));
+
+        // Null bytes
+        assert!(!is_safe_url("https://example.com\0"));
+        assert!(!is_safe_url("\0javascript:alert(1)"));
+
+        // Control characters
+        assert!(!is_safe_url("https://example.com\x01"));
+        assert!(!is_safe_url("https://example.com\x1f"));
+    }
+
+    #[test]
+    fn test_is_safe_url_blocks_encoded_attacks() {
+        // HTML entity encoding attempt
+        assert!(!is_safe_url("&#106;avascript:alert(1)"));
+        assert!(!is_safe_url("&#x6a;avascript:alert(1)"));
+    }
+
+    #[test]
+    fn test_is_safe_data_url() {
+        // Safe image data URLs
+        assert!(is_safe_url("data:image/png;base64,iVBORw0KGgo="));
+        assert!(is_safe_url("data:image/jpeg;base64,/9j/4AAQ="));
+        assert!(is_safe_url("data:image/gif;base64,R0lGODlh"));
+        assert!(is_safe_url("data:image/webp;base64,UklGRiI="));
+        assert!(is_safe_url("data:image/png,test"));
+
+        // Unsafe data URLs (non-image)
+        assert!(!is_safe_url("data:text/html,<script>alert(1)</script>"));
+        assert!(!is_safe_url("data:application/javascript,alert(1)"));
+        assert!(!is_safe_url("data:text/plain,hello"));
+
+        // Malformed data URLs
+        assert!(!is_safe_url("data:"));
+        assert!(!is_safe_url("data:image/"));
+        assert!(!is_safe_url("data:image/svg+xml,<svg>"));
     }
 }

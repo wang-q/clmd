@@ -1,4 +1,42 @@
 //! Emphasis processing for inline parsing
+//!
+//! This module handles emphasis (italic) and strong (bold) text parsing
+//! according to the CommonMark specification (section 6.1).
+//!
+//! # Algorithm Overview
+//!
+//! The emphasis processing algorithm works in three phases:
+//!
+//! 1. **Delimiter Scanning**: During inline parsing, `*` and `_` characters
+//!    are identified as potential emphasis delimiters. Each delimiter is
+//!    classified as either:
+//!    - Can open: Can start emphasis (e.g., `*text`)
+//!    - Can close: Can end emphasis (e.g., `text*`)
+//!    - Both: Can do both (e.g., `*text*`)
+//!    - Neither: Cannot be used for emphasis (e.g., `a*b`)
+//!
+//! 2. **Delimiter Stack Building**: Delimiters are pushed onto a stack
+//!    as they are encountered. The stack maintains order information
+//!    needed for proper nesting.
+//!
+//! 3. **Emphasis Pair Matching**: After all delimiters are collected,
+//!    the algorithm looks for matching open/close pairs:
+//!    - A closer looks back for a matching opener
+//!    - Rules determine which delimiters can match:
+//!      - Same character type (`*` matches `*`, `_` matches `_`)
+//!      - Opening delimiter must come before closing
+//!      - Various precedence rules for nested emphasis
+//!    - When a match is found, delimiters are converted to `Emph` or `Strong` nodes
+//!
+//! # CommonMark Compliance
+//!
+//! This implementation follows CommonMark 0.31.2 specification:
+//! - Left-flanking and right-flanking delimiter runs
+//! - Intraword emphasis rules
+//! - Nested emphasis handling
+//! - Backslash escapes in delimiters
+//!
+//! Reference: https://spec.commonmark.org/0.31.2/#emphasis-and-strong-emphasis
 
 use crate::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};

@@ -3,8 +3,8 @@
 //! These tests verify end-to-end functionality of the Markdown parser.
 
 use clmd::{
-    markdown_to_commonmark, markdown_to_html, markdown_to_html_with_plugins, parse_document,
-    Options, Plugins,
+    markdown_to_commonmark, markdown_to_html, markdown_to_html_with_plugins,
+    parse_document, Options, Plugins,
 };
 
 /// Test basic Markdown to HTML conversion
@@ -39,7 +39,9 @@ fn test_link_rendering() {
 fn test_image_rendering() {
     let input = "![alt text](https://example.com/image.png)";
     let html = markdown_to_html(input, &Options::default());
-    assert!(html.contains(r#"<img src="https://example.com/image.png" alt="alt text" />"#));
+    assert!(
+        html.contains(r#"<img src="https://example.com/image.png" alt="alt text" />"#)
+    );
 }
 
 /// Test code block rendering
@@ -286,7 +288,10 @@ fn test_line_breaks() {
     let input_soft = "Line 1\nLine 2";
     let html_soft = markdown_to_html(input_soft, &Options::default());
     // Soft breaks are preserved as spaces in HTML
-    assert!(html_soft.contains("<p>Line 1\nLine 2</p>") || html_soft.contains("Line 1 Line 2"));
+    assert!(
+        html_soft.contains("<p>Line 1\nLine 2</p>")
+            || html_soft.contains("Line 1 Line 2")
+    );
 }
 
 /// Test nested lists
@@ -297,7 +302,10 @@ fn test_nested_lists() {
     assert!(html.contains("<ul>"));
     // Should have nested ul elements
     let ul_count = html.matches("<ul>").count();
-    assert!(ul_count >= 2, "Should have at least 2 ul elements for nested list");
+    assert!(
+        ul_count >= 2,
+        "Should have at least 2 ul elements for nested list"
+    );
 }
 
 /// Test code inline vs block

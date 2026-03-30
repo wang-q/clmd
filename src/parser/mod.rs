@@ -19,7 +19,7 @@ pub mod options;
 
 use crate::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
-use crate::error::{ParseError, ParseResult, ParserLimits};
+use crate::error::{ParseResult, ParserLimits};
 use options::Options;
 
 /// Parse a Markdown document to an AST.
@@ -61,16 +61,14 @@ pub fn parse_document_with_limits(
     options: &Options,
     limits: ParserLimits,
 ) -> ParseResult<(NodeArena, NodeId)> {
-    // Check input size limit
-    if md.len() > limits.max_input_size {
-        return Err(ParseError::InputTooLarge {
-            size: md.len(),
-            max_size: limits.max_input_size,
-        });
-    }
+    // Use BlockParser with limits for full limit checking
+    let mut node_arena = NodeArena::new();
+    let options_flags = options_to_flags(options);
 
-    let (arena, root) = parse_document(md, options);
-    Ok((arena, root))
+    let doc_id =
+        BlockParser::parse_with_limits(&mut node_arena, md, options_flags, limits)?;
+
+    Ok((node_arena, doc_id))
 }
 
 // Legacy option flags (for backward compatibility)
@@ -121,6 +119,7 @@ fn options_to_flags(options: &Options) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::ParserLimits;
     use crate::nodes::NodeValue;
 
     #[test]
@@ -186,5 +185,98 @@ mod tests {
         } else {
             panic!("Expected link node");
         }
+    }
+
+    // Tests for parser limits
+    #[test]
+    fn test_parse_document_with_limits_input_size() {
+        let options = Options::default();
+        let limits = ParserLimits {
+            max_input_size: 100, // Very small limit
+            ..ParserLimits::default()
+        };
+
+        // Small input should succeed
+        let result = parse_document_with_limits("Hello", &options, limits);
+        assert!(result.is_ok());
+
+        // Large input should fail
+        let large_input = "a".repeat(101);
+        let result = parse_document_with_limits(&large_input, &options, limits);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("too large"));
+    }
+
+    #[test]
+    fn test_parse_document_with_limits_line_length() {
+        let options = Options::default();
+        let limits = ParserLimits {
+            max_line_length: 50, // Short line limit
+            max_input_size: 1000,
+            ..ParserLimits::default()
+        };
+
+        // Short lines should succeed
+        let result = parse_document_with_limits("Hello\nWorld", &options, limits);
+        assert!(result.is_ok());
+
+        // Long line should fail (exactly 51 characters)
+        let long_line = "a".repeat(51);
+        let result = parse_document_with_limits(&long_line, &options, limits);
+        assert!(
+            result.is_err(),
+            "Expected error for line with {} characters, but got Ok",
+            long_line.len()
+        );
+
+        // Line exactly at limit should succeed
+        let exact_line = "a".repeat(50);
+        let result = parse_document_with_limits(&exact_line, &options, limits);
+        assert!(
+            result.is_ok(),
+            "Expected Ok for line with {} characters, but got error",
+            exact_line.len()
+        );
+    }
+
+    #[test]
+    fn test_parse_document_with_limits_default() {
+        let options = Options::default();
+        let limits = ParserLimits::default();
+
+        // Normal document should succeed with default limits
+        let input = "# Heading\n\nParagraph with **bold** text.";
+        let result = parse_document_with_limits(input, &options, limits);
+        assert!(result.is_ok());
+
+        let (arena, root) = result.unwrap();
+        assert!(matches!(arena.get(root).value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_parse_document_with_limits_large_document() {
+        let options = Options::default();
+        let limits = ParserLimits {
+            max_input_size: 10 * 1024 * 1024, // 10MB
+            max_line_length: 2 * 1024 * 1024, // Allow 2MB lines for this test
+            ..ParserLimits::default()
+        };
+
+        // Create a 1MB document (split into multiple lines)
+        let large_content = "a".repeat(1024 * 1024);
+        // Split into lines of 1000 characters each
+        let lines: Vec<&str> = large_content
+            .as_bytes()
+            .chunks(1000)
+            .map(|chunk| std::str::from_utf8(chunk).unwrap())
+            .collect();
+        let input = format!("# Large Document\n\n{}", lines.join("\n"));
+
+        let result = parse_document_with_limits(&input, &options, limits);
+        assert!(
+            result.is_ok(),
+            "Should parse large document: {:?}",
+            result.err()
+        );
     }
 }
