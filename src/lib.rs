@@ -817,15 +817,13 @@ pub fn format_typst(
 /// format_typst_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
 /// ```
 pub fn format_typst_with_plugins(
-    _arena: &Arena,
-    _root: NodeId,
+    arena: &Arena,
+    root: NodeId,
     _options: &Options,
-    _output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    output: &mut dyn std::fmt::Write,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    // TODO: Implement Typst rendering for NodeArena
-    // For now, just return Ok
-    Ok(())
+    render::typst::format_document_with_plugins(arena, root, _options, output, plugins)
 }
 
 /// Return the version of the crate.

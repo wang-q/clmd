@@ -32,8 +32,8 @@ impl<'a> BasedSequence<'a> {
 
     /// Create a new BasedSequence with explicit offsets
     pub fn with_offsets(base: &'a str, start: usize, end: usize) -> Self {
-        assert!(start <= end, "start must be <= end");
-        assert!(end <= base.len(), "end must be <= base.len()");
+        debug_assert!(start <= end, "start must be <= end");
+        debug_assert!(end <= base.len(), "end must be <= base.len()");
         Self { base, start, end }
     }
 
@@ -84,8 +84,8 @@ impl<'a> BasedSequence<'a> {
 
     /// Create a subsequence from this sequence
     pub fn sub_sequence(&self, start: usize, end: usize) -> Self {
-        assert!(start <= end, "start must be <= end");
-        assert!(end <= self.len(), "end must be <= self.len()");
+        debug_assert!(start <= end, "start must be <= end");
+        debug_assert!(end <= self.len(), "end must be <= self.len()");
         Self {
             base: self.base,
             start: self.start + start,
@@ -95,8 +95,8 @@ impl<'a> BasedSequence<'a> {
 
     /// Create a subsequence from the base (original) string
     pub fn base_sub_sequence(&self, start: usize, end: usize) -> Self {
-        assert!(start <= end, "start must be <= end");
-        assert!(end <= self.base.len(), "end must be <= base.len()");
+        debug_assert!(start <= end, "start must be <= end");
+        debug_assert!(end <= self.base.len(), "end must be <= base.len()");
         Self {
             base: self.base,
             start,
@@ -111,7 +111,7 @@ impl<'a> BasedSequence<'a> {
 
     /// Get the index offset in base for a given index
     pub fn index_offset(&self, index: usize) -> usize {
-        assert!(index <= self.len(), "index out of bounds");
+        debug_assert!(index <= self.len(), "index out of bounds");
         self.start + index
     }
 

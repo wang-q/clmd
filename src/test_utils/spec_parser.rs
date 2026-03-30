@@ -1,16 +1,17 @@
-/// Parser for flexmark-java AST spec files
-///
-/// Spec files use a custom format within markdown code blocks:
-/// ```markdown
-/// ```````````````````````````````` example Section: Number
-/// input markdown
-/// .
-/// expected html
-/// .
-/// expected ast (optional)
-/// ````````````````````````````````
-/// ```
+//! Parser for flexmark-java AST spec files
+//!
+//! Spec files use a custom format within markdown code blocks:
+//! ```text
+//! ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ example Section: Number
+//! input markdown
+//! .
+//! expected html
+//! .
+//! expected ast (optional)
+//! ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//! ```
 
+/// A single test example from a spec file
 #[derive(Debug, Clone)]
 pub struct SpecExample {
     /// Section name in the spec file

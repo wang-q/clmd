@@ -1,7 +1,7 @@
 //! Abbreviation extension for Markdown
 //!
 //! This module implements abbreviation/definition list parsing.
-//! Allows defining abbreviations that will be wrapped in <abbr> tags.
+//! Allows defining abbreviations that will be wrapped in HTML abbr tags.
 //!
 //! Syntax:
 //! ```markdown
@@ -22,7 +22,7 @@ pub struct Abbreviation {
 }
 
 /// Check if a line is an abbreviation definition
-/// Format: *[TERM]: Definition
+/// Format: `*[TERM]: Definition`
 pub fn is_abbreviation_def(line: &str) -> bool {
     let trimmed = line.trim_start();
 
@@ -99,7 +99,7 @@ pub fn find_abbreviations(
     matches
 }
 
-/// Replace abbreviations in text with HTML <abbr> tags
+/// Replace abbreviations in text with HTML `<abbr>` tags
 pub fn replace_abbreviations(
     text: &str,
     abbreviations: &HashMap<String, Abbreviation>,

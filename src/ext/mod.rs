@@ -5,7 +5,7 @@
 
 /// Abbreviation extension
 ///
-/// Allows defining abbreviations that will be wrapped in <abbr> tags.
+/// Allows defining abbreviations that will be wrapped in HTML `abbr` tags.
 /// Syntax: `*[HTML]: Hyper Text Markup Language`
 pub mod abbreviation;
 

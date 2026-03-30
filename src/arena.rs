@@ -27,7 +27,7 @@ use crate::nodes::{NodeValue, SourcePos};
 /// Node ID type - index into the arena
 pub type NodeId = u32;
 
-/// Invalid node ID (used for Option<NodeId> patterns)
+/// Invalid node ID (used for `Option<NodeId>` patterns)
 pub const INVALID_NODE_ID: NodeId = u32::MAX;
 
 /// A node in the AST with arena-based references
