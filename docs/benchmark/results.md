@@ -221,11 +221,74 @@ Using hyperfine for fair comparison (includes process startup and file IO):
 4. **commonmark.js**: Consistently much slower (34-40x), mainly due to Node.js startup time
 5. **Stable performance**: clmd maintains consistent throughput across document sizes
 
-## String Processing Optimizations (2026-03-29)
+##### Formatter Benchmarks (2026-03-30)
 
-Recent optimizations focused on reducing string allocations:
+Benchmarks specifically testing the CommonMark formatter performance:
 
-### Optimizations Applied
+#### Running Formatter Benchmarks
+
+```bash
+# Run all formatter benchmarks
+cargo bench --bench formatter_benchmark
+
+# Run specific formatter benchmark
+cargo bench --bench formatter_benchmark formatter_large_document
+cargo bench --bench formatter_benchmark formatter_tables
+cargo bench --bench formatter_benchmark formatter_nested_lists
+```
+
+#### Formatter Performance Results
+
+| Test Scenario | Time | Throughput | Description |
+|--------------|------|------------|-------------|
+| **Large Document (100 paragraphs)** | 530.74 µs | 31.95 MiB/s | Mixed content with headings, lists, code blocks, tables |
+| **Simple Paragraphs** | 5.41 µs | 20.99 MiB/s | Basic paragraph formatting |
+| **Emphasis & Strong** | 9.46 µs | 12.29 MiB/s | Bold and italic text formatting |
+| **Links** | 7.89 µs | 13.05 MiB/s | Link formatting |
+| **Code Blocks** | 6.03 µs | 13.77 MiB/s | Fenced code block formatting |
+| **Tables (10x5)** | 49.74 µs | 13.12 MiB/s | Complex table with alignment |
+| **Nested Lists (5 levels)** | 828.44 µs | 36.48 MiB/s | Deeply nested list structure |
+| **Headings** | 7.38 µs | 11.76 MiB/s | All heading levels (H1-H6) |
+| **Blockquotes** | 5.32 µs | 14.87 MiB/s | Multi-line blockquote formatting |
+| **Task Lists** | 8.25 µs | 10.99 MiB/s | Checkbox task list formatting |
+| **Mixed Content** | 23.82 µs | 17.81 MiB/s | Realistic document with all features |
+
+#### Formatter Performance Analysis
+
+**Fastest Operations**:
+1. **Blockquotes**: 14.87 MiB/s - Simple prefix-based formatting
+2. **Code Blocks**: 13.77 MiB/s - Minimal processing required
+3. **Links**: 13.05 MiB/s - Efficient link structure handling
+4. **Tables**: 13.12 MiB/s - Optimized column width calculation
+5. **Simple Paragraphs**: 20.99 MiB/s - Basic text formatting
+
+**Performance Highlights**:
+- **Nested Lists**: 36.48 MiB/s (highest throughput) - Efficient tree traversal
+- **Large Documents**: 31.95 MiB/s - Good scalability with document size
+- **Consistent Performance**: Most scenarios achieve 10-35 MiB/s throughput
+
+**Areas for Potential Optimization**:
+- Task lists (10.99 MiB/s): Extra text content checking overhead
+- Headings (11.76 MiB/s): Multiple level handling complexity
+- Emphasis (12.29 MiB/s): Nested delimiter processing
+
+#### Comparison with HTML Rendering
+
+| Operation | HTML Render | CommonMark Format | Ratio |
+|-----------|-------------|-------------------|-------|
+| Large Document (~16KB) | ~129 µs | ~531 µs | 4.1x slower |
+| Simple Paragraphs | ~5 µs | ~5 µs | Similar |
+| Tables | ~3.5 µs | ~50 µs | 14x slower |
+
+**Note**: CommonMark formatting is inherently more complex than HTML rendering because it requires:
+- Reconstructing original Markdown syntax
+- Handling nested structures with proper indentation
+- Calculating column widths for tables
+- Preserving original formatting choices
+
+### String Processing Optimizations (2026-03-29)
+
+Recent optimizations focused on reducing string allocations: Optimizations Applied
 
 1. **parse_string**: Avoid String allocation when smart punctuation is disabled
 2. **append_text**: Pre-allocate capacity for text merging

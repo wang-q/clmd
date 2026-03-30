@@ -494,6 +494,8 @@ impl NodeFormatter for ComposedNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::render::formatter::options::FormatterOptions;
+    use crate::render::formatter::writer::MarkdownWriter;
 
     #[test]
     fn test_node_value_type_from_node_value() {
@@ -508,14 +510,50 @@ mod tests {
         });
         let ty = NodeValueType::from_node_value(&heading);
         assert!(matches!(ty, NodeValueType::Heading));
+
+        let para = NodeValue::Paragraph;
+        let ty = NodeValueType::from_node_value(&para);
+        assert!(matches!(ty, NodeValueType::Paragraph));
+
+        let list = NodeValue::List(crate::nodes::NodeList {
+            list_type: crate::nodes::ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: crate::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let ty = NodeValueType::from_node_value(&list);
+        assert!(matches!(ty, NodeValueType::List));
     }
 
     #[test]
     fn test_node_value_type_is_block() {
         assert!(NodeValueType::Paragraph.is_block());
         assert!(NodeValueType::Heading.is_block());
+        assert!(NodeValueType::BlockQuote.is_block());
+        assert!(NodeValueType::List.is_block());
+        assert!(NodeValueType::CodeBlock.is_block());
         assert!(!NodeValueType::Text.is_block());
         assert!(!NodeValueType::Emph.is_block());
+        assert!(!NodeValueType::Strong.is_block());
+        assert!(!NodeValueType::Code.is_block());
+        assert!(!NodeValueType::Link.is_block());
+    }
+
+    #[test]
+    fn test_node_value_type_is_inline() {
+        assert!(NodeValueType::Text.is_inline());
+        assert!(NodeValueType::Emph.is_inline());
+        assert!(NodeValueType::Strong.is_inline());
+        assert!(NodeValueType::Code.is_inline());
+        assert!(NodeValueType::Link.is_inline());
+        assert!(NodeValueType::Image.is_inline());
+        assert!(!NodeValueType::Paragraph.is_inline());
+        assert!(!NodeValueType::Heading.is_inline());
+        assert!(!NodeValueType::BlockQuote.is_inline());
     }
 
     #[test]
@@ -523,35 +561,411 @@ mod tests {
         assert!(NodeValueType::Document.is_container());
         assert!(NodeValueType::Paragraph.is_container());
         assert!(NodeValueType::Emph.is_container());
+        assert!(NodeValueType::Strong.is_container());
+        assert!(NodeValueType::List.is_container());
+        assert!(NodeValueType::BlockQuote.is_container());
         assert!(!NodeValueType::Text.is_container());
         assert!(!NodeValueType::Code.is_container());
+        assert!(!NodeValueType::SoftBreak.is_container());
+        assert!(!NodeValueType::HardBreak.is_container());
     }
 
     #[test]
-    fn test_node_formatting_handler() {
+    fn test_node_value_type_is_leaf() {
+        assert!(NodeValueType::Text.is_leaf());
+        assert!(NodeValueType::Code.is_leaf());
+        assert!(NodeValueType::SoftBreak.is_leaf());
+        assert!(NodeValueType::HardBreak.is_leaf());
+        assert!(!NodeValueType::Paragraph.is_leaf());
+        assert!(!NodeValueType::Document.is_leaf());
+        assert!(!NodeValueType::Emph.is_leaf());
+    }
+
+    #[test]
+    fn test_node_value_type_name() {
+        assert_eq!(NodeValueType::Document.name(), "Document");
+        assert_eq!(NodeValueType::Paragraph.name(), "Paragraph");
+        assert_eq!(NodeValueType::Text.name(), "Text");
+        assert_eq!(NodeValueType::Heading.name(), "Heading");
+        assert_eq!(NodeValueType::List.name(), "List");
+        assert_eq!(NodeValueType::Link.name(), "Link");
+        assert_eq!(NodeValueType::Image.name(), "Image");
+        assert_eq!(NodeValueType::Code.name(), "Code");
+        assert_eq!(NodeValueType::Emph.name(), "Emph");
+        assert_eq!(NodeValueType::Strong.name(), "Strong");
+    }
+
+    #[test]
+    fn test_node_value_type_other_name() {
+        let other = NodeValueType::Other("CustomType");
+        assert_eq!(other.name(), "CustomType");
+    }
+
+    #[test]
+    fn test_node_value_type_debug() {
+        let ty = NodeValueType::Paragraph;
+        let debug_str = format!("{:?}", ty);
+        assert!(debug_str.contains("Paragraph"));
+    }
+
+    #[test]
+    fn test_node_value_type_clone() {
+        let ty = NodeValueType::Heading;
+        let cloned = ty.clone();
+        assert_eq!(ty, cloned);
+    }
+
+    #[test]
+    fn test_node_value_type_copy() {
+        let ty = NodeValueType::Text;
+        let copied = ty;
+        assert_eq!(ty, copied);
+    }
+
+    #[test]
+    fn test_node_value_type_eq() {
+        assert_eq!(NodeValueType::Text, NodeValueType::Text);
+        assert_ne!(NodeValueType::Text, NodeValueType::Paragraph);
+    }
+
+    #[test]
+    fn test_node_value_type_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(NodeValueType::Text);
+        set.insert(NodeValueType::Paragraph);
+        set.insert(NodeValueType::Text); // Duplicate
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_new() {
         let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, writer| {
             writer.append("test");
         });
 
         assert!(matches!(handler.node_type, NodeValueType::Text));
+        assert!(handler.close_formatter.is_none());
     }
 
     #[test]
-    fn test_composed_formatter() {
+    fn test_node_formatting_handler_with_close() {
+        let handler = NodeFormattingHandler::with_close(
+            NodeValueType::Link,
+            |_, _, writer| {
+                writer.append("[");
+            },
+            |_, _, writer| {
+                writer.append("]");
+            },
+        );
+
+        assert!(matches!(handler.node_type, NodeValueType::Link));
+        assert!(handler.close_formatter.is_some());
+    }
+
+    #[test]
+    fn test_node_formatting_handler_for_type() {
+        fn text_formatter(_: &NodeValue, _: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter) {
+            writer.append("formatted");
+        }
+
+        let handler = NodeFormattingHandler::for_type(text_formatter);
+        assert!(matches!(handler.node_type, NodeValueType::Other(_)));
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_open() {
+        let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, writer| {
+            writer.append("hello");
+        });
+
+        let mut options = FormatterOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        // This should not panic
+        handler.format_open(&text, &mut MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_close_with_close() {
+        let handler = NodeFormattingHandler::with_close(
+            NodeValueType::Emph,
+            |_, _, _| {},
+            |_, _, writer| {
+                writer.append("*");
+            },
+        );
+
+        let mut options = FormatterOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        handler.format_close(&text, &mut MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_close_without_close() {
+        let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {});
+
+        let mut options = FormatterOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        // Should not panic even without close formatter
+        handler.format_close(&text, &mut MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_debug() {
+        let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {});
+        let debug_str = format!("{:?}", handler);
+        assert!(debug_str.contains("NodeFormattingHandler"));
+        assert!(debug_str.contains("Text"));
+    }
+
+    #[test]
+    fn test_node_formatting_handler_clone() {
+        let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {});
+        let cloned = handler.clone();
+        assert!(matches!(cloned.node_type, NodeValueType::Text));
+    }
+
+    #[test]
+    fn test_composed_formatter_new() {
+        let composed = ComposedNodeFormatter::new();
+        assert_eq!(composed.get_all_handlers().len(), 0);
+        assert_eq!(composed.get_all_node_classes().len(), 0);
+    }
+
+    #[test]
+    fn test_composed_formatter_default() {
+        let composed: ComposedNodeFormatter = Default::default();
+        assert_eq!(composed.get_all_handlers().len(), 0);
+    }
+
+    #[test]
+    fn test_composed_formatter_add_multiple() {
+        struct TestFormatter1;
+        impl NodeFormatter for TestFormatter1 {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![
+                    NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {}),
+                    NodeFormattingHandler::new(NodeValueType::Paragraph, |_, _, _| {}),
+                ]
+            }
+        }
+
+        struct TestFormatter2;
+        impl NodeFormatter for TestFormatter2 {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![NodeFormattingHandler::new(NodeValueType::Heading, |_, _, _| {})]
+            }
+        }
+
+        let mut composed = ComposedNodeFormatter::new();
+        composed.add_formatter(Box::new(TestFormatter1));
+        composed.add_formatter(Box::new(TestFormatter2));
+
+        let handlers = composed.get_all_handlers();
+        assert_eq!(handlers.len(), 3);
+    }
+
+    #[test]
+    fn test_composed_formatter_get_node_classes() {
         struct TestFormatter;
         impl NodeFormatter for TestFormatter {
             fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-                vec![NodeFormattingHandler::new(
-                    NodeValueType::Text,
-                    |_, _, _| {},
-                )]
+                vec![]
+            }
+
+            fn get_node_classes(&self) -> Vec<NodeValueType> {
+                vec![NodeValueType::Text, NodeValueType::Paragraph]
             }
         }
 
         let mut composed = ComposedNodeFormatter::new();
         composed.add_formatter(Box::new(TestFormatter));
 
-        let handlers = composed.get_all_handlers();
-        assert_eq!(handlers.len(), 1);
+        let classes = composed.get_all_node_classes();
+        assert_eq!(classes.len(), 2);
+    }
+
+    #[test]
+    fn test_composed_formatter_debug() {
+        let composed = ComposedNodeFormatter::new();
+        let debug_str = format!("{:?}", composed);
+        assert!(debug_str.contains("ComposedNodeFormatter"));
+    }
+
+    #[test]
+    fn test_node_formatter_trait() {
+        struct SimpleFormatter;
+        impl NodeFormatter for SimpleFormatter {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {})]
+            }
+
+            fn get_node_classes(&self) -> Vec<NodeValueType> {
+                vec![NodeValueType::Text]
+            }
+
+            fn get_block_quote_like_prefix_char(&self) -> Option<char> {
+                Some('>')
+            }
+        }
+
+        let formatter = SimpleFormatter;
+        assert_eq!(formatter.get_node_formatting_handlers().len(), 1);
+        assert_eq!(formatter.get_node_classes().len(), 1);
+        assert_eq!(formatter.get_block_quote_like_prefix_char(), Some('>'));
+    }
+
+    #[test]
+    fn test_node_formatter_factory_trait() {
+        struct TestFactory;
+        impl NodeFormatterFactory for TestFactory {
+            fn create(&self) -> Box<dyn NodeFormatter> {
+                struct DummyFormatter;
+                impl NodeFormatter for DummyFormatter {
+                    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                        vec![]
+                    }
+                }
+                Box::new(DummyFormatter)
+            }
+
+            fn get_after_dependents(&self) -> Vec<&'static str> {
+                vec!["OtherFormatter"]
+            }
+
+            fn get_before_dependents(&self) -> Vec<&'static str> {
+                vec!["AnotherFormatter"]
+            }
+
+            fn affects_global_scope(&self) -> bool {
+                true
+            }
+        }
+
+        let factory = TestFactory;
+        let formatter = factory.create();
+        assert_eq!(formatter.get_node_formatting_handlers().len(), 0);
+        assert_eq!(factory.get_after_dependents(), vec!["OtherFormatter"]);
+        assert_eq!(factory.get_before_dependents(), vec!["AnotherFormatter"]);
+        assert!(factory.affects_global_scope());
+    }
+
+    #[test]
+    fn test_node_formatter_factory_default_methods() {
+        struct SimpleFactory;
+        impl NodeFormatterFactory for SimpleFactory {
+            fn create(&self) -> Box<dyn NodeFormatter> {
+                struct DummyFormatter;
+                impl NodeFormatter for DummyFormatter {
+                    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                        vec![]
+                    }
+                }
+                Box::new(DummyFormatter)
+            }
+        }
+
+        let factory = SimpleFactory;
+        assert!(factory.get_after_dependents().is_empty());
+        assert!(factory.get_before_dependents().is_empty());
+        assert!(!factory.affects_global_scope());
+    }
+
+    // Mock context for testing
+    struct MockContext;
+
+    impl MockContext {
+        fn new() -> Self {
+            Self
+        }
+    }
+
+    impl NodeFormatterContext for MockContext {
+        fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
+            unimplemented!()
+        }
+        fn render(&mut self, _node_id: crate::arena::NodeId) {
+            unimplemented!()
+        }
+        fn render_children(&mut self, _node_id: crate::arena::NodeId) {
+            unimplemented!()
+        }
+        fn get_formatting_phase(&self) -> crate::render::formatter::phase::FormattingPhase {
+            crate::render::formatter::phase::FormattingPhase::Document
+        }
+        fn delegate_render(&mut self) {
+            unimplemented!()
+        }
+        fn get_formatter_options(&self) -> &FormatterOptions {
+            unimplemented!()
+        }
+        fn get_render_purpose(&self) -> crate::render::formatter::purpose::RenderPurpose {
+            crate::render::formatter::purpose::RenderPurpose::Format
+        }
+        fn get_arena(&self) -> &crate::arena::NodeArena {
+            unimplemented!()
+        }
+        fn get_current_node(&self) -> Option<crate::arena::NodeId> {
+            None
+        }
+        fn get_nodes_of_type(&self, _node_type: NodeValueType) -> Vec<crate::arena::NodeId> {
+            vec![]
+        }
+        fn get_nodes_of_types(&self, _node_types: &[NodeValueType]) -> Vec<crate::arena::NodeId> {
+            vec![]
+        }
+        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
+            Box::new(|_| false)
+        }
+        fn get_block_quote_like_prefix_chars(&self) -> &str {
+            ""
+        }
+        fn transform_non_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+        fn transform_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
+            unimplemented!()
+        }
+        fn is_in_tight_list(&self) -> bool {
+            false
+        }
+        fn set_tight_list(&mut self, _tight: bool) {}
+        fn get_list_nesting_level(&self) -> usize {
+            0
+        }
+        fn increment_list_nesting(&mut self) {}
+        fn decrement_list_nesting(&mut self) {}
+        fn is_in_block_quote(&self) -> bool {
+            false
+        }
+        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
+        fn get_block_quote_nesting_level(&self) -> usize {
+            0
+        }
+        fn increment_block_quote_nesting(&mut self) {}
+        fn decrement_block_quote_nesting(&mut self) {}
+        fn start_table_collection(&mut self, _alignments: Vec<crate::nodes::TableAlignment>) {}
+        fn add_table_row(&mut self) {}
+        fn add_table_cell(&mut self, _content: String) {}
+        fn take_table_data(&mut self) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+            None
+        }
+        fn is_collecting_table(&self) -> bool {
+            false
+        }
+        fn set_skip_children(&mut self, _skip: bool) {}
+        fn render_children_to_string(&mut self, _node_id: crate::arena::NodeId) -> String {
+            String::new()
+        }
     }
 }

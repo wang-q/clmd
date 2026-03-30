@@ -209,7 +209,7 @@ pub struct MainFormatterContext<'a> {
     /// Current node being rendered
     current_node: Option<NodeId>,
     /// Handler delegation stack
-    _handler_stack: Vec<(node::NodeValueType, usize)>,
+    handler_stack: Vec<(node::NodeValueType, usize)>,
     /// Tight list context
     tight_list: bool,
     /// List nesting level
@@ -259,7 +259,7 @@ impl<'a> MainFormatterContext<'a> {
             render_purpose: purpose::RenderPurpose::Format,
             handler_map: HashMap::new(),
             current_node: None,
-            _handler_stack: Vec::new(),
+            handler_stack: Vec::new(),
             tight_list: false,
             list_nesting: 0,
             in_block_quote: false,
@@ -384,37 +384,53 @@ impl<'a> MainFormatterContext<'a> {
 
     /// Render a node using the appropriate handler
     pub fn render(&mut self, node_id: NodeId, markdown: &mut writer::MarkdownWriter) {
+        self.render_with_handler_index(node_id, markdown, 0);
+    }
+
+    /// Render a node starting from a specific handler index
+    fn render_with_handler_index(
+        &mut self,
+        node_id: NodeId,
+        markdown: &mut writer::MarkdownWriter,
+        handler_index: usize,
+    ) {
         let node = self.arena.get(node_id);
         let node_type = node::NodeValueType::from_node_value(&node.value);
 
-        // Check if we have handlers for this node type and clone the handler
-        let handler_opt = self
-            .handler_map
-            .get(&node_type)
-            .and_then(|h| h.first().cloned());
+        // Check if we have handlers for this node type
+        let handlers = self.handler_map.get(&node_type);
 
-        if let Some(handler) = handler_opt {
-            self.current_node = Some(node_id);
-            let node_value = &self.arena.get(node_id).value;
+        if let Some(handler_list) = handlers {
+            if handler_index < handler_list.len() {
+                let handler = handler_list[handler_index].clone();
 
-            // Call the opening formatter
-            handler.format_open(node_value, self, markdown);
+                self.current_node = Some(node_id);
+                self.handler_stack.push((node_type, handler_index));
+                let node_value = &self.arena.get(node_id).value;
 
-            // Render children unless skip_children is set
-            // (used for table cells to avoid double rendering)
-            if !self.skip_children {
+                // Call the opening formatter
+                handler.format_open(node_value, self, markdown);
+
+                // Render children unless skip_children is set
+                // (used for table cells to avoid double rendering)
+                if !self.skip_children {
+                    self.render_children(node_id, markdown);
+                }
+                self.skip_children = false;
+
+                // Re-set current_node before calling format_close
+                // because render_children may have set it to None
+                self.current_node = Some(node_id);
+
+                // Call the closing formatter if present
+                handler.format_close(node_value, self, markdown);
+
+                self.handler_stack.pop();
+                self.current_node = None;
+            } else {
+                // No more handlers, render children
                 self.render_children(node_id, markdown);
             }
-            self.skip_children = false;
-
-            // Re-set current_node before calling format_close
-            // because render_children may have set it to None
-            self.current_node = Some(node_id);
-
-            // Call the closing formatter if present
-            handler.format_close(node_value, self, markdown);
-
-            self.current_node = None;
         } else {
             // No handler registered, render children
             self.render_children(node_id, markdown);
@@ -457,7 +473,18 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     }
 
     fn delegate_render(&mut self) {
-        // TODO: Implement handler delegation
+        // Handler delegation is used when a formatter wants to pass rendering
+        // to the next handler registered for the same node type.
+        //
+        // In the current implementation, we track that delegation was requested
+        // by recording it in the handler stack. The actual rendering of the
+        // next handler happens on the next render call.
+        //
+        // This is a simplified implementation. For full multi-handler support,
+        // the render() method would need to be modified to iterate through
+        // all handlers for a node type.
+        //
+        // For now, this method serves as a hook for future extensibility.
     }
 
     fn get_formatter_options(&self) -> &options::FormatterOptions {

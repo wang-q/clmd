@@ -25,6 +25,7 @@ cargo bench --bench feature_benchmark
 cargo bench --bench pathological_benchmark
 cargo bench --bench real_world_benchmark
 cargo bench --bench string_optimization_benchmark
+cargo bench --bench formatter_benchmark
 ```
 
 ## Benchmark Categories
@@ -36,6 +37,7 @@ cargo bench --bench string_optimization_benchmark
 5. **string_optimization_benchmark**: String processing optimizations
 6. **sequence_benchmark**: BasedSequence performance tests
 7. **ast_conversion_benchmark**: AST parsing performance
+8. **formatter_benchmark**: CommonMark formatter performance tests
 
 ## Cross-Language Comparison
 

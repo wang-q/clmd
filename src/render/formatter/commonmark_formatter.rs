@@ -184,9 +184,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             NodeFormattingHandler::with_close(
                 NodeValueType::Item,
-                Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
+                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
                     // Get the parent list to determine the marker and nesting level
-                    let (marker, nesting_level) = if let Some(parent_id) = ctx.get_current_node_parent() {
+                    let (marker, nesting_level, is_task_list) = if let Some(parent_id) = ctx.get_current_node_parent() {
                         let arena = ctx.get_arena();
                         let parent = arena.get(parent_id);
                         if let NodeValue::List(list) = &parent.value {
@@ -195,19 +195,36 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // For ordered lists, calculate the item number based on position
                             let item_number = get_item_number_in_list(arena, parent_id, ctx.get_current_node());
                             let marker = format_list_item_marker_with_number(list, item_number);
-                            (marker, level)
+                            (marker, level, list.is_task_list)
                         } else {
-                            ("- ".to_string(), 0)
+                            ("- ".to_string(), 0, false)
                         }
                     } else {
-                        ("- ".to_string(), 0)
+                        ("- ".to_string(), 0, false)
                     };
+
                     // Add indentation based on list nesting level
                     let indent = "  ".repeat(nesting_level);
+
                     // Output the list marker directly (not as a prefix)
                     // This avoids the prefix stacking issue with nested lists
                     writer.append_raw(&indent);
                     writer.append_raw(&marker);
+
+                    // If this is a task list item, render the task marker
+                    if is_task_list {
+                        if let NodeValue::Item(_item_data) = value {
+                            // Determine if this is a checked task
+                            // For now, we check the first character of the item's content
+                            // In a full implementation, this would be stored in the item_data
+                            let task_marker = if is_task_item_checked(ctx.get_arena(), ctx.get_current_node()) {
+                                "[x] "
+                            } else {
+                                "[ ] "
+                            };
+                            writer.append_raw(task_marker);
+                        }
+                    }
                 }),
                 Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
                     // Add line break after each list item
@@ -806,6 +823,46 @@ fn count_list_ancestors(arena: &crate::arena::NodeArena, list_node_id: crate::ar
     count
 }
 
+/// Check if a task list item is checked
+///
+/// This function examines the content of a task list item to determine
+/// if it starts with [x] or [X] (checked) or [ ] (unchecked).
+fn is_task_item_checked(arena: &crate::arena::NodeArena, item_node_id: Option<crate::arena::NodeId>) -> bool {
+    use crate::nodes::NodeValue;
+
+    let item_id = match item_node_id {
+        Some(id) => id,
+        None => return false,
+    };
+
+    let item = arena.get(item_id);
+
+    // Look for the first text node in the item's children
+    let mut child_id = item.first_child;
+    while let Some(child) = child_id {
+        let child_node = arena.get(child);
+
+        // Check if this is a paragraph
+        if matches!(child_node.value, NodeValue::Paragraph) {
+            // Look for text inside the paragraph
+            let mut para_child_id = child_node.first_child;
+            while let Some(para_child) = para_child_id {
+                let para_child_node = arena.get(para_child);
+                if let NodeValue::Text(text) = &para_child_node.value {
+                    // Check if the text starts with [x] or [X]
+                    let text_str = text.as_ref();
+                    return text_str.starts_with("[x]") || text_str.starts_with("[X]");
+                }
+                para_child_id = para_child_node.next;
+            }
+        }
+
+        child_id = child_node.next;
+    }
+
+    false
+}
+
 /// Get the 1-based item number of a node within its parent list
 ///
 /// This is used to determine the correct number for ordered list items.
@@ -1333,5 +1390,165 @@ mod tests {
 
         assert!(result.contains("*emphasis*"), "Should contain emphasis: {}", result);
         assert!(result.contains("**strong**"), "Should contain strong: {}", result);
+    }
+
+    #[test]
+    fn test_is_task_item_checked() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+
+        let mut arena = NodeArena::new();
+
+        // Create a task list item with [x]
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: true,
+        })));
+
+        let item = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: true,
+        })));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
+
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, item, para);
+        TreeOps::append_child(&mut arena, list, item);
+        TreeOps::append_child(&mut arena, root, list);
+
+        // Test that is_task_item_checked returns true for [x]
+        assert!(is_task_item_checked(&arena, Some(item)), "Should detect checked task item");
+
+        // Create another task list item with [ ]
+        let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: true,
+        })));
+
+        let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
+
+        TreeOps::append_child(&mut arena, para2, text2);
+        TreeOps::append_child(&mut arena, item2, para2);
+        TreeOps::append_child(&mut arena, list, item2);
+
+        // Test that is_task_item_checked returns false for [ ]
+        assert!(!is_task_item_checked(&arena, Some(item2)), "Should detect unchecked task item");
+
+        // Test with [X] (uppercase)
+        let item3 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: true,
+        })));
+
+        let para3 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text3 = arena.alloc(Node::with_value(NodeValue::make_text("[X] Checked task uppercase")));
+
+        TreeOps::append_child(&mut arena, para3, text3);
+        TreeOps::append_child(&mut arena, item3, para3);
+        TreeOps::append_child(&mut arena, list, item3);
+
+        // Test that is_task_item_checked returns true for [X]
+        assert!(is_task_item_checked(&arena, Some(item3)), "Should detect checked task item with uppercase X");
+
+        // Test with None
+        assert!(!is_task_item_checked(&arena, None), "Should return false for None");
+    }
+
+    #[test]
+    fn test_render_task_list() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+
+        // Create a task list
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: true,
+        })));
+
+        // First item: [ ] Unchecked
+        let item1 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: true,
+        })));
+        let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("[ ] Unchecked task")));
+        TreeOps::append_child(&mut arena, para1, text1);
+        TreeOps::append_child(&mut arena, item1, para1);
+        TreeOps::append_child(&mut arena, list, item1);
+
+        // Second item: [x] Checked
+        let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: true,
+        })));
+        let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("[x] Checked task")));
+        TreeOps::append_child(&mut arena, para2, text2);
+        TreeOps::append_child(&mut arena, item2, para2);
+        TreeOps::append_child(&mut arena, list, item2);
+
+        TreeOps::append_child(&mut arena, root, list);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        // Check that task list markers are rendered
+        assert!(result.contains("- [ ]"), "Should contain unchecked task marker: {}", result);
+        assert!(result.contains("- [x]"), "Should contain checked task marker: {}", result);
+        assert!(result.contains("Unchecked task"), "Should contain unchecked task text: {}", result);
+        assert!(result.contains("Checked task"), "Should contain checked task text: {}", result);
     }
 }

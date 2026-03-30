@@ -548,8 +548,23 @@ mod tests {
         let opts = FormatterOptions::default();
         assert!(matches!(opts.heading_style, HeadingStyle::AsIs));
         assert!(matches!(opts.list_bullet_marker, BulletMarker::Dash));
+        assert!(matches!(opts.list_numbered_marker, NumberedMarker::Period));
+        assert!(matches!(opts.list_spacing, ListSpacing::AsIs));
+        assert!(matches!(opts.fenced_code_marker_type, CodeFenceMarker::BackTick));
+        assert!(matches!(opts.block_quote_markers, BlockQuoteMarker::AsIs));
+        assert!(matches!(opts.reference_placement, ElementPlacement::AsIs));
+        assert!(matches!(opts.reference_sort, ElementPlacementSort::AsIs));
         assert_eq!(opts.max_blank_lines, 2);
+        assert_eq!(opts.max_trailing_blank_lines, 2);
         assert_eq!(opts.right_margin, 0);
+        assert_eq!(opts.fenced_code_marker_length, 3);
+        assert_eq!(opts.min_setext_marker_length, 3);
+        assert!(opts.keep_hard_line_breaks);
+        assert!(opts.keep_soft_line_breaks);
+        assert!(opts.list_renumber_items);
+        assert!(opts.setext_heading_equalize_marker);
+        assert!(opts.fenced_code_match_closing_marker);
+        assert!(!opts.formatter_tags_enabled);
     }
 
     #[test]
@@ -565,20 +580,208 @@ mod tests {
     }
 
     #[test]
+    fn test_all_builder_methods() {
+        let opts = FormatterOptions::new()
+            .with_heading_style(HeadingStyle::Setext)
+            .with_space_after_atx_marker(DiscretionaryText::Remove)
+            .with_atx_heading_trailing_marker(TrailingMarker::Remove)
+            .with_setext_heading_equalize_marker(false)
+            .with_min_setext_marker_length(5)
+            .with_list_bullet_marker(BulletMarker::Asterisk)
+            .with_list_numbered_marker(NumberedMarker::Paren)
+            .with_list_renumber_items(false)
+            .with_list_spacing(ListSpacing::Loose)
+            .with_fenced_code_marker_type(CodeFenceMarker::Tilde)
+            .with_fenced_code_marker_length(4)
+            .with_block_quote_blank_lines(true)
+            .with_block_quote_markers(BlockQuoteMarker::AddCompact)
+            .with_keep_hard_line_breaks(false)
+            .with_keep_soft_line_breaks(false)
+            .with_right_margin(120)
+            .with_max_blank_lines(3)
+            .with_thematic_break("---")
+            .with_reference_placement(ElementPlacement::DocumentBottom)
+            .with_reference_sort(ElementPlacementSort::Sort)
+            .with_formatter_tags_enabled(true)
+            .with_formatter_on_tag("on")
+            .with_formatter_off_tag("off");
+
+        assert!(matches!(opts.heading_style, HeadingStyle::Setext));
+        assert!(matches!(opts.space_after_atx_marker, DiscretionaryText::Remove));
+        assert!(matches!(opts.atx_heading_trailing_marker, TrailingMarker::Remove));
+        assert!(!opts.setext_heading_equalize_marker);
+        assert_eq!(opts.min_setext_marker_length, 5);
+        assert!(matches!(opts.list_bullet_marker, BulletMarker::Asterisk));
+        assert!(matches!(opts.list_numbered_marker, NumberedMarker::Paren));
+        assert!(!opts.list_renumber_items);
+        assert!(matches!(opts.list_spacing, ListSpacing::Loose));
+        assert!(matches!(opts.fenced_code_marker_type, CodeFenceMarker::Tilde));
+        assert_eq!(opts.fenced_code_marker_length, 4);
+        assert!(opts.block_quote_blank_lines);
+        assert!(matches!(opts.block_quote_markers, BlockQuoteMarker::AddCompact));
+        assert!(!opts.keep_hard_line_breaks);
+        assert!(!opts.keep_soft_line_breaks);
+        assert_eq!(opts.right_margin, 120);
+        assert_eq!(opts.max_blank_lines, 3);
+        assert_eq!(opts.thematic_break, Some("---".to_string()));
+        assert!(matches!(opts.reference_placement, ElementPlacement::DocumentBottom));
+        assert!(matches!(opts.reference_sort, ElementPlacementSort::Sort));
+        assert!(opts.formatter_tags_enabled);
+        assert_eq!(opts.formatter_on_tag, "on");
+        assert_eq!(opts.formatter_off_tag, "off");
+    }
+
+    #[test]
     fn test_element_placement_sort() {
         assert!(ElementPlacementSort::Sort.is_sort());
         assert!(ElementPlacementSort::SortUnusedLast.is_sort());
+        assert!(ElementPlacementSort::SortDeleteUnused.is_sort());
         assert!(!ElementPlacementSort::AsIs.is_sort());
+        assert!(!ElementPlacementSort::DeleteUnused.is_sort());
 
         assert!(ElementPlacementSort::SortDeleteUnused.is_delete_unused());
         assert!(ElementPlacementSort::DeleteUnused.is_delete_unused());
         assert!(!ElementPlacementSort::Sort.is_delete_unused());
+        assert!(!ElementPlacementSort::AsIs.is_delete_unused());
+
+        assert!(ElementPlacementSort::SortUnusedLast.is_unused());
+        assert!(ElementPlacementSort::SortDeleteUnused.is_unused());
+        assert!(ElementPlacementSort::DeleteUnused.is_unused());
+        assert!(!ElementPlacementSort::Sort.is_unused());
+        assert!(!ElementPlacementSort::AsIs.is_unused());
     }
 
     #[test]
     fn test_element_placement() {
         assert!(ElementPlacement::DocumentTop.is_change());
+        assert!(ElementPlacement::DocumentBottom.is_change());
+        assert!(ElementPlacement::GroupWithFirst.is_change());
+        assert!(ElementPlacement::GroupWithLast.is_change());
         assert!(!ElementPlacement::AsIs.is_change());
+        
         assert!(ElementPlacement::AsIs.is_no_change());
+        assert!(!ElementPlacement::DocumentTop.is_no_change());
+    }
+
+    #[test]
+    fn test_format_flags_default() {
+        let flags = FormatFlags::DEFAULT;
+        assert!(flags.trim_leading_whitespace);
+        assert!(flags.trim_trailing_whitespace);
+        assert!(!flags.convert_tabs);
+        assert!(!flags.collapse_whitespace);
+    }
+
+    #[test]
+    fn test_format_flags_custom() {
+        let flags = FormatFlags {
+            trim_leading_whitespace: false,
+            trim_trailing_whitespace: false,
+            convert_tabs: true,
+            collapse_whitespace: true,
+        };
+        assert!(!flags.trim_leading_whitespace);
+        assert!(!flags.trim_trailing_whitespace);
+        assert!(flags.convert_tabs);
+        assert!(flags.collapse_whitespace);
+    }
+
+    #[test]
+    fn test_heading_style_variants() {
+        assert!(matches!(HeadingStyle::Atx, HeadingStyle::Atx));
+        assert!(matches!(HeadingStyle::Setext, HeadingStyle::Setext));
+        assert!(matches!(HeadingStyle::AsIs, HeadingStyle::AsIs));
+    }
+
+    #[test]
+    fn test_bullet_marker_variants() {
+        assert!(matches!(BulletMarker::Dash, BulletMarker::Dash));
+        assert!(matches!(BulletMarker::Asterisk, BulletMarker::Asterisk));
+        assert!(matches!(BulletMarker::Plus, BulletMarker::Plus));
+        assert!(matches!(BulletMarker::Any, BulletMarker::Any));
+    }
+
+    #[test]
+    fn test_numbered_marker_variants() {
+        assert!(matches!(NumberedMarker::Period, NumberedMarker::Period));
+        assert!(matches!(NumberedMarker::Paren, NumberedMarker::Paren));
+        assert!(matches!(NumberedMarker::Any, NumberedMarker::Any));
+    }
+
+    #[test]
+    fn test_list_spacing_variants() {
+        assert!(matches!(ListSpacing::Tight, ListSpacing::Tight));
+        assert!(matches!(ListSpacing::Loose, ListSpacing::Loose));
+        assert!(matches!(ListSpacing::AsIs, ListSpacing::AsIs));
+        assert!(matches!(ListSpacing::Loosen, ListSpacing::Loosen));
+        assert!(matches!(ListSpacing::Tighten, ListSpacing::Tighten));
+    }
+
+    #[test]
+    fn test_code_fence_marker_variants() {
+        assert!(matches!(CodeFenceMarker::BackTick, CodeFenceMarker::BackTick));
+        assert!(matches!(CodeFenceMarker::Tilde, CodeFenceMarker::Tilde));
+        assert!(matches!(CodeFenceMarker::Any, CodeFenceMarker::Any));
+    }
+
+    #[test]
+    fn test_block_quote_marker_variants() {
+        assert!(matches!(BlockQuoteMarker::AsIs, BlockQuoteMarker::AsIs));
+        assert!(matches!(BlockQuoteMarker::AddCompact, BlockQuoteMarker::AddCompact));
+        assert!(matches!(BlockQuoteMarker::AddCompactWithSpace, BlockQuoteMarker::AddCompactWithSpace));
+        assert!(matches!(BlockQuoteMarker::AddSpaced, BlockQuoteMarker::AddSpaced));
+    }
+
+    #[test]
+    fn test_discretionary_text_variants() {
+        assert!(matches!(DiscretionaryText::Add, DiscretionaryText::Add));
+        assert!(matches!(DiscretionaryText::Remove, DiscretionaryText::Remove));
+        assert!(matches!(DiscretionaryText::AsIs, DiscretionaryText::AsIs));
+        assert!(matches!(DiscretionaryText::Equalize, DiscretionaryText::Equalize));
+    }
+
+    #[test]
+    fn test_trailing_marker_variants() {
+        assert!(matches!(TrailingMarker::Add, TrailingMarker::Add));
+        assert!(matches!(TrailingMarker::Remove, TrailingMarker::Remove));
+        assert!(matches!(TrailingMarker::AsIs, TrailingMarker::AsIs));
+        assert!(matches!(TrailingMarker::Equalize, TrailingMarker::Equalize));
+    }
+
+    #[test]
+    fn test_alignment_variants() {
+        assert!(matches!(Alignment::None, Alignment::None));
+        assert!(matches!(Alignment::Left, Alignment::Left));
+        assert!(matches!(Alignment::Right, Alignment::Right));
+        assert!(matches!(Alignment::Center, Alignment::Center));
+    }
+
+    #[test]
+    fn test_element_placement_variants() {
+        assert!(matches!(ElementPlacement::AsIs, ElementPlacement::AsIs));
+        assert!(matches!(ElementPlacement::DocumentTop, ElementPlacement::DocumentTop));
+        assert!(matches!(ElementPlacement::DocumentBottom, ElementPlacement::DocumentBottom));
+        assert!(matches!(ElementPlacement::GroupWithFirst, ElementPlacement::GroupWithFirst));
+        assert!(matches!(ElementPlacement::GroupWithLast, ElementPlacement::GroupWithLast));
+    }
+
+    #[test]
+    fn test_options_clone() {
+        let opts = FormatterOptions::new()
+            .with_right_margin(100)
+            .with_heading_style(HeadingStyle::Atx);
+        
+        let cloned = opts.clone();
+        assert_eq!(cloned.right_margin, 100);
+        assert!(matches!(cloned.heading_style, HeadingStyle::Atx));
+    }
+
+    #[test]
+    fn test_options_debug() {
+        let opts = FormatterOptions::new();
+        let debug_str = format!("{:?}", opts);
+        assert!(debug_str.contains("FormatterOptions"));
+        assert!(debug_str.contains("heading_style"));
+        assert!(debug_str.contains("right_margin"));
     }
 }

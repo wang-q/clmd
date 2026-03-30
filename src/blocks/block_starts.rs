@@ -11,6 +11,7 @@ use crate::nodes::{
     NodeValue,
 };
 use crate::parser::OPT_TABLE;
+use crate::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.
@@ -531,6 +532,10 @@ impl<'a> BlockParser<'a> {
             )
         };
 
+        // Check for task list marker in the remaining line content
+        let rest_of_line = &self.current_line[self.offset..];
+        let is_task_list = scanners::tasklist(rest_of_line).is_some();
+
         // Add list item
         let item = self.add_child(
             NodeValue::Item(NodeList {
@@ -541,11 +546,20 @@ impl<'a> BlockParser<'a> {
                 delimiter: ListDelimType::Period,
                 bullet_char: 0,
                 tight: true,
-                is_task_list: false,
+                is_task_list,
             }),
             self.next_nonspace,
         );
         self.set_list_data(item, marker_offset, padding);
+
+        // If this is a task list item, update the parent list
+        if is_task_list {
+            if let Some(parent) = self.arena.get(item).parent {
+                if let NodeValue::List(ref mut list) = self.arena.get_mut(parent).value {
+                    list.is_task_list = true;
+                }
+            }
+        }
 
         BlockStartResult::Opened(item)
     }

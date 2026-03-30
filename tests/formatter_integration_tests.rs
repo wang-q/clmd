@@ -247,3 +247,30 @@ fn test_format_whitespace_only() {
     // Whitespace-only input should be handled gracefully
     assert!(!output.contains("#"), "Should not create headings from whitespace");
 }
+
+#[test]
+fn test_format_task_list() {
+    let options = Options::default();
+    let input = "- [ ] Unchecked task\n- [x] Checked task\n- [X] Checked task uppercase";
+    let output = markdown_to_commonmark(input, &options);
+
+    // Check that task list markers are preserved
+    // Note: [X] (uppercase) is normalized to [x] (lowercase) during formatting
+    assert!(output.contains("- [ ]"), "Should contain unchecked task marker: {}", output);
+    assert!(output.contains("- [x]"), "Should contain checked task marker: {}", output);
+    assert!(output.contains("Unchecked task"), "Should contain unchecked task text: {}", output);
+    assert!(output.contains("Checked task"), "Should contain checked task text: {}", output);
+}
+
+#[test]
+fn test_format_task_list_with_content() {
+    let options = Options::default();
+    let input = "- [ ] Task with **bold** text\n- [x] Task with *italic* text";
+    let output = markdown_to_commonmark(input, &options);
+
+    // Check that task list markers and formatting are preserved
+    assert!(output.contains("- [ ]"), "Should contain unchecked task marker: {}", output);
+    assert!(output.contains("- [x]"), "Should contain checked task marker: {}", output);
+    assert!(output.contains("**bold**"), "Should contain bold formatting: {}", output);
+    assert!(output.contains("*italic*"), "Should contain italic formatting: {}", output);
+}

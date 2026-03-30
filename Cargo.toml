@@ -71,6 +71,10 @@ harness = false
 name = "string_optimization_benchmark"
 harness = false
 
+[[bench]]
+name = "formatter_benchmark"
+harness = false
+
 # Examples
 [[example]]
 name = "benchmark"
