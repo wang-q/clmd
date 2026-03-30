@@ -9,6 +9,21 @@ use crate::nodes::NodeValue;
 use crate::parser::OPT_VALIDATE_UTF8;
 use rustc_hash::FxHashMap;
 
+/// Relaxed maximum input size for backward compatibility: 100MB
+const RELAXED_MAX_INPUT_SIZE: usize = 100 * 1024 * 1024;
+
+/// Relaxed maximum nesting depth for backward compatibility
+const RELAXED_MAX_NESTING_DEPTH: usize = 1000;
+
+/// Relaxed maximum line length for backward compatibility: 10MB
+const RELAXED_MAX_LINE_LENGTH: usize = 10_000_000;
+
+/// Relaxed maximum list items for backward compatibility
+const RELAXED_MAX_LIST_ITEMS: usize = 1_000_000;
+
+/// Relaxed maximum links for backward compatibility
+const RELAXED_MAX_LINKS: usize = 1_000_000;
+
 /// Type alias for the reference map: label -> (url, title)
 pub type RefMap = FxHashMap<String, (String, String)>;
 
@@ -135,11 +150,11 @@ impl<'a> BlockParser<'a> {
     ) -> NodeId {
         // Use relaxed limits for backward compatibility
         let limits = ParserLimits {
-            max_input_size: 100 * 1024 * 1024, // 100MB
-            max_nesting_depth: 1000,
-            max_line_length: 10_000_000, // 10MB per line
-            max_list_items: 1_000_000,
-            max_links: 1_000_000,
+            max_input_size: RELAXED_MAX_INPUT_SIZE,
+            max_nesting_depth: RELAXED_MAX_NESTING_DEPTH,
+            max_line_length: RELAXED_MAX_LINE_LENGTH,
+            max_list_items: RELAXED_MAX_LIST_ITEMS,
+            max_links: RELAXED_MAX_LINKS,
         };
         // For backward compatibility, unwrap the result
         // In new code, use parse_with_limits which returns ParseResult

@@ -611,7 +611,7 @@ mod tests {
     #[test]
     fn test_node_value_type_clone() {
         let ty = NodeValueType::Heading;
-        let cloned = ty.clone();
+        let cloned = ty;
         assert_eq!(ty, cloned);
     }
 

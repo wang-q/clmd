@@ -399,7 +399,7 @@ mod tests {
         use std::fmt::Write;
 
         let mut writer = MarkdownWriter::default();
-        write!(writer, "Hello, {}!", "World").unwrap();
+        write!(writer, "Hello, World!").unwrap();
         assert_eq!(writer.to_string(), "Hello, World!");
     }
 }

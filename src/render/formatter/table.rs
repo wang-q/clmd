@@ -638,7 +638,7 @@ mod tests {
 
         // Test with explicit CRLF flag by checking the internal logic
         // When lines contain "\r", it should be preserved
-        let lines_with_cr = vec!["|A|B|\r", "|-|-|\r", "|C|D|"];
+        let lines_with_cr = ["|A|B|\r", "|-|-|\r", "|C|D|"];
         let has_crlf = lines_with_cr
             .iter()
             .any(|line| line.contains("\r\n") || line.ends_with('\r'));

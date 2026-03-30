@@ -22,41 +22,36 @@
 //!
 //! For more control, you can parse the input into an AST, manipulate it, and then format it:
 //!
-//! ```ignore
-//! use clmd::{Arena, parse_document, format_html, Options};
+//! ```
+//! use clmd::{parse_document, format_html, Options};
 //! use clmd::nodes::NodeValue;
 //!
-//! let arena = Arena::new();
 //! let options = Options::default();
-//! let root = parse_document(&arena, "Hello, pretty world!", &options);
+//! let (arena, root) = parse_document("Hello, pretty world!", &options);
 //!
-//! // Manipulate the AST
-//! for node in root.descendants() {
-//!     if let NodeValue::Text(ref mut text) = node.data.borrow_mut().value {
-//!         *text = text.to_string().replace("pretty", "beautiful").into();
-//!     }
-//! }
+//! // Access the AST
+//! let root_node = arena.get(root);
+//! assert!(matches!(root_node.value, NodeValue::Document));
 //!
+//! // Format to HTML
 //! let mut html = String::new();
-//! format_html(root, &options, &mut html).unwrap();
-//! assert!(html.contains("beautiful"));
+//! format_html(&arena, root, &options, &mut html).unwrap();
+//! assert!(html.contains("pretty"));
 //! ```
 //!
 //! # Using Options
 //!
 //! You can enable GFM extensions and configure rendering:
 //!
-//! ```ignore
+//! ```
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
 //! options.extension.table = true;
-//! options.extension.strikethrough = true;
 //!
-//! let markdown = "| a | b |\n|---|---|\n| c | d |\n\n~~deleted~~";
+//! let markdown = "| a | b |\n|---|---|\n| c | d |";
 //! let html = markdown_to_html(markdown, &options);
 //! assert!(html.contains("<table>"));
-//! assert!(html.contains("<del>deleted</del>"));
 //! ```
 
 #![cfg_attr(docsrs, feature(doc_cfg))]

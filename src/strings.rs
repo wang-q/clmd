@@ -5,6 +5,9 @@
 
 use std::borrow::Cow;
 
+// Re-export escape_html from html_utils to avoid duplication
+pub use crate::html_utils::escape_html;
+
 /// Case sensitivity for label normalization
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -487,23 +490,6 @@ fn lookup_named_entity(name: &str) -> Option<char> {
     }
 }
 
-/// Escape special HTML characters
-pub fn escape_html(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-
-    for c in s.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            _ => result.push(c),
-        }
-    }
-
-    result
-}
-
 /// Check if a string contains only ASCII characters
 pub fn is_ascii(s: &str) -> bool {
     s.bytes().all(|b| b.is_ascii())
@@ -580,13 +566,6 @@ mod tests {
         assert_eq!(decode_entities("&gt;"), ">");
         assert_eq!(decode_entities("&#65;"), "A");
         assert_eq!(decode_entities("&#x41;"), "A");
-    }
-
-    #[test]
-    fn test_escape_html() {
-        assert_eq!(escape_html("<script>"), "&lt;script&gt;");
-        assert_eq!(escape_html("&"), "&amp;");
-        assert_eq!(escape_html("\""), "&quot;");
     }
 
     #[test]

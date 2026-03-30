@@ -13,8 +13,9 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use clmd::{NodeArena, TreeOps, NodeValue, Node};
+//! ```
+//! use clmd::arena::{NodeArena, TreeOps, Node};
+//! use clmd::nodes::NodeValue;
 //!
 //! let mut arena = NodeArena::new();
 //! let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -110,8 +111,8 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::NodeArena;
+    /// ```
+    /// use clmd::arena::NodeArena;
     ///
     /// let arena = NodeArena::with_limits(100, 10000);
     /// ```
@@ -150,8 +151,8 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::NodeArena;
+    /// ```
+    /// use clmd::arena::NodeArena;
     ///
     /// let arena = NodeArena::new();
     /// let (nodes, allocs, memory) = arena.memory_stats();
@@ -267,10 +268,11 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    /// ```
+    /// use clmd::arena::{NodeArena, TreeOps, Node};
+    /// use clmd::nodes::NodeValue;
     ///
-    /// let mut arena = Arena::new();
+    /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
     /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
     /// TreeOps::append_child(&mut arena, root, para);
@@ -288,10 +290,11 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    /// ```
+    /// use clmd::arena::{NodeArena, TreeOps, Node};
+    /// use clmd::nodes::NodeValue;
     ///
-    /// let mut arena = Arena::new();
+    /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
     /// let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
     /// let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -314,10 +317,11 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    /// ```
+    /// use clmd::arena::{NodeArena, TreeOps, Node};
+    /// use clmd::nodes::NodeValue;
     ///
-    /// let mut arena = Arena::new();
+    /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
     /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
     /// TreeOps::append_child(&mut arena, root, para);
@@ -363,10 +367,11 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    /// ```
+    /// use clmd::arena::{NodeArena, TreeOps, Node};
+    /// use clmd::nodes::NodeValue;
     ///
-    /// let mut arena = Arena::new();
+    /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
     /// let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
     /// let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));

@@ -1,8 +1,22 @@
 //! PDF renderer (placeholder implementation)
 //!
 //! This module provides PDF output generation.
-//! Note: This is a placeholder implementation. Full PDF support would require
+//!
+//! # Experimental Feature
+//!
+//! This is a placeholder implementation. Full PDF support would require
 //! the printpdf or genpdf crate for proper PDF generation.
+//!
+//! The current implementation only generates a text-based placeholder output,
+//! not a valid PDF file.
+//!
+//! # Future Work
+//!
+//! To implement full PDF support:
+//! 1. Add printpdf or genpdf dependency
+//! 2. Implement proper PDF structure generation
+//! 3. Add font embedding
+//! 4. Handle images and complex layouts
 
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;

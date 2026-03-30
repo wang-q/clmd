@@ -4,9 +4,7 @@
 //! over standard String operations for typical Markdown parsing scenarios.
 
 use clmd::sequence::BasedSequence;
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 // Sample Markdown text for testing
 const SAMPLE_TEXT: &str = r#"# Heading 1

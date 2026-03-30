@@ -424,6 +424,21 @@ impl Error for ParseError {}
 /// Result type alias for parse operations
 pub type ParseResult<T> = Result<T, ParseError>;
 
+/// Default maximum input size: 10MB
+const DEFAULT_MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
+
+/// Default maximum nesting depth
+const DEFAULT_MAX_NESTING_DEPTH: usize = 100;
+
+/// Default maximum line length
+const DEFAULT_MAX_LINE_LENGTH: usize = 10_000;
+
+/// Default maximum list items
+const DEFAULT_MAX_LIST_ITEMS: usize = 10_000;
+
+/// Default maximum links
+const DEFAULT_MAX_LINKS: usize = 10_000;
+
 /// Configuration for parser limits and validation
 #[derive(Debug, Clone, Copy)]
 pub struct ParserLimits {
@@ -442,11 +457,11 @@ pub struct ParserLimits {
 impl Default for ParserLimits {
     fn default() -> Self {
         ParserLimits {
-            max_input_size: 10 * 1024 * 1024, // 10MB
-            max_nesting_depth: 100,
-            max_line_length: 10000,
-            max_list_items: 10000,
-            max_links: 10000,
+            max_input_size: DEFAULT_MAX_INPUT_SIZE,
+            max_nesting_depth: DEFAULT_MAX_NESTING_DEPTH,
+            max_line_length: DEFAULT_MAX_LINE_LENGTH,
+            max_list_items: DEFAULT_MAX_LIST_ITEMS,
+            max_links: DEFAULT_MAX_LINKS,
         }
     }
 }
@@ -502,11 +517,11 @@ mod tests {
     fn test_parse_error_display() {
         let err = ParseError::InputTooLarge {
             size: 20_000_000,
-            max_size: 10_000_000,
+            max_size: DEFAULT_MAX_INPUT_SIZE,
         };
         assert!(err.to_string().contains("Input too large"));
         assert!(err.to_string().contains("20000000"));
-        assert!(err.to_string().contains("10000000"));
+        assert!(err.to_string().contains("10485760")); // 10MB in bytes
     }
 
     #[test]
@@ -541,7 +556,7 @@ mod tests {
     #[test]
     fn test_parser_limits_default() {
         let limits = ParserLimits::default();
-        assert_eq!(limits.max_input_size, 10 * 1024 * 1024);
+        assert_eq!(limits.max_input_size, DEFAULT_MAX_INPUT_SIZE);
         assert_eq!(limits.max_nesting_depth, 100);
         assert_eq!(limits.max_line_length, 10000);
         assert_eq!(limits.max_list_items, 10000);

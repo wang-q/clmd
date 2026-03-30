@@ -2,7 +2,7 @@
 //!
 //! This benchmark measures the performance of parsing Markdown to AST.
 
-use clmd::{parse_document, Arena, Options};
+use clmd::{parse_document, Options};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 /// Small document benchmark
