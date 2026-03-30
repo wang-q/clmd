@@ -260,6 +260,102 @@ cargo bench --bench parse_benchmark
 cargo bench --bench categorized_benchmark
 ```
 
+## Formatter 模块架构
+
+clmd 包含一个灵活的 CommonMark 格式化器（Formatter）模块，基于 flexmark-java 的架构设计，支持可扩展的节点格式化。
+
+### 模块结构
+
+```
+src/render/formatter/
+├── mod.rs                    # Formatter 核心实现
+├── context.rs                # 格式化上下文 trait 和实现
+├── node.rs                   # 节点格式化 handler 定义
+├── options.rs                # 格式化选项
+├── phase.rs                  # 格式化阶段（Collect, Document）
+├── purpose.rs                # 渲染目的（Format, Translation）
+├── table.rs                  # 表格格式化工具
+├── writer.rs                 # MarkdownWriter 输出工具
+├── commonmark_formatter.rs   # CommonMark 格式化器实现
+└── adapters.rs               # 适配器工具
+```
+
+### 核心概念
+
+#### 1. NodeFormatter Trait
+
+定义如何格式化特定类型的节点：
+
+```rust
+pub trait NodeFormatter: Send + Sync + Debug {
+    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler>;
+    fn get_node_classes(&self) -> Vec<NodeValueType> { vec![] }
+    fn get_block_quote_like_prefix_char(&self) -> Option<char> { None }
+}
+```
+
+#### 2. NodeFormattingHandler
+
+处理特定节点类型的打开和关闭：
+
+```rust
+pub struct NodeFormattingHandler {
+    pub node_type: NodeValueType,
+    pub open_formatter: NodeFormatterFn,
+    pub close_formatter: Option<NodeFormatterFn>,
+}
+```
+
+#### 3. Formatter 组合
+
+多个 formatter 可以组合使用：
+
+```rust
+let mut formatter = Formatter::with_options(options);
+formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+// 可以添加更多自定义 formatter
+```
+
+### 使用示例
+
+```rust
+use clmd::render::formatter::{Formatter, FormatterOptions, CommonMarkNodeFormatter};
+
+let options = FormatterOptions::new().with_right_margin(80);
+let mut formatter = Formatter::with_options(options);
+formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+let output = formatter.render(&arena, root);
+```
+
+### 扩展机制
+
+#### 自定义 Formatter
+
+```rust
+struct MyCustomFormatter;
+
+impl NodeFormatter for MyCustomFormatter {
+    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+        vec![
+            NodeFormattingHandler::new(
+                NodeValueType::Paragraph,
+                |value, ctx, writer| {
+                    // 自定义段落格式化逻辑
+                },
+            ),
+        ]
+    }
+}
+```
+
+### 特性
+
+- **多阶段渲染**: 支持 Collect 和 Document 阶段
+- **Handler 委托**: 支持将渲染委托给下一个 handler
+- **上下文感知**: 访问当前节点、父节点、列表嵌套层级等信息
+- **Unicode 感知**: 表格格式化正确处理 CJK 和 emoji 宽度
+
 ## 参考资源
 
 ### 核心算法参考

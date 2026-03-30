@@ -186,7 +186,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Item,
                 Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
                     // Get the parent list to determine the marker and nesting level
-                    let (marker, nesting_level, is_task_list) = if let Some(parent_id) = ctx.get_current_node_parent() {
+                    let (marker, nesting_level) = if let Some(parent_id) = ctx.get_current_node_parent() {
                         let arena = ctx.get_arena();
                         let parent = arena.get(parent_id);
                         if let NodeValue::List(list) = &parent.value {
@@ -195,12 +195,19 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // For ordered lists, calculate the item number based on position
                             let item_number = get_item_number_in_list(arena, parent_id, ctx.get_current_node());
                             let marker = format_list_item_marker_with_number(list, item_number);
-                            (marker, level, list.is_task_list)
+                            (marker, level)
                         } else {
-                            ("- ".to_string(), 0, false)
+                            ("- ".to_string(), 0)
                         }
                     } else {
-                        ("- ".to_string(), 0, false)
+                        ("- ".to_string(), 0)
+                    };
+
+                    // Check if this specific item is a task list item
+                    let is_task_list = if let NodeValue::Item(item_data) = value {
+                        item_data.is_task_list
+                    } else {
+                        false
                     };
 
                     // Add indentation based on list nesting level
@@ -213,17 +220,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                     // If this is a task list item, render the task marker
                     if is_task_list {
-                        if let NodeValue::Item(_item_data) = value {
-                            // Determine if this is a checked task
-                            // For now, we check the first character of the item's content
-                            // In a full implementation, this would be stored in the item_data
-                            let task_marker = if is_task_item_checked(ctx.get_arena(), ctx.get_current_node()) {
-                                "[x] "
-                            } else {
-                                "[ ] "
-                            };
-                            writer.append_raw(task_marker);
-                        }
+                        // Determine if this is a checked task
+                        let task_marker = if is_task_item_checked(ctx.get_arena(), ctx.get_current_node()) {
+                            "[x] "
+                        } else {
+                            "[ ] "
+                        };
+                        writer.append_raw(task_marker);
                     }
                 }),
                 Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
@@ -257,9 +260,18 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             // Inline elements
             NodeFormattingHandler::new(
                 NodeValueType::Text,
-                Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
+                Box::new(|value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
                     if let NodeValue::Text(text) = value {
-                        let escaped = escape_markdown(text);
+                        let text_str = text.as_ref();
+
+                        // Check if we're in a task list item and need to skip the task marker
+                        let processed_text = if is_in_task_list_item(ctx) {
+                            skip_task_marker(text_str)
+                        } else {
+                            text_str.to_string()
+                        };
+
+                        let escaped = escape_markdown(&processed_text);
                         // Use append_raw to preserve whitespace in text content
                         writer.append_raw(&escaped);
                     }
@@ -861,6 +873,53 @@ fn is_task_item_checked(arena: &crate::arena::NodeArena, item_node_id: Option<cr
     }
 
     false
+}
+
+/// Check if the current context is inside a task list item
+///
+/// This checks if the current node's parent is a list item that is part of a task list.
+fn is_in_task_list_item(ctx: &dyn NodeFormatterContext) -> bool {
+    use crate::nodes::NodeValue;
+
+    if let Some(current_node) = ctx.get_current_node() {
+        let arena = ctx.get_arena();
+        let node = arena.get(current_node);
+
+        // Check if the current node is inside an Item
+        if let Some(parent_id) = node.parent {
+            let parent = arena.get(parent_id);
+
+            // Check if parent is a Paragraph inside an Item
+            if matches!(parent.value, NodeValue::Paragraph) {
+                if let Some(grandparent_id) = parent.parent {
+                    let grandparent = arena.get(grandparent_id);
+                    if let NodeValue::Item(item_data) = &grandparent.value {
+                        return item_data.is_task_list;
+                    }
+                }
+            }
+
+            // Or if parent is directly an Item
+            if let NodeValue::Item(item_data) = &parent.value {
+                return item_data.is_task_list;
+            }
+        }
+    }
+
+    false
+}
+
+/// Skip the task list marker from the beginning of text
+///
+/// If the text starts with "[ ] " or "[x] " (or "[X] "), remove it.
+fn skip_task_marker(text: &str) -> String {
+    if text.starts_with("[ ] ") {
+        text[4..].to_string()
+    } else if text.starts_with("[x] ") || text.starts_with("[X] ") {
+        text[4..].to_string()
+    } else {
+        text.to_string()
+    }
 }
 
 /// Get the 1-based item number of a node within its parent list
