@@ -3,33 +3,33 @@
 //! This module provides utility functions for formatting Markdown content,
 //! inspired by flexmark-java's FormatterUtils class.
 
-use crate::nodes::{NodeList, NodeCodeBlock};
-use crate::render::formatter_context::NodeFormatterContext;
-use crate::render::formatter_options::{BulletMarker, NumberedMarker, CodeFenceMarker};
-use crate::render::markdown_writer::MarkdownWriter;
+use crate::nodes::{NodeCodeBlock, NodeList};
+use crate::render::formatter::context::NodeFormatterContext;
+use crate::render::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
+use crate::render::formatter::writer::MarkdownWriter;
 
 /// Render a list
 pub fn render_list(
     list: &NodeList,
     context: &mut dyn NodeFormatterContext,
-    writer: &mut MarkdownWriter,
+    _writer: &mut MarkdownWriter,
 ) {
     let _options = context.get_formatter_options();
-    
+
     // Determine list properties
-    let is_ordered = list.list_type == crate::nodes::ListType::Ordered;
+    let _is_ordered = list.list_type == crate::nodes::ListType::Ordered;
     let _start = list.start;
     let is_tight = list.tight;
-    
+
     // Set tight list context
     let prev_tight = context.is_in_tight_list();
     context.set_tight_list(is_tight);
     context.increment_list_nesting();
-    
+
     // Render list items
     // Note: In a full implementation, this would iterate over child items
     // and render them with appropriate markers
-    
+
     // Restore previous context
     context.set_tight_list(prev_tight);
     context.decrement_list_nesting();
@@ -71,16 +71,16 @@ pub fn render_code_block(
     writer: &mut MarkdownWriter,
 ) {
     let options = context.get_formatter_options();
-    
+
     if code_block.fenced {
         // Fenced code block
         let marker = get_code_fence_marker(
             options.fenced_code_marker_type,
             options.fenced_code_marker_length,
         );
-        
+
         writer.append(&marker);
-        
+
         // Add info string if present
         if !code_block.info.is_empty() {
             if options.fenced_code_space_before_info {
@@ -88,9 +88,9 @@ pub fn render_code_block(
             }
             writer.append(&code_block.info);
         }
-        
+
         writer.line();
-        
+
         // Write the code content
         if !code_block.literal.is_empty() {
             writer.open_pre_formatted();
@@ -98,7 +98,7 @@ pub fn render_code_block(
             writer.close_pre_formatted();
             writer.line();
         }
-        
+
         // Closing fence
         writer.append(&marker);
     } else {
@@ -108,9 +108,9 @@ pub fn render_code_block(
         } else {
             4 // Default indent
         };
-        
+
         let indent_str = " ".repeat(indent);
-        
+
         writer.push_prefix(&indent_str);
         writer.open_pre_formatted();
         writer.append(&code_block.literal);
@@ -136,7 +136,8 @@ pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     for ch in text.chars() {
         match ch {
-            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.' | '!' | '|' => {
+            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+'
+            | '-' | '.' | '!' | '|' => {
                 result.push('\\');
                 result.push(ch);
             }
@@ -153,7 +154,7 @@ pub fn get_blank_lines_between_blocks(
     context: &dyn NodeFormatterContext,
 ) -> usize {
     let options = context.get_formatter_options();
-    
+
     // Default to one blank line between most blocks
     let blank_lines = match (prev_block_type, next_block_type) {
         ("Document", _) => 0,
@@ -167,7 +168,7 @@ pub fn get_blank_lines_between_blocks(
         ("BlockQuote", "BlockQuote") => 0, // Block quotes can be adjacent
         _ => 1,
     };
-    
+
     blank_lines.min(options.max_blank_lines)
 }
 
@@ -202,10 +203,10 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
     if width == 0 || text.len() <= width {
         return vec![text.to_string()];
     }
-    
+
     let mut lines = Vec::new();
     let mut current_line = String::new();
-    
+
     for word in text.split_whitespace() {
         if current_line.is_empty() {
             current_line.push_str(word);
@@ -217,11 +218,11 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
             current_line = word.to_string();
         }
     }
-    
+
     if !current_line.is_empty() {
         lines.push(current_line);
     }
-    
+
     lines
 }
 
@@ -245,7 +246,7 @@ pub fn remove_common_indent(lines: &[&str]) -> Vec<String> {
     if lines.is_empty() {
         return Vec::new();
     }
-    
+
     // Find minimum indentation (excluding empty lines)
     let min_indent = lines
         .iter()
@@ -253,7 +254,7 @@ pub fn remove_common_indent(lines: &[&str]) -> Vec<String> {
         .map(|line| get_indent_level(line))
         .min()
         .unwrap_or(0);
-    
+
     lines
         .iter()
         .map(|line| {
@@ -267,7 +268,11 @@ pub fn remove_common_indent(lines: &[&str]) -> Vec<String> {
 }
 
 /// Format a heading marker
-pub fn format_heading_marker(level: u8, setext: bool, setext_char: Option<char>) -> String {
+pub fn format_heading_marker(
+    level: u8,
+    setext: bool,
+    setext_char: Option<char>,
+) -> String {
     if setext {
         let ch = setext_char.unwrap_or('=');
         ch.to_string().repeat(level as usize)

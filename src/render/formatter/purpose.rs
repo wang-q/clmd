@@ -130,7 +130,11 @@ pub struct TranslationSpan {
 
 impl TranslationSpan {
     /// Create a new translation span
-    pub fn new(id: usize, original_text: impl Into<String>, placeholder_format: &str) -> Self {
+    pub fn new(
+        id: usize,
+        original_text: impl Into<String>,
+        placeholder_format: &str,
+    ) -> Self {
         let original_text = original_text.into();
         let placeholder = placeholder_format.replace("{}", &id.to_string());
         Self {
@@ -216,10 +220,14 @@ impl TranslationSpanCollection {
     }
 
     /// Add a new isolated translation span
-    pub fn add_isolated_span(&mut self, original_text: impl Into<String>) -> &TranslationSpan {
+    pub fn add_isolated_span(
+        &mut self,
+        original_text: impl Into<String>,
+    ) -> &TranslationSpan {
         let id = self.next_id;
         self.next_id += 1;
-        let span = TranslationSpan::new_isolated(id, original_text, &self.placeholder_format);
+        let span =
+            TranslationSpan::new_isolated(id, original_text, &self.placeholder_format);
         self.spans.push(span);
         self.spans.last().unwrap()
     }
@@ -241,7 +249,10 @@ impl TranslationSpanCollection {
 
     /// Get all original texts
     pub fn get_original_texts(&self) -> Vec<&str> {
-        self.spans.iter().map(|s| s.original_text.as_str()).collect()
+        self.spans
+            .iter()
+            .map(|s| s.original_text.as_str())
+            .collect()
     }
 
     /// Set translated texts
@@ -365,7 +376,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            collection.get_span(1).unwrap().get_text(RenderPurpose::Translated),
+            collection
+                .get_span(1)
+                .unwrap()
+                .get_text(RenderPurpose::Translated),
             "Bonjour"
         );
     }

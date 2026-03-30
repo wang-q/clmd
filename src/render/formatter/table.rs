@@ -40,7 +40,7 @@
 //! # Examples
 //!
 //! ```
-//! use clmd::render::table_formatter::format_table_str;
+//! use clmd::render::formatter::table::format_table_str;
 //! use clmd::nodes::TableAlignment;
 //!
 //! let input = "| A | B |\n|---|---|\n| C | D |";

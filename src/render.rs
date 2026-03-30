@@ -31,20 +31,12 @@ pub mod latex;
 pub mod man;
 pub mod pdf;
 pub mod renderer;
-pub mod table_formatter;
 pub mod typst;
 pub mod xml;
 
-// New formatter modules (inspired by flexmark-java)
+// Formatter module (inspired by flexmark-java)
+// Contains: options, context, phase, purpose, node, phased, writer, utils, table
 pub mod formatter;
-pub mod formatter_context;
-pub mod formatter_options;
-pub mod formatter_utils;
-pub mod formatting_phase;
-pub mod markdown_writer;
-pub mod node_formatter;
-pub mod phased_formatter;
-pub mod render_purpose;
 
 // Re-export renderer types
 pub use renderer::{

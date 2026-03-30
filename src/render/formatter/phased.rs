@@ -4,10 +4,12 @@
 //! multi-phase rendering, inspired by flexmark-java's PhasedNodeFormatter.
 
 use crate::arena::NodeId;
-use crate::render::formatter_context::NodeFormatterContext;
-use crate::render::formatting_phase::FormattingPhase;
-use crate::render::markdown_writer::MarkdownWriter;
-use crate::render::node_formatter::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::render::formatter::context::NodeFormatterContext;
+use crate::render::formatter::node::{
+    NodeFormatter, NodeFormattingHandler, NodeValueType,
+};
+use crate::render::formatter::phase::FormattingPhase;
+use crate::render::formatter::writer::MarkdownWriter;
 
 /// A node formatter that supports multi-phase rendering
 ///
@@ -94,7 +96,10 @@ impl ComposedPhasedFormatter {
     }
 
     /// Get all formatters that participate in a specific phase
-    pub fn get_formatters_for_phase(&self, phase: FormattingPhase) -> Vec<&dyn PhasedNodeFormatter> {
+    pub fn get_formatters_for_phase(
+        &self,
+        phase: FormattingPhase,
+    ) -> Vec<&dyn PhasedNodeFormatter> {
         self.formatters
             .iter()
             .filter(|f| f.participates_in_phase(phase))
@@ -190,8 +195,12 @@ impl PhasedNodeFormatter for ComposedPhasedFormatter {
 pub struct SimplePhasedFormatter {
     phases: Vec<FormattingPhase>,
     render_fn: Box<
-        dyn Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId, FormattingPhase)
-            + Send
+        dyn Fn(
+                &mut dyn NodeFormatterContext,
+                &mut MarkdownWriter,
+                NodeId,
+                FormattingPhase,
+            ) + Send
             + Sync,
     >,
 }
@@ -208,8 +217,12 @@ impl SimplePhasedFormatter {
     /// Create a new simple phased formatter
     pub fn new<F>(phases: Vec<FormattingPhase>, render_fn: F) -> Self
     where
-        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId, FormattingPhase)
-            + Send
+        F: Fn(
+                &mut dyn NodeFormatterContext,
+                &mut MarkdownWriter,
+                NodeId,
+                FormattingPhase,
+            ) + Send
             + Sync
             + 'static,
     {
@@ -222,19 +235,28 @@ impl SimplePhasedFormatter {
     /// Create a formatter for the collection phase only
     pub fn for_collection<F>(render_fn: F) -> Self
     where
-        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId) + Send + Sync + 'static,
+        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId)
+            + Send
+            + Sync
+            + 'static,
     {
-        Self::new(vec![FormattingPhase::Collect], move |ctx, writer, root, phase| {
-            if phase == FormattingPhase::Collect {
-                render_fn(ctx, writer, root);
-            }
-        })
+        Self::new(
+            vec![FormattingPhase::Collect],
+            move |ctx, writer, root, phase| {
+                if phase == FormattingPhase::Collect {
+                    render_fn(ctx, writer, root);
+                }
+            },
+        )
     }
 
     /// Create a formatter for the document top phase only
     pub fn for_document_top<F>(render_fn: F) -> Self
     where
-        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId) + Send + Sync + 'static,
+        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId)
+            + Send
+            + Sync
+            + 'static,
     {
         Self::new(
             vec![FormattingPhase::DocumentTop],
@@ -249,7 +271,10 @@ impl SimplePhasedFormatter {
     /// Create a formatter for the document bottom phase only
     pub fn for_document_bottom<F>(render_fn: F) -> Self
     where
-        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId) + Send + Sync + 'static,
+        F: Fn(&mut dyn NodeFormatterContext, &mut MarkdownWriter, NodeId)
+            + Send
+            + Sync
+            + 'static,
     {
         Self::new(
             vec![FormattingPhase::DocumentBottom],

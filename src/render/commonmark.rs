@@ -4,7 +4,7 @@ use crate::arena::{NodeArena, NodeId};
 use crate::nodes::{
     ListDelimType, ListType, NodeHeading, NodeList, NodeTable, NodeValue,
 };
-use crate::render::table_formatter;
+use crate::render::formatter::table;
 use crate::unicode_width::width as unicode_width;
 
 /// Render a node tree as CommonMark
@@ -546,7 +546,7 @@ impl<'a> CommonMarkRenderer<'a> {
         let lines: Vec<&str> = table_text.lines().collect();
 
         // Format the table
-        let formatted = table_formatter::format_table_lines(&lines, &table.alignments);
+        let formatted = table::format_table_lines(&lines, &table.alignments);
 
         // Write formatted table
         for line in formatted.lines() {

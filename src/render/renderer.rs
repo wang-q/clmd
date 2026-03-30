@@ -6,16 +6,16 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;
 
-// Re-export new formatter modules
+// Re-export formatter module and its submodules
 pub use super::formatter;
-pub use super::formatter_context;
-pub use super::formatter_options;
-pub use super::formatter_utils;
-pub use super::formatting_phase;
-pub use super::markdown_writer;
-pub use super::node_formatter;
-pub use super::phased_formatter;
-pub use super::render_purpose;
+pub use super::formatter::context;
+pub use super::formatter::node;
+pub use super::formatter::options;
+pub use super::formatter::phase;
+pub use super::formatter::phased;
+pub use super::formatter::purpose;
+pub use super::formatter::utils;
+pub use super::formatter::writer;
 
 /// Common trait for all renderers
 ///
@@ -185,7 +185,7 @@ pub fn render_to_commonmark(
 /// use clmd::{parse_document, render_to_commonmark_with_options, FormatterOptions};
 ///
 /// let options = FormatterOptions::new()
-///     .with_heading_style(clmd::render::formatter_options::HeadingStyle::Atx)
+///     .with_heading_style(clmd::render::formatter::options::HeadingStyle::Atx)
 ///     .with_right_margin(80);
 /// let (arena, root) = parse_document("# Hello", &Default::default());
 /// let cm = render_to_commonmark_with_options(&arena, root, options);
@@ -193,7 +193,7 @@ pub fn render_to_commonmark(
 pub fn render_to_commonmark_with_options(
     arena: &NodeArena,
     root: NodeId,
-    options: formatter_options::FormatterOptions,
+    options: options::FormatterOptions,
 ) -> String {
     let formatter = formatter::Formatter::with_options(options);
     formatter.render(arena, root)

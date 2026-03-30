@@ -4,8 +4,8 @@
 //! inspired by flexmark-java's NodeFormatter interface.
 
 use crate::nodes::NodeValue;
-use crate::render::formatter_context::NodeFormatterContext;
-use crate::render::markdown_writer::MarkdownWriter;
+use crate::render::formatter::context::NodeFormatterContext;
+use crate::render::formatter::writer::MarkdownWriter;
 
 /// A handler for formatting a specific node type
 pub struct NodeFormattingHandler {
@@ -27,7 +27,10 @@ impl NodeFormattingHandler {
     /// Create a new node formatting handler
     pub fn new<F>(node_type: NodeValueType, formatter: F) -> Self
     where
-        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter) + Send + Sync + 'static,
+        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
     {
         Self {
             node_type,
@@ -38,7 +41,10 @@ impl NodeFormattingHandler {
     /// Create a new handler for a specific node type
     pub fn for_type<F>(formatter: F) -> Self
     where
-        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter) + Send + Sync + 'static,
+        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
     {
         Self {
             node_type: NodeValueType::from_formatter::<F>(),
@@ -483,7 +489,10 @@ mod tests {
         struct TestFormatter;
         impl NodeFormatter for TestFormatter {
             fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-                vec![NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {})]
+                vec![NodeFormattingHandler::new(
+                    NodeValueType::Text,
+                    |_, _, _| {},
+                )]
             }
         }
 

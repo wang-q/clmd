@@ -3,7 +3,7 @@
 //! This module provides a writer for generating Markdown output with
 //! proper prefix handling, indentation, and formatting control.
 
-use crate::render::formatter_options::FormatFlags;
+use crate::render::formatter::options::FormatFlags;
 
 /// Markdown output writer
 ///
@@ -26,7 +26,7 @@ pub struct MarkdownWriter {
     /// Current line prefix
     current_prefix: String,
     /// Pending prefix for next line
-    pending_prefix: Option<String>,
+    _pending_prefix: Option<String>,
     /// Number of trailing blank lines
     trailing_blank_lines: usize,
     /// Maximum trailing blank lines
@@ -44,7 +44,7 @@ impl MarkdownWriter {
             pre_formatted: false,
             format_flags,
             current_prefix: String::new(),
-            pending_prefix: None,
+            _pending_prefix: None,
             trailing_blank_lines: 0,
             max_trailing_blank_lines: 2,
         }

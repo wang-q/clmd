@@ -2,21 +2,52 @@
 //!
 //! This module provides the main Markdown formatter implementation,
 //! inspired by flexmark-java's Formatter class.
+//!
+//! # Submodules
+//!
+//! - `options`: Formatter configuration options
+//! - `context`: Formatter context traits and implementations
+//! - `phase`: Formatting phase definitions
+//! - `purpose`: Render purpose for translation workflows
+//! - `node`: Node formatter traits
+//! - `phased`: Phased formatter support
+//! - `writer`: Markdown output writer
+//! - `utils`: Utility functions for formatting
+//! - `table`: Table formatter for GFM tables
+
+pub mod context;
+pub mod node;
+pub mod options;
+pub mod phase;
+pub mod phased;
+pub mod purpose;
+pub mod table;
+pub mod utils;
+pub mod writer;
+
+// Re-export commonly used types
+pub use context::{
+    DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
+    SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
+};
+pub use node::{
+    ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
+    NodeFormattingHandler, NodeValueType,
+};
+pub use options::{
+    Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, DiscretionaryText,
+    ElementPlacement, ElementPlacementSort, FormatFlags, FormatterOptions, HeadingStyle,
+    ListSpacing, NumberedMarker, TrailingMarker,
+};
+pub use phase::FormattingPhase;
+pub use phased::{
+    ComposedPhasedFormatter, PhasedNodeFormatter, SimplePhasedFormatter,
+    REFERENCE_FORMATTING_PHASES, STANDARD_FORMATTING_PHASES,
+};
+pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
+pub use writer::MarkdownWriter;
 
 use crate::arena::{NodeArena, NodeId};
-use crate::render::formatter_context::{
-    NodeFormatterContext, SubFormatterContext,
-    TranslationPlaceholderGenerator,
-};
-use crate::render::formatter_options::FormatterOptions;
-use crate::render::formatting_phase::FormattingPhase;
-use crate::render::markdown_writer::MarkdownWriter;
-use crate::render::node_formatter::{
-    ComposedNodeFormatter, NodeFormatter, NodeFormattingHandler, NodeValueType,
-};
-use crate::render::phased_formatter::{ComposedPhasedFormatter, PhasedNodeFormatter};
-use crate::render::render_purpose::RenderPurpose;
-
 use std::collections::HashMap;
 
 /// Main Markdown formatter
@@ -25,13 +56,13 @@ use std::collections::HashMap;
 /// It coordinates multiple node formatters and manages the rendering process.
 pub struct Formatter {
     /// Formatter options
-    options: FormatterOptions,
+    options: options::FormatterOptions,
     /// Node formatters
-    node_formatters: ComposedNodeFormatter,
+    node_formatters: node::ComposedNodeFormatter,
     /// Phased formatters
-    phased_formatters: ComposedPhasedFormatter,
+    phased_formatters: phased::ComposedPhasedFormatter,
     /// Translation placeholder generator
-    placeholder_generator: Box<dyn TranslationPlaceholderGenerator>,
+    placeholder_generator: Box<dyn context::TranslationPlaceholderGenerator>,
 }
 
 impl std::fmt::Debug for Formatter {
@@ -47,35 +78,36 @@ impl std::fmt::Debug for Formatter {
 impl Formatter {
     /// Create a new formatter with default options
     pub fn new() -> Self {
-        Self::with_options(FormatterOptions::default())
+        Self::with_options(options::FormatterOptions::default())
     }
 
     /// Create a new formatter with specific options
-    pub fn with_options(options: FormatterOptions) -> Self {
+    pub fn with_options(options: options::FormatterOptions) -> Self {
         Self {
             options,
-            node_formatters: ComposedNodeFormatter::new(),
-            phased_formatters: ComposedPhasedFormatter::new(),
-            placeholder_generator: Box::new(
-                crate::render::formatter_context::DefaultPlaceholderGenerator::new(),
-            ),
+            node_formatters: node::ComposedNodeFormatter::new(),
+            phased_formatters: phased::ComposedPhasedFormatter::new(),
+            placeholder_generator: Box::new(context::DefaultPlaceholderGenerator::new()),
         }
     }
 
     /// Add a node formatter
-    pub fn add_node_formatter(&mut self, formatter: Box<dyn NodeFormatter>) {
+    pub fn add_node_formatter(&mut self, formatter: Box<dyn node::NodeFormatter>) {
         self.node_formatters.add_formatter(formatter);
     }
 
     /// Add a phased formatter
-    pub fn add_phased_formatter(&mut self, formatter: Box<dyn PhasedNodeFormatter>) {
+    pub fn add_phased_formatter(
+        &mut self,
+        formatter: Box<dyn phased::PhasedNodeFormatter>,
+    ) {
         self.phased_formatters.add_formatter(formatter);
     }
 
     /// Set the placeholder generator
     pub fn set_placeholder_generator(
         &mut self,
-        generator: Box<dyn TranslationPlaceholderGenerator>,
+        generator: Box<dyn context::TranslationPlaceholderGenerator>,
     ) {
         self.placeholder_generator = generator;
     }
@@ -84,33 +116,26 @@ impl Formatter {
     ///
     /// This is the main entry point for rendering a document tree to Markdown.
     pub fn render(&self, arena: &NodeArena, root: NodeId) -> String {
-        let mut writer = MarkdownWriter::new(self.options.format_flags);
-        let mut context = MainFormatterContext::new(arena, &self.options, &self.node_formatters);
+        let mut writer = writer::MarkdownWriter::new(self.options.format_flags);
+        let mut context =
+            MainFormatterContext::new(arena, &self.options, &self.node_formatters);
 
         // Execute pre-document phases
-        for phase in FormattingPhase::before_document() {
+        for phase in phase::FormattingPhase::before_document() {
             context.set_phase(*phase);
-            self.phased_formatters.render_phase(
-                &mut context,
-                &mut writer,
-                root,
-                *phase,
-            );
+            self.phased_formatters
+                .render_phase(&mut context, &mut writer, root, *phase);
         }
 
         // Main document rendering
-        context.set_phase(FormattingPhase::Document);
+        context.set_phase(phase::FormattingPhase::Document);
         context.render(root, &mut writer);
 
         // Execute post-document phases
-        for phase in FormattingPhase::after_document() {
+        for phase in phase::FormattingPhase::after_document() {
             context.set_phase(*phase);
-            self.phased_formatters.render_phase(
-                &mut context,
-                &mut writer,
-                root,
-                *phase,
-            );
+            self.phased_formatters
+                .render_phase(&mut context, &mut writer, root, *phase);
         }
 
         writer.to_string()
@@ -121,43 +146,39 @@ impl Formatter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        purpose: RenderPurpose,
+        purpose: purpose::RenderPurpose,
     ) -> String {
-        let mut writer = MarkdownWriter::new(self.options.format_flags);
-        let mut context =
-            MainFormatterContext::with_purpose(arena, &self.options, &self.node_formatters, purpose);
+        let mut writer = writer::MarkdownWriter::new(self.options.format_flags);
+        let mut context = MainFormatterContext::with_purpose(
+            arena,
+            &self.options,
+            &self.node_formatters,
+            purpose,
+        );
 
         // Execute pre-document phases
-        for phase in FormattingPhase::before_document() {
+        for phase in phase::FormattingPhase::before_document() {
             context.set_phase(*phase);
-            self.phased_formatters.render_phase(
-                &mut context,
-                &mut writer,
-                root,
-                *phase,
-            );
+            self.phased_formatters
+                .render_phase(&mut context, &mut writer, root, *phase);
         }
 
         // Main document rendering
-        context.set_phase(FormattingPhase::Document);
+        context.set_phase(phase::FormattingPhase::Document);
         context.render(root, &mut writer);
 
         // Execute post-document phases
-        for phase in FormattingPhase::after_document() {
+        for phase in phase::FormattingPhase::after_document() {
             context.set_phase(*phase);
-            self.phased_formatters.render_phase(
-                &mut context,
-                &mut writer,
-                root,
-                *phase,
-            );
+            self.phased_formatters
+                .render_phase(&mut context, &mut writer, root, *phase);
         }
 
         writer.to_string()
     }
 
     /// Get the formatter options
-    pub fn get_options(&self) -> &FormatterOptions {
+    pub fn get_options(&self) -> &options::FormatterOptions {
         &self.options
     }
 }
@@ -173,19 +194,19 @@ pub struct MainFormatterContext<'a> {
     /// Reference to the node arena
     arena: &'a NodeArena,
     /// Formatter options
-    options: &'a FormatterOptions,
+    options: &'a options::FormatterOptions,
     /// Node formatters
-    formatters: &'a ComposedNodeFormatter,
+    formatters: &'a node::ComposedNodeFormatter,
     /// Current formatting phase
-    phase: FormattingPhase,
+    phase: phase::FormattingPhase,
     /// Current render purpose
-    render_purpose: RenderPurpose,
+    render_purpose: purpose::RenderPurpose,
     /// Handler map: node type -> list of handlers
-    handler_map: HashMap<NodeValueType, Vec<NodeFormattingHandler>>,
+    handler_map: HashMap<node::NodeValueType, Vec<node::NodeFormattingHandler>>,
     /// Current node being rendered
     current_node: Option<NodeId>,
     /// Handler delegation stack
-    handler_stack: Vec<(NodeValueType, usize)>,
+    _handler_stack: Vec<(node::NodeValueType, usize)>,
     /// Tight list context
     tight_list: bool,
     /// List nesting level
@@ -195,7 +216,7 @@ pub struct MainFormatterContext<'a> {
     /// Block quote nesting level
     block_quote_nesting: usize,
     /// Collected nodes by type
-    collected_nodes: HashMap<NodeValueType, Vec<NodeId>>,
+    collected_nodes: HashMap<node::NodeValueType, Vec<NodeId>>,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -216,18 +237,18 @@ impl<'a> MainFormatterContext<'a> {
     /// Create a new main formatter context
     pub fn new(
         arena: &'a NodeArena,
-        options: &'a FormatterOptions,
-        formatters: &'a ComposedNodeFormatter,
+        options: &'a options::FormatterOptions,
+        formatters: &'a node::ComposedNodeFormatter,
     ) -> Self {
         let mut context = Self {
             arena,
             options,
             formatters,
-            phase: FormattingPhase::Document,
-            render_purpose: RenderPurpose::Format,
+            phase: phase::FormattingPhase::Document,
+            render_purpose: purpose::RenderPurpose::Format,
             handler_map: HashMap::new(),
             current_node: None,
-            handler_stack: Vec::new(),
+            _handler_stack: Vec::new(),
             tight_list: false,
             list_nesting: 0,
             in_block_quote: false,
@@ -242,9 +263,9 @@ impl<'a> MainFormatterContext<'a> {
     /// Create a new context with a specific render purpose
     pub fn with_purpose(
         arena: &'a NodeArena,
-        options: &'a FormatterOptions,
-        formatters: &'a ComposedNodeFormatter,
-        purpose: RenderPurpose,
+        options: &'a options::FormatterOptions,
+        formatters: &'a node::ComposedNodeFormatter,
+        purpose: purpose::RenderPurpose,
     ) -> Self {
         let mut context = Self::new(arena, options, formatters);
         context.render_purpose = purpose;
@@ -276,10 +297,14 @@ impl<'a> MainFormatterContext<'a> {
     }
 
     /// Recursively collect nodes of interest
-    fn collect_nodes_recursive(&mut self, node_id: NodeId, node_classes: &[NodeValueType]) {
+    fn collect_nodes_recursive(
+        &mut self,
+        node_id: NodeId,
+        node_classes: &[node::NodeValueType],
+    ) {
         let node = self.arena.get(node_id);
-        let node_type = NodeValueType::from_node_value(&node.value);
-        
+        let node_type = node::NodeValueType::from_node_value(&node.value);
+
         if node_classes.contains(&node_type) {
             self.collected_nodes
                 .entry(node_type)
@@ -298,16 +323,17 @@ impl<'a> MainFormatterContext<'a> {
     /// Find the document root node
     fn find_document_root(&self) -> Option<NodeId> {
         // Try to find the document node (should be node 0)
-        if let Some(node) = self.arena.try_get(0) {
-            if matches!(node.value, crate::nodes::NodeValue::Document) {
+        if let Some(_node) = self.arena.try_get(0) {
+            if matches!(_node.value, crate::nodes::NodeValue::Document) {
                 return Some(0);
             }
         }
-        
+
         // Otherwise, find any node and trace back to root
         // This is a simplified approach - iterate through all nodes
-        for i in 0..1000 { // Limit to avoid infinite loops
-            if let Some(node) = self.arena.try_get(i) {
+        for i in 0..1000 {
+            // Limit to avoid infinite loops
+            if let Some(_node) = self.arena.try_get(i) {
                 let mut current = i;
                 loop {
                     let n = self.arena.get(current);
@@ -323,7 +349,7 @@ impl<'a> MainFormatterContext<'a> {
     }
 
     /// Set the current formatting phase
-    pub fn set_phase(&mut self, phase: FormattingPhase) {
+    pub fn set_phase(&mut self, phase: phase::FormattingPhase) {
         self.phase = phase;
     }
 
@@ -333,31 +359,38 @@ impl<'a> MainFormatterContext<'a> {
     }
 
     /// Get handlers for a node type
-    fn get_handlers(&self, node_type: NodeValueType) -> Option<&Vec<NodeFormattingHandler>> {
+    #[allow(dead_code)]
+    fn get_handlers(
+        &self,
+        node_type: node::NodeValueType,
+    ) -> Option<&Vec<node::NodeFormattingHandler>> {
         self.handler_map.get(&node_type)
     }
 
     /// Render a node using the appropriate handler
-    pub fn render(&mut self, node_id: NodeId, markdown: &mut MarkdownWriter) {
+    pub fn render(&mut self, node_id: NodeId, markdown: &mut writer::MarkdownWriter) {
         let node = self.arena.get(node_id);
-        let node_type = NodeValueType::from_node_value(&node.value);
+        let node_type = node::NodeValueType::from_node_value(&node.value);
 
         // Check if we have handlers for this node type
-        let handler_index = self
-            .handler_map
-            .get(&node_type)
-            .and_then(|h| if h.is_empty() { None } else { Some(0) });
+        let handler_index = self.handler_map.get(&node_type).and_then(|h| {
+            if h.is_empty() {
+                None
+            } else {
+                Some(0)
+            }
+        });
 
-        if let Some(index) = handler_index {
+        if let Some(_index) = handler_index {
             // Get the handler function pointer
             // We use a two-step process to avoid borrowing issues
             self.current_node = Some(node_id);
-            
+
             // Call the handler - we need to use unsafe or restructure to avoid borrow checker issues
             // For now, we'll just render children as a fallback
             // TODO: Implement proper handler dispatch
             self.render_children(node_id, markdown);
-            
+
             self.current_node = None;
         } else {
             // No handler registered, render children
@@ -366,7 +399,11 @@ impl<'a> MainFormatterContext<'a> {
     }
 
     /// Render children of a node
-    fn render_children(&mut self, node_id: NodeId, markdown: &mut MarkdownWriter) {
+    fn render_children(
+        &mut self,
+        node_id: NodeId,
+        markdown: &mut writer::MarkdownWriter,
+    ) {
         let node = self.arena.get(node_id);
         let mut child_id = node.first_child;
         while let Some(child) = child_id {
@@ -376,16 +413,14 @@ impl<'a> MainFormatterContext<'a> {
     }
 }
 
-impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
-    fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
+impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
+    fn get_markdown_writer(&mut self) -> &mut writer::MarkdownWriter {
         panic!("MainFormatterContext doesn't have a direct writer; use render() instead")
     }
 
     fn render(&mut self, node_id: NodeId) {
         // This is a no-op in the main context because rendering
         // is done through render() with a writer
-        // In practice, this would be called from a formatter
-        // that has access to the writer
         let _ = node_id;
     }
 
@@ -394,7 +429,7 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         let _ = node_id;
     }
 
-    fn get_formatting_phase(&self) -> FormattingPhase {
+    fn get_formatting_phase(&self) -> phase::FormattingPhase {
         self.phase
     }
 
@@ -402,11 +437,11 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         // TODO: Implement handler delegation
     }
 
-    fn get_formatter_options(&self) -> &FormatterOptions {
+    fn get_formatter_options(&self) -> &options::FormatterOptions {
         self.options
     }
 
-    fn get_render_purpose(&self) -> RenderPurpose {
+    fn get_render_purpose(&self) -> purpose::RenderPurpose {
         self.render_purpose
     }
 
@@ -418,11 +453,14 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         self.current_node
     }
 
-    fn get_nodes_of_type(&self, node_type: NodeValueType) -> Vec<NodeId> {
-        self.collected_nodes.get(&node_type).cloned().unwrap_or_default()
+    fn get_nodes_of_type(&self, node_type: node::NodeValueType) -> Vec<NodeId> {
+        self.collected_nodes
+            .get(&node_type)
+            .cloned()
+            .unwrap_or_default()
     }
 
-    fn get_nodes_of_types(&self, node_types: &[NodeValueType]) -> Vec<NodeId> {
+    fn get_nodes_of_types(&self, node_types: &[node::NodeValueType]) -> Vec<NodeId> {
         let mut result = Vec::new();
         for node_type in node_types {
             if let Some(nodes) = self.collected_nodes.get(node_type) {
@@ -444,7 +482,6 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         // In translation mode, return a placeholder
         // In normal mode, return the text as-is
         if self.render_purpose.is_transforming_text() {
-            // TODO: Implement actual placeholder generation
             format!("_{}_", text.len())
         } else {
             text.to_string()
@@ -455,16 +492,13 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         // In translation mode, return a placeholder
         // In normal mode, return the text as-is
         if self.render_purpose.is_transforming_text() {
-            // TODO: Implement actual placeholder generation
             format!("_{}_", text.len())
         } else {
             text.to_string()
         }
     }
 
-    fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-        // Note: Creating a sub-context from a non-mutable reference is not supported
-        // This would require interior mutability or a different design
+    fn create_sub_context(&self) -> Box<dyn context::NodeFormatterContext> {
         panic!("Cannot create sub-context from immutable reference");
     }
 
@@ -515,9 +549,9 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
 
 /// Formatter builder for convenient configuration
 pub struct FormatterBuilder {
-    options: FormatterOptions,
-    node_formatters: Vec<Box<dyn NodeFormatter>>,
-    phased_formatters: Vec<Box<dyn PhasedNodeFormatter>>,
+    options: options::FormatterOptions,
+    node_formatters: Vec<Box<dyn node::NodeFormatter>>,
+    phased_formatters: Vec<Box<dyn phased::PhasedNodeFormatter>>,
 }
 
 impl std::fmt::Debug for FormatterBuilder {
@@ -534,26 +568,32 @@ impl FormatterBuilder {
     /// Create a new formatter builder
     pub fn new() -> Self {
         Self {
-            options: FormatterOptions::default(),
+            options: options::FormatterOptions::default(),
             node_formatters: Vec::new(),
             phased_formatters: Vec::new(),
         }
     }
 
     /// Set the formatter options
-    pub fn options(mut self, options: FormatterOptions) -> Self {
+    pub fn options(mut self, options: options::FormatterOptions) -> Self {
         self.options = options;
         self
     }
 
     /// Add a node formatter
-    pub fn add_node_formatter(mut self, formatter: Box<dyn NodeFormatter>) -> Self {
+    pub fn add_node_formatter(
+        mut self,
+        formatter: Box<dyn node::NodeFormatter>,
+    ) -> Self {
         self.node_formatters.push(formatter);
         self
     }
 
     /// Add a phased formatter
-    pub fn add_phased_formatter(mut self, formatter: Box<dyn PhasedNodeFormatter>) -> Self {
+    pub fn add_phased_formatter(
+        mut self,
+        formatter: Box<dyn phased::PhasedNodeFormatter>,
+    ) -> Self {
         self.phased_formatters.push(formatter);
         self
     }
@@ -587,7 +627,7 @@ pub fn format_document(arena: &NodeArena, root: NodeId) -> String {
 pub fn format_document_with_options(
     arena: &NodeArena,
     root: NodeId,
-    options: FormatterOptions,
+    options: options::FormatterOptions,
 ) -> String {
     let formatter = Formatter::with_options(options);
     formatter.render(arena, root)
@@ -602,13 +642,16 @@ mod tests {
     #[test]
     fn test_formatter_creation() {
         let formatter = Formatter::new();
-        assert!(matches!(formatter.get_options().heading_style, crate::render::formatter_options::HeadingStyle::AsIs));
+        assert!(matches!(
+            formatter.get_options().heading_style,
+            options::HeadingStyle::AsIs
+        ));
     }
 
     #[test]
     fn test_formatter_builder() {
         let formatter = FormatterBuilder::new()
-            .options(FormatterOptions::new().with_right_margin(80))
+            .options(options::FormatterOptions::new().with_right_margin(80))
             .build();
 
         assert_eq!(formatter.get_options().right_margin, 80);

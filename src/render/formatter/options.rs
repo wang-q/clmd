@@ -118,7 +118,10 @@ pub enum ElementPlacementSort {
 impl ElementPlacementSort {
     /// Check if this sort option includes sorting
     pub fn is_sort(&self) -> bool {
-        matches!(self, Self::Sort | Self::SortUnusedLast | Self::SortDeleteUnused)
+        matches!(
+            self,
+            Self::Sort | Self::SortUnusedLast | Self::SortDeleteUnused
+        )
     }
 
     /// Check if this sort option includes deleting unused elements
@@ -128,7 +131,10 @@ impl ElementPlacementSort {
 
     /// Check if this sort option includes tracking unused elements
     pub fn is_unused(&self) -> bool {
-        matches!(self, Self::SortUnusedLast | Self::SortDeleteUnused | Self::DeleteUnused)
+        matches!(
+            self,
+            Self::SortUnusedLast | Self::SortDeleteUnused | Self::DeleteUnused
+        )
     }
 }
 

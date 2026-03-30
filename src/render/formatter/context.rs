@@ -5,11 +5,11 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;
-use crate::render::formatter_options::FormatterOptions;
-use crate::render::formatting_phase::FormattingPhase;
-use crate::render::markdown_writer::MarkdownWriter;
-use crate::render::node_formatter::NodeValueType;
-use crate::render::render_purpose::RenderPurpose;
+use crate::render::formatter::node::NodeValueType;
+use crate::render::formatter::options::FormatterOptions;
+use crate::render::formatter::phase::FormattingPhase;
+use crate::render::formatter::purpose::RenderPurpose;
+use crate::render::formatter::writer::MarkdownWriter;
 
 /// Context for node formatting operations
 ///
@@ -197,7 +197,6 @@ impl<'a> SubFormatterContext<'a> {
     pub fn get_writer_mut(&mut self) -> &mut MarkdownWriter {
         &mut self.markdown
     }
-
 }
 
 impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
@@ -332,7 +331,11 @@ pub trait ExplicitAttributeIdProvider {
 /// This trait is used for rendering content that should be translated.
 pub trait TranslatingSpanRenderer {
     /// Render the span
-    fn render(&self, context: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter);
+    fn render(
+        &self,
+        context: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
+    );
 }
 
 /// Trait for translation placeholder generators
