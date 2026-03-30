@@ -120,8 +120,12 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     // Paragraph opening - nothing special needed
                 }),
                 Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Paragraph closing - add blank line after paragraph
-                    if !ctx.is_in_tight_list() {
+                    // Paragraph closing - add line break after paragraph
+                    // In tight lists, just add a single line break
+                    // In loose lists, add a blank line
+                    if ctx.is_in_tight_list() {
+                        writer.line();
+                    } else {
                         writer.blank_line();
                     }
                 }),
@@ -181,24 +185,38 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             NodeFormattingHandler::with_close(
                 NodeValueType::Item,
                 Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    // Get the parent list to determine the marker
-                    let prefix = if let Some(parent_id) = ctx.get_current_node_parent() {
+                    // Get the parent list to determine the marker and nesting level
+                    let (marker, nesting_level) = if let Some(parent_id) = ctx.get_current_node_parent() {
                         let arena = ctx.get_arena();
                         let parent = arena.get(parent_id);
                         if let NodeValue::List(list) = &parent.value {
-                            format_list_item_prefix(list)
+                            // Find the nesting level by counting list ancestors
+                            let level = count_list_ancestors(arena, parent_id);
+                            // For ordered lists, calculate the item number based on position
+                            let item_number = get_item_number_in_list(arena, parent_id, ctx.get_current_node());
+                            let marker = format_list_item_marker_with_number(list, item_number);
+                            (marker, level)
                         } else {
-                            "- ".to_string()
+                            ("- ".to_string(), 0)
                         }
                     } else {
-                        "- ".to_string()
+                        ("- ".to_string(), 0)
                     };
-                    writer.push_prefix(&prefix);
+                    // Add indentation based on list nesting level
+                    let indent = "  ".repeat(nesting_level);
+                    // Output the list marker directly (not as a prefix)
+                    // This avoids the prefix stacking issue with nested lists
+                    writer.append_raw(&indent);
+                    writer.append_raw(&marker);
                 }),
                 Box::new(|_value: &NodeValue, ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
-                    writer.pop_prefix();
                     // Add line break after each list item
-                    writer.line();
+                    // In tight lists, don't add extra blank line
+                    if ctx.is_in_tight_list() {
+                        writer.line();
+                    } else {
+                        writer.blank_line();
+                    }
                 }),
             ),
             NodeFormattingHandler::new(
@@ -388,11 +406,14 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             NodeFormattingHandler::new(
                 NodeValueType::TaskItem,
                 Box::new(|value: &NodeValue, _ctx: &mut dyn NodeFormatterContext, writer: &mut MarkdownWriter| {
+                    eprintln!("DEBUG: TaskItem handler called");
                     if let NodeValue::TaskItem(task) = value {
+                        eprintln!("DEBUG: TaskItem symbol={:?}", task.symbol);
+                        // Use append_raw to prevent escaping of [ and ]
                         if task.symbol.is_some() {
-                            writer.append("[x] ");
+                            writer.append_raw("[x] ");
                         } else {
-                            writer.append("[ ] ");
+                            writer.append_raw("[ ] ");
                         }
                     }
                 }),
@@ -463,7 +484,8 @@ fn render_code_block(code_block: &crate::nodes::NodeCodeBlock, writer: &mut Mark
     writer.line();
 
     for line in code_block.literal.lines() {
-        writer.append(line);
+        // Use append_raw to preserve leading whitespace in code blocks
+        writer.append_raw(line);
         writer.line();
     }
 
@@ -477,7 +499,6 @@ fn render_code_block(code_block: &crate::nodes::NodeCodeBlock, writer: &mut Mark
 /// appropriate formatting for inline elements, but avoids escaping pipe
 /// characters which are used for table cell separation.
 fn collect_cell_text_content(arena: &crate::arena::NodeArena, node_id: crate::arena::NodeId) -> String {
-    use crate::arena::TreeOps;
     use crate::nodes::NodeValue;
     
     let mut result = String::new();
@@ -720,10 +741,10 @@ pub fn escape_link_url(url: &str) -> String {
     result
 }
 
-/// Format list item prefix based on list type
+/// Format list item marker based on list type
 ///
-/// Returns the appropriate prefix for a list item (e.g., "- ", "1. ", "2) ")
-fn format_list_item_prefix(list: &crate::nodes::NodeList) -> String {
+/// Returns the appropriate marker for a list item (e.g., "- ", "1. ", "2) ")
+fn format_list_item_marker(list: &crate::nodes::NodeList) -> String {
     use crate::nodes::{ListDelimType, ListType};
 
     match list.list_type {
@@ -738,6 +759,94 @@ fn format_list_item_prefix(list: &crate::nodes::NodeList) -> String {
             // Pad to 4 characters for alignment
             format!("{:4}", marker)
         }
+    }
+}
+
+/// Format list item marker with specific item number
+///
+/// This is used for ordered lists where each item has its own number.
+/// The item_number is the 1-based index of the item in the list.
+fn format_list_item_marker_with_number(list: &crate::nodes::NodeList, item_number: usize) -> String {
+    use crate::nodes::{ListDelimType, ListType};
+
+    match list.list_type {
+        ListType::Bullet => {
+            format!("{} ", list.bullet_char as char)
+        }
+        ListType::Ordered => {
+            let marker = match list.delimiter {
+                ListDelimType::Period => format!("{}.", item_number),
+                ListDelimType::Paren => format!("{})", item_number),
+            };
+            // Pad to 4 characters for alignment
+            format!("{:4}", marker)
+        }
+    }
+}
+
+/// Count the number of list ancestors for a given node
+///
+/// This is used to determine the nesting level of a list item.
+/// Returns 0 for top-level items, 1 for items in nested lists, etc.
+fn count_list_ancestors(arena: &crate::arena::NodeArena, list_node_id: crate::arena::NodeId) -> usize {
+    use crate::nodes::NodeValue;
+
+    let mut count: usize = 0;
+    let mut current = list_node_id;
+
+    // Count how many list ancestors this list has
+    while let Some(parent_id) = arena.get(current).parent {
+        let parent = arena.get(parent_id);
+        if matches!(parent.value, NodeValue::List(..)) {
+            count += 1;
+        }
+        current = parent_id;
+    }
+
+    count
+}
+
+/// Get the 1-based item number of a node within its parent list
+///
+/// This is used to determine the correct number for ordered list items.
+fn get_item_number_in_list(
+    arena: &crate::arena::NodeArena,
+    list_node_id: crate::arena::NodeId,
+    item_node_id: Option<crate::arena::NodeId>,
+) -> usize {
+    use crate::nodes::NodeValue;
+
+    let item_id = match item_node_id {
+        Some(id) => id,
+        None => return 1, // Default to 1 if no item specified
+    };
+
+    let list = arena.get(list_node_id);
+    let mut item_number: usize = 0;
+
+    // Count how many Item siblings come before this item (including this item)
+    if let Some(first_child) = list.first_child {
+        let mut current = first_child;
+        loop {
+            if matches!(arena.get(current).value, NodeValue::Item(..)) {
+                item_number += 1;
+                if current == item_id {
+                    break;
+                }
+            }
+            if let Some(next) = arena.get(current).next {
+                current = next;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // If we didn't find the item, return 1 as default
+    if item_number == 0 {
+        1
+    } else {
+        item_number
     }
 }
 
@@ -834,7 +943,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_list_item_prefix_bullet() {
+    fn test_format_list_item_marker_bullet() {
         use crate::nodes::{ListDelimType, ListType, NodeList};
 
         let list = NodeList {
@@ -847,17 +956,17 @@ mod tests {
             tight: false,
             is_task_list: false,
         };
-        assert_eq!(format_list_item_prefix(&list), "- ");
+        assert_eq!(format_list_item_marker(&list), "- ");
 
         let list_star = NodeList {
             bullet_char: b'*',
             ..list
         };
-        assert_eq!(format_list_item_prefix(&list_star), "* ");
+        assert_eq!(format_list_item_marker(&list_star), "* ");
     }
 
     #[test]
-    fn test_format_list_item_prefix_ordered() {
+    fn test_format_list_item_marker_ordered() {
         use crate::nodes::{ListDelimType, ListType, NodeList};
 
         let list = NodeList {
@@ -870,19 +979,359 @@ mod tests {
             tight: false,
             is_task_list: false,
         };
-        assert_eq!(format_list_item_prefix(&list), "1.  ");
+        assert_eq!(format_list_item_marker(&list), "1.  ");
 
         let list_paren = NodeList {
             delimiter: ListDelimType::Paren,
             ..list
         };
-        assert_eq!(format_list_item_prefix(&list_paren), "1)  ");
+        assert_eq!(format_list_item_marker(&list_paren), "1)  ");
 
         let list_start10 = NodeList {
             start: 10,
             delimiter: ListDelimType::Period,
             ..list
         };
-        assert_eq!(format_list_item_prefix(&list_start10), "10. ");
+        assert_eq!(format_list_item_marker(&list_start10), "10. ");
+    }
+
+    #[test]
+    fn test_count_list_ancestors() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+
+        let mut arena = NodeArena::new();
+
+        // Create a nested list structure:
+        // Document
+        // └── List (outer)
+        //     ├── Item 1
+        //     └── Item 2
+        //         └── List (inner)
+        //             └── Item 3
+
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let outer_list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let item1 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let inner_list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let item3 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+
+        TreeOps::append_child(&mut arena, root, outer_list);
+        TreeOps::append_child(&mut arena, outer_list, item1);
+        TreeOps::append_child(&mut arena, outer_list, item2);
+        TreeOps::append_child(&mut arena, item2, inner_list);
+        TreeOps::append_child(&mut arena, inner_list, item3);
+
+        // outer_list has 0 list ancestors (it's top-level)
+        assert_eq!(count_list_ancestors(&arena, outer_list), 0);
+
+        // inner_list has 1 list ancestor (outer_list)
+        assert_eq!(count_list_ancestors(&arena, inner_list), 1);
+    }
+
+    #[test]
+    fn test_render_document_with_nested_lists() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+
+        // Create: - Item 1
+        //         - Item 2
+        //           - Nested
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let item1 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Item 1")));
+        let para1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        TreeOps::append_child(&mut arena, para1, text1);
+        TreeOps::append_child(&mut arena, item1, para1);
+
+        let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("Item 2")));
+        let para2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        TreeOps::append_child(&mut arena, para2, text2);
+        TreeOps::append_child(&mut arena, item2, para2);
+
+        let nested_list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 1,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let nested_item = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 0,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: 0,
+            tight: true,
+            is_task_list: false,
+        })));
+        let nested_text = arena.alloc(Node::with_value(NodeValue::make_text("Nested")));
+        let nested_para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        TreeOps::append_child(&mut arena, nested_para, nested_text);
+        TreeOps::append_child(&mut arena, nested_item, nested_para);
+        TreeOps::append_child(&mut arena, nested_list, nested_item);
+        TreeOps::append_child(&mut arena, item2, nested_list);
+
+        TreeOps::append_child(&mut arena, list, item1);
+        TreeOps::append_child(&mut arena, list, item2);
+        TreeOps::append_child(&mut arena, root, list);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("- Item 1"), "Should contain first item: {}", result);
+        assert!(result.contains("- Item 2"), "Should contain second item: {}", result);
+        assert!(result.contains("  - Nested"), "Should contain nested item with indent: {}", result);
+    }
+
+    #[test]
+    fn test_render_code_block_with_backticks() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{NodeCodeBlock, NodeValue};
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            info: "rust".to_string(),
+            literal: "fn main() {}".to_string(),
+            closed: true,
+        }))));
+
+        TreeOps::append_child(&mut arena, root, code_block);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("```rust"), "Should contain opening fence with info: {}", result);
+        assert!(result.contains("fn main() {}"), "Should contain code content: {}", result);
+        assert!(result.contains("```"), "Should contain closing fence: {}", result);
+    }
+
+    #[test]
+    fn test_render_heading_atx() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{NodeHeading, NodeValue};
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Section Title")));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("## Section Title"), "Should contain ATX heading: {}", result);
+    }
+
+    #[test]
+    fn test_render_blockquote() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::NodeValue;
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quoted text")));
+
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, blockquote, para);
+        TreeOps::append_child(&mut arena, root, blockquote);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("> Quoted text"), "Should contain blockquote: {}", result);
+    }
+
+    #[test]
+    fn test_render_link_and_image() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::{NodeLink, NodeValue};
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        // Create link: [example](https://example.com)
+        let link = arena.alloc(Node::with_value(NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".to_string(),
+            title: "".to_string(),
+        }))));
+        let link_text = arena.alloc(Node::with_value(NodeValue::make_text("example")));
+        TreeOps::append_child(&mut arena, link, link_text);
+        TreeOps::append_child(&mut arena, para, link);
+
+        // Create image: ![alt](image.png)
+        let image = arena.alloc(Node::with_value(NodeValue::Image(Box::new(NodeLink {
+            url: "image.png".to_string(),
+            title: "".to_string(),
+        }))));
+        let image_alt = arena.alloc(Node::with_value(NodeValue::make_text("alt")));
+        TreeOps::append_child(&mut arena, image, image_alt);
+        TreeOps::append_child(&mut arena, para, image);
+
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("[example](https://example.com)"), "Should contain link: {}", result);
+        assert!(result.contains("![alt](image.png)"), "Should contain image: {}", result);
+    }
+
+    #[test]
+    fn test_render_emphasis_and_strong() {
+        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::nodes::NodeValue;
+        use crate::render::formatter::{Formatter, FormatterOptions};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        // Create: *emphasis* and **strong**
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let emph_text = arena.alloc(Node::with_value(NodeValue::make_text("emphasis")));
+        TreeOps::append_child(&mut arena, emph, emph_text);
+        TreeOps::append_child(&mut arena, para, emph);
+
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let strong_text = arena.alloc(Node::with_value(NodeValue::make_text("strong")));
+        TreeOps::append_child(&mut arena, strong, strong_text);
+        TreeOps::append_child(&mut arena, para, strong);
+
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatterOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+
+        assert!(result.contains("*emphasis*"), "Should contain emphasis: {}", result);
+        assert!(result.contains("**strong**"), "Should contain strong: {}", result);
     }
 }
