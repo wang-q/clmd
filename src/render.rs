@@ -35,6 +35,17 @@ pub mod table_formatter;
 pub mod typst;
 pub mod xml;
 
+// New formatter modules (inspired by flexmark-java)
+pub mod formatter;
+pub mod formatter_context;
+pub mod formatter_options;
+pub mod formatter_utils;
+pub mod formatting_phase;
+pub mod markdown_writer;
+pub mod node_formatter;
+pub mod phased_formatter;
+pub mod render_purpose;
+
 // Re-export renderer types
 pub use renderer::{
     render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,

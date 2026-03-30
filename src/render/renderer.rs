@@ -6,6 +6,17 @@
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;
 
+// Re-export new formatter modules
+pub use super::formatter;
+pub use super::formatter_context;
+pub use super::formatter_options;
+pub use super::formatter_utils;
+pub use super::formatting_phase;
+pub use super::markdown_writer;
+pub use super::node_formatter;
+pub use super::phased_formatter;
+pub use super::render_purpose;
+
 /// Common trait for all renderers
 ///
 /// This trait defines the interface that all renderers must implement.
@@ -162,6 +173,30 @@ pub fn render_to_commonmark(
     width: usize,
 ) -> String {
     commonmark::render(arena, root, options, width)
+}
+
+/// Render to CommonMark format with formatter options
+///
+/// This is a convenience function that uses the new formatter with custom options.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::{parse_document, render_to_commonmark_with_options, FormatterOptions};
+///
+/// let options = FormatterOptions::new()
+///     .with_heading_style(clmd::render::formatter_options::HeadingStyle::Atx)
+///     .with_right_margin(80);
+/// let (arena, root) = parse_document("# Hello", &Default::default());
+/// let cm = render_to_commonmark_with_options(&arena, root, options);
+/// ```
+pub fn render_to_commonmark_with_options(
+    arena: &NodeArena,
+    root: NodeId,
+    options: formatter_options::FormatterOptions,
+) -> String {
+    let formatter = formatter::Formatter::with_options(options);
+    formatter.render(arena, root)
 }
 
 /// Render to LaTeX format
