@@ -63,9 +63,9 @@ where
                 Err(e) => return Err(e),
             }
         }
-        first_result
-            .map(|r| Ok((r, pos)))
-            .unwrap_or_else(|| Err(ParseError::at(pos.line, pos.column, "Empty sequence")))
+        first_result.map(|r| Ok((r, pos))).unwrap_or_else(|| {
+            Err(ParseError::at(pos.line, pos.column, "Empty sequence"))
+        })
     })
 }
 
@@ -81,10 +81,7 @@ where
 /// assert_eq!(letter, 'a');
 /// assert_eq!(num, '1');
 /// ```
-pub fn pair<A, B>(
-    first: BoxedParser<A>,
-    second: BoxedParser<B>,
-) -> BoxedParser<(A, B)>
+pub fn pair<A, B>(first: BoxedParser<A>, second: BoxedParser<B>) -> BoxedParser<(A, B)>
 where
     A: 'static,
     B: 'static,
@@ -106,10 +103,7 @@ where
 /// let parser = right(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), '1');
 /// ```
-pub fn right<L, R>(
-    left: BoxedParser<L>,
-    right: BoxedParser<R>,
-) -> BoxedParser<R>
+pub fn right<L, R>(left: BoxedParser<L>, right: BoxedParser<R>) -> BoxedParser<R>
 where
     L: 'static,
     R: 'static,
@@ -130,10 +124,7 @@ where
 /// let parser = left(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), 'a');
 /// ```
-pub fn left<L, R>(
-    left: BoxedParser<L>,
-    right: BoxedParser<R>,
-) -> BoxedParser<L>
+pub fn left<L, R>(left: BoxedParser<L>, right: BoxedParser<R>) -> BoxedParser<L>
 where
     L: 'static,
     R: 'static,
@@ -252,10 +243,12 @@ pub fn optional<T>(parser: BoxedParser<T>) -> BoxedParser<Option<T>>
 where
     T: 'static,
 {
-    Box::new(move |input: &str, pos: Position| match parser(input, pos.clone()) {
-        Ok((result, new_pos)) => Ok((Some(result), new_pos)),
-        Err(_) => Ok((None, pos)),
-    })
+    Box::new(
+        move |input: &str, pos: Position| match parser(input, pos.clone()) {
+            Ok((result, new_pos)) => Ok((Some(result), new_pos)),
+            Err(_) => Ok((None, pos)),
+        },
+    )
 }
 
 /// Parse with two parsers and apply a function to combine results.
@@ -429,7 +422,11 @@ pub fn eof(input: &str, pos: Position) -> ParseResult<()> {
     if pos.offset >= input.len() {
         Ok(((), pos))
     } else {
-        Err(ParseError::at(pos.line, pos.column, "Expected end of input"))
+        Err(ParseError::at(
+            pos.line,
+            pos.column,
+            "Expected end of input",
+        ))
     }
 }
 
@@ -480,12 +477,12 @@ where
 /// assert_eq!(result.1.offset, 0);
 /// ```
 pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>> {
-    Box::new(move |input: &str, pos: Position| {
-        match parser(input, pos.clone()) {
+    Box::new(
+        move |input: &str, pos: Position| match parser(input, pos.clone()) {
             Ok((result, _)) => Ok((Some(result), pos)),
             Err(_) => Ok((None, pos)),
-        }
-    })
+        },
+    )
 }
 
 /// Not followed by - succeed only if the second parser fails.
@@ -528,7 +525,11 @@ mod tests {
 
     #[test]
     fn test_choice() {
-        let parser = choice(vec![Box::new(char_lit('a')), Box::new(char_lit('b')), Box::new(digit)]);
+        let parser = choice(vec![
+            Box::new(char_lit('a')),
+            Box::new(char_lit('b')),
+            Box::new(digit),
+        ]);
         assert_eq!(parser.parse("a").unwrap(), 'a');
         assert_eq!(parser.parse("b").unwrap(), 'b');
         assert_eq!(parser.parse("1").unwrap(), '1');
@@ -557,7 +558,11 @@ mod tests {
 
     #[test]
     fn test_between() {
-        let parser = between(Box::new(char_lit('(')), Box::new(char_lit(')')), Box::new(digit));
+        let parser = between(
+            Box::new(char_lit('(')),
+            Box::new(char_lit(')')),
+            Box::new(digit),
+        );
         assert_eq!(parser.parse("(1)").unwrap(), '1');
         assert!(parser.parse("(a)").is_err());
         assert!(parser.parse("1").is_err());

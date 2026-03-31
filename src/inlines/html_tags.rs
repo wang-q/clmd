@@ -341,3 +341,209 @@ fn match_close_tag(input: &str) -> Option<(String, usize)> {
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_match_html_comment() {
+        // Valid HTML comments
+        let result = match_html_tag("<!-- comment -->");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "<!-- comment -->");
+        assert_eq!(len, 16);
+
+        let result = match_html_tag("<!--simple-->");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "<!--simple-->");
+
+        // Invalid - no closing -->
+        let result = match_html_tag("<!-- unclosed");
+        assert!(result.is_none());
+
+        // Not a comment
+        let result = match_html_tag("<not-a-comment>");
+        assert!(result.is_some()); // Matches as regular tag
+    }
+
+    #[test]
+    fn test_match_processing_instruction() {
+        // Valid processing instruction
+        let result = match_html_tag("<?xml version=\"1.0\"?>");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "<?xml version=\"1.0\"?>");
+        assert_eq!(len, 21);
+
+        // Invalid - no closing ?>
+        let result = match_html_tag("<?php echo");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_declaration() {
+        // Valid declaration
+        let result = match_html_tag("<!DOCTYPE html>");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "<!DOCTYPE html>");
+        assert_eq!(len, 15);
+
+        // Invalid - must start with letter after <!
+        let result = match_html_tag("<!123>");
+        assert!(result.is_none());
+
+        // CDATA should not match as declaration
+        let result = match_html_tag("<![CDATA[ test ]]>");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "<![CDATA[ test ]]>");
+    }
+
+    #[test]
+    fn test_match_cdata() {
+        // Valid CDATA
+        let result = match_html_tag("<![CDATA[ some <b>content</b> ]]>");
+        assert!(result.is_some());
+        let (tag, _len) = result.unwrap();
+        assert_eq!(tag, "<![CDATA[ some <b>content</b> ]]>");
+
+        // Invalid - no closing ]]>
+        let result = match_html_tag("<![CDATA[ unclosed");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_regular_html_tag_open() {
+        // Simple open tag
+        let result = match_html_tag("<div>");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "<div>");
+        assert_eq!(len, 5);
+
+        // Tag with attributes
+        let result = match_html_tag("<div class=\"container\" id=\"main\">");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "<div class=\"container\" id=\"main\">");
+
+        // Self-closing tag
+        let result = match_html_tag("<br/>");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "<br/>");
+
+        let result = match_html_tag("<img src=\"test.jpg\" />");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "<img src=\"test.jpg\" />");
+    }
+
+    #[test]
+    fn test_match_regular_html_tag_close() {
+        // Simple close tag
+        let result = match_html_tag("</div>");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "</div>");
+        assert_eq!(len, 6);
+
+        // Close tag with whitespace
+        let result = match_html_tag("</div  >");
+        assert!(result.is_some());
+        let (tag, _) = result.unwrap();
+        assert_eq!(tag, "</div  >");
+    }
+
+    #[test]
+    fn test_match_html_tag_invalid() {
+        // Invalid - no <
+        let result = match_html_tag("not-a-tag");
+        assert!(result.is_none());
+
+        // Invalid - starts with number
+        let result = match_html_tag("<123>");
+        assert!(result.is_none());
+
+        // Invalid - just <
+        let result = match_html_tag("<");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_html_comment_function() {
+        // Direct test of match_html_comment
+        let result = match_html_comment("<!-- test -->");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "<!-- test -->");
+        assert_eq!(len, 13);
+
+        // Not a comment
+        let result = match_html_comment("<div>");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_processing_instruction_function() {
+        // Direct test
+        let result = match_processing_instruction("<?php ?>");
+        assert!(result.is_some());
+
+        // Not a PI
+        let result = match_processing_instruction("<div>");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_declaration_function() {
+        // Valid
+        let result = match_declaration("<!DOCTYPE>");
+        assert!(result.is_some());
+
+        // Invalid - starts with [
+        let result = match_declaration("<![CDATA[]]>");
+        assert!(result.is_none());
+
+        // Invalid - starts with number
+        let result = match_declaration("<!123>");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_cdata_function() {
+        // Valid
+        let result = match_cdata("<![CDATA[test]]>");
+        assert!(result.is_some());
+
+        // Not CDATA
+        let result = match_cdata("<div>");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_match_close_tag_function() {
+        // Valid
+        let result = match_close_tag("</div>");
+        assert!(result.is_some());
+        let (tag, len) = result.unwrap();
+        assert_eq!(tag, "</div>");
+        assert_eq!(len, 6);
+
+        // With whitespace
+        let result = match_close_tag("</div  >");
+        assert!(result.is_some());
+
+        // Invalid - starts with number
+        let result = match_close_tag("</123>");
+        assert!(result.is_none());
+
+        // Not a close tag
+        let result = match_close_tag("<div>");
+        assert!(result.is_none());
+    }
+}

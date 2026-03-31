@@ -2162,3 +2162,97 @@ const ENTITIES: [(&str, &str); 2125] = [
     ("zwj", "\u{200D}"),
     ("zwnj", "\u{200C}"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lookup_entity_common() {
+        // Common entities
+        assert_eq!(lookup_entity("amp"), Some("&"));
+        assert_eq!(lookup_entity("lt"), Some("<"));
+        assert_eq!(lookup_entity("gt"), Some(">"));
+        assert_eq!(lookup_entity("quot"), Some("\""));
+        assert_eq!(lookup_entity("apos"), Some("'"));
+    }
+
+    #[test]
+    fn test_lookup_entity_special() {
+        // Special characters
+        assert_eq!(lookup_entity("nbsp"), Some("\u{00A0}"));
+        assert_eq!(lookup_entity("copy"), Some("\u{00A9}"));
+        assert_eq!(lookup_entity("reg"), Some("\u{00AE}"));
+        assert_eq!(lookup_entity("trade"), Some("\u{2122}"));
+    }
+
+    #[test]
+    fn test_lookup_entity_mathematical() {
+        // Mathematical symbols
+        assert_eq!(lookup_entity("sum"), Some("\u{2211}"));
+        assert_eq!(lookup_entity("prod"), Some("\u{220F}"));
+        assert_eq!(lookup_entity("infin"), Some("\u{221E}"));
+        assert_eq!(lookup_entity("plusmn"), Some("\u{00B1}"));
+    }
+
+    #[test]
+    fn test_lookup_entity_greek() {
+        // Greek letters
+        assert_eq!(lookup_entity("alpha"), Some("\u{03B1}"));
+        assert_eq!(lookup_entity("beta"), Some("\u{03B2}"));
+        assert_eq!(lookup_entity("gamma"), Some("\u{03B3}"));
+        assert_eq!(lookup_entity("Alpha"), Some("\u{0391}"));
+        assert_eq!(lookup_entity("Beta"), Some("\u{0392}"));
+    }
+
+    #[test]
+    fn test_lookup_entity_arrows() {
+        // Arrows
+        assert_eq!(lookup_entity("larr"), Some("\u{2190}"));
+        assert_eq!(lookup_entity("rarr"), Some("\u{2192}"));
+        assert_eq!(lookup_entity("uarr"), Some("\u{2191}"));
+        assert_eq!(lookup_entity("darr"), Some("\u{2193}"));
+    }
+
+    #[test]
+    fn test_lookup_entity_not_found() {
+        // Non-existent entities
+        assert_eq!(lookup_entity("notanentity"), None);
+        assert_eq!(lookup_entity(""), None);
+        assert_eq!(lookup_entity("xyz123"), None);
+    }
+
+    #[test]
+    fn test_lookup_entity_case_sensitive() {
+        // Case sensitivity
+        assert_eq!(lookup_entity("amp"), Some("&"));
+        assert_eq!(lookup_entity("Amp"), None);
+        assert_eq!(lookup_entity("AMP"), Some("&")); // AMP is a valid entity
+    }
+
+    #[test]
+    fn test_is_entity_prefix() {
+        // Valid prefixes
+        assert!(is_entity_prefix("a"));
+        assert!(is_entity_prefix("am"));
+        assert!(is_entity_prefix("amp"));
+
+        // Invalid prefixes
+        assert!(!is_entity_prefix("xyz"));
+        assert!(!is_entity_prefix("123"));
+    }
+
+    #[test]
+    fn test_entity_count() {
+        // Verify entity count constant
+        assert_eq!(ENTITY_COUNT, 2125);
+        assert_eq!(ENTITIES.len(), 2125);
+    }
+
+    #[test]
+    fn test_lookup_entity_multichar() {
+        // Multi-character entities
+        assert_eq!(lookup_entity("fjlig"), Some("fj"));
+        assert_eq!(lookup_entity("amp"), Some("&"));
+    }
+}

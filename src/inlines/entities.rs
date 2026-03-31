@@ -192,3 +192,165 @@ pub fn parse_entity_char(input: &str) -> Option<(String, usize)> {
     // Entity not found in our table
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_entity_named() {
+        // Named entities
+        let result = parse_entity("amp;");
+        assert!(result.is_some());
+        let (decoded, len) = result.unwrap();
+        assert_eq!(decoded, "&");
+        assert_eq!(len, 4);
+
+        let result = parse_entity("lt;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "<");
+
+        let result = parse_entity("gt;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, ">");
+
+        let result = parse_entity("quot;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "\"");
+    }
+
+    #[test]
+    fn test_parse_entity_numeric_decimal() {
+        // Decimal numeric entities
+        let result = parse_entity("#65;");
+        assert!(result.is_some());
+        let (decoded, len) = result.unwrap();
+        assert_eq!(decoded, "A");
+        assert_eq!(len, 4);
+
+        let result = parse_entity("#38;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "&");
+    }
+
+    #[test]
+    fn test_parse_entity_numeric_hex() {
+        // Hex numeric entities
+        let result = parse_entity("#x41;");
+        assert!(result.is_some());
+        let (decoded, len) = result.unwrap();
+        assert_eq!(decoded, "A");
+        assert_eq!(len, 5);
+
+        let result = parse_entity("#X26;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "&");
+
+        let result = parse_entity("#x7B;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "{");
+    }
+
+    #[test]
+    fn test_parse_entity_invalid() {
+        // Invalid entities
+        assert!(parse_entity("").is_none()); // Empty
+        assert!(parse_entity("notanentity;").is_none()); // Unknown entity
+        assert!(parse_entity("#;").is_none()); // Empty numeric
+        assert!(parse_entity("#x;").is_none()); // Empty hex
+        assert!(parse_entity("#xyz;").is_none()); // Invalid hex
+    }
+
+    #[test]
+    fn test_parse_entity_edge_cases() {
+        // NUL character (codepoint 0)
+        let result = parse_entity("#0;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "\u{FFFD}"); // Replacement character
+
+        // Out of range codepoint
+        let result = parse_entity("#x110000;");
+        assert!(result.is_none()); // Should preserve original
+
+        // Unicode codepoint
+        let result = parse_entity("#x1F600;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "😀");
+    }
+
+    #[test]
+    fn test_unescape_string() {
+        // Basic unescape
+        let result = unescape_string("Hello &amp; World");
+        assert_eq!(result, "Hello & World");
+
+        // Multiple entities
+        let result = unescape_string("&lt;tag&gt;");
+        assert_eq!(result, "<tag>");
+
+        // No entities
+        let result = unescape_string("Just plain text");
+        assert_eq!(result, "Just plain text");
+
+        // Backslash escapes
+        let result = unescape_string("Hello\\nWorld");
+        assert_eq!(result, "Hello\\nWorld"); // \n is not escapable in this context
+
+        let result = unescape_string("Hello\\*World");
+        assert_eq!(result, "Hello*World"); // * is escapable
+    }
+
+    #[test]
+    fn test_unescape_string_mixed() {
+        // Mixed content
+        let result = unescape_string("Use &lt; and &gt; for \\*tags\\*");
+        assert_eq!(result, "Use < and > for *tags*");
+    }
+
+    #[test]
+    fn test_parse_entity_char() {
+        // Named entity with &
+        let result = parse_entity_char("&amp;");
+        assert!(result.is_some());
+        let (decoded, len) = result.unwrap();
+        assert_eq!(decoded, "&");
+        assert_eq!(len, 5);
+
+        // Numeric entity
+        let result = parse_entity_char("&#65;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "A");
+
+        // Hex entity
+        let result = parse_entity_char("&#x41;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "A");
+
+        // Invalid - no &
+        let result = parse_entity_char("not an entity");
+        assert!(result.is_none());
+
+        // Invalid - no semicolon
+        let result = parse_entity_char("&amp");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_entity_char_out_of_range() {
+        // Out of range numeric entity - should preserve original
+        let result = parse_entity_char("&#87654321;");
+        assert!(result.is_some());
+        let (decoded, _) = result.unwrap();
+        assert_eq!(decoded, "&#87654321;"); // Preserved as-is
+    }
+}

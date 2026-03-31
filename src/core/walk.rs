@@ -156,7 +156,11 @@ where
     walk_m_recursive(arena, root, &mut f)
 }
 
-fn walk_m_recursive<F, E>(arena: &mut NodeArena, node_id: NodeId, f: &mut F) -> Result<(), E>
+fn walk_m_recursive<F, E>(
+    arena: &mut NodeArena,
+    node_id: NodeId,
+    f: &mut F,
+) -> Result<(), E>
 where
     F: FnMut(&mut NodeValue) -> Result<(), E>,
 {
@@ -223,8 +227,12 @@ where
     results
 }
 
-fn query_recursive<F, R>(arena: &NodeArena, node_id: NodeId, f: &mut F, results: &mut Vec<R>)
-where
+fn query_recursive<F, R>(
+    arena: &NodeArena,
+    node_id: NodeId,
+    f: &mut F,
+    results: &mut Vec<R>,
+) where
     F: FnMut(&NodeValue) -> Option<R>,
 {
     let node = arena.get(node_id);
@@ -318,8 +326,12 @@ where
     walk_context_recursive(arena, root, 0, &mut f);
 }
 
-fn walk_context_recursive<F>(arena: &mut NodeArena, node_id: NodeId, depth: usize, f: &mut F)
-where
+fn walk_context_recursive<F>(
+    arena: &mut NodeArena,
+    node_id: NodeId,
+    depth: usize,
+    f: &mut F,
+) where
     F: FnMut(&mut NodeValue, usize, bool),
 {
     // Check if this is a leaf node
@@ -447,8 +459,12 @@ where
     results
 }
 
-fn collect_recursive<F>(arena: &NodeArena, node_id: NodeId, predicate: &mut F, results: &mut Vec<NodeId>)
-where
+fn collect_recursive<F>(
+    arena: &NodeArena,
+    node_id: NodeId,
+    predicate: &mut F,
+    results: &mut Vec<NodeId>,
+) where
     F: FnMut(&NodeValue) -> bool,
 {
     let node = arena.get(node_id);
@@ -533,15 +549,13 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, heading);
 
-        let has_heading = query_any(&arena, root, |node| {
-            matches!(node, NodeValue::Heading(_))
-        });
+        let has_heading =
+            query_any(&arena, root, |node| matches!(node, NodeValue::Heading(_)));
 
         assert!(has_heading);
 
-        let has_table = query_any(&arena, root, |node| {
-            matches!(node, NodeValue::Table(_))
-        });
+        let has_table =
+            query_any(&arena, root, |node| matches!(node, NodeValue::Table(_)));
 
         assert!(!has_table);
     }
@@ -643,9 +657,8 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, root, para);
 
-        let headings = collect_nodes(&arena, root, |node| {
-            matches!(node, NodeValue::Heading(_))
-        });
+        let headings =
+            collect_nodes(&arena, root, |node| matches!(node, NodeValue::Heading(_)));
 
         assert_eq!(headings.len(), 1);
         assert_eq!(headings[0], heading);
@@ -663,9 +676,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, heading);
 
-        let result = walk_m(&mut arena, root, |_node| -> Result<(), ()> {
-            Ok(())
-        });
+        let result = walk_m(&mut arena, root, |_node| -> Result<(), ()> { Ok(()) });
 
         assert!(result.is_ok());
     }

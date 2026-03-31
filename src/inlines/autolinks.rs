@@ -160,3 +160,125 @@ pub fn match_url_autolink(input: &str) -> Option<(String, usize)> {
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_match_email_autolink_valid() {
+        // Valid email autolinks
+        let result = match_email_autolink("<test@example.com>");
+        assert!(result.is_some());
+        let (email, len) = result.unwrap();
+        assert_eq!(email, "test@example.com");
+        assert_eq!(len, 18); // <test@example.com> = 18 chars
+
+        let result = match_email_autolink("<user.name@example.co.uk>");
+        assert!(result.is_some());
+        let (email, _) = result.unwrap();
+        assert_eq!(email, "user.name@example.co.uk");
+
+        let result = match_email_autolink("<user+tag@example.com>");
+        assert!(result.is_some());
+        let (email, _) = result.unwrap();
+        assert_eq!(email, "user+tag@example.com");
+    }
+
+    #[test]
+    fn test_match_email_autolink_invalid() {
+        // Invalid email autolinks
+        assert!(match_email_autolink("not_an_email").is_none());
+        assert!(match_email_autolink("<@example.com>").is_none()); // No local part
+        assert!(match_email_autolink("<test@>").is_none()); // No domain
+        assert!(match_email_autolink("<test@example").is_none()); // No closing >
+        assert!(match_email_autolink("test@example.com>").is_none()); // No opening <
+        assert!(match_email_autolink("<test@@example.com>").is_none()); // Double @
+        assert!(match_email_autolink("<test@exam ple.com>").is_none()); // Space in domain
+    }
+
+    #[test]
+    fn test_match_email_autolink_special_chars() {
+        // Email with special characters in local part
+        let result = match_email_autolink("<user!#$%&'*+/=?^_`{|}~-@example.com>");
+        assert!(result.is_some());
+
+        // Backslash is not allowed
+        assert!(match_email_autolink("<user\\name@example.com>").is_none());
+    }
+
+    #[test]
+    fn test_match_url_autolink_valid() {
+        // Valid URL autolinks
+        let result = match_url_autolink("<https://example.com>");
+        assert!(result.is_some());
+        let (url, len) = result.unwrap();
+        assert_eq!(url, "https://example.com");
+        assert_eq!(len, 21); // <https://example.com> = 21 chars
+
+        let result = match_url_autolink("<http://localhost:8080/path>");
+        assert!(result.is_some());
+        let (url, _) = result.unwrap();
+        assert_eq!(url, "http://localhost:8080/path");
+
+        let result = match_url_autolink("<ftp://files.example.com>");
+        assert!(result.is_some());
+        let (url, _) = result.unwrap();
+        assert_eq!(url, "ftp://files.example.com");
+    }
+
+    #[test]
+    fn test_match_url_autolink_invalid() {
+        // Invalid URL autolinks
+        assert!(match_url_autolink("not_a_url").is_none());
+        assert!(match_url_autolink("<123://example.com>").is_none()); // Scheme must start with letter
+        assert!(match_url_autolink("<a:short>").is_none()); // Scheme too short
+        assert!(match_url_autolink("<http://example.com").is_none()); // No closing >
+        assert!(match_url_autolink("http://example.com>").is_none()); // No opening <
+    }
+
+    #[test]
+    fn test_match_url_autolink_scheme_length() {
+        // Scheme with max length (32 chars)
+        let long_scheme = format!("<{}:test>", "a".repeat(31));
+        assert!(match_url_autolink(&long_scheme).is_some());
+
+        // Scheme too long (>32 chars)
+        let too_long_scheme = format!("<{}:test>", "a".repeat(33));
+        assert!(match_url_autolink(&too_long_scheme).is_none());
+    }
+
+    #[test]
+    fn test_is_valid_email_local_char() {
+        assert!(is_valid_email_local_char('a'));
+        assert!(is_valid_email_local_char('Z'));
+        assert!(is_valid_email_local_char('0'));
+        assert!(is_valid_email_local_char('!'));
+        assert!(is_valid_email_local_char('#'));
+        assert!(is_valid_email_local_char('$'));
+        assert!(is_valid_email_local_char('&'));
+        assert!(is_valid_email_local_char('*'));
+        assert!(is_valid_email_local_char('+'));
+        assert!(is_valid_email_local_char('-'));
+        assert!(is_valid_email_local_char('/'));
+        assert!(is_valid_email_local_char('='));
+        assert!(is_valid_email_local_char('?'));
+        assert!(is_valid_email_local_char('^'));
+        assert!(is_valid_email_local_char('_'));
+        assert!(is_valid_email_local_char('`'));
+        assert!(is_valid_email_local_char('{'));
+        assert!(is_valid_email_local_char('|'));
+        assert!(is_valid_email_local_char('}'));
+        assert!(is_valid_email_local_char('~'));
+        assert!(is_valid_email_local_char('.'));
+        assert!(is_valid_email_local_char('\''));
+        assert!(is_valid_email_local_char('%'));
+
+        // Invalid characters
+        assert!(!is_valid_email_local_char('@'));
+        assert!(!is_valid_email_local_char(' '));
+        assert!(!is_valid_email_local_char('<'));
+        assert!(!is_valid_email_local_char('>'));
+        assert!(!is_valid_email_local_char('\\'));
+    }
+}

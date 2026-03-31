@@ -52,7 +52,11 @@ pub fn any_char(input: &str, pos: Position) -> ParseResult<char> {
         new_pos.advance(ch);
         Ok((ch, new_pos))
     } else {
-        Err(ParseError::at(pos.line, pos.column, "Unexpected end of input"))
+        Err(ParseError::at(
+            pos.line,
+            pos.column,
+            "Unexpected end of input",
+        ))
     }
 }
 
@@ -329,7 +333,11 @@ pub fn upper(input: &str, pos: Position) -> ParseResult<char> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected uppercase letter"))
+    Err(ParseError::at(
+        pos.line,
+        pos.column,
+        "Expected uppercase letter",
+    ))
 }
 
 /// Parse a lowercase letter.
@@ -350,7 +358,11 @@ pub fn lower(input: &str, pos: Position) -> ParseResult<char> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected lowercase letter"))
+    Err(ParseError::at(
+        pos.line,
+        pos.column,
+        "Expected lowercase letter",
+    ))
 }
 
 /// Parse a hexadecimal digit.
@@ -371,7 +383,11 @@ pub fn hex_digit(input: &str, pos: Position) -> ParseResult<char> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected hexadecimal digit"))
+    Err(ParseError::at(
+        pos.line,
+        pos.column,
+        "Expected hexadecimal digit",
+    ))
 }
 
 /// Parse an octal digit.

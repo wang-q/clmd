@@ -66,6 +66,7 @@ enum TemplatePart {
         body: Vec<TemplatePart>,
     },
     /// Partial template inclusion.
+    #[allow(dead_code)]
     Partial(String),
     /// Comment block ($--$...$--$).
     Comment(String),
@@ -132,9 +133,10 @@ impl TemplateContext {
     /// Check if a variable is greater than a value (numeric comparison).
     pub fn greater_than(&self, key: &str, value: &str) -> bool {
         match (self.variables.get(key), value.parse::<f64>()) {
-            (Some(var_val), Ok(comp_val)) => {
-                var_val.parse::<f64>().map(|v| v > comp_val).unwrap_or(false)
-            }
+            (Some(var_val), Ok(comp_val)) => var_val
+                .parse::<f64>()
+                .map(|v| v > comp_val)
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -142,9 +144,10 @@ impl TemplateContext {
     /// Check if a variable is less than a value (numeric comparison).
     pub fn less_than(&self, key: &str, value: &str) -> bool {
         match (self.variables.get(key), value.parse::<f64>()) {
-            (Some(var_val), Ok(comp_val)) => {
-                var_val.parse::<f64>().map(|v| v < comp_val).unwrap_or(false)
-            }
+            (Some(var_val), Ok(comp_val)) => var_val
+                .parse::<f64>()
+                .map(|v| v < comp_val)
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -307,7 +310,13 @@ impl Template {
                     } else {
                         current_text.push(ch);
                         current_text.push('-');
-                        current_text.push_str(&marker.chars().nth(1).map(|c| c.to_string()).unwrap_or_default());
+                        current_text.push_str(
+                            &marker
+                                .chars()
+                                .nth(1)
+                                .map(|c| c.to_string())
+                                .unwrap_or_default(),
+                        );
                     }
                 } else if chars.peek() == Some(&'i') {
                     // Check for if or ifnot
@@ -315,7 +324,7 @@ impl Template {
                     if keyword == "if" {
                         chars.next(); // consume 'i'
                         chars.next(); // consume 'f'
-                        
+
                         // Check if it's ifnot
                         if chars.peek() == Some(&'n') {
                             let not_keyword: String = chars.clone().take(3).collect();
@@ -324,12 +333,12 @@ impl Template {
                                 chars.next(); // consume 'n'
                                 chars.next(); // consume 'o'
                                 chars.next(); // consume 't'
-                                
+
                                 if !current_text.is_empty() {
                                     parts.push(TemplatePart::Text(current_text.clone()));
                                     current_text.clear();
                                 }
-                                
+
                                 if chars.peek() != Some(&'(') {
                                     return Err(TemplateError::SyntaxError(
                                         "Expected ( after ifnot".to_string(),
@@ -342,7 +351,8 @@ impl Template {
                                         "Expected $ after condition".to_string(),
                                     ));
                                 }
-                                let (then_branch, else_branch) = Self::parse_if_branch(&mut chars)?;
+                                let (then_branch, else_branch) =
+                                    Self::parse_if_branch(&mut chars)?;
                                 parts.push(TemplatePart::IfNot {
                                     condition,
                                     then_branch,
@@ -351,13 +361,13 @@ impl Template {
                                 continue;
                             }
                         }
-                        
+
                         // If statement: $if(var)$...$else$...$endif$
                         if !current_text.is_empty() {
                             parts.push(TemplatePart::Text(current_text.clone()));
                             current_text.clear();
                         }
-                        
+
                         if chars.peek() != Some(&'(') {
                             return Err(TemplateError::SyntaxError(
                                 "Expected ( after if".to_string(),
@@ -371,7 +381,8 @@ impl Template {
                             ));
                         }
                         let condition = Self::parse_condition(&condition_str)?;
-                        let (then_branch, else_branch) = Self::parse_if_branch(&mut chars)?;
+                        let (then_branch, else_branch) =
+                            Self::parse_if_branch(&mut chars)?;
                         parts.push(TemplatePart::If {
                             condition,
                             then_branch,
@@ -451,7 +462,7 @@ impl Template {
     /// Parse a condition expression.
     fn parse_condition(expr: &str) -> Result<Condition, TemplateError> {
         let expr = expr.trim();
-        
+
         // Check for comparison operators
         if let Some(pos) = expr.find("==") {
             let (left, right) = expr.split_at(pos);
@@ -481,7 +492,7 @@ impl Template {
                 right[1..].trim().to_string(),
             ));
         }
-        
+
         // Simple variable condition
         Ok(Condition::Variable(expr.to_string()))
     }
@@ -491,7 +502,7 @@ impl Template {
         chars: &mut std::iter::Peekable<std::str::Chars>,
     ) -> Result<String, TemplateError> {
         let mut content = String::new();
-        
+
         while let Some(ch) = chars.next() {
             if ch == '$' {
                 // Check for end of comment
@@ -509,7 +520,7 @@ impl Template {
             }
             content.push(ch);
         }
-        
+
         Err(TemplateError::SyntaxError(
             "Unclosed comment block".to_string(),
         ))
@@ -907,7 +918,9 @@ mod tests {
 
     #[test]
     fn test_equals_condition() {
-        let template = Template::compile("$if(status==active)$Active$else$Inactive$endif$").unwrap();
+        let template =
+            Template::compile("$if(status==active)$Active$else$Inactive$endif$")
+                .unwrap();
 
         let mut ctx1 = TemplateContext::new();
         ctx1.set("status", "active");
@@ -920,7 +933,9 @@ mod tests {
 
     #[test]
     fn test_not_equals_condition() {
-        let template = Template::compile("$if(status!=disabled)$Enabled$else$Disabled$endif$").unwrap();
+        let template =
+            Template::compile("$if(status!=disabled)$Enabled$else$Disabled$endif$")
+                .unwrap();
 
         let mut ctx1 = TemplateContext::new();
         ctx1.set("status", "enabled");
@@ -933,7 +948,8 @@ mod tests {
 
     #[test]
     fn test_comment() {
-        let template = Template::compile("Hello$--$ This is a comment $--$ World").unwrap();
+        let template =
+            Template::compile("Hello$--$ This is a comment $--$ World").unwrap();
         let context = TemplateContext::new();
 
         assert_eq!(template.render(&context), "Hello World");
@@ -941,7 +957,9 @@ mod tests {
 
     #[test]
     fn test_nested_if() {
-        let template = Template::compile("$if(outer)$Outer$if(inner)$-Inner$endif$$endif$").unwrap();
+        let template =
+            Template::compile("$if(outer)$Outer$if(inner)$-Inner$endif$$endif$")
+                .unwrap();
 
         let mut ctx1 = TemplateContext::new();
         ctx1.set("outer", "true");

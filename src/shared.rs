@@ -21,7 +21,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{NodeHeading, NodeList, NodeValue};
+use crate::nodes::{NodeList, NodeValue};
 use std::collections::HashSet;
 
 /// Extract plain text from a node and its children.
@@ -676,6 +676,7 @@ pub fn split_by_blank_lines(text: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nodes::NodeHeading;
 
     #[test]
     fn test_stringify() {
@@ -691,7 +692,10 @@ mod tests {
     fn test_text_to_identifier() {
         assert_eq!(text_to_identifier("Hello World!"), "hello-world");
         assert_eq!(text_to_identifier("C++ Programming"), "c-programming");
-        assert_eq!(text_to_identifier("  Multiple   Spaces  "), "multiple-spaces");
+        assert_eq!(
+            text_to_identifier("  Multiple   Spaces  "),
+            "multiple-spaces"
+        );
         assert_eq!(text_to_identifier("UPPERCASE"), "uppercase");
         assert_eq!(text_to_identifier("special@#chars"), "special-chars");
     }
@@ -765,7 +769,8 @@ mod tests {
     #[test]
     fn test_child_count() {
         let options = crate::Options::default();
-        let (arena, root) = crate::parse_document("# Heading\n\nParagraph 1\n\nParagraph 2", &options);
+        let (arena, root) =
+            crate::parse_document("# Heading\n\nParagraph 1\n\nParagraph 2", &options);
 
         let count = child_count(&arena, root);
         assert!(count >= 2); // At least heading and paragraphs

@@ -192,7 +192,7 @@ impl Context for IoContext {
                 .map(|s| format!(".{}", s))
                 .unwrap_or_default();
             let new_path = format!("{}{}", hash, ext);
-            bag.insert_opt(&PathBuf::from(&new_path), mime_type, data);
+            bag.insert_opt(PathBuf::from(&new_path), mime_type, data);
             return Ok(new_path);
         }
 

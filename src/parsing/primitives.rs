@@ -4,8 +4,8 @@
 //! identifiers, and more.
 
 use super::{BoxedParser, ParseError, ParseResult, Position};
-use crate::parsing::char::{alphanumeric, char_lit, digit};
-use crate::parsing::combinator::{many, many1, optional};
+use crate::parsing::char::digit;
+use crate::parsing::combinator::{many, many1};
 
 /// Parse a string literal (double-quoted).
 ///
@@ -22,7 +22,11 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
 
     // Opening quote
     if !input[current_pos.offset..].starts_with('"') {
-        return Err(ParseError::at(current_pos.line, current_pos.column, "Expected opening quote"));
+        return Err(ParseError::at(
+            current_pos.line,
+            current_pos.column,
+            "Expected opening quote",
+        ));
     }
     current_pos.advance('"');
 
@@ -48,7 +52,11 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
                     result.push(unescaped);
                     current_pos.advance(escaped);
                 } else {
-                    return Err(ParseError::at(current_pos.line, current_pos.column, "Unexpected end of string"));
+                    return Err(ParseError::at(
+                        current_pos.line,
+                        current_pos.column,
+                        "Unexpected end of string",
+                    ));
                 }
             }
             c => {
@@ -58,7 +66,11 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
         }
     }
 
-    Err(ParseError::at(current_pos.line, current_pos.column, "Unclosed string literal"))
+    Err(ParseError::at(
+        current_pos.line,
+        current_pos.column,
+        "Unclosed string literal",
+    ))
 }
 
 /// Parse an identifier (starts with letter, followed by alphanumeric or _).
@@ -75,11 +87,16 @@ pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
     let mut current_pos = pos;
 
     // First character must be alphabetic
-    let first = input[current_pos.offset..].chars().next()
-        .ok_or_else(|| ParseError::at(current_pos.line, current_pos.column, "Expected identifier"))?;
+    let first = input[current_pos.offset..].chars().next().ok_or_else(|| {
+        ParseError::at(current_pos.line, current_pos.column, "Expected identifier")
+    })?;
 
     if !first.is_alphabetic() && first != '_' {
-        return Err(ParseError::at(current_pos.line, current_pos.column, "Identifier must start with letter or underscore"));
+        return Err(ParseError::at(
+            current_pos.line,
+            current_pos.column,
+            "Identifier must start with letter or underscore",
+        ));
     }
 
     let mut result = String::new();
@@ -114,9 +131,16 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
     let (digits, new_pos) = digits_parser(input, pos)?;
 
     let num_str: String = digits.into_iter().collect();
-    num_str.parse::<u64>()
+    num_str
+        .parse::<u64>()
         .map(|n| Ok((n, new_pos)))
-        .unwrap_or_else(|_| Err(ParseError::at(new_pos.line, new_pos.column, "Invalid unsigned integer")))
+        .unwrap_or_else(|_| {
+            Err(ParseError::at(
+                new_pos.line,
+                new_pos.column,
+                "Invalid unsigned integer",
+            ))
+        })
 }
 
 /// Parse a signed integer.
@@ -146,12 +170,19 @@ pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
     let (digits, new_pos) = many1(Box::new(digit))(input, current_pos)?;
     let num_str: String = digits.into_iter().collect();
 
-    num_str.parse::<i64>()
+    num_str
+        .parse::<i64>()
         .map(|n| {
             let result = if negative { -n } else { n };
             Ok((result, new_pos))
         })
-        .unwrap_or_else(|_| Err(ParseError::at(new_pos.line, new_pos.column, "Invalid integer")))
+        .unwrap_or_else(|_| {
+            Err(ParseError::at(
+                new_pos.line,
+                new_pos.column,
+                "Invalid integer",
+            ))
+        })
 }
 
 /// Parse a floating-point number.
@@ -194,7 +225,9 @@ pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
     }
 
     // Exponent part
-    if input[current_pos.offset..].starts_with('e') || input[current_pos.offset..].starts_with('E') {
+    if input[current_pos.offset..].starts_with('e')
+        || input[current_pos.offset..].starts_with('E')
+    {
         full_num.push('e');
         let exp_char = input[current_pos.offset..].chars().next().unwrap();
         current_pos.advance(exp_char);
@@ -218,9 +251,16 @@ pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
         return Err(ParseError::at(pos.line, pos.column, "Expected float"));
     }
 
-    full_num.parse::<f64>()
+    full_num
+        .parse::<f64>()
         .map(|n| Ok((n, current_pos)))
-        .unwrap_or_else(|_| Err(ParseError::at(current_pos.line, current_pos.column, "Invalid float")))
+        .unwrap_or_else(|_| {
+            Err(ParseError::at(
+                current_pos.line,
+                current_pos.column,
+                "Invalid float",
+            ))
+        })
 }
 
 /// Parse whitespace (one or more characters).
@@ -274,7 +314,11 @@ pub fn until(end: &'static str) -> BoxedParser<String> {
                 result.push(ch);
                 current_pos.advance(ch);
             } else {
-                return Err(ParseError::at(current_pos.line, current_pos.column, format!("Expected '{}'", end)));
+                return Err(ParseError::at(
+                    current_pos.line,
+                    current_pos.column,
+                    format!("Expected '{}'", end),
+                ));
             }
         }
 
@@ -298,7 +342,11 @@ pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
         let mut current_pos = pos;
 
         if !input[current_pos.offset..].starts_with(prefix) {
-            return Err(ParseError::at(current_pos.line, current_pos.column, format!("Expected '{}'", prefix)));
+            return Err(ParseError::at(
+                current_pos.line,
+                current_pos.column,
+                format!("Expected '{}'", prefix),
+            ));
         }
 
         for _ in 0..prefix.len() {
@@ -336,7 +384,11 @@ pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<Stri
         let mut current_pos = pos;
 
         if !input[current_pos.offset..].starts_with(start) {
-            return Err(ParseError::at(current_pos.line, current_pos.column, format!("Expected '{}'", start)));
+            return Err(ParseError::at(
+                current_pos.line,
+                current_pos.column,
+                format!("Expected '{}'", start),
+            ));
         }
 
         for _ in 0..start.len() {
@@ -351,7 +403,11 @@ pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<Stri
                 result.push(ch);
                 current_pos.advance(ch);
             } else {
-                return Err(ParseError::at(current_pos.line, current_pos.column, format!("Unclosed block comment, expected '{}'", end)));
+                return Err(ParseError::at(
+                    current_pos.line,
+                    current_pos.column,
+                    format!("Unclosed block comment, expected '{}'", end),
+                ));
             }
         }
 

@@ -209,10 +209,12 @@ pub trait Parser<T>: Fn(&str, Position) -> ParseResult<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        Box::new(move |input: &str, pos: Position| match (self)(input, pos.clone()) {
-            Ok((result, new_pos)) => Ok((Some(result), new_pos)),
-            Err(_) => Ok((None, pos)),
-        })
+        Box::new(
+            move |input: &str, pos: Position| match (self)(input, pos.clone()) {
+                Ok((result, new_pos)) => Ok((Some(result), new_pos)),
+                Err(_) => Ok((None, pos)),
+            },
+        )
     }
 
     /// Require the parser to succeed at least `n` times.

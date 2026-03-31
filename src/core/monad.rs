@@ -20,24 +20,19 @@ use std::time::SystemTime;
 use crate::error::ClmdError;
 
 /// Verbosity level for logging.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Verbosity {
     /// Silent - no output.
     Silent,
     /// Error - only errors.
     Error,
     /// Warning - errors and warnings.
+    #[default]
     Warning,
     /// Info - normal informational output.
     Info,
     /// Debug - detailed debug information.
     Debug,
-}
-
-impl Default for Verbosity {
-    fn default() -> Self {
-        Self::Warning
-    }
 }
 
 /// A log message for reporting progress and issues.

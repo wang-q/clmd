@@ -389,7 +389,7 @@ impl MediaBag {
                 .unwrap_or_else(|| {
                     path.as_ref()
                         .file_name()
-                        .map(|n| PathBuf::from(n))
+                        .map(PathBuf::from)
                         .unwrap_or_else(|| path.as_ref().to_path_buf())
                 });
         self.insert_auto(key_path, contents);
@@ -661,7 +661,7 @@ impl MediaBag {
             hasher.update(item.contents());
             let hash = format!("{:x}", hasher.finalize());
 
-            if seen_hashes.get(&hash).is_some() {
+            if seen_hashes.contains_key(&hash) {
                 // This is a duplicate
                 to_remove.push(path.clone());
             } else {

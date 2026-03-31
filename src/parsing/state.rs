@@ -3,12 +3,15 @@
 //! This module provides utilities for parsers that need to maintain state,
 //! such as tracking indentation levels, brace nesting, or custom state.
 
-use super::{BoxedParser, ParseError, ParseResult, Position};
+use super::{ParseError, ParseResult, Position};
 
 /// A parser that maintains state.
 pub trait StatefulParser<S, T>: Fn(&str, Position, &mut S) -> ParseResult<T> {}
 
-impl<S, T, F> StatefulParser<S, T> for F where F: Fn(&str, Position, &mut S) -> ParseResult<T> {}
+impl<S, T, F> StatefulParser<S, T> for F where
+    F: Fn(&str, Position, &mut S) -> ParseResult<T>
+{
+}
 
 /// A boxed stateful parser for type erasure.
 pub type BoxedStatefulParser<S, T> = Box<dyn StatefulParser<S, T>>;
@@ -123,7 +126,10 @@ pub fn indent_level<T>(
             return Err(ParseError::at(
                 pos.line,
                 pos.column,
-                format!("Expected indentation level {}, found {}", level, indent_count),
+                format!(
+                    "Expected indentation level {}, found {}",
+                    level, indent_count
+                ),
             ));
         }
 
@@ -259,7 +265,11 @@ pub fn nested_content(
             current_pos.advance(ch);
             state.push(open)?;
         } else {
-            return Err(ParseError::at(current_pos.line, current_pos.column, "Unexpected end of input"));
+            return Err(ParseError::at(
+                current_pos.line,
+                current_pos.column,
+                "Unexpected end of input",
+            ));
         }
 
         let mut result = String::new();

@@ -419,9 +419,10 @@ impl WriterOptions {
 }
 
 /// Text wrapping options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WrapOption {
     /// Automatic wrapping based on column width.
+    #[default]
     Auto,
     /// Preserve line breaks from source.
     Preserve,
@@ -429,16 +430,11 @@ pub enum WrapOption {
     None,
 }
 
-impl Default for WrapOption {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
-
 /// Email obfuscation methods.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EmailObfuscation {
     /// No obfuscation.
+    #[default]
     None,
     /// JavaScript obfuscation.
     Javascript,
@@ -446,16 +442,11 @@ pub enum EmailObfuscation {
     References,
 }
 
-impl Default for EmailObfuscation {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Reference location for footnotes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ReferenceLocation {
     /// At the end of the document.
+    #[default]
     Document,
     /// At the end of each block.
     Block,
@@ -463,16 +454,11 @@ pub enum ReferenceLocation {
     Section,
 }
 
-impl Default for ReferenceLocation {
-    fn default() -> Self {
-        Self::Document
-    }
-}
-
 /// Markdown flavor for output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MarkdownFlavor {
     /// CommonMark standard.
+    #[default]
     CommonMark,
     /// GitHub Flavored Markdown.
     Gfm,
@@ -484,12 +470,6 @@ pub enum MarkdownFlavor {
     MarkdownExtra,
     /// Strict mode.
     Strict,
-}
-
-impl Default for MarkdownFlavor {
-    fn default() -> Self {
-        Self::CommonMark
-    }
 }
 
 /// Line ending style.

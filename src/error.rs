@@ -223,6 +223,11 @@ impl ClmdError {
         Self::Io(message.into())
     }
 
+    /// Create a generic error.
+    pub fn other<S: Into<String>>(message: S) -> Self {
+        Self::Other(message.into())
+    }
+
     /// Create an unknown reader error.
     pub fn unknown_reader<S: Into<String>>(format: S) -> Self {
         Self::UnknownReader(format.into())
