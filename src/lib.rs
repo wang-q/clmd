@@ -377,6 +377,13 @@ pub mod slides;
 /// formula handling.
 pub mod tex;
 
+/// Document chunking utilities.
+///
+/// This module provides functionality for splitting documents into chunks,
+/// inspired by Pandoc's Chunks module. Useful for generating EPUBs,
+/// websites, and other multi-page outputs.
+pub mod chunks;
+
 /// Template system for document rendering.
 ///
 /// This module provides a flexible template system for document rendering,

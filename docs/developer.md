@@ -5,8 +5,8 @@
 ## Changelog
 
 ```bash
-git log v0.3.0..HEAD > gitlog.txt
-git diff v0.3.0 HEAD -- "*.rs" "*.md" > gitdiff.txt
+git log v0.1.0..HEAD > gitlog.txt
+git diff v0.1.0 HEAD -- "*.rs" "*.md" > gitdiff.txt
 ```
 
 ## Code coverage
@@ -1686,6 +1686,44 @@ clmd 已实现：
 #### 4. 转换管道改进
 - 新增转换类型（StripFootnotes、CapitalizeHeaders、AbsToRel、AutoIdent）
 - 新增转换实现（apply_strip_footnotes、apply_capitalize_headers 等）
+
+#### 5. Pandoc 架构借鉴的新模块 (2026-04-01)
+
+基于 Pandoc 架构分析，新增以下核心模块：
+
+**字符处理模块 (`char`)**：
+- CJK 字符检测（中日韩文字范围）
+- CJK 标点符号检测
+- 全角字符检测
+- 字符串 CJK 字符统计
+
+**Roff 转义模块 (`roff_char`)**：
+- roff/groff 特殊字符转义
+- 标准转义序列（引号、反斜杠、省略号等）
+- Unicode 字符转义
+- 可配置的转义器
+
+**幻灯片模块 (`slides`)**：
+- 幻灯片级别配置（H1-H6）
+- 幻灯片放映管理
+- reveal.js HTML 输出
+- beamer LaTeX 输出
+- 目录幻灯片支持
+- 导航链接生成
+
+**TeX 令牌模块 (`tex`)**：
+- TeX/LaTeX 令牌类型
+- 完整的 category codes 支持
+- TeX 分词器
+- 数学命令检测
+- 环境开始/结束检测
+
+**文档分块模块 (`chunks`)**：
+- 文档分块配置
+- 基于标题级别的分块
+- 导航链接生成（上一页/下一页/上级）
+- 目录树生成
+- EPUB/网站生成支持
 
 #### 5. 实用工具模块
 - 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
