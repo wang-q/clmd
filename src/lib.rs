@@ -350,6 +350,19 @@ pub mod filter;
 /// parsing and rendering.
 pub mod transforms;
 
+/// CJK character detection utilities.
+///
+/// This module provides utilities for detecting CJK (Chinese, Japanese, Korean)
+/// characters and punctuation, inspired by Pandoc's Char module. These utilities
+/// are essential for proper East Asian typography support.
+pub mod char;
+
+/// Roff character escaping utilities.
+///
+/// This module provides character escaping for roff/groff format, used for
+/// generating Unix manual pages. Inspired by Pandoc's RoffChar module.
+pub mod roff_char;
+
 /// Template system for document rendering.
 ///
 /// This module provides a flexible template system for document rendering,

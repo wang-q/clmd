@@ -17,7 +17,7 @@
 //! use std::path::Path;
 //!
 //! fn process_document<C: ClmdContext>(ctx: &C, input: &Path) -> Result<String, C::Error> {
-//!     ctx.report(LogLevel::Info, "Processing document");
+//!     ctx.report(LogLevel::Info, "Processing document".to_string());
 //!     let content = ctx.read_file_to_string(input)?;
 //!     Ok(content)
 //! }
