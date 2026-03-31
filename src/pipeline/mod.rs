@@ -22,8 +22,8 @@
 use crate::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
 use crate::options::Options;
-use crate::readers::{Reader, ReaderInput, ReaderOptions, ReaderRegistry};
-use crate::writers::{Writer, WriterOptions, WriterRegistry};
+use crate::readers::{Reader, ReaderRegistry};
+use crate::writers::{Writer, WriterRegistry};
 
 /// A document conversion pipeline.
 ///
@@ -95,13 +95,11 @@ impl Pipeline {
     /// # Returns
     ///
     /// The converted output string, or an error if conversion fails.
-    pub fn convert(&self, input: &str, _options: &Options) -> ClmdResult<String> {
+    pub fn convert(&self, input: &str, options: &Options) -> ClmdResult<String> {
         // Step 1: Read the input
-        let reader_options = ReaderOptions::default();
-        let reader_input = ReaderInput::text(input);
         let (mut arena, root) = self
             .reader
-            .read(&reader_input, &reader_options)
+            .read(input, options)
             .map_err(|e| {
                 ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
             })?;
@@ -114,9 +112,8 @@ impl Pipeline {
         }
 
         // Step 3: Write the output
-        let writer_options = WriterOptions::default();
         self.writer
-            .write_text(&arena, root, &writer_options)
+            .write(&arena, root, options)
             .map_err(|e| ClmdError::io_error(format!("Write error: {}", e)))
     }
 
@@ -166,8 +163,8 @@ impl PipelineBuilder {
         Self {
             input_format: None,
             output_format: None,
-            reader_registry: ReaderRegistry::with_defaults(),
-            writer_registry: WriterRegistry::with_defaults(),
+            reader_registry: ReaderRegistry::new(),
+            writer_registry: WriterRegistry::new(),
             filter_chain: FilterChain::new(),
         }
     }
@@ -245,24 +242,24 @@ impl Default for PipelineBuilder {
 
 /// Create a boxed reader by format name.
 fn create_reader(format: &str) -> ClmdResult<Box<dyn Reader>> {
-    use crate::readers::registry::{CommonMarkReader, HtmlReader, MarkdownReader};
+    use crate::readers::{HtmlReader, MarkdownReader};
 
     match format.to_lowercase().as_str() {
-        "markdown" => Ok(Box::new(MarkdownReader::new())),
-        "html" => Ok(Box::new(HtmlReader::new())),
-        "commonmark" => Ok(Box::new(CommonMarkReader::new())),
+        "markdown" => Ok(Box::new(MarkdownReader)),
+        "html" => Ok(Box::new(HtmlReader)),
+        "commonmark" => Ok(Box::new(MarkdownReader)),
         _ => Err(ClmdError::unknown_reader(format)),
     }
 }
 
 /// Create a boxed writer by format name.
 fn create_writer(format: &str) -> ClmdResult<Box<dyn Writer>> {
-    use crate::writers::registry::{CommonMarkWriter, HtmlWriter, XmlWriter};
+    use crate::writers::{CommonMarkWriter, HtmlWriter, XmlWriter};
 
     match format.to_lowercase().as_str() {
-        "html" => Ok(Box::new(HtmlWriter::new())),
-        "xml" => Ok(Box::new(XmlWriter::new())),
-        "commonmark" | "markdown" => Ok(Box::new(CommonMarkWriter::new())),
+        "html" => Ok(Box::new(HtmlWriter)),
+        "xml" => Ok(Box::new(XmlWriter)),
+        "commonmark" | "markdown" => Ok(Box::new(CommonMarkWriter)),
         _ => Err(ClmdError::unknown_writer(format)),
     }
 }

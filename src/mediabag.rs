@@ -148,6 +148,32 @@ impl MediaBag {
         self.items.insert(canonical, item)
     }
 
+    /// Insert a media item with optional MIME type into the bag.
+    ///
+    /// If mime_type is None, it will be automatically detected from the file extension.
+    /// If an item with the same canonical path already exists, it will be replaced.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::mediabag::MediaBag;
+    ///
+    /// let mut bag = MediaBag::new();
+    /// bag.insert_opt("image.png", Some("image/png"), vec![0x89, 0x50, 0x4E, 0x47]);
+    /// bag.insert_opt("style.css", None::<&str>, vec![]); // Auto-detect MIME type
+    /// ```
+    pub fn insert_opt<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        mime_type: Option<&str>,
+        contents: impl Into<Vec<u8>>,
+    ) -> Option<MediaItem> {
+        let mime = mime_type
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| mime_type_from_path(path.as_ref()));
+        self.insert(path, mime, contents)
+    }
+
     /// Insert a media item with automatic MIME type detection.
     ///
     /// The MIME type is determined from the file extension.

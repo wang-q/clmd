@@ -36,6 +36,7 @@ dirs = "5.0"
 bitflags = "2.4"
 base64 = "0.22"
 urlencoding = "2.1"
+md5 = "0.7"
 
 [features]
 default = []

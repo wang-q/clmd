@@ -213,25 +213,25 @@ impl ExtensionsConfig {
     pub fn to_extensions(&self) -> Extensions {
         let mut ext = Extensions::empty();
         if self.table {
-            ext |= Extensions::TABLE;
+            ext |= Extensions::TABLES;
         }
         if self.strikethrough {
             ext |= Extensions::STRIKETHROUGH;
         }
         if self.tasklist {
-            ext |= Extensions::TASKLIST;
+            ext |= Extensions::TASKLISTS;
         }
         if self.autolink {
-            ext |= Extensions::AUTOLINK;
+            ext |= Extensions::AUTOLINKS;
         }
         if self.footnotes {
             ext |= Extensions::FOOTNOTES;
         }
         if self.description_list {
-            ext |= Extensions::DEFINITION_LIST;
+            ext |= Extensions::DESCRIPTION_LISTS;
         }
         if self.tagfilter {
-            ext |= Extensions::TAG_FILTER;
+            ext |= Extensions::TAGFILTER;
         }
         if self.superscript {
             ext |= Extensions::SUPERSCRIPT;
@@ -246,10 +246,10 @@ impl ExtensionsConfig {
             ext |= Extensions::HIGHLIGHT;
         }
         if self.math {
-            ext |= Extensions::MATH;
+            ext |= Extensions::MATH_DOLLARS;
         }
         if self.wikilink {
-            ext |= Extensions::WIKILINKS;
+            ext |= Extensions::WIKILINKS_TITLE_AFTER_PIPE;
         }
         if self.alerts {
             ext |= Extensions::ALERTS;
@@ -258,7 +258,7 @@ impl ExtensionsConfig {
             ext |= Extensions::YAML_FRONT_MATTER;
         }
         if self.abbreviation {
-            ext |= Extensions::ABBREVIATION;
+            ext |= Extensions::ABBREVIATIONS;
         }
         if self.attributes {
             ext |= Extensions::ATTRIBUTES;
@@ -267,7 +267,22 @@ impl ExtensionsConfig {
             ext |= Extensions::TOC;
         }
         if self.emoji {
-            ext |= Extensions::EMOJI;
+            ext |= Extensions::SHORTCODES;
+        }
+        if self.insert {
+            ext |= Extensions::INSERT;
+        }
+        if self.spoiler {
+            ext |= Extensions::SPOILER;
+        }
+        if self.greentext {
+            ext |= Extensions::GREENTEXT;
+        }
+        if self.multiline_block_quote {
+            ext |= Extensions::MULTILINE_BLOCK_QUOTES;
+        }
+        if self.shortcode {
+            ext |= Extensions::SHORTCODES;
         }
         ext
     }
@@ -275,30 +290,31 @@ impl ExtensionsConfig {
     /// Create from Extensions bitflags
     pub fn from_extensions(ext: Extensions) -> Self {
         Self {
-            table: ext.contains(Extensions::TABLE),
+            table: ext.contains(Extensions::TABLES),
             strikethrough: ext.contains(Extensions::STRIKETHROUGH),
-            tasklist: ext.contains(Extensions::TASKLIST),
-            autolink: ext.contains(Extensions::AUTOLINK),
+            tasklist: ext.contains(Extensions::TASKLISTS),
+            autolink: ext.contains(Extensions::AUTOLINKS),
             footnotes: ext.contains(Extensions::FOOTNOTES),
-            tagfilter: ext.contains(Extensions::TAG_FILTER),
+            tagfilter: ext.contains(Extensions::TAGFILTER),
             superscript: ext.contains(Extensions::SUPERSCRIPT),
             subscript: ext.contains(Extensions::SUBSCRIPT),
             underline: ext.contains(Extensions::UNDERLINE),
             highlight: ext.contains(Extensions::HIGHLIGHT),
-            insert: false,
-            math: ext.contains(Extensions::MATH),
-            wikilink: ext.contains(Extensions::WIKILINKS),
-            spoiler: false,
-            greentext: false,
+            insert: ext.contains(Extensions::INSERT),
+            math: ext.contains(Extensions::MATH_DOLLARS),
+            wikilink: ext.contains(Extensions::WIKILINKS_TITLE_AFTER_PIPE)
+                || ext.contains(Extensions::WIKILINKS_TITLE_BEFORE_PIPE),
+            spoiler: ext.contains(Extensions::SPOILER),
+            greentext: ext.contains(Extensions::GREENTEXT),
             alerts: ext.contains(Extensions::ALERTS),
-            multiline_block_quote: false,
-            description_list: ext.contains(Extensions::DEFINITION_LIST),
+            multiline_block_quote: ext.contains(Extensions::MULTILINE_BLOCK_QUOTES),
+            description_list: ext.contains(Extensions::DESCRIPTION_LISTS),
             shortcode: ext.contains(Extensions::SHORTCODES),
             yaml_front_matter: ext.contains(Extensions::YAML_FRONT_MATTER),
-            abbreviation: ext.contains(Extensions::ABBREVIATION),
+            abbreviation: ext.contains(Extensions::ABBREVIATIONS),
             attributes: ext.contains(Extensions::ATTRIBUTES),
             toc: ext.contains(Extensions::TOC),
-            emoji: ext.contains(Extensions::EMOJI),
+            emoji: ext.contains(Extensions::SHORTCODES),
         }
     }
 }
@@ -713,14 +729,14 @@ hardbreaks = false
         };
 
         let ext = config.to_extensions();
-        assert!(ext.contains(Extensions::TABLE));
+        assert!(ext.contains(Extensions::TABLES));
         assert!(ext.contains(Extensions::STRIKETHROUGH));
-        assert!(!ext.contains(Extensions::TASKLIST));
+        assert!(!ext.contains(Extensions::TASKLISTS));
     }
 
     #[test]
     fn test_extensions_from_bitflags() {
-        let ext = Extensions::TABLE | Extensions::STRIKETHROUGH;
+        let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
         let config = ExtensionsConfig::from_extensions(ext);
 
         assert!(config.table);

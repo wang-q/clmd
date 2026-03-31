@@ -307,6 +307,13 @@ pub mod formats;
 /// inspired by Pandoc's MediaBag.
 pub mod mediabag;
 
+/// Context system for IO operations and resource management.
+///
+/// This module provides a unified abstraction for IO operations, logging,
+/// and resource management, inspired by Pandoc's PandocMonad.
+/// It allows for both real IO operations and pure/mock implementations for testing.
+pub mod context;
+
 /// Core abstraction layer.
 ///
 /// This module provides fundamental abstractions and types used throughout
@@ -367,6 +374,12 @@ pub mod css;
 /// This module provides Unicode to ASCII transliteration,
 /// inspired by Pandoc's asciify functionality.
 pub mod asciify;
+
+/// Logging system for clmd.
+///
+/// This module provides a structured logging system for tracking operations,
+/// warnings, and errors during document processing.
+pub mod logging;
 
 // =============================================================================
 // Core Type Exports
