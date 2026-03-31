@@ -7,7 +7,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::context::{common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
+use crate::context::{
+    common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
+};
 use crate::error::ClmdError;
 use crate::mediabag::MediaItem;
 
@@ -293,7 +295,7 @@ mod tests {
     fn test_clone_context() {
         let ctx = IoContext::new();
         let ctx2 = ctx.clone();
-        
+
         // Both should have independent state
         assert_eq!(ctx.get_verbosity(), ctx2.get_verbosity());
     }
@@ -313,11 +315,11 @@ mod tests {
         let mut ctx = IoContext::new();
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(b"test").unwrap();
-        
+
         let path = temp_file.path();
         let parent = path.parent().unwrap();
         ctx.add_resource_path(parent.to_path_buf());
-        
+
         let filename = path.file_name().unwrap().to_str().unwrap();
         let found = ctx.find_file(filename);
         assert!(found.is_some());

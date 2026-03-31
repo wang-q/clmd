@@ -746,7 +746,8 @@ mod tests {
         assert!(msg.format().contains("INFO"));
         assert!(msg.format().contains("Hello"));
 
-        let msg_with_source = LogMessage::with_source(LogLevel::Error, "Oops", "main.rs:10");
+        let msg_with_source =
+            LogMessage::with_source(LogLevel::Error, "Oops", "main.rs:10");
         assert!(msg_with_source.format().contains("ERROR"));
         assert!(msg_with_source.format().contains("Oops"));
         assert!(msg_with_source.format().contains("main.rs:10"));

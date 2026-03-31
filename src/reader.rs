@@ -123,7 +123,10 @@ impl Reader for MarkdownReader {
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
         options: &ClmdOptions,
     ) -> ClmdResult<(NodeArena, NodeId)> {
-        ctx.info(&format!("Reading Markdown document ({} bytes)", input.len()));
+        ctx.info(&format!(
+            "Reading Markdown document ({} bytes)",
+            input.len()
+        ));
 
         // Convert to legacy options for now
         let legacy_options = options.to_options();
@@ -159,7 +162,10 @@ impl Reader for CommonMarkReader {
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
         options: &ClmdOptions,
     ) -> ClmdResult<(NodeArena, NodeId)> {
-        ctx.info(&format!("Reading CommonMark document ({} bytes)", input.len()));
+        ctx.info(&format!(
+            "Reading CommonMark document ({} bytes)",
+            input.len()
+        ));
 
         // Use strict CommonMark options
         let mut legacy_options = options.to_options();
@@ -517,7 +523,8 @@ mod tests {
         let options = ClmdOptions::default();
 
         let (arena, _root) =
-            read_document_from_file(std::path::Path::new("test.md"), &ctx, &options).unwrap();
+            read_document_from_file(std::path::Path::new("test.md"), &ctx, &options)
+                .unwrap();
 
         assert!(!arena.is_empty());
     }

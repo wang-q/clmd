@@ -145,7 +145,10 @@ impl Writer for HtmlWriter {
         if options.sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+        if options
+            .extensions
+            .contains(crate::extensions::Extensions::TAGFILTER)
+        {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
 
@@ -189,7 +192,10 @@ impl Writer for XhtmlWriter {
         if options.sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+        if options
+            .extensions
+            .contains(crate::extensions::Extensions::TAGFILTER)
+        {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
         let mut html = crate::render::html::render(arena, root, html_options);
@@ -251,10 +257,7 @@ impl Writer for CommonMarkWriter {
         }
 
         Ok(crate::render::commonmark::render(
-            arena,
-            root,
-            cm_options,
-            width,
+            arena, root, cm_options, width,
         ))
     }
 
@@ -674,12 +677,8 @@ mod tests {
     fn test_writer_registry_detect_from_path() {
         let registry = WriterRegistry::new();
 
-        assert!(registry
-            .detect_from_path(Path::new("test.html"))
-            .is_some());
-        assert!(registry
-            .detect_from_path(Path::new("test.md"))
-            .is_some());
+        assert!(registry.detect_from_path(Path::new("test.html")).is_some());
+        assert!(registry.detect_from_path(Path::new("test.md")).is_some());
         assert!(registry
             .detect_from_path(Path::new("test.unknown"))
             .is_none());
@@ -702,7 +701,8 @@ mod tests {
         let options = ClmdOptions::default();
         let (arena, root) = create_test_document();
 
-        write_document_to_file(&arena, root, Path::new("output.html"), &ctx, &options).unwrap();
+        write_document_to_file(&arena, root, Path::new("output.html"), &ctx, &options)
+            .unwrap();
 
         assert!(ctx.has_file("output.html"));
     }

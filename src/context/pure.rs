@@ -22,7 +22,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use crate::context::{common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
+use crate::context::{
+    common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
+};
 use crate::error::ClmdError;
 use crate::mediabag::MediaItem;
 
@@ -344,7 +346,9 @@ impl ClmdContext for PureContext {
             (0..len).map(|i| (i % 256) as u8).collect()
         } else {
             // Cycle through the provided bytes
-            (0..len).map(|i| random_bytes[i % random_bytes.len()]).collect()
+            (0..len)
+                .map(|i| random_bytes[i % random_bytes.len()])
+                .collect()
         }
     }
 
@@ -622,15 +626,15 @@ mod tests {
     #[test]
     fn test_simulated_time() {
         let mut ctx = PureContext::new();
-        
+
         // Default is UNIX_EPOCH
         assert_eq!(ctx.get_current_time(), SystemTime::UNIX_EPOCH);
-        
+
         // Set a specific time
         let test_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1000);
         ctx.set_current_time(test_time);
         assert_eq!(ctx.get_current_time(), test_time);
-        
+
         // Modification time should return the simulated time
         ctx.add_file("test.md", b"content");
         let mtime = ctx.get_modification_time(Path::new("test.md")).unwrap();
@@ -640,11 +644,11 @@ mod tests {
     #[test]
     fn test_simulated_random_bytes() {
         let ctx = PureContext::new();
-        
+
         // Default returns deterministic bytes
         let bytes = ctx.get_random_bytes(5);
         assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
-        
+
         // Set specific random bytes
         ctx.set_random_bytes(vec![0xAB, 0xCD]);
         let bytes = ctx.get_random_bytes(6);

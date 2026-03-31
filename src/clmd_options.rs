@@ -521,7 +521,11 @@ impl ClmdOptions {
     }
 
     /// Add a template variable.
-    pub fn with_variable(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn with_variable(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         self.variables.insert(key.into(), value.into());
         self
     }
@@ -584,7 +588,9 @@ impl ClmdOptions {
             inline_footnotes: self.extensions.contains(Extensions::INLINE_FOOTNOTES),
             description_lists: self.extensions.contains(Extensions::DESCRIPTION_LISTS),
             front_matter_delimiter: None, // TODO: Add support
-            multiline_block_quotes: self.extensions.contains(Extensions::MULTILINE_BLOCK_QUOTES),
+            multiline_block_quotes: self
+                .extensions
+                .contains(Extensions::MULTILINE_BLOCK_QUOTES),
             alerts: self.extensions.contains(Extensions::ALERTS),
             math_dollars: self.extensions.contains(Extensions::MATH_DOLLARS),
             math_code: self.extensions.contains(Extensions::MATH_CODE),
@@ -595,7 +601,9 @@ impl ClmdOptions {
             greentext: self.extensions.contains(Extensions::GREENTEXT),
             highlight: self.extensions.contains(Extensions::HIGHLIGHT),
             insert: self.extensions.contains(Extensions::INSERT),
-            cjk_friendly_emphasis: self.extensions.contains(Extensions::CJK_FRIENDLY_EMPHASIS),
+            cjk_friendly_emphasis: self
+                .extensions
+                .contains(Extensions::CJK_FRIENDLY_EMPHASIS),
             subtext: self.extensions.contains(Extensions::SUBTEXT),
             shortcodes: self.extensions.contains(Extensions::SHORTCODES),
             image_url_rewriter: None,
@@ -629,7 +637,11 @@ impl ClmdOptions {
             escape: self.escape_html,
             github_pre_lang: self.github_pre_lang,
             full_info_string: self.full_info_string,
-            width: if self.wrap == WrapOption::Auto { self.columns } else { 0 },
+            width: if self.wrap == WrapOption::Auto {
+                self.columns
+            } else {
+                0
+            },
             list_style: self.list_style,
             prefer_fenced: self.prefer_fenced,
             ignore_empty_links: false,
@@ -703,10 +715,7 @@ mod tests {
 
     #[test]
     fn test_output_format_from_str() {
-        assert_eq!(
-            "html".parse::<OutputFormat>().unwrap(),
-            OutputFormat::Html
-        );
+        assert_eq!("html".parse::<OutputFormat>().unwrap(), OutputFormat::Html);
         assert_eq!(
             "commonmark".parse::<OutputFormat>().unwrap(),
             OutputFormat::CommonMark
@@ -717,7 +726,10 @@ mod tests {
 
     #[test]
     fn test_format_from_extension() {
-        assert_eq!(InputFormat::from_extension("md"), Some(InputFormat::Markdown));
+        assert_eq!(
+            InputFormat::from_extension("md"),
+            Some(InputFormat::Markdown)
+        );
         assert_eq!(InputFormat::from_extension("html"), Some(InputFormat::Html));
         assert_eq!(InputFormat::from_extension("unknown"), None);
 
