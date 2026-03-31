@@ -301,6 +301,48 @@ pub mod pipeline;
 /// and content analysis.
 pub mod formats;
 
+/// Resource management system.
+///
+/// This module provides a unified way to manage binary resources like images,
+/// inspired by Pandoc's MediaBag.
+pub mod mediabag;
+
+/// Core abstraction layer.
+///
+/// This module provides fundamental abstractions and types used throughout
+/// the clmd library, inspired by Pandoc's core architecture.
+///
+/// # Submodules
+///
+/// - [`monad`](core::monad): Monad abstraction for IO and pure operations
+pub mod core;
+
+/// MIME type utilities.
+///
+/// This module provides MIME type detection and management, inspired by
+/// Pandoc's MIME module.
+pub mod mime;
+
+/// URI handling utilities.
+///
+/// This module provides URI parsing, encoding, and manipulation utilities,
+/// inspired by Pandoc's URI module.
+pub mod uri;
+
+/// Filter system for document transformation.
+///
+/// This module provides a flexible filter system for transforming documents,
+/// inspired by Pandoc's filter architecture. Filters can be used to modify
+/// the AST between parsing and rendering.
+pub mod filter;
+
+/// Template system for document rendering.
+///
+/// This module provides a flexible template system for document rendering,
+/// inspired by Pandoc's template architecture. Templates use a simple
+/// variable substitution syntax similar to Pandoc's templates.
+pub mod template;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================

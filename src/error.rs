@@ -261,6 +261,11 @@ impl ClmdError {
         Self::FeatureNotEnabled(feature.into())
     }
 
+    /// Create a not implemented error.
+    pub fn not_implemented<S: Into<String>>(feature: S) -> Self {
+        Self::Other(format!("Not implemented: {}", feature.into()))
+    }
+
     /// Create a limit exceeded error.
     pub fn limit_exceeded(kind: LimitKind, limit: usize, actual: usize) -> Self {
         Self::LimitExceeded {
