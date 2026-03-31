@@ -1128,6 +1128,213 @@ pub const ALL_EXTENSIONS: Extensions = Extensions::all();
 /// No extensions enabled.
 pub const NO_EXTENSIONS: Extensions = Extensions::empty();
 
+/// Extension difference for format specification.
+///
+/// This structure represents the difference between two extension sets,
+/// similar to Pandoc's ExtensionsDiff. It tracks which extensions to add
+/// and which to remove from a base set.
+///
+/// This is useful when parsing format specifications like `markdown+smart-tasklists`
+/// where `+smart` means "add smart extension" and `-tasklists` means "remove tasklists".
+///
+/// # Example
+///
+/// ```
+/// use clmd::extensions::{Extensions, ExtensionsDiff};
+///
+/// let diff = ExtensionsDiff {
+///     add: Extensions::SMART_PUNCTUATION | Extensions::FOOTNOTES,
+///     remove: Extensions::TASKLISTS,
+/// };
+///
+/// let base = Extensions::TABLES | Extensions::TASKLISTS;
+/// let result = diff.apply(base);
+///
+/// assert!(result.contains(Extensions::TABLES));
+/// assert!(result.contains(Extensions::SMART_PUNCTUATION));
+/// assert!(result.contains(Extensions::FOOTNOTES));
+/// assert!(!result.contains(Extensions::TASKLISTS));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExtensionsDiff {
+    /// Extensions to add.
+    pub add: Extensions,
+    /// Extensions to remove.
+    pub remove: Extensions,
+}
+
+impl ExtensionsDiff {
+    /// Create a new empty diff.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a diff that adds extensions.
+    pub fn add(ext: Extensions) -> Self {
+        Self {
+            add: ext,
+            remove: Extensions::empty(),
+        }
+    }
+
+    /// Create a diff that removes extensions.
+    pub fn remove(ext: Extensions) -> Self {
+        Self {
+            add: Extensions::empty(),
+            remove: ext,
+        }
+    }
+
+    /// Apply this diff to a base set of extensions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::{Extensions, ExtensionsDiff};
+    ///
+    /// let diff = ExtensionsDiff::add(Extensions::FOOTNOTES);
+    /// let base = Extensions::TABLES;
+    /// let result = diff.apply(base);
+    ///
+    /// assert!(result.contains(Extensions::TABLES));
+    /// assert!(result.contains(Extensions::FOOTNOTES));
+    /// ```
+    pub fn apply(&self, base: Extensions) -> Extensions {
+        (base | self.add) - self.remove
+    }
+
+    /// Combine two diffs.
+    ///
+    /// The result will add all extensions that either diff adds (except those
+    /// removed by either), and remove all extensions that either diff removes
+    /// (except those added by either).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::{Extensions, ExtensionsDiff};
+    ///
+    /// let diff1 = ExtensionsDiff::add(Extensions::FOOTNOTES);
+    /// let diff2 = ExtensionsDiff::remove(Extensions::TASKLISTS);
+    /// let combined = diff1.combine(diff2);
+    ///
+    /// let base = Extensions::TABLES | Extensions::TASKLISTS;
+    /// let result = combined.apply(base);
+    ///
+    /// assert!(result.contains(Extensions::TABLES));
+    /// assert!(result.contains(Extensions::FOOTNOTES));
+    /// assert!(!result.contains(Extensions::TASKLISTS));
+    /// ```
+    pub fn combine(&self, other: ExtensionsDiff) -> Self {
+        Self {
+            add: (self.add | other.add) - self.remove - other.remove,
+            remove: (self.remove | other.remove) - self.add - other.add,
+        }
+    }
+
+    /// Parse a diff from a format specification string.
+    ///
+    /// Format: `+ext1-ext2+ext3` or `ext1,-ext2,+ext3`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::{Extensions, ExtensionsDiff};
+    ///
+    /// let diff = ExtensionsDiff::parse("+smart-tasklists+footnotes").unwrap();
+    /// assert!(diff.add.contains(Extensions::SMART_PUNCTUATION));
+    /// assert!(diff.add.contains(Extensions::FOOTNOTES));
+    /// assert!(diff.remove.contains(Extensions::TASKLISTS));
+    /// ```
+    pub fn parse(s: &str) -> Result<Self, String> {
+        let mut diff = Self::new();
+
+        // Split by + or -, keeping the delimiters
+        let mut current = String::new();
+        let mut sign = '+';
+
+        for c in s.chars() {
+            if c == '+' || c == '-' {
+                // Process the previous extension
+                if !current.is_empty() {
+                    let ext = Self::parse_extension(&current)?;
+                    if sign == '+' {
+                        diff.add |= ext;
+                    } else {
+                        diff.remove |= ext;
+                    }
+                    current.clear();
+                }
+                sign = c;
+            } else {
+                current.push(c);
+            }
+        }
+
+        // Process the last extension
+        if !current.is_empty() {
+            let ext = Self::parse_extension(&current)?;
+            if sign == '+' {
+                diff.add |= ext;
+            } else {
+                diff.remove |= ext;
+            }
+        }
+
+        Ok(diff)
+    }
+
+    /// Parse a single extension name.
+    fn parse_extension(name: &str) -> Result<Extensions, String> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Ok(Extensions::empty());
+        }
+
+        // Use the same parsing logic as Extensions::from_str
+        let ext = Extensions::from_str(name)?;
+        Ok(ext)
+    }
+
+    /// Check if this diff is empty (no changes).
+    pub fn is_empty(&self) -> bool {
+        self.add.is_empty() && self.remove.is_empty()
+    }
+}
+
+/// Parse a flavored format specification.
+///
+/// This function parses format strings like `markdown+smart-tasklists` or
+/// `gfm-hard_line_breaks` and returns the base format with extension differences.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::extensions::parse_flavored_format;
+///
+/// let (base_ext, diff) = parse_flavored_format("markdown+smart-tasklists").unwrap();
+/// // base_ext is the default markdown extensions
+/// // diff.add contains SMART_PUNCTUATION and FOOTNOTES
+/// // diff.remove contains TASKLISTS
+/// ```
+pub fn parse_flavored_format(s: &str) -> Result<(Extensions, ExtensionsDiff), String> {
+    // Split the string into format name and extension modifiers
+    let parts: Vec<&str> = s.split(|c| c == '+' || c == '-').collect();
+
+    if parts.is_empty() {
+        return Err("Empty format specification".to_string());
+    }
+
+    // Get the base format
+    let format_name = parts[0].trim();
+    let base_ext = Extensions::for_format(format_name);
+
+    // Parse the extension diff
+    let diff = ExtensionsDiff::parse(&s[format_name.len()..])?;
+
+    Ok((base_ext, diff))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1358,5 +1565,102 @@ mod tests {
         assert!(ext.contains(Extensions::FENCED_DIVS));
         assert!(ext.contains(Extensions::CITATIONS));
         assert!(ext.contains(Extensions::EMOJI));
+    }
+
+    // ExtensionsDiff tests
+    #[test]
+    fn test_extensions_diff_new() {
+        let diff = ExtensionsDiff::new();
+        assert!(diff.is_empty());
+        assert!(diff.add.is_empty());
+        assert!(diff.remove.is_empty());
+    }
+
+    #[test]
+    fn test_extensions_diff_add() {
+        let diff = ExtensionsDiff::add(Extensions::FOOTNOTES);
+        assert!(!diff.is_empty());
+        assert!(diff.add.contains(Extensions::FOOTNOTES));
+        assert!(diff.remove.is_empty());
+    }
+
+    #[test]
+    fn test_extensions_diff_remove() {
+        let diff = ExtensionsDiff::remove(Extensions::TASKLISTS);
+        assert!(!diff.is_empty());
+        assert!(diff.remove.contains(Extensions::TASKLISTS));
+        assert!(diff.add.is_empty());
+    }
+
+    #[test]
+    fn test_extensions_diff_apply() {
+        let diff = ExtensionsDiff {
+            add: Extensions::FOOTNOTES,
+            remove: Extensions::TASKLISTS,
+        };
+        let base = Extensions::TABLES | Extensions::TASKLISTS;
+        let result = diff.apply(base);
+
+        assert!(result.contains(Extensions::TABLES));
+        assert!(result.contains(Extensions::FOOTNOTES));
+        assert!(!result.contains(Extensions::TASKLISTS));
+    }
+
+    #[test]
+    fn test_extensions_diff_combine() {
+        let diff1 = ExtensionsDiff::add(Extensions::FOOTNOTES);
+        let diff2 = ExtensionsDiff::remove(Extensions::TASKLISTS);
+        let combined = diff1.combine(diff2);
+
+        let base = Extensions::TABLES | Extensions::TASKLISTS;
+        let result = combined.apply(base);
+
+        assert!(result.contains(Extensions::TABLES));
+        assert!(result.contains(Extensions::FOOTNOTES));
+        assert!(!result.contains(Extensions::TASKLISTS));
+    }
+
+    #[test]
+    fn test_extensions_diff_parse() {
+        let diff = ExtensionsDiff::parse("+smart-tasklists+footnotes").unwrap();
+        assert!(diff.add.contains(Extensions::SMART_PUNCTUATION));
+        assert!(diff.add.contains(Extensions::FOOTNOTES));
+        assert!(diff.remove.contains(Extensions::TASKLISTS));
+    }
+
+    #[test]
+    fn test_extensions_diff_parse_empty() {
+        let diff = ExtensionsDiff::parse("").unwrap();
+        assert!(diff.is_empty());
+    }
+
+    #[test]
+    fn test_parse_flavored_format() {
+        let (base, diff) = parse_flavored_format("markdown+smart-tasklists").unwrap();
+
+        // Base should be markdown (DOC_EXTENSIONS)
+        assert!(base.contains(Extensions::TABLES));
+
+        // Diff should add smart and footnotes, remove tasklists
+        assert!(diff.add.contains(Extensions::SMART_PUNCTUATION));
+        assert!(diff.remove.contains(Extensions::TASKLISTS));
+
+        // Apply the diff
+        let result = diff.apply(base);
+        assert!(result.contains(Extensions::SMART_PUNCTUATION));
+        assert!(!result.contains(Extensions::TASKLISTS));
+    }
+
+    #[test]
+    fn test_parse_flavored_format_gfm() {
+        let (base, diff) = parse_flavored_format("gfm-hard_line_breaks").unwrap();
+
+        // Base should be GFM
+        assert!(base.contains(Extensions::TABLES));
+        assert!(base.contains(Extensions::TASKLISTS));
+
+        // Diff should remove hard_line_breaks (which might not be in GFM by default)
+        // But the parsing should work
+        assert!(!diff.is_empty());
     }
 }
