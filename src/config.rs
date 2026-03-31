@@ -209,7 +209,11 @@ impl Config {
         if let Some(path) = find_config_file() {
             match Self::from_file(&path) {
                 Ok(config) => return Some(config),
-                Err(e) => eprintln!("Warning: failed to load config file {}: {}", path.display(), e),
+                Err(e) => eprintln!(
+                    "Warning: failed to load config file {}: {}",
+                    path.display(),
+                    e
+                ),
             }
         }
         None

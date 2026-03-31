@@ -45,15 +45,11 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
 
     // Validate arguments
     if in_place && matches.get_one::<String>("output").is_some() {
-        return Err(anyhow::anyhow!(
-            "Cannot use --in-place with --output"
-        ));
+        return Err(anyhow::anyhow!("Cannot use --in-place with --output"));
     }
 
     if in_place && input_path.is_none() {
-        return Err(anyhow::anyhow!(
-            "--in-place requires an input file"
-        ));
+        return Err(anyhow::anyhow!("--in-place requires an input file"));
     }
 
     let input = utils::read_input(input_path)?;
@@ -78,18 +74,21 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
         // Create backup if requested
         if backup {
             let backup_path = format!("{}.bak", path);
-            std::fs::copy(path, &backup_path)
-                .map_err(|e| anyhow::anyhow!("Failed to create backup '{}': {}", backup_path, e))?;
+            std::fs::copy(path, &backup_path).map_err(|e| {
+                anyhow::anyhow!("Failed to create backup '{}': {}", backup_path, e)
+            })?;
         }
 
         // Write to temporary file first for atomic operation
         let temp_path = format!("{}.tmp", path);
-        std::fs::write(&temp_path, &cm)
-            .map_err(|e| anyhow::anyhow!("Failed to write temp file '{}': {}", temp_path, e))?;
+        std::fs::write(&temp_path, &cm).map_err(|e| {
+            anyhow::anyhow!("Failed to write temp file '{}': {}", temp_path, e)
+        })?;
 
         // Atomically rename temp file to target file
-        std::fs::rename(&temp_path, path)
-            .map_err(|e| anyhow::anyhow!("Failed to rename temp file to '{}': {}", path, e))?;
+        std::fs::rename(&temp_path, path).map_err(|e| {
+            anyhow::anyhow!("Failed to rename temp file to '{}': {}", path, e)
+        })?;
 
         Ok(())
     } else {

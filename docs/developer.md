@@ -52,26 +52,78 @@ clmd 是一个用 Rust 实现的高性能 CommonMark 规范解析器，参考了
 
 1. **解析功能**：将 CommonMark 格式的 Markdown 文本解析为 AST
 2. **AST 操作**：提供 API 用于操作和遍历抽象语法树
-3. **多格式渲染**：支持 HTML、XML、LaTeX、Man page、CommonMark 等输出格式
+3. **多格式渲染**：支持 HTML、XML、LaTeX、Man page、CommonMark、Typst、PDF 等输出格式
 4. **安全处理**：默认清理原始 HTML 和危险链接，防止 XSS
-5. **GFM 扩展**：支持表格、删除线、任务列表等 GitHub Flavored Markdown 特性
-6. **文档增强**：支持脚注、定义列表、目录生成、YAML front matter 等
+5. **GFM 扩展**：支持表格、删除线、任务列表、自动链接等 GitHub Flavored Markdown 特性
+6. **文档增强**：支持脚注、定义列表、目录生成、YAML front matter、缩写、属性语法等
+7. **格式转换**：支持从 HTML 转换为 Markdown
+8. **Markdown 格式化**：支持将 Markdown 文本格式化
+9. **插件系统**：支持自定义渲染和 syntect 语法高亮
+10. **配置文件支持**：支持从配置文件加载选项
+11. **Unicode 处理**：支持 Unicode 显示宽度计算
+12. **短代码支持**：支持自定义短代码扩展
+13. **标签过滤**：支持过滤特定 HTML 标签
 
 ## 项目结构
 
 ```
 src/
 ├── lib.rs              # 公共 API 和选项定义
-├── node.rs             # AST 节点定义（NodeType, NodeData, SourcePos）
-├── parser.rs           # 解析器入口
+├── arena.rs            # Arena 内存管理（核心 AST 存储）
+├── config.rs           # 配置文件支持
+├── error.rs            # 错误类型和解析限制
+├── from.rs             # 从其他格式转换的公共 API
+├── html_utils.rs       # HTML 工具（转义、实体解码）
+├── iterator.rs         # AST 遍历器
+├── nodes.rs            # AST 节点定义（NodeValue, Node）
+├── options.rs          # 配置选项
+├── prelude.rs          # 预导入模块
+├── render.rs           # 渲染器基类
+├── scanners.rs         # 扫描器工具
+├── sequence.rs         # 文本序列工具
+├── strings.rs          # 字符串处理
+├── unicode_width.rs    # Unicode 显示宽度计算
+├── adapters.rs         # 适配器
 ├── blocks/             # 块级元素解析模块
 │   ├── mod.rs          # 模块导出和文档
 │   ├── parser.rs       # 块解析器核心实现
 │   ├── block_starts.rs # 块开始检测
 │   ├── continuation.rs # 块延续逻辑
 │   ├── finalization.rs # 块最终化
+│   ├── helpers.rs      # 辅助函数
 │   ├── info.rs         # 块信息（BlockInfo）
+│   ├── block_info.rs   # 块信息处理
 │   └── tests.rs        # 块解析测试
+├── ext/                # Markdown 扩展功能
+│   ├── mod.rs          # 扩展模块导出
+│   ├── abbreviation.rs # 缩写支持
+│   ├── attributes.rs   # 属性语法
+│   ├── autolink.rs     # 自动链接扩展
+│   ├── definition.rs   # 定义列表
+│   ├── footnotes.rs    # 脚注支持
+│   ├── shortcodes.rs   # 短代码支持
+│   ├── shortcodes_data.rs # 短代码数据
+│   ├── strikethrough.rs # 删除线支持（GFM）
+│   ├── tables.rs       # 表格支持（GFM）
+│   ├── tagfilter.rs    # 标签过滤
+│   ├── tasklist.rs     # 任务列表支持（GFM）
+│   ├── toc.rs          # 目录生成
+│   └── yaml_front_matter.rs # YAML front matter
+├── formatter/          # Markdown 格式化工具
+│   ├── mod.rs          # Formatter 核心实现
+│   ├── context.rs      # 格式化上下文 trait 和实现
+│   ├── node.rs         # 节点格式化 handler 定义
+│   ├── options.rs      # 格式化选项
+│   ├── phase.rs        # 格式化阶段（Collect, Document）
+│   ├── phased.rs       # 多阶段格式化支持
+│   ├── purpose.rs      # 渲染目的（Format, Translation）
+│   ├── table.rs        # 表格格式化工具
+│   ├── utils.rs        # 辅助函数
+│   ├── writer.rs       # MarkdownWriter 输出工具
+│   └── commonmark_formatter.rs # CommonMark 格式化器实现
+├── from/               # 从其他格式转换
+│   ├── mod.rs          # 转换模块导出
+│   └── html.rs         # HTML 转 Markdown
 ├── inlines/            # 内联元素解析模块
 │   ├── mod.rs          # 模块导出
 │   ├── text.rs         # 文本处理
@@ -79,45 +131,30 @@ src/
 │   ├── links.rs        # 链接解析
 │   ├── autolinks.rs    # 自动链接检测
 │   ├── entities.rs     # HTML 实体处理
-│   └── html_tags.rs    # HTML 标签处理
-├── arena.rs            # Arena 内存管理（核心 AST 存储）
-├── iterator.rs         # AST 遍历器
+│   ├── html_tags.rs    # HTML 标签处理
+│   └── utils.rs        # 辅助函数
+├── parser/             # 解析器核心
+│   ├── mod.rs          # 解析器入口
+│   └── options.rs      # 解析选项
+├── plugins/            # 插件系统
+│   ├── mod.rs          # 插件模块导出
+│   ├── owned.rs        # 插件所有权管理
+│   └── syntect.rs      # syntect 语法高亮支持
 ├── render/             # 渲染器模块
+│   ├── mod.rs          # 渲染器导出
 │   ├── html.rs         # HTML 渲染器
 │   ├── xml.rs          # XML 渲染器
 │   ├── latex.rs        # LaTeX 渲染器
 │   ├── man.rs          # Man page 渲染器
+│   ├── pdf.rs          # PDF 渲染器
+│   ├── typst.rs        # Typst 渲染器
 │   └── commonmark.rs   # CommonMark 渲染器（roundtrip）
-├── ast/                # AST 遍历模块（已弃用，使用 arena 和 iterator）
-│   └── mod.rs          # 模块导出
-├── config/             # 类型安全的配置系统
-│   ├── mod.rs          # 模块导出
-│   └── data_key.rs     # DataKey 配置实现
-├── compat/             # 兼容层（新旧系统桥接）
-│   ├── mod.rs          # 模块导出
-│   ├── node_compat.rs  # 节点兼容层
-│   └── options_compat.rs # 选项兼容层
-├── error.rs            # 错误类型和解析限制
-├── html_utils.rs       # HTML 工具（转义、实体解码）
-├── html_to_md.rs       # HTML 转 Markdown
-├── converters.rs       # 文档转换器
-├── pool.rs             # 字符串池（内存复用）
-├── sequence.rs         # 文本序列工具
 ├── test_utils/         # 测试工具
 │   ├── mod.rs
 │   └── spec_parser.rs  # 规范测试解析
-├── lexer.rs            # 词法分析器
-# GFM 和扩展功能
-├── tables.rs           # 表格支持（GFM）
-├── strikethrough.rs    # 删除线支持（GFM）
-├── tasklist.rs         # 任务列表支持（GFM）
-├── autolink.rs         # 自动链接扩展
-├── footnotes.rs        # 脚注支持
-├── definition.rs       # 定义列表
-├── abbreviation.rs     # 缩写支持
-├── attributes.rs       # 属性语法
-├── toc.rs              # 目录生成
-└── yaml_front_matter.rs # YAML front matter
+└── tests/              # 测试用例
+    ├── mod.rs
+    └── shortcodes.rs   # 短代码测试
 ```
 
 ## 技术架构
@@ -148,27 +185,32 @@ src/
 
 ### 已完成 ✅
 
-- **基础架构**：项目结构、Arena-based AST、核心 API
+- **基础架构**：项目结构、Arena-based AST、核心 API、配置系统
 - **解析器**：词法分析、块级解析、内联解析、引用处理
-- **渲染器**：HTML、XML、LaTeX、Man page、CommonMark 渲染器
-- **规范兼容**：652/652 CommonMark 测试通过（100%）
-- **回归测试**：32/32 通过（100%）
-- **智能标点**：SMART 选项功能实现（14/15 通过，93.3%）
+- **渲染器**：HTML、XML、LaTeX、Man page、CommonMark、Typst、PDF 渲染器
+- **规范兼容**：CommonMark 规范测试 100% 通过
+- **回归测试**：全部测试通过
+- **智能标点**：SMART 选项功能实现
 - **GFM 扩展**：
-  - 表格支持（tables.rs）
-  - 删除线支持（strikethrough.rs）
-  - 任务列表支持（tasklist.rs）
+  - 表格支持（ext/tables.rs）
+  - 删除线支持（ext/strikethrough.rs）
+  - 任务列表支持（ext/tasklist.rs）
+  - 自动链接支持（ext/autolink.rs）
 - **文档增强扩展**：
-  - 脚注支持（footnotes.rs）
-  - 定义列表（definition.rs）
-  - 目录生成（toc.rs）
-  - YAML front matter（yaml_front_matter.rs）
-  - 缩写支持（abbreviation.rs）
-  - 属性语法（attributes.rs）
-- **自动链接**：URL 和邮箱自动检测（autolink.rs）
-- **HTML 转 Markdown**：基础实现（html_to_md.rs）
+  - 脚注支持（ext/footnotes.rs）
+  - 定义列表（ext/definition.rs）
+  - 目录生成（ext/toc.rs）
+  - YAML front matter（ext/yaml_front_matter.rs）
+  - 缩写支持（ext/abbreviation.rs）
+  - 属性语法（ext/attributes.rs）
+  - 短代码支持（ext/shortcodes.rs）
+  - 标签过滤（ext/tagfilter.rs）
+- **HTML 转 Markdown**：从 HTML 转换为 Markdown（from/html.rs）
+- **Markdown 格式化**：内置 Markdown 格式化工具（formatter/）
+- **插件系统**：支持自定义渲染和 syntect 语法高亮（plugins/）
 - **错误处理**：输入大小和行长度限制（error.rs）
-- **性能优化**：字符串池（pool.rs）、序列优化（sequence.rs）
+- **性能优化**：字符串处理优化、序列优化
+- **Unicode 支持**：Unicode 显示宽度计算（unicode_width.rs）
 - **测试覆盖**：所有测试通过（见测试统计）
 
 ### 进行中 🚧
@@ -178,7 +220,7 @@ src/
 ### 待开始 📋
 
 - **文档完善**：API 文档、使用示例、性能基准报告
-- **更多格式支持**：PDF、DOCX 等（参考 flexmark-java 转换器）
+- **更多格式支持**：DOCX 等（参考 flexmark-java 转换器）
 
 ### 里程碑
 
@@ -186,14 +228,17 @@ src/
 |--------|------|------|
 | 1. 基础架构和节点系统 | ✅ 已完成 | Arena-based AST 完成 |
 | 2. 解析器核心功能 | ✅ 已完成 | 支持所有 CommonMark 语法 |
-| 3. 渲染器核心功能 | ✅ 已完成 | HTML/XML/LaTeX/Man/CommonMark 渲染完成 |
-| 4. CommonMark 规范兼容 | ✅ 已完成 | 652/652 测试通过 |
-| 5. 回归测试兼容 | ✅ 已完成 | 32/32 测试通过 |
-| 6. 智能标点功能 | ✅ 已完成 | 14/15 测试通过 |
-| 7. GFM 扩展 | ✅ 已完成 | 表格、删除线、任务列表 |
-| 8. 文档增强扩展 | ✅ 已完成 | 脚注、定义列表、目录、YAML front matter |
-| 9. 性能优化 | 🚧 进行中 | 基准测试和优化 |
-| 10. 文档和发布 | 📋 待开始 | 完善文档准备发布 |
+| 3. 渲染器核心功能 | ✅ 已完成 | HTML/XML/LaTeX/Man/CommonMark/Typst/PDF 渲染完成 |
+| 4. CommonMark 规范兼容 | ✅ 已完成 | 100% 测试通过 |
+| 5. 回归测试兼容 | ✅ 已完成 | 全部测试通过 |
+| 6. 智能标点功能 | ✅ 已完成 | SMART 选项实现 |
+| 7. GFM 扩展 | ✅ 已完成 | 表格、删除线、任务列表、自动链接 |
+| 8. 文档增强扩展 | ✅ 已完成 | 脚注、定义列表、目录、YAML front matter、缩写、属性语法、短代码、标签过滤 |
+| 9. 格式转换 | ✅ 已完成 | HTML 转 Markdown |
+| 10. Markdown 格式化 | ✅ 已完成 | 内置格式化工具 |
+| 11. 插件系统 | ✅ 已完成 | syntect 语法高亮支持 |
+| 12. 性能优化 | 🚧 进行中 | 基准测试和优化 |
+| 13. 文档和发布 | 📋 待开始 | 完善文档准备发布 |
 
 ## 测试统计
 
@@ -267,17 +312,18 @@ clmd 包含一个灵活的 CommonMark 格式化器（Formatter）模块，基于
 ### 模块结构
 
 ```
-src/render/formatter/
+src/formatter/
 ├── mod.rs                    # Formatter 核心实现
 ├── context.rs                # 格式化上下文 trait 和实现
 ├── node.rs                   # 节点格式化 handler 定义
 ├── options.rs                # 格式化选项
 ├── phase.rs                  # 格式化阶段（Collect, Document）
+├── phased.rs                 # 多阶段格式化支持
 ├── purpose.rs                # 渲染目的（Format, Translation）
 ├── table.rs                  # 表格格式化工具
+├── utils.rs                  # 辅助函数
 ├── writer.rs                 # MarkdownWriter 输出工具
-├── commonmark_formatter.rs   # CommonMark 格式化器实现
-└── adapters.rs               # 适配器工具
+└── commonmark_formatter.rs   # CommonMark 格式化器实现
 ```
 
 ### 核心概念
@@ -312,18 +358,18 @@ pub struct NodeFormattingHandler {
 
 ```rust
 let mut formatter = Formatter::with_options(options);
-formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+formatter.add_node_formatter(Box::new(CommonMarkFormatter::new()));
 // 可以添加更多自定义 formatter
 ```
 
 ### 使用示例
 
 ```rust
-use clmd::render::formatter::{Formatter, FormatterOptions, CommonMarkNodeFormatter};
+use clmd::formatter::{Formatter, FormatterOptions, CommonMarkFormatter};
 
 let options = FormatterOptions::new().with_right_margin(80);
 let mut formatter = Formatter::with_options(options);
-formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+formatter.add_node_formatter(Box::new(CommonMarkFormatter::new()));
 
 let output = formatter.render(&arena, root);
 ```
@@ -360,13 +406,18 @@ impl NodeFormatter for MyCustomFormatter {
 
 ### 核心算法参考
 
-| 功能 | cmark (C) | commonmark.js (JS) |
-|------|-----------|-------------------|
-| 块级解析 | blocks.c | blocks.js |
-| 内联解析 | inlines.c | inlines.js |
-| 强调处理 | inlines.c (process_emphasis) | inlines.js (processEmphasis) |
-| 链接处理 | inlines.c (parse_link) | inlines.js (parseLink) |
-| HTML 渲染 | html.c | render/html.js |
+| 功能 | cmark (C) | commonmark.js (JS) | flexmark (Java) |
+|------|-----------|-------------------|-----------------|
+| 块级解析 | blocks.c | blocks.js | BlockParser 体系 |
+| 内联解析 | inlines.c | inlines.js | InlineParser 体系 |
+| 强调处理 | inlines.c (process_emphasis) | inlines.js (processEmphasis) | Delimiter 处理 |
+| 链接处理 | inlines.c (parse_link) | inlines.js (parseLink) | LinkParser |
+| HTML 渲染 | html.c | render/html.js | NodeRenderer 体系 |
+| 表格解析 | - | - | TableBlockParser |
+| 短代码处理 | - | - | ShortCodeParser |
+| Markdown 格式化 | - | - | Formatter 体系 |
+| Typst 渲染 | - | - | - |
+| PDF 渲染 | - | - | - |
 
 ### 学习资源
 
@@ -396,17 +447,24 @@ impl NodeFormatter for MyCustomFormatter {
 
 ### 扩展功能架构
 
-参考 flexmark-java 的设计，扩展功能通过独立模块实现：
+参考 flexmark-java 的设计，扩展功能通过独立的 ext/ 模块实现：
 
 ```
-src/
-├── tables.rs        # GFM 表格
+src/ext/
+├── mod.rs          # 模块导出
+├── abbreviation.rs # 缩写支持
+├── attributes.rs   # 属性语法
+├── autolink.rs     # 自动链接扩展
+├── definition.rs   # 定义列表
+├── footnotes.rs    # 脚注支持
+├── shortcodes.rs   # 短代码支持
+├── shortcodes_data.rs # 短代码数据
 ├── strikethrough.rs # GFM 删除线
-├── tasklist.rs      # GFM 任务列表
-├── footnotes.rs     # 脚注
-├── definition.rs    # 定义列表
-├── toc.rs           # 目录生成
-└── ...
+├── tables.rs       # GFM 表格
+├── tagfilter.rs    # 标签过滤
+├── tasklist.rs     # GFM 任务列表
+├── toc.rs          # 目录生成
+└── yaml_front_matter.rs # YAML front matter
 ```
 
 每个扩展模块通常包含：

@@ -33,6 +33,7 @@
 mod autolinks;
 mod emphasis;
 pub mod entities;
+mod entities_table;
 mod html_tags;
 mod links;
 mod text;
@@ -72,6 +73,8 @@ pub struct Subject<'a> {
     pub refmap: &'a FxHashMap<String, (String, String)>,
     /// Whether smart punctuation is enabled
     pub smart: bool,
+    /// Whether math dollars syntax is enabled
+    pub math_dollars: bool,
 }
 
 impl<'a> Subject<'a> {
@@ -82,6 +85,7 @@ impl<'a> Subject<'a> {
         _block_offset: usize,
         refmap: &'a FxHashMap<String, (String, String)>,
         smart: bool,
+        math_dollars: bool,
     ) -> Self {
         Subject {
             input,
@@ -91,6 +95,7 @@ impl<'a> Subject<'a> {
             no_link_openers: false,
             refmap,
             smart,
+            math_dollars,
         }
     }
 
@@ -177,6 +182,7 @@ impl<'a> Subject<'a> {
             '\n' => self.parse_newline(arena, parent),
             '\'' | '"' if self.smart => self.handle_delim(arena, c, parent),
             ':' => self.parse_shortcode(arena, parent),
+            '$' if self.math_dollars => self.parse_math(arena, parent),
             _ => self.parse_string(arena, parent),
         }
     }
@@ -975,6 +981,93 @@ impl<'a> Subject<'a> {
         TreeOps::append_child(arena, parent, text_node);
         text_node
     }
+
+    /// Parse math expression with dollar syntax
+    /// Supports inline math ($...$) and display math ($$...$$)
+    fn parse_math(&mut self, arena: &mut NodeArena, parent: NodeId) -> bool {
+        use crate::nodes::NodeMath;
+
+        let start_pos = self.pos;
+
+        // Count opening dollars
+        let dollar_count = self.count_char('$');
+
+        // Must be 1 (inline) or 2 (display) dollars at the start
+        if dollar_count != 1 && dollar_count != 2 {
+            // More than 2 dollars, treat as literal
+            self.pos = start_pos;
+            self.append_text(arena, parent, &"$".repeat(dollar_count));
+            return true;
+        }
+
+        let is_display = dollar_count == 2;
+        let after_open = self.pos;
+
+        // Look for closing dollars with brace tracking
+        let mut brace_depth: usize = 0;
+        let mut found_close = false;
+        let mut close_start = 0;
+
+        while !self.end() {
+            let c = self.peek().unwrap_or('\0');
+
+            match c {
+                '{' => {
+                    brace_depth += 1;
+                    self.advance();
+                }
+                '}' => {
+                    if brace_depth > 0 {
+                        brace_depth -= 1;
+                    }
+                    self.advance();
+                }
+                '$' => {
+                    // Only match if we're not inside braces
+                    if brace_depth == 0 {
+                        close_start = self.pos;
+                        let close_count = self.count_char('$');
+
+                        if close_count == dollar_count {
+                            found_close = true;
+                            break;
+                        }
+                        // Different number of dollars, continue searching
+                    }
+                }
+                '\\' => {
+                    // Skip escaped character
+                    self.advance();
+                    if !self.end() {
+                        self.advance();
+                    }
+                }
+                _ => {
+                    self.advance();
+                }
+            }
+        }
+
+        if found_close {
+            // Extract math content
+            let content = &self.input[after_open..close_start];
+
+            // Create math node
+            let math_node =
+                arena.alloc(Node::with_value(NodeValue::Math(Box::new(NodeMath {
+                    dollar_math: true,
+                    display_math: is_display,
+                    literal: content.to_string(),
+                }))));
+            TreeOps::append_child(arena, parent, math_node);
+            true
+        } else {
+            // No matching close found, treat as literal
+            self.pos = start_pos;
+            self.append_text(arena, parent, &"$".repeat(dollar_count));
+            true
+        }
+    }
 }
 
 /// Parse inlines with reference map and smart punctuation option
@@ -986,9 +1079,16 @@ pub fn parse_inlines_with_options(
     block_offset: usize,
     refmap: &FxHashMap<String, (String, String)>,
     smart: bool,
+    math_dollars: bool,
 ) {
-    let mut subject =
-        Subject::with_refmap_and_smart(content, line, block_offset, refmap, smart);
+    let mut subject = Subject::with_refmap_and_smart(
+        content,
+        line,
+        block_offset,
+        refmap,
+        smart,
+        math_dollars,
+    );
     subject.parse_inlines(arena, parent);
 
     // Clear the parent's literal content since it's now represented as child nodes

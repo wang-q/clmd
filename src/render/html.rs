@@ -567,7 +567,10 @@ impl<'a> HtmlRenderer<'a> {
                 // Use syntax highlighter for rendering
                 let mut attrs: HashMap<&str, Cow<'_, str>> = HashMap::new();
                 if !lang.is_empty() {
-                    attrs.insert("class", Cow::Owned(format!("language-{}", escape_html(lang))));
+                    attrs.insert(
+                        "class",
+                        Cow::Owned(format!("language-{}", escape_html(lang))),
+                    );
                 }
 
                 // Write pre tag

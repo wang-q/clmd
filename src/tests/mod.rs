@@ -2,9 +2,7 @@
 //!
 //! This module contains tests for the public API of the CLMD library.
 
-use crate::{
-    format_html, markdown_to_html, parse_document, version, Options,
-};
+use crate::{format_html, markdown_to_html, parse_document, version, Options};
 
 pub mod shortcodes;
 
@@ -129,8 +127,8 @@ fn test_tagfilter_extension() {
 #[cfg(feature = "syntect")]
 #[test]
 fn test_syntect_syntax_highlighting() {
-    use crate::plugins::syntect::SyntectAdapter;
     use crate::markdown_to_html_with_plugins;
+    use crate::plugins::syntect::SyntectAdapter;
     use crate::Plugins;
 
     let options = Options::default();
@@ -153,8 +151,8 @@ fn test_syntect_syntax_highlighting() {
 #[cfg(feature = "syntect")]
 #[test]
 fn test_syntect_css_class_mode() {
-    use crate::plugins::syntect::SyntectAdapter;
     use crate::markdown_to_html_with_plugins;
+    use crate::plugins::syntect::SyntectAdapter;
     use crate::Plugins;
 
     let options = Options::default();

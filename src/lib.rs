@@ -256,6 +256,9 @@ pub mod unicode_width;
 /// Scanner utilities for CommonMark syntax.
 pub mod scanners;
 
+/// Unicode punctuation character lookup table.
+pub mod puncttable;
+
 /// Prelude module for convenient imports.
 ///
 /// # Example
@@ -687,7 +690,11 @@ pub fn format_html_with_plugins(
 ) -> std::fmt::Result {
     let flags = parser::options_to_flags(options);
     let highlighter = plugins.render.syntax_highlighter();
-    write!(output, "{}", html::render_with_highlighter(arena, root, flags, highlighter))
+    write!(
+        output,
+        "{}",
+        html::render_with_highlighter(arena, root, flags, highlighter)
+    )
 }
 
 /// Format an existing AST to CommonMark.

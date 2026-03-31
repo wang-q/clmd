@@ -80,6 +80,7 @@ pub(crate) const OPT_SMART: u32 = 1 << 4;
 pub(crate) const OPT_UNSAFE: u32 = 1 << 5;
 pub(crate) const OPT_TABLE: u32 = 1 << 6;
 pub(crate) const OPT_TAGFILTER: u32 = 1 << 7;
+pub(crate) const OPT_MATH_DOLLARS: u32 = 1 << 8;
 
 /// Convert Options to legacy u32 flags.
 ///
@@ -115,6 +116,9 @@ pub fn options_to_flags(options: &Options) -> u32 {
     }
     if options.extension.tagfilter {
         flags |= OPT_TAGFILTER;
+    }
+    if options.extension.math_dollars {
+        flags |= OPT_MATH_DOLLARS;
     }
 
     flags

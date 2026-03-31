@@ -183,8 +183,14 @@ mod tests {
         assert_eq!(extract_tag_name("<script>"), Some("script".to_string()));
         assert_eq!(extract_tag_name("</script>"), Some("script".to_string()));
         assert_eq!(extract_tag_name("<SCRIPT>"), Some("script".to_string()));
-        assert_eq!(extract_tag_name("<div class=\"test\">"), Some("div".to_string()));
-        assert_eq!(extract_tag_name("<iframe src=\"test\">"), Some("iframe".to_string()));
+        assert_eq!(
+            extract_tag_name("<div class=\"test\">"),
+            Some("div".to_string())
+        );
+        assert_eq!(
+            extract_tag_name("<iframe src=\"test\">"),
+            Some("iframe".to_string())
+        );
     }
 
     #[test]
@@ -197,7 +203,8 @@ mod tests {
     #[test]
     fn test_filter_html_iframe() {
         let input = r#"<iframe src="http://evil.com"></iframe>"#;
-        let expected = r#"&lt;iframe src=&quot;http://evil.com&quot;&gt;&lt;/iframe&gt;"#;
+        let expected =
+            r#"&lt;iframe src=&quot;http://evil.com&quot;&gt;&lt;/iframe&gt;"#;
         assert_eq!(filter_html(input), expected);
     }
 

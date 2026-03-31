@@ -346,6 +346,8 @@ impl<'a> BlockParser<'a> {
 
         // Check if smart punctuation is enabled
         let smart = (self.options & crate::parser::OPT_SMART) != 0;
+        // Check if math dollars is enabled
+        let math_dollars = (self.options & crate::parser::OPT_MATH_DOLLARS) != 0;
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {
@@ -358,6 +360,7 @@ impl<'a> BlockParser<'a> {
                 0,
                 &self.refmap,
                 smart,
+                math_dollars,
             );
         }
     }

@@ -67,7 +67,9 @@ impl SyntectAdapter {
     /// let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
     /// ```
     pub fn new(theme: Option<&str>) -> Self {
-        let theme = theme.filter(|t| *t != "css" && *t != "none").map(String::from);
+        let theme = theme
+            .filter(|t| *t != "css" && *t != "none")
+            .map(String::from);
 
         Self {
             syntax_set: SyntaxSet::load_defaults_newlines(),
@@ -77,7 +79,10 @@ impl SyntectAdapter {
     }
 
     /// Get a syntax reference for the given language.
-    fn get_syntax(&self, lang: Option<&str>) -> Option<&syntect::parsing::SyntaxReference> {
+    fn get_syntax(
+        &self,
+        lang: Option<&str>,
+    ) -> Option<&syntect::parsing::SyntaxReference> {
         let lang = lang?;
 
         // Try exact match first
@@ -110,19 +115,24 @@ impl SyntectAdapter {
 
     /// Get the theme reference.
     fn get_theme(&self) -> Option<&Theme> {
-        self.theme.as_ref().and_then(|name| self.theme_set.themes.get(name))
+        self.theme
+            .as_ref()
+            .and_then(|name| self.theme_set.themes.get(name))
     }
 
     /// Highlight code using CSS classes.
     fn highlight_with_classes(&self, code: &str, lang: Option<&str>) -> fmt::Result {
         // For CSS class mode, we need to use the HighlightLines approach
         // and convert to HTML with classes
-        let syntax = self.get_syntax(lang).unwrap_or_else(|| {
-            self.syntax_set.find_syntax_plain_text()
-        });
+        let syntax = self
+            .get_syntax(lang)
+            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
 
         // Use a default theme for generating scopes
-        let theme = self.theme_set.themes.get("InspiredGitHub")
+        let theme = self
+            .theme_set
+            .themes
+            .get("InspiredGitHub")
             .or_else(|| self.theme_set.themes.values().next())
             .expect("No themes available");
 
@@ -131,12 +141,14 @@ impl SyntectAdapter {
         let mut output = String::new();
 
         for line in code.lines() {
-            let highlighted = highlighter.highlight_line(line, &self.syntax_set)
+            let highlighted = highlighter
+                .highlight_line(line, &self.syntax_set)
                 .map_err(|_| fmt::Error)?;
 
             // Convert to HTML with CSS classes
-            let html = styled_line_to_highlighted_html(&highlighted, IncludeBackground::No)
-                .map_err(|_| fmt::Error)?;
+            let html =
+                styled_line_to_highlighted_html(&highlighted, IncludeBackground::No)
+                    .map_err(|_| fmt::Error)?;
 
             output.push_str(&html);
             output.push('\n');
@@ -192,20 +204,24 @@ impl SyntaxHighlighterAdapter for SyntectAdapter {
         code: &str,
     ) -> fmt::Result {
         // Get the syntax for this language
-        let syntax = self.get_syntax(lang).unwrap_or_else(|| {
-            self.syntax_set.find_syntax_plain_text()
-        });
+        let syntax = self
+            .get_syntax(lang)
+            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
 
         if let Some(theme) = self.get_theme() {
             // Inline style mode
             let mut highlighter = HighlightLines::new(syntax, theme);
 
             for line in code.lines() {
-                let highlighted = highlighter.highlight_line(line, &self.syntax_set)
+                let highlighted = highlighter
+                    .highlight_line(line, &self.syntax_set)
                     .map_err(|_| fmt::Error)?;
 
-                let html = styled_line_to_highlighted_html(&highlighted, IncludeBackground::Yes)
-                    .map_err(|_| fmt::Error)?;
+                let html = styled_line_to_highlighted_html(
+                    &highlighted,
+                    IncludeBackground::Yes,
+                )
+                .map_err(|_| fmt::Error)?;
 
                 output.write_str(&html)?;
                 output.write_str("\n")?;
@@ -296,7 +312,9 @@ mod tests {
         let adapter = SyntectAdapter::new(None);
         let mut output = String::new();
 
-        adapter.write_highlighted(&mut output, None, "hello world").unwrap();
+        adapter
+            .write_highlighted(&mut output, None, "hello world")
+            .unwrap();
 
         assert!(output.contains("hello world"));
     }
@@ -307,11 +325,13 @@ mod tests {
         let mut output = String::new();
 
         let code = "fn main() {\n    println!(\"Hello\");\n}";
-        adapter.write_highlighted(&mut output, Some("rust"), code).unwrap();
+        adapter
+            .write_highlighted(&mut output, Some("rust"), code)
+            .unwrap();
 
         // With a theme, output should contain styled HTML
         assert!(!output.is_empty());
         // Should contain some HTML tags for styling
-        assert!(output.contains("<span") || output.contains("style=" ));
+        assert!(output.contains("<span") || output.contains("style="));
     }
 }
