@@ -7,7 +7,7 @@
 //! 4. Arena performance comparison
 //!
 //! Usage:
-//!   cargo build --release --example benchmark [--features "comrak pulldown-cmark"]
+//!   cargo build --release --example benchmark
 //!   ./target/release/examples/benchmark [OPTIONS] [FILE]
 //!
 //! Options:
@@ -18,21 +18,17 @@
 //!
 //! Examples:
 //!   ./target/release/examples/benchmark --mode cross-language sample.md
-//!   ./target/release/examples/benchmark --mode cross-rust --features comrak,pulldown-cmark sample.md
+//!   ./target/release/examples/benchmark --mode cross-rust sample.md
 //!   ./target/release/examples/benchmark --mode flamegraph -i 10000
 
 use clmd::markdown_to_html as clmd_to_html;
 use clmd::parser::options::Options as ClmdOptions;
+use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
+use pulldown_cmark::{html, Parser};
 use std::env;
 use std::fs;
 use std::process::exit;
 use std::time::Instant;
-
-#[cfg(feature = "comrak")]
-use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
-
-#[cfg(feature = "pulldown-cmark")]
-use pulldown_cmark::{html, Parser};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum BenchMode {
@@ -146,8 +142,6 @@ fn print_help() {
     println!("  -i, --iterations N        Number of iterations (for flamegraph mode)");
     println!("  --no-optimization         Prevent compiler optimizations");
     println!();
-    println!("Environment variables:");
-    println!("  FEATURES=comrak,pulldown-cmark  Enable optional parser comparisons");
 }
 
 fn run_cross_language_bench(config: &BenchConfig) {
@@ -184,43 +178,30 @@ fn run_cross_rust_bench(config: &BenchConfig) {
     println!("  Time: {:?}", clmd_duration);
     println!("  Output size: {} bytes", clmd_result.len());
 
-    #[cfg(feature = "comrak")]
-    {
-        let start = Instant::now();
-        let comrak_result = comrak_to_html(&config.input, &ComrakOptions::default());
-        let comrak_duration = start.elapsed();
+    let start = Instant::now();
+    let comrak_result = comrak_to_html(&config.input, &ComrakOptions::default());
+    let comrak_duration = start.elapsed();
 
-        println!("\ncomrak:");
-        println!("  Time: {:?}", comrak_duration);
-        println!("  Output size: {} bytes", comrak_result.len());
+    println!("\ncomrak:");
+    println!("  Time: {:?}", comrak_duration);
+    println!("  Output size: {} bytes", comrak_result.len());
 
-        if config.prevent_optimization {
-            std::hint::black_box(comrak_result);
-        }
+    if config.prevent_optimization {
+        std::hint::black_box(comrak_result);
     }
 
-    #[cfg(feature = "pulldown-cmark")]
-    {
-        let start = Instant::now();
-        let mut pulldown_result = String::new();
-        let parser = Parser::new(&config.input);
-        html::push_html(&mut pulldown_result, parser);
-        let pulldown_duration = start.elapsed();
+    let start = Instant::now();
+    let mut pulldown_result = String::new();
+    let parser = Parser::new(&config.input);
+    html::push_html(&mut pulldown_result, parser);
+    let pulldown_duration = start.elapsed();
 
-        println!("\npulldown-cmark:");
-        println!("  Time: {:?}", pulldown_duration);
-        println!("  Output size: {} bytes", pulldown_result.len());
+    println!("\npulldown-cmark:");
+    println!("  Time: {:?}", pulldown_duration);
+    println!("  Output size: {} bytes", pulldown_result.len());
 
-        if config.prevent_optimization {
-            std::hint::black_box(pulldown_result);
-        }
-    }
-
-    if !cfg!(feature = "comrak") && !cfg!(feature = "pulldown-cmark") {
-        println!("\nNote: comrak and pulldown-cmark comparisons are disabled.");
-        println!(
-            "      Build with --features \"comrak pulldown-cmark\" to enable them."
-        );
+    if config.prevent_optimization {
+        std::hint::black_box(pulldown_result);
     }
 
     if config.prevent_optimization {

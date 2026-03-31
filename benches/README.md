@@ -49,10 +49,9 @@ The `samples/` directory contains test files from cmark and other sources:
 
 ## Cross-Language Comparison
 
-For cross-language and cross-library comparisons, see:
+For cross-language comparisons, see:
 
 - `examples/bench/cross_language_bench.rs` - Compare with cmark (C) and commonmark.js (JS)
-- `examples/bench/cross_rust_bench.rs` - Compare with comrak and pulldown-cmark (Rust)
 
 Run with:
 
@@ -60,13 +59,9 @@ Run with:
 # Build cross-language benchmark
 cargo build --release --example cross_language_bench
 
-# Build cross-Rust benchmark
-cargo build --release --example cross_rust_bench --features "comrak pulldown-cmark"
-
 # Run hyperfine comparison
 hyperfine --warmup 10 --min-runs 100 \
-  './target/release/examples/cross_language_bench benches/samples/lorem1.md' \
-  './target/release/examples/cross_rust_bench benches/samples/lorem1.md'
+  './target/release/examples/cross_language_bench benches/samples/lorem1.md'
 ```
 
 ## Documentation
