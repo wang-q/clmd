@@ -27,6 +27,7 @@
 pub mod monad;
 pub mod options;
 pub mod state;
+pub mod walk;
 
 // Re-export commonly used types
 pub use monad::{
@@ -39,4 +40,7 @@ pub use options::{
 };
 pub use state::{
     CommonState, ExtensionData, LogLevel, LogMessage, TrackChanges, Translations,
+};
+pub use walk::{
+    collect_nodes, query, query_any, walk, walk_m, walk_with_context, Walkable, Walker,
 };

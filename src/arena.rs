@@ -667,11 +667,7 @@ impl TreeOps {
     /// Replace a node with another node
     ///
     /// The old node is unlinked but not deleted. The new node takes the old node's position.
-    pub fn replace(
-        arena: &mut NodeArena,
-        old_node_id: NodeId,
-        new_node_id: NodeId,
-    ) {
+    pub fn replace(arena: &mut NodeArena, old_node_id: NodeId, new_node_id: NodeId) {
         let old_node = arena.get(old_node_id);
         let prev_id = old_node.prev;
         let next_id = old_node.next;

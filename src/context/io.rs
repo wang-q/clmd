@@ -115,14 +115,20 @@ impl Default for IoContext {
 
 impl Context for IoContext {
     fn read_file(&self, path: &Path) -> ClmdResult<Vec<u8>> {
-        fs::read(path).map_err(|e| ClmdError::io_error(format!("Failed to read {}: {}", path.display(), e)))
+        fs::read(path).map_err(|e| {
+            ClmdError::io_error(format!("Failed to read {}: {}", path.display(), e))
+        })
     }
 
     fn write_file(&self, path: &Path, content: &[u8]) -> ClmdResult<()> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                ClmdError::io_error(format!("Failed to create directory {}: {}", parent.display(), e))
+                ClmdError::io_error(format!(
+                    "Failed to create directory {}: {}",
+                    parent.display(),
+                    e
+                ))
             })?;
         }
 
@@ -288,7 +294,9 @@ mod tests {
         let path = PathBuf::from("test.png");
         let data = vec![0x89, 0x50, 0x4E, 0x47]; // PNG magic bytes
 
-        let canonical = ctx.insert_media(&path, Some("image/png"), data.clone()).unwrap();
+        let canonical = ctx
+            .insert_media(&path, Some("image/png"), data.clone())
+            .unwrap();
         assert!(!canonical.is_empty());
 
         let item = ctx.lookup_media(&path);

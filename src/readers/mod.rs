@@ -52,7 +52,11 @@ pub trait Reader: Send + Sync + Debug {
     /// # Returns
     ///
     /// A tuple of (arena, root_node_id) on success, or an error on failure.
-    fn read(&self, input: &str, options: &Options) -> ClmdResult<(NodeArena, crate::arena::NodeId)>;
+    fn read(
+        &self,
+        input: &str,
+        options: &Options,
+    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)>;
 
     /// Get the format name this reader supports.
     fn format(&self) -> &'static str;
@@ -126,12 +130,12 @@ impl ReaderRegistry {
     /// ```
     pub fn register(&mut self, reader: Box<dyn Reader>) {
         let format = reader.format();
-        
+
         // Register extensions
         for ext in reader.extensions() {
             self.extension_map.insert(ext, format);
         }
-        
+
         // Register the reader
         self.readers.insert(format, reader);
     }
@@ -223,7 +227,11 @@ impl Clone for ReaderRegistry {
 pub struct MarkdownReader;
 
 impl Reader for MarkdownReader {
-    fn read(&self, input: &str, options: &Options) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+    fn read(
+        &self,
+        input: &str,
+        options: &Options,
+    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
         Ok(parser::parse_document(input, options))
     }
 
@@ -243,7 +251,11 @@ impl Reader for MarkdownReader {
 pub struct HtmlReader;
 
 impl Reader for HtmlReader {
-    fn read(&self, input: &str, _options: &Options) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+    fn read(
+        &self,
+        input: &str,
+        _options: &Options,
+    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
         // Convert HTML to Markdown, then parse
         let markdown = crate::from::html_to_markdown(input);
         Ok(parser::parse_document(&markdown, &Options::default()))
@@ -285,9 +297,9 @@ pub fn read_document(
     options: &Options,
 ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
     let registry = ReaderRegistry::new();
-    
+
     let format = format.unwrap_or("markdown");
-    
+
     let reader = registry
         .get(format)
         .ok_or_else(|| ClmdError::unknown_reader(format))?;
@@ -322,10 +334,10 @@ pub fn read_file(
     options: &Options,
 ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
     use std::fs;
-    
+
     let content = fs::read_to_string(path)
         .map_err(|e| ClmdError::io_error(format!("Failed to read file: {}", e)))?;
-    
+
     // Detect format from extension if not specified
     let format = match format {
         Some(f) => Some(f),
@@ -334,7 +346,7 @@ pub fn read_file(
             registry.detect_format(path)
         }
     };
-    
+
     read_document(&content, format, options)
 }
 
@@ -347,7 +359,7 @@ mod tests {
     fn test_markdown_reader() {
         let reader = MarkdownReader;
         let options = Options::default();
-        
+
         let (arena, root) = reader.read("# Hello", &options).unwrap();
         let node = arena.get(root);
         assert!(matches!(node.value, NodeValue::Document));
@@ -357,7 +369,7 @@ mod tests {
     fn test_html_reader() {
         let reader = HtmlReader;
         let options = Options::default();
-        
+
         let (arena, root) = reader.read("<h1>Hello</h1>", &options).unwrap();
         let node = arena.get(root);
         assert!(matches!(node.value, NodeValue::Document));
@@ -366,11 +378,11 @@ mod tests {
     #[test]
     fn test_reader_registry() {
         let registry = ReaderRegistry::new();
-        
+
         assert!(registry.supports_format("markdown"));
         assert!(registry.supports_format("html"));
         assert!(!registry.supports_format("pdf"));
-        
+
         assert!(registry.supports_extension("md"));
         assert!(registry.supports_extension("html"));
         assert!(!registry.supports_extension("pdf"));
@@ -379,11 +391,11 @@ mod tests {
     #[test]
     fn test_registry_get() {
         let registry = ReaderRegistry::new();
-        
+
         let reader = registry.get("markdown");
         assert!(reader.is_some());
         assert_eq!(reader.unwrap().format(), "markdown");
-        
+
         let reader = registry.get("unknown");
         assert!(reader.is_none());
     }
@@ -391,10 +403,10 @@ mod tests {
     #[test]
     fn test_registry_get_by_extension() {
         let registry = ReaderRegistry::new();
-        
+
         let reader = registry.get_by_extension("md");
         assert!(reader.is_some());
-        
+
         let reader = registry.get_by_extension("unknown");
         assert!(reader.is_none());
     }
@@ -402,13 +414,13 @@ mod tests {
     #[test]
     fn test_detect_format() {
         let registry = ReaderRegistry::new();
-        
+
         let path = std::path::Path::new("test.md");
         assert_eq!(registry.detect_format(path), Some("markdown"));
-        
+
         let path = std::path::Path::new("test.html");
         assert_eq!(registry.detect_format(path), Some("html"));
-        
+
         let path = std::path::Path::new("test");
         assert_eq!(registry.detect_format(path), None);
     }
@@ -417,7 +429,7 @@ mod tests {
     fn test_read_document() {
         let options = Options::default();
         let (arena, root) = read_document("# Test", Some("markdown"), &options).unwrap();
-        
+
         let node = arena.get(root);
         assert!(matches!(node.value, NodeValue::Document));
     }
@@ -426,7 +438,7 @@ mod tests {
     fn test_read_document_unknown_format() {
         let options = Options::default();
         let result = read_document("# Test", Some("unknown"), &options);
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unknown reader"));
     }

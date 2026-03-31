@@ -54,7 +54,12 @@ pub trait Writer: Send + Sync + Debug {
     /// # Returns
     ///
     /// The rendered output as a string on success, or an error on failure.
-    fn write(&self, arena: &NodeArena, root: NodeId, options: &Options) -> ClmdResult<String>;
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &Options,
+    ) -> ClmdResult<String>;
 
     /// Get the format name this writer supports.
     fn format(&self) -> &'static str;
@@ -229,7 +234,12 @@ impl Clone for WriterRegistry {
 pub struct HtmlWriter;
 
 impl Writer for HtmlWriter {
-    fn write(&self, arena: &NodeArena, root: NodeId, options: &Options) -> ClmdResult<String> {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &Options,
+    ) -> ClmdResult<String> {
         let mut output = String::new();
         crate::format_html(arena, root, options, &mut output)
             .map_err(|e| ClmdError::io_error(format!("HTML formatting error: {}", e)))?;
@@ -256,10 +266,16 @@ impl Writer for HtmlWriter {
 pub struct CommonMarkWriter;
 
 impl Writer for CommonMarkWriter {
-    fn write(&self, arena: &NodeArena, root: NodeId, options: &Options) -> ClmdResult<String> {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &Options,
+    ) -> ClmdResult<String> {
         let mut output = String::new();
-        crate::format_commonmark(arena, root, options, &mut output)
-            .map_err(|e| ClmdError::io_error(format!("CommonMark formatting error: {}", e)))?;
+        crate::format_commonmark(arena, root, options, &mut output).map_err(|e| {
+            ClmdError::io_error(format!("CommonMark formatting error: {}", e))
+        })?;
         Ok(output)
     }
 
@@ -283,7 +299,12 @@ impl Writer for CommonMarkWriter {
 pub struct XmlWriter;
 
 impl Writer for XmlWriter {
-    fn write(&self, arena: &NodeArena, root: NodeId, options: &Options) -> ClmdResult<String> {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &Options,
+    ) -> ClmdResult<String> {
         let mut output = String::new();
         crate::format_xml(arena, root, options, &mut output)
             .map_err(|e| ClmdError::io_error(format!("XML formatting error: {}", e)))?;

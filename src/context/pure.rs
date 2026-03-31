@@ -117,7 +117,11 @@ impl PureContext {
     /// let mut ctx = PureContext::new();
     /// ctx.add_text_file("test.md", "# Hello");
     /// ```
-    pub fn add_text_file<P: AsRef<Path>>(&mut self, path: P, content: impl Into<String>) {
+    pub fn add_text_file<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        content: impl Into<String>,
+    ) {
         self.add_file(path, content.into().into_bytes());
     }
 
@@ -219,10 +223,9 @@ impl Context for PureContext {
     fn read_file(&self, path: &Path) -> ClmdResult<Vec<u8>> {
         let canonical = common::canonicalize_path(path);
         let files = self.files.lock().unwrap();
-        files
-            .get(&canonical)
-            .cloned()
-            .ok_or_else(|| ClmdError::io_error(format!("File not found: {}", path.display())))
+        files.get(&canonical).cloned().ok_or_else(|| {
+            ClmdError::io_error(format!("File not found: {}", path.display()))
+        })
     }
 
     fn write_file(&self, path: &Path, content: &[u8]) -> ClmdResult<()> {

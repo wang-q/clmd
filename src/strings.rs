@@ -559,7 +559,11 @@ pub fn camel_case_to_hyphenated(s: &str) -> String {
                 result.push('-');
             } else if i > 0 {
                 // Check if next character is lowercase
-                let next_is_lower = s.chars().nth(i + 1).map(|n| n.is_lowercase()).unwrap_or(false);
+                let next_is_lower = s
+                    .chars()
+                    .nth(i + 1)
+                    .map(|n| n.is_lowercase())
+                    .unwrap_or(false);
                 if next_is_lower {
                     result.push('-');
                 }
@@ -663,7 +667,10 @@ pub fn is_email(s: &str) -> bool {
     let domain = parts[1];
 
     // Local part must not be empty and domain must contain a dot
-    !local.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
+    !local.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
 }
 
 /// Capitalize the first letter of a string.
@@ -671,7 +678,9 @@ pub fn capitalize(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
         None => String::new(),
-        Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+        Some(first) => {
+            first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+        }
     }
 }
 

@@ -97,12 +97,9 @@ impl Pipeline {
     /// The converted output string, or an error if conversion fails.
     pub fn convert(&self, input: &str, options: &Options) -> ClmdResult<String> {
         // Step 1: Read the input
-        let (mut arena, root) = self
-            .reader
-            .read(input, options)
-            .map_err(|e| {
-                ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
-            })?;
+        let (mut arena, root) = self.reader.read(input, options).map_err(|e| {
+            ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
+        })?;
 
         // Step 2: Apply filters
         if !self.filter_chain.is_empty() {

@@ -271,8 +271,12 @@ pub trait Walkable {
         F: FnMut(NodeId, &mut NodeValue);
 
     /// Walk with direction control
-    fn walk_with_direction<F>(&mut self, root: NodeId, direction: WalkDirection, f: &mut F)
-    where
+    fn walk_with_direction<F>(
+        &mut self,
+        root: NodeId,
+        direction: WalkDirection,
+        f: &mut F,
+    ) where
         F: FnMut(NodeId, &mut NodeValue);
 }
 
@@ -291,8 +295,12 @@ impl Walkable for NodeArena {
         self.walk_with_direction(root, WalkDirection::TopDown, f);
     }
 
-    fn walk_with_direction<F>(&mut self, root: NodeId, direction: WalkDirection, f: &mut F)
-    where
+    fn walk_with_direction<F>(
+        &mut self,
+        root: NodeId,
+        direction: WalkDirection,
+        f: &mut F,
+    ) where
         F: FnMut(NodeId, &mut NodeValue),
     {
         match direction {
@@ -1171,21 +1179,19 @@ mod tests {
         TreeOps::append_child(&mut arena, para1, text);
 
         // Count paragraphs
-        let para_count = arena.count(root, &mut |_, value| {
-            matches!(value, NodeValue::Paragraph)
-        });
+        let para_count =
+            arena.count(root, &mut |_, value| matches!(value, NodeValue::Paragraph));
         assert_eq!(para_count, 2);
 
         // Count text nodes
-        let text_count = arena.count(root, &mut |_, value| {
-            matches!(value, NodeValue::Text(_))
-        });
+        let text_count =
+            arena.count(root, &mut |_, value| matches!(value, NodeValue::Text(_)));
         assert_eq!(text_count, 1);
     }
 
     #[test]
     fn test_queryable_find_by_type() {
-        use super::{Queryable, NodeType};
+        use super::{NodeType, Queryable};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1237,14 +1243,15 @@ mod tests {
         assert!(NodeType::Document.matches(&NodeValue::Document));
         assert!(NodeType::Paragraph.matches(&NodeValue::Paragraph));
         assert!(NodeType::Text.matches(&NodeValue::make_text("test")));
-        assert!(NodeType::Heading.matches(&NodeValue::Heading(crate::nodes::NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
+        assert!(NodeType::Heading.matches(&NodeValue::Heading(
+            crate::nodes::NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            }
+        )));
 
         assert!(!NodeType::Paragraph.matches(&NodeValue::Document));
         assert!(!NodeType::Text.matches(&NodeValue::Paragraph));
     }
-
 }

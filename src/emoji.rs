@@ -48,7 +48,11 @@ impl EmojiMapper {
     }
 
     /// Add a custom emoji mapping.
-    pub fn add_mapping(&mut self, shortcode: impl Into<String>, emoji: impl Into<String>) {
+    pub fn add_mapping(
+        &mut self,
+        shortcode: impl Into<String>,
+        emoji: impl Into<String>,
+    ) {
         let shortcode = shortcode.into();
         let shortcode = if shortcode.starts_with(':') && shortcode.ends_with(':') {
             shortcode
@@ -106,17 +110,17 @@ impl EmojiMapper {
     /// ```
     pub fn replace_shortcodes(&self, text: &str) -> String {
         let mut result = text.to_string();
-        
+
         // Find all potential shortcodes (text between colons)
         let mut start = 0;
         while let Some(colon_pos) = result[start..].find(':') {
             let absolute_pos = start + colon_pos;
-            
+
             // Look for closing colon
             if let Some(end_colon) = result[absolute_pos + 1..].find(':') {
                 let end_absolute = absolute_pos + 1 + end_colon;
                 let shortcode = &result[absolute_pos..=end_absolute];
-                
+
                 if let Some(emoji) = self.shortcode_to_emoji(shortcode) {
                     result.replace_range(absolute_pos..=end_absolute, emoji);
                     start = absolute_pos + emoji.len();
@@ -127,7 +131,7 @@ impl EmojiMapper {
                 break;
             }
         }
-        
+
         result
     }
 
@@ -170,7 +174,7 @@ impl EmojiMapper {
         mappings.insert(":sunglasses:".to_string(), "😎".to_string());
         mappings.insert(":nerd_face:".to_string(), "🤓".to_string());
         mappings.insert(":face_with_monocle:".to_string(), "🧐".to_string());
-        
+
         // Gestures and people
         mappings.insert(":wave:".to_string(), "👋".to_string());
         mappings.insert(":thumbsup:".to_string(), "👍".to_string());
@@ -184,7 +188,7 @@ impl EmojiMapper {
         mappings.insert(":point_down:".to_string(), "👇".to_string());
         mappings.insert(":point_left:".to_string(), "👈".to_string());
         mappings.insert(":point_right:".to_string(), "👉".to_string());
-        
+
         // Hearts and symbols
         mappings.insert(":heart:".to_string(), "❤️".to_string());
         mappings.insert(":orange_heart:".to_string(), "🧡".to_string());
@@ -199,7 +203,7 @@ impl EmojiMapper {
         mappings.insert(":sparkling_heart:".to_string(), "💖".to_string());
         mappings.insert(":star:".to_string(), "⭐".to_string());
         mappings.insert(":sparkles:".to_string(), "✨".to_string());
-        
+
         // Objects
         mappings.insert(":fire:".to_string(), "🔥".to_string());
         mappings.insert(":rocket:".to_string(), "🚀".to_string());
@@ -218,7 +222,7 @@ impl EmojiMapper {
         mappings.insert(":white_check_mark:".to_string(), "✅".to_string());
         mappings.insert(":question:".to_string(), "❓".to_string());
         mappings.insert(":exclamation:".to_string(), "❗".to_string());
-        
+
         // Nature
         mappings.insert(":sun:".to_string(), "☀️".to_string());
         mappings.insert(":cloud:".to_string(), "☁️".to_string());
@@ -228,7 +232,7 @@ impl EmojiMapper {
         mappings.insert(":zap:".to_string(), "⚡".to_string());
         mappings.insert(":fire:".to_string(), "🔥".to_string());
         mappings.insert(":droplet:".to_string(), "💧".to_string());
-        
+
         // Food
         mappings.insert(":coffee:".to_string(), "☕".to_string());
         mappings.insert(":tea:".to_string(), "🍵".to_string());
@@ -256,7 +260,7 @@ pub fn has_emoji_shortcode(text: &str) -> bool {
     let chars: Vec<char> = text.chars().collect();
     let mut in_shortcode = false;
     let mut shortcode_start = 0;
-    
+
     for (i, ch) in chars.iter().enumerate() {
         if *ch == ':' {
             if !in_shortcode {
@@ -275,7 +279,7 @@ pub fn has_emoji_shortcode(text: &str) -> bool {
             }
         }
     }
-    
+
     false
 }
 

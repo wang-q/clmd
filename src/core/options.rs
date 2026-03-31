@@ -541,10 +541,9 @@ impl ExtensionConfig {
                 let gfm = Extensions::gfm();
                 Self::new(gfm, Extensions::all_extensions())
             }
-            "markdown" | "md" => Self::new(
-                Extensions::empty(),
-                Extensions::all_extensions(),
-            ),
+            "markdown" | "md" => {
+                Self::new(Extensions::empty(), Extensions::all_extensions())
+            }
             "html" | "html5" => Self::new(Extensions::empty(), Extensions::empty()),
             "latex" | "tex" => Self::new(Extensions::empty(), Extensions::empty()),
             _ => Self::new(Extensions::empty(), Extensions::all_extensions()),

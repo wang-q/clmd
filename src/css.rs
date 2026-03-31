@@ -56,7 +56,7 @@ impl StyleDeclaration {
             if let Some(colon_pos) = declaration.find(':') {
                 let property = declaration[..colon_pos].trim().to_string();
                 let value = declaration[colon_pos + 1..].trim().to_string();
-                
+
                 if !property.is_empty() {
                     self.properties.insert(property, value);
                 }
@@ -174,33 +174,50 @@ pub mod colors {
     /// - HSL/HSLA colors
     pub fn is_valid_color(value: &str) -> bool {
         let value = value.trim().to_lowercase();
-        
+
         // Named colors (common subset)
         let named_colors = [
-            "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
-            "gray", "grey", "orange", "purple", "pink", "brown", "silver", "gold",
-            "transparent", "inherit", "initial", "unset",
+            "black",
+            "white",
+            "red",
+            "green",
+            "blue",
+            "yellow",
+            "cyan",
+            "magenta",
+            "gray",
+            "grey",
+            "orange",
+            "purple",
+            "pink",
+            "brown",
+            "silver",
+            "gold",
+            "transparent",
+            "inherit",
+            "initial",
+            "unset",
         ];
         if named_colors.contains(&value.as_str()) {
             return true;
         }
-        
+
         // Hex colors
         if value.starts_with('#') {
             let hex = &value[1..];
             return hex.len() == 3 || hex.len() == 4 || hex.len() == 6 || hex.len() == 8;
         }
-        
+
         // RGB/RGBA
         if value.starts_with("rgb(") || value.starts_with("rgba(") {
             return value.ends_with(')');
         }
-        
+
         // HSL/HSLA
         if value.starts_with("hsl(") || value.starts_with("hsla(") {
             return value.ends_with(')');
         }
-        
+
         false
     }
 
@@ -214,7 +231,8 @@ pub mod colors {
 pub mod units {
     /// Common CSS length units.
     pub const LENGTH_UNITS: &[&str] = &[
-        "px", "em", "rem", "%", "pt", "pc", "in", "cm", "mm", "ex", "ch", "vw", "vh", "vmin", "vmax",
+        "px", "em", "rem", "%", "pt", "pc", "in", "cm", "mm", "ex", "ch", "vw", "vh",
+        "vmin", "vmax",
     ];
 
     /// Check if a value has a CSS unit.
@@ -239,7 +257,7 @@ pub mod units {
         let numeric_part: String = value
             .chars()
             .take_while(|c| c.is_digit(10) || *c == '.' || *c == '-')
-            .collect();       
+            .collect();
         numeric_part.parse().ok()
     }
 
@@ -282,7 +300,7 @@ mod tests {
         let mut style = StyleDeclaration::new();
         style.set("color", "red");
         assert!(style.has("color"));
-        
+
         style.remove("color");
         assert!(!style.has("color"));
     }
@@ -292,7 +310,7 @@ mod tests {
         let mut style = StyleDeclaration::new();
         style.set("color", "red");
         style.set("font-size", "14px");
-        
+
         let css = style.to_css();
         assert!(css.contains("color: red"));
         assert!(css.contains("font-size: 14px"));
@@ -302,11 +320,11 @@ mod tests {
     fn test_style_declaration_merge() {
         let mut style1 = StyleDeclaration::new();
         style1.set("color", "red");
-        
+
         let mut style2 = StyleDeclaration::new();
         style2.set("font-size", "14px");
         style2.set("color", "blue"); // Will overwrite
-        
+
         style1.merge(&style2);
         assert_eq!(style1.get("color"), Some("blue"));
         assert_eq!(style1.get("font-size"), Some("14px"));
@@ -316,7 +334,7 @@ mod tests {
     fn test_style_declaration_display() {
         let mut style = StyleDeclaration::new();
         style.set("color", "red");
-        
+
         let css = format!("{}", style);
         assert!(css.contains("color: red"));
     }

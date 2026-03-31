@@ -92,7 +92,11 @@ impl LogEntry {
     }
 
     /// Create a new log entry with a source.
-    pub fn with_source(level: LogLevel, message: impl Into<String>, source: impl Into<String>) -> Self {
+    pub fn with_source(
+        level: LogLevel,
+        message: impl Into<String>,
+        source: impl Into<String>,
+    ) -> Self {
         Self {
             level,
             message: message.into(),
@@ -164,7 +168,12 @@ impl Logger {
     }
 
     /// Log a message with a source.
-    pub fn log_with_source(&self, level: LogLevel, message: impl Into<String>, source: impl Into<String>) {
+    pub fn log_with_source(
+        &self,
+        level: LogLevel,
+        message: impl Into<String>,
+        source: impl Into<String>,
+    ) {
         if level.should_log(self.verbosity()) {
             let entry = LogEntry::with_source(level, message, source);
             self.entries.lock().unwrap().push(entry);
@@ -456,7 +465,8 @@ mod tests {
         assert_eq!(entry.message, "Test message");
         assert!(entry.source.is_none());
 
-        let entry_with_source = LogEntry::with_source(LogLevel::Warning, "Warning", "parser");
+        let entry_with_source =
+            LogEntry::with_source(LogLevel::Warning, "Warning", "parser");
         assert_eq!(entry_with_source.source, Some("parser".to_string()));
     }
 

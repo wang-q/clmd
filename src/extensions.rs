@@ -503,7 +503,9 @@ impl FromStr for Extensions {
                 }
                 "abbreviations" | "abbreviation" | "abbr" => Extensions::ABBREVIATIONS,
                 "toc" => Extensions::TOC,
-                "yaml_front_matter" | "front_matter" | "yaml" => Extensions::YAML_FRONT_MATTER,
+                "yaml_front_matter" | "front_matter" | "yaml" => {
+                    Extensions::YAML_FRONT_MATTER
+                }
                 "smart_punctuation" | "smart" => Extensions::SMART_PUNCTUATION,
                 "superscript" | "sup" => Extensions::SUPERSCRIPT,
                 "subscript" | "sub" => Extensions::SUBSCRIPT,
@@ -527,7 +529,9 @@ impl FromStr for Extensions {
                     Extensions::MULTILINE_BLOCK_QUOTES
                 }
                 "greentext" => Extensions::GREENTEXT,
-                "cjk_friendly_emphasis" | "cjk_emphasis" => Extensions::CJK_FRIENDLY_EMPHASIS,
+                "cjk_friendly_emphasis" | "cjk_emphasis" => {
+                    Extensions::CJK_FRIENDLY_EMPHASIS
+                }
                 "subtext" => Extensions::SUBTEXT,
                 "inline_footnotes" | "inline_footnote" => Extensions::INLINE_FOOTNOTES,
                 _ => return Err(format!("Unknown extension: {}", name)),

@@ -393,6 +393,19 @@ pub mod xml;
 /// into Markdown documents, inspired by Pandoc's CSV support.
 pub mod csv;
 
+/// Shared utility functions for document processing.
+///
+/// This module provides common utility functions for working with Markdown documents,
+/// inspired by Pandoc's Shared module.
+pub mod shared;
+
+/// General parsing utilities and combinators.
+///
+/// This module provides general-purpose parsing utilities inspired by Pandoc's
+/// parsing infrastructure. It includes parser combinators, character utilities,
+/// and common parsing patterns.
+pub mod parsing;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================

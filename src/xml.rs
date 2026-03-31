@@ -343,7 +343,11 @@ impl XmlBuilder {
     }
 
     /// Add a self-closing element with attributes.
-    pub fn empty_element_with_attrs(&mut self, name: &str, attrs: &[(&str, &str)]) -> &mut Self {
+    pub fn empty_element_with_attrs(
+        &mut self,
+        name: &str,
+        attrs: &[(&str, &str)],
+    ) -> &mut Self {
         self.write_indent();
         self.output.push('<');
         self.output.push_str(name);
@@ -605,7 +609,8 @@ mod tests {
     #[test]
     fn test_xml_builder_with_attrs() {
         let mut builder = XmlBuilder::new();
-        builder.start_element_with_attrs("element", &[("id", "test"), ("class", "main")]);
+        builder
+            .start_element_with_attrs("element", &[("id", "test"), ("class", "main")]);
         builder.end_element();
 
         let xml = builder.build();
@@ -656,7 +661,10 @@ mod tests {
         let parent = XmlElement::new("parent").child(child);
 
         assert_eq!(parent.children.len(), 1);
-        assert_eq!(parent.find_child("child").unwrap().text, Some("Child content".to_string()));
+        assert_eq!(
+            parent.find_child("child").unwrap().text,
+            Some("Child content".to_string())
+        );
     }
 
     #[test]

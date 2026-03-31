@@ -368,17 +368,11 @@ pub fn has_non_ascii(input: &str) -> bool {
 pub fn slugify(input: &str) -> String {
     let transliterator = Transliterator::new();
     let ascii = transliterator.transliterate(input);
-    
+
     ascii
         .to_lowercase()
         .chars()
-        .map(|ch| {
-            if ch.is_alphanumeric() {
-                ch
-            } else {
-                '-'
-            }
-        })
+        .map(|ch| if ch.is_alphanumeric() { ch } else { '-' })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())
