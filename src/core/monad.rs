@@ -228,6 +228,7 @@ impl ClmdIO {
     }
 
     /// Get the default resource paths.
+    #[allow(dead_code)]
     fn get_default_resource_paths() -> Vec<PathBuf> {
         let mut paths = vec![PathBuf::from(".")];
 

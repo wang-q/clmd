@@ -281,7 +281,7 @@ impl MediaBag {
     pub fn filter_by_mime_type<'a>(
         &'a self,
         prefix: &'a str,
-    ) -> impl Iterator<Item = &MediaItem> + 'a {
+    ) -> impl Iterator<Item = &'a MediaItem> + 'a {
         self.items
             .values()
             .filter(move |item| item.mime_type().starts_with(prefix))
@@ -522,6 +522,7 @@ impl MediaBag {
     ///
     /// Note: Contents are base64-encoded.
     #[cfg(feature = "serde")]
+    #[allow(dead_code)]
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         use serde::Serialize;
 

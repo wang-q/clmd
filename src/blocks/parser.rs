@@ -9,20 +9,25 @@ use crate::nodes::NodeValue;
 use crate::parser::OPT_VALIDATE_UTF8;
 use rustc_hash::FxHashMap;
 
-/// Relaxed maximum input size for backward compatibility: 100MB
-const RELAXED_MAX_INPUT_SIZE: usize = 100 * 1024 * 1024;
+/// Maximum input size: 100MB
+#[allow(dead_code)]
+const MAX_INPUT_SIZE: usize = 100 * 1024 * 1024;
 
-/// Relaxed maximum nesting depth for backward compatibility
-const RELAXED_MAX_NESTING_DEPTH: usize = 1000;
+/// Maximum nesting depth
+#[allow(dead_code)]
+const MAX_NESTING_DEPTH: usize = 1000;
 
-/// Relaxed maximum line length for backward compatibility: 10MB
-const RELAXED_MAX_LINE_LENGTH: usize = 10_000_000;
+/// Maximum line length: 10MB
+#[allow(dead_code)]
+const MAX_LINE_LENGTH: usize = 10_000_000;
 
-/// Relaxed maximum list items for backward compatibility
-const RELAXED_MAX_LIST_ITEMS: usize = 1_000_000;
+/// Maximum list items
+#[allow(dead_code)]
+const MAX_LIST_ITEMS: usize = 1_000_000;
 
-/// Relaxed maximum links for backward compatibility
-const RELAXED_MAX_LINKS: usize = 1_000_000;
+/// Maximum links
+#[allow(dead_code)]
+const MAX_LINKS: usize = 1_000_000;
 
 /// Type alias for the reference map: label -> (url, title)
 pub type RefMap = FxHashMap<String, (String, String)>;

@@ -19,9 +19,8 @@
 //! assert!(output.contains("<h1>"));
 //! ```
 
-use crate::arena::NodeArena;
 use crate::error::{ClmdError, ClmdResult, Position};
-use crate::filter::{Filter, FilterChain, FilterError};
+use crate::filter::{Filter, FilterChain};
 use crate::options::Options;
 use crate::readers::{Reader, ReaderInput, ReaderOptions, ReaderRegistry};
 use crate::writers::{Writer, WriterOptions, WriterRegistry};

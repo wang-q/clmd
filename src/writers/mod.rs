@@ -19,9 +19,9 @@
 //! let registry = WriterRegistry::with_defaults();
 //! assert!(registry.get("html").is_some());
 //!
-//! // Write output to file
+//! // Create text output
 //! let output = WriterOutput::text("<h1>Hello</h1>");
-//! output.write_to_file("output.html").unwrap();
+//! assert!(output.is_text());
 //! ```
 
 use crate::arena::{NodeArena, NodeId};

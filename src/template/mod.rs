@@ -60,6 +60,7 @@ enum TemplatePart {
         body: Vec<TemplatePart>,
     },
     /// Partial template inclusion.
+    #[allow(dead_code)]
     Partial(String),
 }
 
