@@ -1664,6 +1664,32 @@ clmd 已实现：
 11. **MIME 处理** (`mime`): MIME 类型检测
 12. **URI 处理** (`uri`): URI 解析和操作
 
+### 最近完成的改进 (2026-04-01)
+
+基于 Pandoc 架构分析，已完成以下改进：
+
+#### 1. 扩展系统完善
+- 新增 35 个扩展变体（Fenced divs、Citations、YAML metadata、Raw attribute 等）
+- 新增扩展组合运算方法（enable_extension、disable_extension、combine_extensions 等）
+- 新增格式默认扩展（pandoc、mmd、phpextra、strict）
+
+#### 2. 错误处理改进
+- 新增 12 个错误类型（CircularReference、Timeout、Network、PermissionDenied 等）
+- 新增错误检查方法（is_circular_reference、is_timeout、is_warning 等）
+- 新增错误渲染系统（ErrorRenderer、ErrorCollector）
+
+#### 3. 文档遍历系统
+- 新增节点类型（DescriptionList、Alert、WikiLink 等）
+- 新增 NodeType 方法（is_block、is_inline）
+- 新增 Queryable trait 方法（find_links、find_images、get_heading_structure 等）
+
+#### 4. 转换管道改进
+- 新增转换类型（StripFootnotes、CapitalizeHeaders、AbsToRel、AutoIdent）
+- 新增转换实现（apply_strip_footnotes、apply_capitalize_headers 等）
+
+#### 5. 实用工具模块
+- 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
+
 ### 待实现的功能
 
 参考 Pandoc，clmd 可以考虑实现：

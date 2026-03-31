@@ -370,6 +370,27 @@ pub trait Queryable {
 
     /// Get all text content as a single string
     fn extract_text(&self, root: NodeId) -> String;
+
+    /// Find all links in the document
+    fn find_links(&self, root: NodeId) -> Vec<NodeId>;
+
+    /// Find all images in the document
+    fn find_images(&self, root: NodeId) -> Vec<NodeId>;
+
+    /// Find all headings in the document
+    fn find_headings(&self, root: NodeId) -> Vec<NodeId>;
+
+    /// Find all code blocks in the document
+    fn find_code_blocks(&self, root: NodeId) -> Vec<NodeId>;
+
+    /// Get the document structure as a list of headings with levels
+    fn get_heading_structure(&self, root: NodeId) -> Vec<(usize, String)>;
+
+    /// Check if the document contains any block elements
+    fn has_blocks(&self, root: NodeId) -> bool;
+
+    /// Check if the document contains any inline elements
+    fn has_inlines(&self, root: NodeId) -> bool;
 }
 
 /// Represents different node types for querying
@@ -433,6 +454,18 @@ pub enum NodeType {
     Math,
     /// Raw content
     Raw,
+    /// Description list
+    DescriptionList,
+    /// Description item
+    DescriptionItem,
+    /// Description term
+    DescriptionTerm,
+    /// Description details
+    DescriptionDetails,
+    /// Alerts
+    Alert,
+    /// WikiLink
+    WikiLink,
 }
 
 impl NodeType {
@@ -468,8 +501,63 @@ impl NodeType {
             (NodeType::FootnoteReference, NodeValue::FootnoteReference(_)) => true,
             (NodeType::Math, NodeValue::Math(_)) => true,
             (NodeType::Raw, NodeValue::Raw(_)) => true,
+            (NodeType::DescriptionList, NodeValue::DescriptionList) => true,
+            (NodeType::DescriptionItem, NodeValue::DescriptionItem(_)) => true,
+            (NodeType::DescriptionTerm, NodeValue::DescriptionTerm) => true,
+            (NodeType::DescriptionDetails, NodeValue::DescriptionDetails) => true,
+            (NodeType::Alert, NodeValue::Alert(_)) => true,
+            (NodeType::WikiLink, NodeValue::WikiLink(_)) => true,
             _ => false,
         }
+    }
+
+    /// Check if this node type is a block element
+    pub fn is_block(&self) -> bool {
+        matches!(
+            self,
+            NodeType::Document
+                | NodeType::BlockQuote
+                | NodeType::List
+                | NodeType::Item
+                | NodeType::CodeBlock
+                | NodeType::HtmlBlock
+                | NodeType::Paragraph
+                | NodeType::Heading
+                | NodeType::ThematicBreak
+                | NodeType::FootnoteDefinition
+                | NodeType::Table
+                | NodeType::TableRow
+                | NodeType::TableCell
+                | NodeType::DescriptionList
+                | NodeType::DescriptionItem
+                | NodeType::DescriptionTerm
+                | NodeType::DescriptionDetails
+                | NodeType::Alert
+        )
+    }
+
+    /// Check if this node type is an inline element
+    pub fn is_inline(&self) -> bool {
+        matches!(
+            self,
+            NodeType::Text
+                | NodeType::TaskItem
+                | NodeType::SoftBreak
+                | NodeType::HardBreak
+                | NodeType::Code
+                | NodeType::HtmlInline
+                | NodeType::Emph
+                | NodeType::Strong
+                | NodeType::Strikethrough
+                | NodeType::Superscript
+                | NodeType::Subscript
+                | NodeType::Link
+                | NodeType::Image
+                | NodeType::FootnoteReference
+                | NodeType::Math
+                | NodeType::Raw
+                | NodeType::WikiLink
+        )
     }
 }
 
@@ -558,6 +646,62 @@ impl Queryable for NodeArena {
             }
         });
         texts.join("")
+    }
+
+    fn find_links(&self, root: NodeId) -> Vec<NodeId> {
+        self.find_by_type(root, NodeType::Link)
+    }
+
+    fn find_images(&self, root: NodeId) -> Vec<NodeId> {
+        self.find_by_type(root, NodeType::Image)
+    }
+
+    fn find_headings(&self, root: NodeId) -> Vec<NodeId> {
+        self.find_by_type(root, NodeType::Heading)
+    }
+
+    fn find_code_blocks(&self, root: NodeId) -> Vec<NodeId> {
+        self.find_by_type(root, NodeType::CodeBlock)
+    }
+
+    fn get_heading_structure(&self, root: NodeId) -> Vec<(usize, String)> {
+        self.query(root, &mut |id, value| {
+            if let NodeValue::Heading(heading) = value {
+                let text = self.extract_text(id);
+                Some((heading.level as usize, text))
+            } else {
+                None
+            }
+        })
+    }
+
+    fn has_blocks(&self, root: NodeId) -> bool {
+        self.any(root, &mut |_, value| {
+            matches!(
+                value,
+                NodeValue::BlockQuote
+                    | NodeValue::List(_)
+                    | NodeValue::CodeBlock(_)
+                    | NodeValue::HtmlBlock(_)
+                    | NodeValue::Paragraph
+                    | NodeValue::Heading(_)
+                    | NodeValue::Table(_)
+            )
+        })
+    }
+
+    fn has_inlines(&self, root: NodeId) -> bool {
+        self.any(root, &mut |_, value| {
+            matches!(
+                value,
+                NodeValue::Text(_)
+                    | NodeValue::Code(_)
+                    | NodeValue::Emph
+                    | NodeValue::Strong
+                    | NodeValue::Link(_)
+                    | NodeValue::Image(_)
+            )
+        })
     }
 }
 

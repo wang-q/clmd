@@ -673,6 +673,256 @@ pub fn split_by_blank_lines(text: &str) -> Vec<String> {
     chunks
 }
 
+/// Truncate text to a maximum length with ellipsis.
+///
+/// # Arguments
+///
+/// * `text` - The text to truncate
+/// * `max_len` - Maximum length including ellipsis
+///
+/// # Returns
+///
+/// Truncated text with ellipsis if needed.
+///
+/// # Example
+///
+/// ```
+/// use clmd::shared::truncate_with_ellipsis;
+///
+/// assert_eq!(truncate_with_ellipsis("Hello World", 8), "Hello...");
+/// assert_eq!(truncate_with_ellipsis("Hi", 8), "Hi");
+/// ```
+pub fn truncate_with_ellipsis(text: &str, max_len: usize) -> String {
+    if text.len() <= max_len {
+        text.to_string()
+    } else if max_len <= 3 {
+        text.chars().take(max_len).collect()
+    } else {
+        format!("{}...", &text[..max_len - 3])
+    }
+}
+
+/// Check if a string is a valid URL.
+///
+/// # Arguments
+///
+/// * `s` - The string to check
+///
+/// # Returns
+///
+/// true if the string looks like a URL.
+pub fn is_url(s: &str) -> bool {
+    s.starts_with("http://")
+        || s.starts_with("https://")
+        || s.starts_with("ftp://")
+        || s.starts_with("file://")
+        || s.starts_with("mailto:")
+}
+
+/// Check if a string is an absolute URL (not a relative path).
+///
+/// # Arguments
+///
+/// * `s` - The string to check
+///
+/// # Returns
+///
+/// true if the string is an absolute URL.
+pub fn is_absolute_url(s: &str) -> bool {
+    s.starts_with("http://")
+        || s.starts_with("https://")
+        || s.starts_with("ftp://")
+        || s.starts_with("file://")
+        || s.starts_with("mailto:")
+        || s.starts_with("//")
+}
+
+/// Get file extension from a path string.
+///
+/// # Arguments
+///
+/// * `path` - The path string
+///
+/// # Returns
+///
+/// The file extension if any.
+pub fn get_extension(path: &str) -> Option<&str> {
+    path.rfind('.').map(|i| &path[i + 1..])
+}
+
+/// Remove file extension from a path string.
+///
+/// # Arguments
+///
+/// * `path` - The path string
+///
+/// # Returns
+///
+/// The path without extension.
+pub fn remove_extension(path: &str) -> &str {
+    match path.rfind('.') {
+        Some(i) => &path[..i],
+        None => path,
+    }
+}
+
+/// Convert a string to kebab-case.
+///
+/// # Arguments
+///
+/// * `text` - The text to convert
+///
+/// # Returns
+///
+/// The text in kebab-case.
+///
+/// # Example
+///
+/// ```
+/// use clmd::shared::to_kebab_case;
+///
+/// assert_eq!(to_kebab_case("Hello World"), "hello-world");
+/// assert_eq!(to_kebab_case("HelloWorld"), "hello-world");
+/// assert_eq!(to_kebab_case("hello_world"), "hello-world");
+/// ```
+pub fn to_kebab_case(text: &str) -> String {
+    let mut result = String::new();
+    let mut prev_was_upper = false;
+    let mut prev_was_alnum = false;
+
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            if c.is_uppercase() {
+                if prev_was_alnum && !prev_was_upper {
+                    result.push('-');
+                }
+                result.push(c.to_lowercase().next().unwrap());
+                prev_was_upper = true;
+            } else {
+                result.push(c);
+                prev_was_upper = false;
+            }
+            prev_was_alnum = true;
+        } else if prev_was_alnum {
+            result.push('-');
+            prev_was_alnum = false;
+            prev_was_upper = false;
+        }
+    }
+
+    // Remove trailing dash
+    if result.ends_with('-') {
+        result.pop();
+    }
+
+    result
+}
+
+/// Convert a string to snake_case.
+///
+/// # Arguments
+///
+/// * `text` - The text to convert
+///
+/// # Returns
+///
+/// The text in snake_case.
+///
+/// # Example
+///
+/// ```
+/// use clmd::shared::to_snake_case;
+///
+/// assert_eq!(to_snake_case("Hello World"), "hello_world");
+/// assert_eq!(to_snake_case("HelloWorld"), "hello_world");
+/// assert_eq!(to_snake_case("hello-world"), "hello_world");
+/// ```
+pub fn to_snake_case(text: &str) -> String {
+    to_kebab_case(text).replace('-', "_")
+}
+
+/// Convert a string to camelCase.
+///
+/// # Arguments
+///
+/// * `text` - The text to convert
+///
+/// # Returns
+///
+/// The text in camelCase.
+///
+/// # Example
+///
+/// ```
+/// use clmd::shared::to_camel_case;
+///
+/// assert_eq!(to_camel_case("hello world"), "helloWorld");
+/// assert_eq!(to_camel_case("hello-world"), "helloWorld");
+/// assert_eq!(to_camel_case("hello_world"), "helloWorld");
+/// ```
+pub fn to_camel_case(text: &str) -> String {
+    let words: Vec<&str> = text
+        .split(|c: char| c == ' ' || c == '-' || c == '_')
+        .collect();
+    let mut result = String::new();
+
+    for (i, word) in words.iter().enumerate() {
+        if word.is_empty() {
+            continue;
+        }
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            if i == 0 {
+                result.push(first.to_lowercase().next().unwrap());
+            } else {
+                result.push(first.to_uppercase().next().unwrap());
+            }
+            result.push_str(&chars.as_str().to_lowercase());
+        }
+    }
+
+    result
+}
+
+/// Convert a string to PascalCase.
+///
+/// # Arguments
+///
+/// * `text` - The text to convert
+///
+/// # Returns
+///
+/// The text in PascalCase.
+///
+/// # Example
+///
+/// ```
+/// use clmd::shared::to_pascal_case;
+///
+/// assert_eq!(to_pascal_case("hello world"), "HelloWorld");
+/// assert_eq!(to_pascal_case("hello-world"), "HelloWorld");
+/// assert_eq!(to_pascal_case("hello_world"), "HelloWorld");
+/// ```
+pub fn to_pascal_case(text: &str) -> String {
+    let words: Vec<&str> = text
+        .split(|c: char| c == ' ' || c == '-' || c == '_')
+        .collect();
+    let mut result = String::new();
+
+    for word in words {
+        if word.is_empty() {
+            continue;
+        }
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            result.push(first.to_uppercase().next().unwrap());
+            result.push_str(&chars.as_str().to_lowercase());
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -811,5 +1061,76 @@ mod tests {
         };
         assert_eq!(list_marker(&ordered_list, 0), "1. ");
         assert_eq!(list_marker(&ordered_list, 1), "2. ");
+    }
+
+    #[test]
+    fn test_truncate_with_ellipsis() {
+        assert_eq!(truncate_with_ellipsis("Hello World", 8), "Hello...");
+        assert_eq!(truncate_with_ellipsis("Hi", 8), "Hi");
+        assert_eq!(truncate_with_ellipsis("Hello", 5), "Hello");
+        assert_eq!(truncate_with_ellipsis("Hello", 3), "Hel");
+    }
+
+    #[test]
+    fn test_is_url() {
+        assert!(is_url("http://example.com"));
+        assert!(is_url("https://example.com"));
+        assert!(is_url("ftp://files.example.com"));
+        assert!(is_url("mailto:test@example.com"));
+        assert!(!is_url("/path/to/file"));
+        assert!(!is_url("relative/path"));
+    }
+
+    #[test]
+    fn test_is_absolute_url() {
+        assert!(is_absolute_url("http://example.com"));
+        assert!(is_absolute_url("https://example.com"));
+        assert!(is_absolute_url("//example.com"));
+        assert!(!is_absolute_url("/path/to/file"));
+        assert!(!is_absolute_url("relative/path"));
+    }
+
+    #[test]
+    fn test_get_extension() {
+        assert_eq!(get_extension("file.txt"), Some("txt"));
+        assert_eq!(get_extension("path/to/file.md"), Some("md"));
+        assert_eq!(get_extension("file"), None);
+    }
+
+    #[test]
+    fn test_remove_extension() {
+        assert_eq!(remove_extension("file.txt"), "file");
+        assert_eq!(remove_extension("path/to/file.md"), "path/to/file");
+        assert_eq!(remove_extension("file"), "file");
+    }
+
+    #[test]
+    fn test_to_kebab_case() {
+        assert_eq!(to_kebab_case("Hello World"), "hello-world");
+        assert_eq!(to_kebab_case("HelloWorld"), "hello-world");
+        assert_eq!(to_kebab_case("hello_world"), "hello-world");
+        assert_eq!(to_kebab_case("hello-world"), "hello-world");
+    }
+
+    #[test]
+    fn test_to_snake_case() {
+        assert_eq!(to_snake_case("Hello World"), "hello_world");
+        assert_eq!(to_snake_case("HelloWorld"), "hello_world");
+        assert_eq!(to_snake_case("hello-world"), "hello_world");
+    }
+
+    #[test]
+    fn test_to_camel_case() {
+        assert_eq!(to_camel_case("hello world"), "helloWorld");
+        assert_eq!(to_camel_case("hello-world"), "helloWorld");
+        assert_eq!(to_camel_case("hello_world"), "helloWorld");
+        assert_eq!(to_camel_case("HelloWorld"), "helloworld");
+    }
+
+    #[test]
+    fn test_to_pascal_case() {
+        assert_eq!(to_pascal_case("hello world"), "HelloWorld");
+        assert_eq!(to_pascal_case("hello-world"), "HelloWorld");
+        assert_eq!(to_pascal_case("hello_world"), "HelloWorld");
     }
 }

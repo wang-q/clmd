@@ -246,6 +246,199 @@ bitflags! {
         ///
         /// Enables inline footnote syntax `^[content]`.
         const INLINE_FOOTNOTES = 1 << 29;
+
+        /// East Asian line breaks extension.
+        ///
+        /// Ignores newlines between East Asian characters.
+        const EAST_ASIAN_LINE_BREAKS = 1 << 30;
+
+        /// Raw attribute extension.
+        ///
+        /// Enables raw content with format specification:
+        /// ```markdown
+        /// `code`{=html}
+        /// ```
+        const RAW_ATTRIBUTE = 1 << 31;
+
+        /// Fenced divs extension.
+        ///
+        /// Enables Pandoc-style fenced divs:
+        /// ```markdown
+        /// ::: warning
+        /// This is a warning.
+        /// :::
+        /// ```
+        const FENCED_DIVS = 1 << 32;
+
+        /// Bracketed spans extension.
+        ///
+        /// Enables bracketed spans with attributes:
+        /// ```markdown
+        /// [text]{#id .class}
+        /// ```
+        const BRACKETED_SPANS = 1 << 33;
+
+        /// Citations extension.
+        ///
+        /// Enables citation syntax:
+        /// ```markdown
+        /// [@smith2000]
+        /// [see @doe2010, pp. 23-25]
+        /// ```
+        const CITATIONS = 1 << 34;
+
+        /// YAML metadata block extension.
+        ///
+        /// Enables YAML metadata block at the beginning or end of document.
+        const YAML_METADATA_BLOCK = 1 << 35;
+
+        /// Hard line breaks extension.
+        ///
+        /// Treats newlines as hard line breaks.
+        const HARD_LINE_BREAKS = 1 << 36;
+
+        /// Strikeout extension.
+        ///
+        /// Alternative to strikethrough using `~~` delimiters.
+        const STRIKEOUT = 1 << 37;
+
+        /// Pipe tables extension.
+        ///
+        /// Explicit pipe table support (same as tables but explicit).
+        const PIPE_TABLES = 1 << 38;
+
+        /// Grid tables extension.
+        ///
+        /// Enables grid table syntax:
+        /// ```markdown
+        /// +---+---+---+
+        /// | A | B | C |
+        /// +---+---+---+
+        /// ```
+        const GRID_TABLES = 1 << 39;
+
+        /// Multiline tables extension.
+        ///
+        /// Enables multiline table cells.
+        const MULTILINE_TABLES = 1 << 40;
+
+        /// Implicit figures extension.
+        ///
+        /// Images with alt text only become figures.
+        const IMPLICIT_FIGURES = 1 << 41;
+
+        /// Link attributes extension.
+        ///
+        /// Enables attributes on links:
+        /// ```markdown
+        /// [link](url){#id .class}
+        /// ```
+        const LINK_ATTRIBUTES = 1 << 42;
+
+        /// Autoidentifiers extension.
+        ///
+        /// Automatically generate header identifiers from text.
+        const AUTO_IDENTIFIERS = 1 << 43;
+
+        /// Compact lists extension.
+        ///
+        /// Use compact list style when possible.
+        const COMPACT_LISTS = 1 << 44;
+
+        /// Fancy lists extension.
+        ///
+        /// Enables fancy list markers (uppercase letters, Roman numerals).
+        const FANCY_LISTS = 1 << 45;
+
+        /// Start number extension.
+        ///
+        /// Respect the starting number of ordered lists.
+        const START_NUMBER = 1 << 46;
+
+        /// Intraword emphasis extension.
+        ///
+        /// Allows emphasis within words.
+        const INTRAWORD_EMPHASIS = 1 << 47;
+
+        /// All symbols escaped extension.
+        ///
+        /// Escape all symbols that could be special.
+        const ALL_SYMBOLS_ESCAPED = 1 << 48;
+
+        /// Angle brackets escaped extension.
+        ///
+        /// Escape `<` and `>` as `\<` and `\>`.
+        const ANGLE_BRACKETS_ESCAPED = 1 << 49;
+
+        /// Raw HTML extension.
+        ///
+        /// Allow raw HTML in output.
+        const RAW_HTML = 1 << 50;
+
+        /// Raw TeX extension.
+        ///
+        /// Allow raw TeX in output.
+        const RAW_TEX = 1 << 51;
+
+        /// Tex math single backslash extension.
+        ///
+        /// Use `\(...\)` for inline and `\[...\]` for display math.
+        const TEX_MATH_SINGLE_BACKSLASH = 1 << 52;
+
+        /// Tex math double backslash extension.
+        ///
+        /// Use `\\(...\\)` for inline and `\\[...\\]` for display math.
+        const TEX_MATH_DOUBLE_BACKSLASH = 1 << 53;
+
+        /// Latex math extension.
+        ///
+        /// Use LaTeX math environments.
+        const LATEX_MATH = 1 << 54;
+
+        /// Emoji extension.
+        ///
+        /// Convert emoji shortcodes and Unicode emoji.
+        const EMOJI = 1 << 55;
+
+        /// Pandoc title block extension.
+        ///
+        /// Enables Pandoc-style title block at document start.
+        const PANDOC_TITLE_BLOCK = 1 << 56;
+
+        /// MMD title block extension.
+        ///
+        /// Enables MultiMarkdown-style title block.
+        const MMD_TITLE_BLOCK = 1 << 57;
+
+        /// Example lists extension.
+        ///
+        /// Enables example list numbering (@).
+        const EXAMPLE_LISTS = 1 << 58;
+
+        /// Line blocks extension.
+        ///
+        /// Enables line block syntax (| at start of line).
+        const LINE_BLOCKS = 1 << 59;
+
+        /// Blank before blockquote extension.
+        ///
+        /// Require blank line before blockquote.
+        const BLANK_BEFORE_BLOCKQUOTE = 1 << 60;
+
+        /// Blank before header extension.
+        ///
+        /// Require blank line before header.
+        const BLANK_BEFORE_HEADER = 1 << 61;
+
+        /// Indent code extension.
+        ///
+        /// Use indented code blocks.
+        const INDENTED_CODE = 1 << 62;
+
+        /// Backtick code extension.
+        ///
+        /// Use fenced code blocks with backticks.
+        const BACKTICK_CODE = 1 << 63;
     }
 }
 
@@ -287,11 +480,81 @@ impl Extensions {
     /// ```
     pub fn for_format(format: &str) -> Self {
         match format {
+            // GitHub Flavored Markdown
             "gfm" | "markdown_github" => Self::gfm(),
+            // CommonMark (no extensions)
             "commonmark" | "cm" => Self::empty(),
+            // Standard Markdown with documentation extensions
             "markdown" | "md" => Self::doc(),
+            // Pandoc Markdown (rich set of extensions)
+            "pandoc" | "markdown_pandoc" => Self::pandoc(),
+            // MultiMarkdown
+            "mmd" | "markdown_mmd" => Self::mmd(),
+            // PHP Markdown Extra
+            "markdown_phpextra" | "phpextra" => Self::phpextra(),
+            // Strict Markdown (no extensions)
+            "strict" | "markdown_strict" => Self::strict(),
+            // Default to empty
             _ => Self::empty(),
         }
+    }
+
+    /// Get Pandoc Markdown extensions.
+    ///
+    /// This includes a rich set of extensions commonly used with Pandoc.
+    pub fn pandoc() -> Self {
+        Self::doc()
+            .union(Extensions::FENCED_DIVS)
+            .union(Extensions::BRACKETED_SPANS)
+            .union(Extensions::CITATIONS)
+            .union(Extensions::YAML_METADATA_BLOCK)
+            .union(Extensions::PIPE_TABLES)
+            .union(Extensions::GRID_TABLES)
+            .union(Extensions::IMPLICIT_FIGURES)
+            .union(Extensions::LINK_ATTRIBUTES)
+            .union(Extensions::AUTO_IDENTIFIERS)
+            .union(Extensions::FANCY_LISTS)
+            .union(Extensions::START_NUMBER)
+            .union(Extensions::INTRAWORD_EMPHASIS)
+            .union(Extensions::RAW_ATTRIBUTE)
+            .union(Extensions::PANDOC_TITLE_BLOCK)
+            .union(Extensions::EXAMPLE_LISTS)
+            .union(Extensions::LINE_BLOCKS)
+            .union(Extensions::MATH_DOLLARS)
+    }
+
+    /// Get MultiMarkdown extensions.
+    ///
+    /// This includes extensions supported by MultiMarkdown.
+    pub fn mmd() -> Self {
+        Self::gfm()
+            .union(Extensions::FOOTNOTES)
+            .union(Extensions::TABLES)
+            .union(Extensions::MATH_DOLLARS)
+            .union(Extensions::HEADER_IDS)
+            .union(Extensions::ATTRIBUTES)
+            .union(Extensions::MMD_TITLE_BLOCK)
+            .union(Extensions::LINK_ATTRIBUTES)
+    }
+
+    /// Get PHP Markdown Extra extensions.
+    ///
+    /// This includes extensions supported by PHP Markdown Extra.
+    pub fn phpextra() -> Self {
+        Self::TABLES
+            .union(Extensions::FOOTNOTES)
+            .union(Extensions::ABBREVIATIONS)
+            .union(Extensions::HEADER_IDS)
+            .union(Extensions::ATTRIBUTES)
+            .union(Extensions::DESCRIPTION_LISTS)
+            .union(Extensions::BACKTICK_CODE)
+    }
+
+    /// Get strict CommonMark (no extensions).
+    ///
+    /// This returns an empty extension set for strict CommonMark compliance.
+    pub fn strict() -> Self {
+        Self::empty()
     }
 
     /// Get GFM extensions.
@@ -320,6 +583,149 @@ impl Extensions {
     /// This is the same as `NO_EXTENSIONS`.
     pub fn no_extensions() -> Self {
         NO_EXTENSIONS
+    }
+
+    /// Enable a specific extension.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::empty().enable_extension(Extensions::TABLES);
+    /// assert!(ext.contains(Extensions::TABLES));
+    /// ```
+    pub fn enable_extension(&self, ext: Extensions) -> Self {
+        *self | ext
+    }
+
+    /// Disable a specific extension.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
+    /// let ext = ext.disable_extension(Extensions::TABLES);
+    /// assert!(!ext.contains(Extensions::TABLES));
+    /// assert!(ext.contains(Extensions::STRIKETHROUGH));
+    /// ```
+    pub fn disable_extension(&self, ext: Extensions) -> Self {
+        *self - ext
+    }
+
+    /// Check if a specific extension is enabled.
+    ///
+    /// This is a more explicit alias for `contains()`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
+    /// assert!(ext.extension_enabled(Extensions::TABLES));
+    /// assert!(!ext.extension_enabled(Extensions::FOOTNOTES));
+    /// ```
+    pub fn extension_enabled(&self, ext: Extensions) -> bool {
+        self.contains(ext)
+    }
+
+    /// Combine extensions with another set.
+    ///
+    /// This is equivalent to the `|` operator.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::TABLES.combine_extensions(Extensions::FOOTNOTES);
+    /// assert!(ext.contains(Extensions::TABLES));
+    /// assert!(ext.contains(Extensions::FOOTNOTES));
+    /// ```
+    pub fn combine_extensions(&self, other: Extensions) -> Self {
+        *self | other
+    }
+
+    /// Get the difference between two extension sets.
+    ///
+    /// Returns extensions that are in `self` but not in `other`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH | Extensions::FOOTNOTES;
+    /// let diff = ext.difference_extensions(Extensions::STRIKETHROUGH);
+    /// assert!(diff.contains(Extensions::TABLES));
+    /// assert!(!diff.contains(Extensions::STRIKETHROUGH));
+    /// assert!(diff.contains(Extensions::FOOTNOTES));
+    /// ```
+    pub fn difference_extensions(&self, other: Extensions) -> Self {
+        *self - other
+    }
+
+    /// Get the intersection of two extension sets.
+    ///
+    /// Returns extensions that are in both sets.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext1 = Extensions::TABLES | Extensions::STRIKETHROUGH;
+    /// let ext2 = Extensions::TABLES | Extensions::FOOTNOTES;
+    /// let intersection = ext1.intersection_extensions(ext2);
+    /// assert!(intersection.contains(Extensions::TABLES));
+    /// assert!(!intersection.contains(Extensions::STRIKETHROUGH));
+    /// assert!(!intersection.contains(Extensions::FOOTNOTES));
+    /// ```
+    pub fn intersection_extensions(&self, other: Extensions) -> Self {
+        *self & other
+    }
+
+    /// Toggle an extension (enable if disabled, disable if enabled).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let ext = Extensions::TABLES;
+    /// let ext = ext.toggle_extension(Extensions::TABLES);
+    /// assert!(!ext.contains(Extensions::TABLES));
+    /// let ext = ext.toggle_extension(Extensions::TABLES);
+    /// assert!(ext.contains(Extensions::TABLES));
+    /// ```
+    pub fn toggle_extension(&self, ext: Extensions) -> Self {
+        *self ^ ext
+    }
+
+    /// Get the default extensions for a format.
+    ///
+    /// This is an alias for `for_format()` with a more explicit name.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let gfm = Extensions::get_default_extensions("gfm");
+    /// assert!(gfm.contains(Extensions::TABLES));
+    /// ```
+    pub fn get_default_extensions(format: &str) -> Self {
+        Self::for_format(format)
+    }
+
+    /// Get all available extensions.
+    ///
+    /// This is an alias for `all_extensions()`.
+    pub fn get_all_extensions() -> Self {
+        ALL_EXTENSIONS
     }
 
     /// Get the WikiLinks mode if either wikilinks option is enabled.
@@ -451,6 +857,108 @@ impl Extensions {
         if self.contains(Extensions::INLINE_FOOTNOTES) {
             names.push("inline_footnotes");
         }
+        if self.contains(Extensions::EAST_ASIAN_LINE_BREAKS) {
+            names.push("east_asian_line_breaks");
+        }
+        if self.contains(Extensions::RAW_ATTRIBUTE) {
+            names.push("raw_attribute");
+        }
+        if self.contains(Extensions::FENCED_DIVS) {
+            names.push("fenced_divs");
+        }
+        if self.contains(Extensions::BRACKETED_SPANS) {
+            names.push("bracketed_spans");
+        }
+        if self.contains(Extensions::CITATIONS) {
+            names.push("citations");
+        }
+        if self.contains(Extensions::YAML_METADATA_BLOCK) {
+            names.push("yaml_metadata_block");
+        }
+        if self.contains(Extensions::HARD_LINE_BREAKS) {
+            names.push("hard_line_breaks");
+        }
+        if self.contains(Extensions::STRIKEOUT) {
+            names.push("strikeout");
+        }
+        if self.contains(Extensions::PIPE_TABLES) {
+            names.push("pipe_tables");
+        }
+        if self.contains(Extensions::GRID_TABLES) {
+            names.push("grid_tables");
+        }
+        if self.contains(Extensions::MULTILINE_TABLES) {
+            names.push("multiline_tables");
+        }
+        if self.contains(Extensions::IMPLICIT_FIGURES) {
+            names.push("implicit_figures");
+        }
+        if self.contains(Extensions::LINK_ATTRIBUTES) {
+            names.push("link_attributes");
+        }
+        if self.contains(Extensions::AUTO_IDENTIFIERS) {
+            names.push("auto_identifiers");
+        }
+        if self.contains(Extensions::COMPACT_LISTS) {
+            names.push("compact_lists");
+        }
+        if self.contains(Extensions::FANCY_LISTS) {
+            names.push("fancy_lists");
+        }
+        if self.contains(Extensions::START_NUMBER) {
+            names.push("start_number");
+        }
+        if self.contains(Extensions::INTRAWORD_EMPHASIS) {
+            names.push("intraword_emphasis");
+        }
+        if self.contains(Extensions::ALL_SYMBOLS_ESCAPED) {
+            names.push("all_symbols_escaped");
+        }
+        if self.contains(Extensions::ANGLE_BRACKETS_ESCAPED) {
+            names.push("angle_brackets_escaped");
+        }
+        if self.contains(Extensions::RAW_HTML) {
+            names.push("raw_html");
+        }
+        if self.contains(Extensions::RAW_TEX) {
+            names.push("raw_tex");
+        }
+        if self.contains(Extensions::TEX_MATH_SINGLE_BACKSLASH) {
+            names.push("tex_math_single_backslash");
+        }
+        if self.contains(Extensions::TEX_MATH_DOUBLE_BACKSLASH) {
+            names.push("tex_math_double_backslash");
+        }
+        if self.contains(Extensions::LATEX_MATH) {
+            names.push("latex_math");
+        }
+        if self.contains(Extensions::EMOJI) {
+            names.push("emoji");
+        }
+        if self.contains(Extensions::PANDOC_TITLE_BLOCK) {
+            names.push("pandoc_title_block");
+        }
+        if self.contains(Extensions::MMD_TITLE_BLOCK) {
+            names.push("mmd_title_block");
+        }
+        if self.contains(Extensions::EXAMPLE_LISTS) {
+            names.push("example_lists");
+        }
+        if self.contains(Extensions::LINE_BLOCKS) {
+            names.push("line_blocks");
+        }
+        if self.contains(Extensions::BLANK_BEFORE_BLOCKQUOTE) {
+            names.push("blank_before_blockquote");
+        }
+        if self.contains(Extensions::BLANK_BEFORE_HEADER) {
+            names.push("blank_before_header");
+        }
+        if self.contains(Extensions::INDENTED_CODE) {
+            names.push("indented_code");
+        }
+        if self.contains(Extensions::BACKTICK_CODE) {
+            names.push("backtick_code");
+        }
 
         names
     }
@@ -534,6 +1042,54 @@ impl FromStr for Extensions {
                 }
                 "subtext" => Extensions::SUBTEXT,
                 "inline_footnotes" | "inline_footnote" => Extensions::INLINE_FOOTNOTES,
+                "east_asian_line_breaks" | "east_asian" => {
+                    Extensions::EAST_ASIAN_LINE_BREAKS
+                }
+                "raw_attribute" | "raw_attr" => Extensions::RAW_ATTRIBUTE,
+                "fenced_divs" | "fenced_div" => Extensions::FENCED_DIVS,
+                "bracketed_spans" | "bracketed_span" => Extensions::BRACKETED_SPANS,
+                "citations" | "citation" => Extensions::CITATIONS,
+                "yaml_metadata_block" | "yaml_metadata" => {
+                    Extensions::YAML_METADATA_BLOCK
+                }
+                "hard_line_breaks" | "hardbreaks" => Extensions::HARD_LINE_BREAKS,
+                "strikeout" => Extensions::STRIKEOUT,
+                "pipe_tables" | "pipe_table" => Extensions::PIPE_TABLES,
+                "grid_tables" | "grid_table" => Extensions::GRID_TABLES,
+                "multiline_tables" | "multiline_table" => Extensions::MULTILINE_TABLES,
+                "implicit_figures" | "implicit_figure" => Extensions::IMPLICIT_FIGURES,
+                "link_attributes" | "link_attr" => Extensions::LINK_ATTRIBUTES,
+                "auto_identifiers" | "auto_id" => Extensions::AUTO_IDENTIFIERS,
+                "compact_lists" | "compact_list" => Extensions::COMPACT_LISTS,
+                "fancy_lists" | "fancy_list" => Extensions::FANCY_LISTS,
+                "start_number" => Extensions::START_NUMBER,
+                "intraword_emphasis" | "intraword" => Extensions::INTRAWORD_EMPHASIS,
+                "all_symbols_escaped" | "all_symbols" => Extensions::ALL_SYMBOLS_ESCAPED,
+                "angle_brackets_escaped" | "angle_brackets" => {
+                    Extensions::ANGLE_BRACKETS_ESCAPED
+                }
+                "raw_html" => Extensions::RAW_HTML,
+                "raw_tex" => Extensions::RAW_TEX,
+                "tex_math_single_backslash" | "tex_math_single" => {
+                    Extensions::TEX_MATH_SINGLE_BACKSLASH
+                }
+                "tex_math_double_backslash" | "tex_math_double" => {
+                    Extensions::TEX_MATH_DOUBLE_BACKSLASH
+                }
+                "latex_math" | "latex" => Extensions::LATEX_MATH,
+                "emoji" => Extensions::EMOJI,
+                "pandoc_title_block" | "pandoc_title" => Extensions::PANDOC_TITLE_BLOCK,
+                "mmd_title_block" | "mmd_title" => Extensions::MMD_TITLE_BLOCK,
+                "example_lists" | "example_list" => Extensions::EXAMPLE_LISTS,
+                "line_blocks" | "line_block" => Extensions::LINE_BLOCKS,
+                "blank_before_blockquote" | "blank_before_quote" => {
+                    Extensions::BLANK_BEFORE_BLOCKQUOTE
+                }
+                "blank_before_header" | "blank_before_heading" => {
+                    Extensions::BLANK_BEFORE_HEADER
+                }
+                "indented_code" => Extensions::INDENTED_CODE,
+                "backtick_code" => Extensions::BACKTICK_CODE,
                 _ => return Err(format!("Unknown extension: {}", name)),
             };
 
@@ -687,5 +1243,120 @@ mod tests {
 
         let ext = Extensions::empty();
         assert_eq!(ext.wikilinks_mode(), None);
+    }
+
+    #[test]
+    fn test_enable_extension() {
+        let ext = Extensions::empty().enable_extension(Extensions::TABLES);
+        assert!(ext.contains(Extensions::TABLES));
+        assert!(!ext.contains(Extensions::STRIKETHROUGH));
+    }
+
+    #[test]
+    fn test_disable_extension() {
+        let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
+        let ext = ext.disable_extension(Extensions::TABLES);
+        assert!(!ext.contains(Extensions::TABLES));
+        assert!(ext.contains(Extensions::STRIKETHROUGH));
+    }
+
+    #[test]
+    fn test_extension_enabled() {
+        let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
+        assert!(ext.extension_enabled(Extensions::TABLES));
+        assert!(!ext.extension_enabled(Extensions::FOOTNOTES));
+    }
+
+    #[test]
+    fn test_difference_extensions() {
+        let ext = Extensions::TABLES | Extensions::STRIKETHROUGH | Extensions::FOOTNOTES;
+        let diff = ext.difference_extensions(Extensions::STRIKETHROUGH);
+        assert!(diff.contains(Extensions::TABLES));
+        assert!(!diff.contains(Extensions::STRIKETHROUGH));
+        assert!(diff.contains(Extensions::FOOTNOTES));
+    }
+
+    #[test]
+    fn test_intersection_extensions() {
+        let ext1 = Extensions::TABLES | Extensions::STRIKETHROUGH;
+        let ext2 = Extensions::TABLES | Extensions::FOOTNOTES;
+        let intersection = ext1.intersection_extensions(ext2);
+        assert!(intersection.contains(Extensions::TABLES));
+        assert!(!intersection.contains(Extensions::STRIKETHROUGH));
+        assert!(!intersection.contains(Extensions::FOOTNOTES));
+    }
+
+    #[test]
+    fn test_toggle_extension() {
+        let ext = Extensions::TABLES;
+        let ext = ext.toggle_extension(Extensions::TABLES);
+        assert!(!ext.contains(Extensions::TABLES));
+        let ext = ext.toggle_extension(Extensions::TABLES);
+        assert!(ext.contains(Extensions::TABLES));
+    }
+
+    #[test]
+    fn test_new_extensions() {
+        // Test that new extensions can be created and combined
+        let ext = Extensions::FENCED_DIVS
+            | Extensions::BRACKETED_SPANS
+            | Extensions::CITATIONS
+            | Extensions::YAML_METADATA_BLOCK
+            | Extensions::RAW_ATTRIBUTE
+            | Extensions::EMOJI;
+
+        assert!(ext.contains(Extensions::FENCED_DIVS));
+        assert!(ext.contains(Extensions::BRACKETED_SPANS));
+        assert!(ext.contains(Extensions::CITATIONS));
+        assert!(ext.contains(Extensions::YAML_METADATA_BLOCK));
+        assert!(ext.contains(Extensions::RAW_ATTRIBUTE));
+        assert!(ext.contains(Extensions::EMOJI));
+    }
+
+    #[test]
+    fn test_pandoc_extensions() {
+        let ext = Extensions::pandoc();
+        assert!(ext.contains(Extensions::FENCED_DIVS));
+        assert!(ext.contains(Extensions::CITATIONS));
+        assert!(ext.contains(Extensions::YAML_METADATA_BLOCK));
+        assert!(ext.contains(Extensions::TABLES));
+    }
+
+    #[test]
+    fn test_mmd_extensions() {
+        let ext = Extensions::mmd();
+        assert!(ext.contains(Extensions::TABLES));
+        assert!(ext.contains(Extensions::FOOTNOTES));
+        assert!(ext.contains(Extensions::MMD_TITLE_BLOCK));
+    }
+
+    #[test]
+    fn test_phpextra_extensions() {
+        let ext = Extensions::phpextra();
+        assert!(ext.contains(Extensions::TABLES));
+        assert!(ext.contains(Extensions::FOOTNOTES));
+        assert!(ext.contains(Extensions::DESCRIPTION_LISTS));
+    }
+
+    #[test]
+    fn test_strict_extensions() {
+        let ext = Extensions::strict();
+        assert_eq!(ext, Extensions::empty());
+    }
+
+    #[test]
+    fn test_format_extensions() {
+        assert!(Extensions::for_format("pandoc").contains(Extensions::FENCED_DIVS));
+        assert!(Extensions::for_format("mmd").contains(Extensions::MMD_TITLE_BLOCK));
+        assert!(Extensions::for_format("phpextra").contains(Extensions::TABLES));
+        assert_eq!(Extensions::for_format("strict"), Extensions::empty());
+    }
+
+    #[test]
+    fn test_parse_new_extensions() {
+        let ext = Extensions::from_str("fenced_divs,citations,emoji").unwrap();
+        assert!(ext.contains(Extensions::FENCED_DIVS));
+        assert!(ext.contains(Extensions::CITATIONS));
+        assert!(ext.contains(Extensions::EMOJI));
     }
 }
