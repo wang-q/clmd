@@ -23,13 +23,13 @@
 //! ```
 
 pub use crate::parser::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse,
-    Plugins, Render, RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
+    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Plugins,
+    Render, RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };
 
 use crate::extensions::Extensions;
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Input format for parsing documents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -287,7 +287,7 @@ impl ReaderOptions {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Create options for GFM input.
     pub fn gfm() -> Self {
         Self {
@@ -296,7 +296,7 @@ impl ReaderOptions {
             ..Default::default()
         }
     }
-    
+
     /// Create options for CommonMark strict mode.
     pub fn commonmark_strict() -> Self {
         Self {
@@ -305,7 +305,7 @@ impl ReaderOptions {
             ..Default::default()
         }
     }
-    
+
     /// Set the input format.
     pub fn with_input_format(mut self, format: InputFormat) -> Self {
         self.input_format = format;
@@ -315,37 +315,37 @@ impl ReaderOptions {
         }
         self
     }
-    
+
     /// Set extensions.
     pub fn with_extensions(mut self, extensions: Extensions) -> Self {
         self.extensions = extensions;
         self
     }
-    
+
     /// Enable an extension.
     pub fn with_extension(mut self, extension: Extensions) -> Self {
         self.extensions |= extension;
         self
     }
-    
+
     /// Set smart punctuation.
     pub fn with_smart(mut self, smart: bool) -> Self {
         self.smart = smart;
         self
     }
-    
+
     /// Set source position tracking.
     pub fn with_sourcepos(mut self, sourcepos: bool) -> Self {
         self.sourcepos = sourcepos;
         self
     }
-    
+
     /// Set tab stop width.
     pub fn with_tab_stop(mut self, tab_stop: usize) -> Self {
         self.tab_stop = tab_stop;
         self
     }
-    
+
     /// Add a resource path.
     pub fn add_resource_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.resource_path.push(path.into());
@@ -368,9 +368,13 @@ impl ReaderOptions {
                 header_ids: None,
                 footnotes: self.extensions.contains(Extensions::FOOTNOTES),
                 inline_footnotes: self.extensions.contains(Extensions::INLINE_FOOTNOTES),
-                description_lists: self.extensions.contains(Extensions::DESCRIPTION_LISTS),
+                description_lists: self
+                    .extensions
+                    .contains(Extensions::DESCRIPTION_LISTS),
                 front_matter_delimiter: None,
-                multiline_block_quotes: self.extensions.contains(Extensions::MULTILINE_BLOCK_QUOTES),
+                multiline_block_quotes: self
+                    .extensions
+                    .contains(Extensions::MULTILINE_BLOCK_QUOTES),
                 alerts: self.extensions.contains(Extensions::ALERTS),
                 math_dollars: self.extensions.contains(Extensions::MATH_DOLLARS),
                 math_code: self.extensions.contains(Extensions::MATH_CODE),
@@ -381,7 +385,9 @@ impl ReaderOptions {
                 greentext: self.extensions.contains(Extensions::GREENTEXT),
                 highlight: self.extensions.contains(Extensions::HIGHLIGHT),
                 insert: self.extensions.contains(Extensions::INSERT),
-                cjk_friendly_emphasis: self.extensions.contains(Extensions::CJK_FRIENDLY_EMPHASIS),
+                cjk_friendly_emphasis: self
+                    .extensions
+                    .contains(Extensions::CJK_FRIENDLY_EMPHASIS),
                 subtext: self.extensions.contains(Extensions::SUBTEXT),
                 shortcodes: self.extensions.contains(Extensions::SHORTCODES),
                 image_url_rewriter: None,
@@ -428,73 +434,73 @@ impl ReaderOptions {
 pub struct WriterOptions {
     /// Output format.
     pub output_format: OutputFormat,
-    
+
     /// Standalone document (include header/footer).
     pub standalone: bool,
-    
+
     /// Syntax extensions to enable.
     pub extensions: Extensions,
-    
+
     /// Convert soft line breaks to hard line breaks.
     pub hardbreaks: bool,
-    
+
     /// Allow raw HTML and dangerous URLs (security risk!).
     pub unsafe_html: bool,
-    
+
     /// Escape raw HTML instead of removing it.
     pub escape_html: bool,
-    
+
     /// GitHub-style `<pre lang="xyz">` for code blocks.
     pub github_pre_lang: bool,
-    
+
     /// Include full info strings for code blocks.
     pub full_info_string: bool,
-    
+
     /// Wrap column for text output (0 = no wrapping).
     pub columns: usize,
-    
+
     /// Text wrapping option.
     pub wrap: WrapOption,
-    
+
     /// List style type for bullet lists.
     pub list_style: ListStyleType,
-    
+
     /// Prefer fenced code blocks in output.
     pub prefer_fenced: bool,
-    
+
     /// Width for ordered list markers.
     pub ol_width: usize,
-    
+
     /// Include source position attributes in output.
     pub output_sourcepos: bool,
-    
+
     /// GitHub Flavored Markdown quirks mode.
     pub gfm_quirks: bool,
-    
+
     /// Render images as figures with captions.
     pub figure_with_caption: bool,
-    
+
     /// HTML math rendering method.
     pub html_math_method: HTMLMathMethod,
-    
+
     /// Number sections in output.
     pub number_sections: bool,
-    
+
     /// Table of contents depth (0 = no TOC).
     pub toc_depth: usize,
-    
+
     /// Template file path.
     pub template: Option<PathBuf>,
-    
+
     /// Template variables.
     pub variables: HashMap<String, String>,
-    
+
     /// Document title (overrides metadata).
     pub title: Option<String>,
-    
+
     /// Document author (overrides metadata).
     pub author: Option<String>,
-    
+
     /// Document date (overrides metadata).
     pub date: Option<String>,
 }
@@ -535,67 +541,67 @@ impl WriterOptions {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set the output format.
     pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.output_format = format;
         self
     }
-    
+
     /// Set standalone mode.
     pub fn with_standalone(mut self, standalone: bool) -> Self {
         self.standalone = standalone;
         self
     }
-    
+
     /// Set extensions.
     pub fn with_extensions(mut self, extensions: Extensions) -> Self {
         self.extensions = extensions;
         self
     }
-    
+
     /// Enable an extension.
     pub fn with_extension(mut self, extension: Extensions) -> Self {
         self.extensions |= extension;
         self
     }
-    
+
     /// Set hard line breaks.
     pub fn with_hardbreaks(mut self, hardbreaks: bool) -> Self {
         self.hardbreaks = hardbreaks;
         self
     }
-    
+
     /// Set unsafe HTML mode.
     pub fn with_unsafe(mut self, unsafe_html: bool) -> Self {
         self.unsafe_html = unsafe_html;
         self
     }
-    
+
     /// Set escape HTML mode.
     pub fn with_escape_html(mut self, escape_html: bool) -> Self {
         self.escape_html = escape_html;
         self
     }
-    
+
     /// Set wrap column.
     pub fn with_columns(mut self, columns: usize) -> Self {
         self.columns = columns;
         self
     }
-    
+
     /// Set wrap option.
     pub fn with_wrap(mut self, wrap: WrapOption) -> Self {
         self.wrap = wrap;
         self
     }
-    
+
     /// Set template.
     pub fn with_template(mut self, template: impl Into<PathBuf>) -> Self {
         self.template = Some(template.into());
         self
     }
-    
+
     /// Add a template variable.
     pub fn with_variable(
         mut self,
@@ -605,31 +611,31 @@ impl WriterOptions {
         self.variables.insert(key.into(), value.into());
         self
     }
-    
+
     /// Set title.
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
         self
     }
-    
+
     /// Set author.
     pub fn with_author(mut self, author: impl Into<String>) -> Self {
         self.author = Some(author.into());
         self
     }
-    
+
     /// Set date.
     pub fn with_date(mut self, date: impl Into<String>) -> Self {
         self.date = Some(date.into());
         self
     }
-    
+
     /// Set HTML math method.
     pub fn with_html_math(mut self, method: HTMLMathMethod) -> Self {
         self.html_math_method = method;
         self
     }
-    
+
     /// Set TOC depth.
     pub fn with_toc_depth(mut self, depth: usize) -> Self {
         self.toc_depth = depth;
@@ -638,14 +644,14 @@ impl WriterOptions {
 }
 
 /// Unified options structure combining ReaderOptions and WriterOptions.
-/// 
+///
 /// This is the main entry point for configuring clmd operations,
 /// similar to how Pandoc combines ReaderOptions and WriterOptions.
 #[derive(Debug, Clone)]
 pub struct Options {
     /// Reader (parsing) options.
     pub reader: ReaderOptions,
-    
+
     /// Writer (rendering) options.
     pub writer: WriterOptions,
 }
@@ -664,12 +670,12 @@ impl Options {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Create options from reader and writer options.
     pub fn from_parts(reader: ReaderOptions, writer: WriterOptions) -> Self {
         Self { reader, writer }
     }
-    
+
     /// Create options for GFM input/output.
     pub fn gfm() -> Self {
         Self {
@@ -679,7 +685,7 @@ impl Options {
                 .with_extension(Extensions::gfm()),
         }
     }
-    
+
     /// Create options for CommonMark strict mode.
     pub fn commonmark_strict() -> Self {
         Self {
@@ -688,38 +694,38 @@ impl Options {
                 .with_output_format(OutputFormat::CommonMark),
         }
     }
-    
+
     /// Set reader options.
     pub fn with_reader(mut self, reader: ReaderOptions) -> Self {
         self.reader = reader;
         self
     }
-    
+
     /// Set writer options.
     pub fn with_writer(mut self, writer: WriterOptions) -> Self {
         self.writer = writer;
         self
     }
-    
+
     /// Set input format (convenience method).
     pub fn with_input_format(mut self, format: InputFormat) -> Self {
         self.reader = self.reader.with_input_format(format);
         self
     }
-    
+
     /// Set output format (convenience method).
     pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.writer = self.writer.with_output_format(format);
         self
     }
-    
+
     /// Set extensions for both reader and writer.
     pub fn with_extensions(mut self, extensions: Extensions) -> Self {
         self.reader.extensions = extensions;
         self.writer.extensions = extensions;
         self
     }
-    
+
     /// Enable an extension for both reader and writer.
     pub fn with_extension(mut self, extension: Extensions) -> Self {
         self.reader.extensions |= extension;

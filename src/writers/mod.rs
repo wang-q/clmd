@@ -21,9 +21,9 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::error::{ClmdError, ClmdResult};
-use crate::options::{WriterOptions, OutputFormat};
 use crate::context::ClmdContext;
+use crate::error::{ClmdError, ClmdResult};
+use crate::options::{OutputFormat, WriterOptions};
 use std::fmt::Debug;
 use std::path::Path;
 
@@ -207,22 +207,17 @@ impl WriterRegistry {
     ///
     /// Some(format) if detected, None otherwise.
     pub fn detect_format(&self, path: &Path) -> Option<OutputFormat> {
-        path.extension()
-            .and_then(|e| e.to_str())
-            .and_then(|ext| {
-                self.writers
-                    .iter()
-                    .find(|w| w.supports_extension(ext))
-                    .map(|w| w.format())
-            })
+        path.extension().and_then(|e| e.to_str()).and_then(|ext| {
+            self.writers
+                .iter()
+                .find(|w| w.supports_extension(ext))
+                .map(|w| w.format())
+        })
     }
 
     /// Get all registered format names.
     pub fn formats(&self) -> Vec<&'static str> {
-        self.writers
-            .iter()
-            .map(|w| w.format().as_str())
-            .collect()
+        self.writers.iter().map(|w| w.format().as_str()).collect()
     }
 
     /// Get all registered file extensions.
@@ -235,7 +230,8 @@ impl WriterRegistry {
 
     /// Check if a format is supported.
     pub fn supports_format(&self, format: &str) -> bool {
-        format.parse::<OutputFormat>()
+        format
+            .parse::<OutputFormat>()
             .ok()
             .and_then(|f| self.get(f))
             .is_some()
@@ -280,7 +276,10 @@ impl Writer for HtmlWriter {
         if options.output_sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+        if options
+            .extensions
+            .contains(crate::extensions::Extensions::TAGFILTER)
+        {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
         Ok(crate::render::html::render(arena, root, html_options))
@@ -444,9 +443,7 @@ pub fn write_file(
     let content = if let Some(format_name) = format {
         write_document(arena, root, format_name, ctx, options)?
     } else {
-        let ext = path.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("html");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("html");
         let registry = WriterRegistry::new();
         let writer = registry
             .get_by_extension(ext)

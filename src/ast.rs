@@ -512,20 +512,24 @@ impl Walkable for Block {
         F: FnMut(Block) -> Block,
     {
         let transformed = match self {
-            Block::BlockQuote(blocks) => {
-                Block::BlockQuote(blocks.into_iter().map(|b| b.transform_blocks(f)).collect())
-            }
+            Block::BlockQuote(blocks) => Block::BlockQuote(
+                blocks.into_iter().map(|b| b.transform_blocks(f)).collect(),
+            ),
             Block::OrderedList(attrs, items) => Block::OrderedList(
                 attrs,
                 items
                     .into_iter()
-                    .map(|item| item.into_iter().map(|b| b.transform_blocks(f)).collect())
+                    .map(|item| {
+                        item.into_iter().map(|b| b.transform_blocks(f)).collect()
+                    })
                     .collect(),
             ),
             Block::BulletList(items) => Block::BulletList(
                 items
                     .into_iter()
-                    .map(|item| item.into_iter().map(|b| b.transform_blocks(f)).collect())
+                    .map(|item| {
+                        item.into_iter().map(|b| b.transform_blocks(f)).collect()
+                    })
                     .collect(),
             ),
             Block::DefinitionList(items) => Block::DefinitionList(
@@ -535,15 +539,20 @@ impl Walkable for Block {
                         (
                             term,
                             defs.into_iter()
-                                .map(|def| def.into_iter().map(|b| b.transform_blocks(f)).collect())
+                                .map(|def| {
+                                    def.into_iter()
+                                        .map(|b| b.transform_blocks(f))
+                                        .collect()
+                                })
                                 .collect(),
                         )
                     })
                     .collect(),
             ),
-            Block::Div(attrs, blocks) => {
-                Block::Div(attrs, blocks.into_iter().map(|b| b.transform_blocks(f)).collect())
-            }
+            Block::Div(attrs, blocks) => Block::Div(
+                attrs,
+                blocks.into_iter().map(|b| b.transform_blocks(f)).collect(),
+            ),
             other => other,
         };
         f(transformed)
@@ -555,15 +564,24 @@ impl Walkable for Block {
     {
         match self {
             Block::Plain(inlines) => Block::Plain(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Block::Para(inlines) => Block::Para(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Block::Header(level, attrs, inlines) => Block::Header(
                 level,
                 attrs,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             other => other,
         }
@@ -628,44 +646,77 @@ impl Walkable for Inline {
     {
         let transformed = match self {
             Inline::Emph(inlines) => Inline::Emph(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Strong(inlines) => Inline::Strong(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Strikeout(inlines) => Inline::Strikeout(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Superscript(inlines) => Inline::Superscript(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Subscript(inlines) => Inline::Subscript(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::SmallCaps(inlines) => Inline::SmallCaps(
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Quoted(qt, inlines) => Inline::Quoted(
                 qt,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Cite(citations, inlines) => Inline::Cite(
                 citations,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Link(attrs, inlines, target) => Inline::Link(
                 attrs,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
                 target,
             ),
             Inline::Image(attrs, inlines, target) => Inline::Image(
                 attrs,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
                 target,
             ),
             Inline::Span(attrs, inlines) => Inline::Span(
                 attrs,
-                inlines.into_iter().map(|i| i.transform_inlines(f)).collect(),
+                inlines
+                    .into_iter()
+                    .map(|i| i.transform_inlines(f))
+                    .collect(),
             ),
             Inline::Note(blocks) => Inline::Note(blocks),
             other => other,
@@ -727,7 +778,11 @@ mod tests {
         let doc = Document {
             meta: MetaData::new(),
             blocks: vec![
-                Block::Header(1, Attr::with_id("intro"), vec![Inline::Str("Hello".to_string())]),
+                Block::Header(
+                    1,
+                    Attr::with_id("intro"),
+                    vec![Inline::Str("Hello".to_string())],
+                ),
                 Block::Para(vec![Inline::Str("World".to_string())]),
             ],
         };
@@ -757,7 +812,9 @@ mod tests {
         attr.add_attr("data-id", "123");
 
         assert!(attr.classes.contains(&"highlight".to_string()));
-        assert!(attr.attrs.contains(&("data-id".to_string(), "123".to_string())));
+        assert!(attr
+            .attrs
+            .contains(&("data-id".to_string(), "123".to_string())));
     }
 
     #[test]
@@ -766,7 +823,9 @@ mod tests {
             meta: MetaData::new(),
             blocks: vec![
                 Block::Para(vec![Inline::Str("Hello".to_string())]),
-                Block::BlockQuote(vec![Block::Para(vec![Inline::Str("Quote".to_string())])]),
+                Block::BlockQuote(vec![Block::Para(vec![Inline::Str(
+                    "Quote".to_string(),
+                )])]),
             ],
         };
 
@@ -822,15 +881,13 @@ mod tests {
         assert_eq!(Format::from("HTML"), Format::Html);
         assert_eq!(Format::from("latex"), Format::Latex);
         assert_eq!(Format::from("markdown"), Format::Markdown);
-        assert_eq!(
-            Format::from("custom"),
-            Format::Other("custom".to_string())
-        );
+        assert_eq!(Format::from("custom"), Format::Other("custom".to_string()));
     }
 
     #[test]
     fn test_list_number_style() {
-        let attrs: ListAttributes = (1, ListNumberStyle::Decimal, ListNumberDelim::Period);
+        let attrs: ListAttributes =
+            (1, ListNumberStyle::Decimal, ListNumberDelim::Period);
         assert_eq!(attrs.0, 1);
         assert!(matches!(attrs.1, ListNumberStyle::Decimal));
         assert!(matches!(attrs.2, ListNumberDelim::Period));
@@ -854,6 +911,9 @@ mod tests {
         };
 
         assert_eq!(citation.citation_id, "smith2020");
-        assert!(matches!(citation.citation_mode, CitationMode::NormalCitation));
+        assert!(matches!(
+            citation.citation_mode,
+            CitationMode::NormalCitation
+        ));
     }
 }

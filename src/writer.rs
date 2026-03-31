@@ -20,9 +20,9 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::options::{WriterOptions, OutputFormat};
 use crate::context::ClmdContext;
 use crate::error::ClmdResult;
+use crate::options::{OutputFormat, WriterOptions};
 use std::fmt::Debug;
 use std::path::Path;
 
@@ -145,7 +145,10 @@ impl Writer for HtmlWriter {
         if options.output_sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+        if options
+            .extensions
+            .contains(crate::extensions::Extensions::TAGFILTER)
+        {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
 
@@ -189,7 +192,10 @@ impl Writer for XhtmlWriter {
         if options.output_sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+        if options
+            .extensions
+            .contains(crate::extensions::Extensions::TAGFILTER)
+        {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
         let mut html = crate::render::html::render(arena, root, html_options);
@@ -250,7 +256,9 @@ impl Writer for CommonMarkWriter {
             cm_options |= 1; // Placeholder for hardbreaks option
         }
 
-        Ok(crate::render::commonmark::render(arena, root, cm_options, width))
+        Ok(crate::render::commonmark::render(
+            arena, root, cm_options, width,
+        ))
     }
 
     fn format(&self) -> OutputFormat {

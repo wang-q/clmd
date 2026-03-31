@@ -173,7 +173,9 @@ impl Format {
             Format::Json => "application/json",
             Format::Yaml => "application/yaml",
             Format::Pdf => "application/pdf",
-            Format::Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            Format::Docx => {
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
             Format::Odt => "application/vnd.oasis.opendocument.text",
             Format::Rtf => "application/rtf",
             Format::Epub => "application/epub+zip",
@@ -469,12 +471,20 @@ impl FormatRegistry {
 
     /// Get formats that support reading.
     pub fn reader_formats(&self) -> Vec<Format> {
-        self.formats.iter().copied().filter(|f| f.is_reader_format()).collect()
+        self.formats
+            .iter()
+            .copied()
+            .filter(|f| f.is_reader_format())
+            .collect()
     }
 
     /// Get formats that support writing.
     pub fn writer_formats(&self) -> Vec<Format> {
-        self.formats.iter().copied().filter(|f| f.is_writer_format()).collect()
+        self.formats
+            .iter()
+            .copied()
+            .filter(|f| f.is_writer_format())
+            .collect()
     }
 
     /// Register default formats.
@@ -538,8 +548,15 @@ impl Format {
     /// Get the category of this format.
     pub fn category(&self) -> FormatCategory {
         match self {
-            Format::Markdown | Format::Gfm | Format::Html | Format::Xhtml | Format::Rst
-            | Format::AsciiDoc | Format::Org | Format::Textile | Format::MediaWiki
+            Format::Markdown
+            | Format::Gfm
+            | Format::Html
+            | Format::Xhtml
+            | Format::Rst
+            | Format::AsciiDoc
+            | Format::Org
+            | Format::Textile
+            | Format::MediaWiki
             | Format::DokuWiki => FormatCategory::Markup,
             Format::Docx | Format::Odt | Format::Rtf => FormatCategory::WordProcessing,
             Format::Pdf | Format::Typst => FormatCategory::PageLayout,
@@ -599,7 +616,9 @@ mod tests {
         let flavored = FlavoredFormat::parse("markdown+smart-tasklists").unwrap();
         assert_eq!(flavored.format, Format::Markdown);
         assert!(flavored.extensions.contains(&"smart".to_string()));
-        assert!(flavored.disabled_extensions.contains(&"tasklists".to_string()));
+        assert!(flavored
+            .disabled_extensions
+            .contains(&"tasklists".to_string()));
     }
 
     #[test]
@@ -621,18 +640,9 @@ mod tests {
         assert!(detected.is_some());
         assert!(matches!(detected.unwrap(), Format::Markdown | Format::Gfm));
 
-        assert_eq!(
-            registry.detect("document.html"),
-            Some(Format::Html)
-        );
-        assert_eq!(
-            registry.detect("document.pdf"),
-            Some(Format::Pdf)
-        );
-        assert_eq!(
-            registry.detect("document"),
-            None
-        );
+        assert_eq!(registry.detect("document.html"), Some(Format::Html));
+        assert_eq!(registry.detect("document.pdf"), Some(Format::Pdf));
+        assert_eq!(registry.detect("document"), None);
     }
 
     #[test]

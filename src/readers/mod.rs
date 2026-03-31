@@ -19,7 +19,7 @@
 
 use crate::arena::NodeArena;
 use crate::error::{ClmdError, ClmdResult};
-use crate::options::{ReaderOptions, InputFormat};
+use crate::options::{InputFormat, ReaderOptions};
 use crate::parser;
 use std::collections::HashMap;
 use std::fmt::Debug;

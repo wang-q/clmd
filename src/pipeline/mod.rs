@@ -120,9 +120,10 @@ impl Pipeline {
         options: &Options,
     ) -> ClmdResult<String> {
         // Step 1: Read the input
-        let (mut arena, root) = self.reader.read(input, &options.reader).map_err(|e| {
-            ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
-        })?;
+        let (mut arena, root) =
+            self.reader.read(input, &options.reader).map_err(|e| {
+                ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
+            })?;
 
         // Step 2: Apply filters
         if !self.filter_chain.is_empty() {
@@ -347,7 +348,8 @@ mod tests {
 
     #[test]
     fn test_convert_function() {
-        let output = convert("# Hello", "markdown", "html", &Options::default()).unwrap();
+        let output =
+            convert("# Hello", "markdown", "html", &Options::default()).unwrap();
         assert!(output.contains("<h1>"));
     }
 }
