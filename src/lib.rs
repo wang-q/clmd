@@ -438,6 +438,18 @@ pub mod parsing;
 /// Pandoc's ReaderOptions and WriterOptions.
 pub mod clmd_options;
 
+/// Document reader trait and implementations.
+///
+/// This module provides a unified interface for reading documents from different
+/// formats, inspired by Pandoc's Reader system.
+pub mod reader;
+
+/// Document writer trait and implementations.
+///
+/// This module provides a unified interface for writing documents to different
+/// formats, inspired by Pandoc's Writer system.
+pub mod writer;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================

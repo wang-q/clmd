@@ -283,12 +283,12 @@ impl CommonState {
 /// allowing for both real IO and pure/mock implementations. It is inspired by
 /// Pandoc's PandocMonad typeclass.
 ///
-/// Implementations must be thread-safe (Send + Sync) and cloneable.
+/// Implementations must be thread-safe (Send + Sync).
 ///
 /// # Type Parameters
 ///
 /// * `Error` - The error type used by this context.
-pub trait ClmdContext: Clone + Send + Sync {
+pub trait ClmdContext: Send + Sync {
     /// The error type for this context.
     type Error: std::error::Error + Send + Sync + 'static;
 
@@ -316,12 +316,26 @@ pub trait ClmdContext: Clone + Send + Sync {
     /// # Returns
     ///
     /// The file contents as a string, or an error.
-    fn read_file_to_string(&self, path: &Path) -> Result<String, Self::Error> {
+    fn read_file_to_string(&self, path: &Path) -> Result<String, Self::Error>
+    where
+        Self: Sized,
+    {
         let bytes = self.read_file(path)?;
-        String::from_utf8(bytes).map_err(|_| {
-            Self::invalid_utf8_error(path)
-        })
+        String::from_utf8(bytes).map_err(|_| Self::invalid_utf8_error(path))
     }
+
+    /// Read a file into memory as a string (dyn-compatible version).
+    ///
+    /// This version works with trait objects (`dyn ClmdContext`).
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the file.
+    ///
+    /// # Returns
+    ///
+    /// The file contents as a string, or an error.
+    fn read_file_to_string_dyn(&self, path: &Path) -> Result<String, Self::Error>;
 
     /// Create an error for invalid UTF-8.
     ///
@@ -336,7 +350,9 @@ pub trait ClmdContext: Clone + Send + Sync {
     /// # Returns
     ///
     /// An error indicating invalid UTF-8 in the file.
-    fn invalid_utf8_error(path: &Path) -> Self::Error;
+    fn invalid_utf8_error(path: &Path) -> Self::Error
+    where
+        Self: Sized;
 
     /// Write bytes to a file.
     ///
@@ -412,26 +428,26 @@ pub trait ClmdContext: Clone + Send + Sync {
     ///
     /// * `level` - The log level.
     /// * `message` - The message to log.
-    fn report(&self, level: LogLevel, message: impl Into<String>);
+    fn report(&self, level: LogLevel, message: String);
 
     /// Log a debug message.
-    fn debug(&self, message: impl Into<String>) {
-        self.report(LogLevel::Debug, message);
+    fn debug(&self, message: &str) {
+        self.report(LogLevel::Debug, message.to_string());
     }
 
     /// Log an info message.
-    fn info(&self, message: impl Into<String>) {
-        self.report(LogLevel::Info, message);
+    fn info(&self, message: &str) {
+        self.report(LogLevel::Info, message.to_string());
     }
 
     /// Log a warning message.
-    fn warn(&self, message: impl Into<String>) {
-        self.report(LogLevel::Warning, message);
+    fn warn(&self, message: &str) {
+        self.report(LogLevel::Warning, message.to_string());
     }
 
     /// Log an error message.
-    fn error(&self, message: impl Into<String>) {
-        self.report(LogLevel::Error, message);
+    fn error(&self, message: &str) {
+        self.report(LogLevel::Error, message.to_string());
     }
 
     /// Get all logged messages.

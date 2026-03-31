@@ -116,8 +116,7 @@ impl ClmdContext for IoContext {
         self.state.find_file(filename)
     }
 
-    fn report(&self, level: LogLevel, message: impl Into<String>) {
-        let message = message.into();
+    fn report(&self, level: LogLevel, message: String) {
         self.state.log(level, message.clone());
 
         // Also print to stderr/stdout based on level
@@ -197,6 +196,10 @@ impl ClmdContext for IoContext {
 
     fn invalid_utf8_error(path: &Path) -> Self::Error {
         ClmdError::io_error(format!("Invalid UTF-8 in file {}", path.display()))
+    }
+
+    fn read_file_to_string_dyn(&self, path: &Path) -> Result<String, Self::Error> {
+        self.read_file_to_string(path)
     }
 }
 
