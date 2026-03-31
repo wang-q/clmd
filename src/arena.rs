@@ -632,6 +632,79 @@ impl TreeOps {
             parent_node.last_child = Some(new_node_id);
         }
     }
+
+    /// Insert a node before a reference node (as a sibling)
+    pub fn insert_before(
+        arena: &mut NodeArena,
+        reference_id: NodeId,
+        new_node_id: NodeId,
+    ) {
+        let reference = arena.get(reference_id);
+        let prev_id = reference.prev;
+        let parent_id = reference.parent;
+
+        // Update new node's connections
+        let new_node = arena.get_mut(new_node_id);
+        new_node.prev = prev_id;
+        new_node.next = Some(reference_id);
+        new_node.parent = parent_id;
+
+        // Update reference node's prev pointer
+        let reference = arena.get_mut(reference_id);
+        reference.prev = Some(new_node_id);
+
+        // Update previous node's next pointer if exists
+        if let Some(prev) = prev_id {
+            let prev_node = arena.get_mut(prev);
+            prev_node.next = Some(new_node_id);
+        } else if let Some(parent) = parent_id {
+            // Reference was the first child, update parent's first_child
+            let parent_node = arena.get_mut(parent);
+            parent_node.first_child = Some(new_node_id);
+        }
+    }
+
+    /// Replace a node with another node
+    ///
+    /// The old node is unlinked but not deleted. The new node takes the old node's position.
+    pub fn replace(
+        arena: &mut NodeArena,
+        old_node_id: NodeId,
+        new_node_id: NodeId,
+    ) {
+        let old_node = arena.get(old_node_id);
+        let prev_id = old_node.prev;
+        let next_id = old_node.next;
+        let parent_id = old_node.parent;
+
+        // Unlink the old node
+        TreeOps::unlink(arena, old_node_id);
+
+        // Set up the new node's connections
+        let new_node = arena.get_mut(new_node_id);
+        new_node.prev = prev_id;
+        new_node.next = next_id;
+        new_node.parent = parent_id;
+
+        // Update surrounding nodes
+        if let Some(prev) = prev_id {
+            let prev_node = arena.get_mut(prev);
+            prev_node.next = Some(new_node_id);
+        } else if let Some(parent) = parent_id {
+            // Old node was the first child
+            let parent_node = arena.get_mut(parent);
+            parent_node.first_child = Some(new_node_id);
+        }
+
+        if let Some(next) = next_id {
+            let next_node = arena.get_mut(next);
+            next_node.prev = Some(new_node_id);
+        } else if let Some(parent) = parent_id {
+            // Old node was the last child
+            let parent_node = arena.get_mut(parent);
+            parent_node.last_child = Some(new_node_id);
+        }
+    }
 }
 
 /// Iterator for traversing all descendants of a node

@@ -350,6 +350,24 @@ pub mod transforms;
 /// variable substitution syntax similar to Pandoc's templates.
 pub mod template;
 
+/// Emoji support for Markdown documents.
+///
+/// This module provides emoji shortcode to Unicode conversion,
+/// inspired by Pandoc's emoji support.
+pub mod emoji;
+
+/// CSS parsing utilities.
+///
+/// This module provides basic CSS parsing capabilities for inline styles,
+/// inspired by Pandoc's CSS handling.
+pub mod css;
+
+/// ASCII transliteration utilities.
+///
+/// This module provides Unicode to ASCII transliteration,
+/// inspired by Pandoc's asciify functionality.
+pub mod asciify;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================
