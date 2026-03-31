@@ -36,20 +36,20 @@ fn main() -> ClmdResult<()> {
 
     // 2. Reader/Writer Registry
     println!("2. Reader/Writer Registry:");
-    let reader_registry = ReaderRegistry::with_defaults();
-    let writer_registry = WriterRegistry::with_defaults();
+    let reader_registry = ReaderRegistry::default();
+    let writer_registry = WriterRegistry::default();
 
-    println!("   Available readers: {:?}", reader_registry.list());
-    println!("   Available writers: {:?}", writer_registry.list());
+    println!("   Available readers: {:?}", reader_registry.formats());
+    println!("   Available writers: {:?}", writer_registry.formats());
 
     // Get reader by extension
-    if let Some(format) = reader_registry.get_by_extension("md") {
-        println!("   Format for .md files: {}", format);
+    if let Some(reader) = reader_registry.get_by_extension("md") {
+        println!("   Format for .md files: {:?}", reader.format());
     }
 
     // Get writer by extension
-    if let Some(format) = writer_registry.get_by_extension("html") {
-        println!("   Format for .html files: {}\n", format);
+    if let Some(writer) = writer_registry.get_by_extension("html") {
+        println!("   Format for .html files: {:?}\n", writer.format());
     }
 
     // 3. Document Conversion Pipeline

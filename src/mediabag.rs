@@ -35,6 +35,8 @@ pub struct MediaItem {
     path: PathBuf,
     /// The contents of the resource.
     contents: Vec<u8>,
+    /// SHA-256 hash of the contents (lazy computed).
+    hash: Option<String>,
 }
 
 impl MediaItem {
@@ -48,7 +50,27 @@ impl MediaItem {
             path: path.as_ref().to_path_buf(),
             mime_type: mime_type.into(),
             contents: contents.into(),
+            hash: None,
         }
+    }
+
+    /// Get or compute the SHA-256 hash of the contents.
+    ///
+    /// The hash is computed lazily and cached for subsequent calls.
+    pub fn hash(&mut self) -> &str {
+        if self.hash.is_none() {
+            use sha2::{Sha256, Digest};
+            let mut hasher = Sha256::new();
+            hasher.update(&self.contents);
+            let result = hasher.finalize();
+            self.hash = Some(format!("{:x}", result));
+        }
+        self.hash.as_ref().unwrap()
+    }
+
+    /// Get the hash if already computed.
+    pub fn get_hash(&self) -> Option<&str> {
+        self.hash.as_deref()
     }
 
     /// Get the MIME type.
@@ -573,6 +595,184 @@ impl MediaBag {
             .collect();
 
         serde_json::to_string(&items)
+    }
+
+    /// Find duplicate items based on content hash.
+    ///
+    /// Returns a map from hash to list of paths that have identical content.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::mediabag::MediaBag;
+    ///
+    /// let mut bag = MediaBag::new();
+    /// bag.insert("a.png", "image/png", vec![0x89, 0x50]);
+    /// bag.insert("b.png", "image/png", vec![0x89, 0x50]); // Same content
+    /// bag.insert("c.png", "image/png", vec![0x89, 0x51]); // Different content
+    ///
+    /// let duplicates = bag.find_duplicates();
+    /// assert_eq!(duplicates.len(), 1); // One group of duplicates
+    /// ```
+    pub fn find_duplicates(&mut self) -> HashMap<String, Vec<String>> {
+        use sha2::{Digest, Sha256};
+        let mut hash_to_paths: HashMap<String, Vec<String>> = HashMap::new();
+
+        for (path, item) in &self.items {
+            let mut hasher = Sha256::new();
+            hasher.update(item.contents());
+            let hash = format!("{:x}", hasher.finalize());
+            hash_to_paths.entry(hash).or_default().push(path.clone());
+        }
+
+        // Filter to only keep hashes with multiple paths
+        hash_to_paths
+            .into_iter()
+            .filter(|(_, paths)| paths.len() > 1)
+            .collect()
+    }
+
+    /// Deduplicate items by content hash.
+    ///
+    /// Keeps only the first occurrence of each unique content and returns
+    /// the removed items.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::mediabag::MediaBag;
+    ///
+    /// let mut bag = MediaBag::new();
+    /// bag.insert("a.png", "image/png", vec![0x89, 0x50]);
+    /// bag.insert("b.png", "image/png", vec![0x89, 0x50]); // Duplicate
+    /// bag.insert("c.png", "image/png", vec![0x89, 0x51]); // Unique
+    ///
+    /// let removed = bag.deduplicate();
+    /// assert_eq!(bag.len(), 2);
+    /// assert_eq!(removed.len(), 1);
+    /// ```
+    pub fn deduplicate(&mut self) -> Vec<MediaItem> {
+        use sha2::{Digest, Sha256};
+        let mut seen_hashes: HashMap<String, String> = HashMap::new(); // hash -> first path
+        let mut to_remove = Vec::new();
+
+        for (path, item) in &self.items {
+            let mut hasher = Sha256::new();
+            hasher.update(item.contents());
+            let hash = format!("{:x}", hasher.finalize());
+
+            if seen_hashes.get(&hash).is_some() {
+                // This is a duplicate
+                to_remove.push(path.clone());
+            } else {
+                seen_hashes.insert(hash, path.clone());
+            }
+        }
+
+        let mut removed = Vec::new();
+        for path in to_remove {
+            if let Some(item) = self.items.remove(&path) {
+                removed.push(item);
+            }
+        }
+        removed
+    }
+
+    /// Insert a media item with hash-based path generation for external URLs.
+    ///
+    /// When the path is an external URL or contains unsafe characters,
+    /// generates a new path based on the content hash.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The original path or URL
+    /// * `mime_type` - The MIME type of the content
+    /// * `contents` - The binary content
+    ///
+    /// # Returns
+    ///
+    /// The canonical path used to store the item (may be different from input).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::mediabag::MediaBag;
+    ///
+    /// let mut bag = MediaBag::new();
+    /// let contents = vec![0x89u8, 0x50, 0x4E, 0x47];
+    /// let stored_path = bag.insert_with_hash_path("https://example.com/image.png", "image/png", contents);
+    /// // stored_path will be a hash-based name like "abc123.png"
+    /// assert!(bag.contains(&stored_path));
+    /// ```
+    pub fn insert_with_hash_path<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        mime_type: impl Into<String>,
+        contents: impl Into<Vec<u8>>,
+    ) -> String {
+        use sha2::{Digest, Sha256};
+
+        let path_ref = path.as_ref();
+        let contents_vec: Vec<u8> = contents.into();
+        let mime: String = mime_type.into();
+
+        // Check if we need to use hash-based path
+        let needs_hash_path = path_ref.to_string_lossy().starts_with("http://")
+            || path_ref.to_string_lossy().starts_with("https://")
+            || path_ref.to_string_lossy().starts_with("data:")
+            || path_ref.to_string_lossy().contains("..")
+            || path_ref.to_string_lossy().contains('%');
+
+        let final_path = if needs_hash_path {
+            // Generate hash-based path
+            let mut hasher = Sha256::new();
+            hasher.update(&contents_vec);
+            let hash = format!("{:x}", hasher.finalize());
+            let short_hash = &hash[..16]; // Use first 16 chars of hash
+
+            // Get extension from MIME type or original path
+            let ext = extension_from_mime_type(&mime)
+                .or_else(|| path_ref.extension().and_then(|e| e.to_str()))
+                .unwrap_or("bin");
+
+            format!("{}.{}", short_hash, ext)
+        } else {
+            canonicalize_path(path_ref)
+        };
+
+        let item = MediaItem::new(&final_path, mime, contents_vec);
+        self.items.insert(final_path.clone(), item);
+        final_path
+    }
+
+    /// Get the canonical path for a given path.
+    ///
+    /// This is useful for normalizing paths before lookup.
+    pub fn canonicalize<P: AsRef<Path>>(&self, path: P) -> String {
+        canonicalize_path(path.as_ref())
+    }
+
+    /// Check if an item with the given content hash exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The SHA-256 hash to look for
+    ///
+    /// # Returns
+    ///
+    /// `Some(path)` if an item with this hash exists, `None` otherwise.
+    pub fn find_by_hash(&self, hash: &str) -> Option<&str> {
+        use sha2::{Digest, Sha256};
+
+        for (path, item) in &self.items {
+            let mut hasher = Sha256::new();
+            hasher.update(item.contents());
+            let item_hash = format!("{:x}", hasher.finalize());
+            if item_hash == hash {
+                return Some(path);
+            }
+        }
+        None
     }
 }
 

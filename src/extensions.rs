@@ -270,6 +270,58 @@ impl Extensions {
         )
     }
 
+    /// Get extensions for a specific format.
+    ///
+    /// Returns the default set of extensions for the given format.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use clmd::extensions::Extensions;
+    ///
+    /// let gfm = Extensions::for_format("gfm");
+    /// assert!(gfm.contains(Extensions::TABLES));
+    ///
+    /// let cm = Extensions::for_format("commonmark");
+    /// assert!(!cm.contains(Extensions::TABLES));
+    /// ```
+    pub fn for_format(format: &str) -> Self {
+        match format {
+            "gfm" | "markdown_github" => Self::gfm(),
+            "commonmark" | "cm" => Self::empty(),
+            "markdown" | "md" => Self::doc(),
+            _ => Self::empty(),
+        }
+    }
+
+    /// Get GFM extensions.
+    ///
+    /// This is the same as `GFM_EXTENSIONS`.
+    pub fn gfm() -> Self {
+        GFM_EXTENSIONS
+    }
+
+    /// Get documentation extensions.
+    ///
+    /// This is the same as `DOC_EXTENSIONS`.
+    pub fn doc() -> Self {
+        DOC_EXTENSIONS
+    }
+
+    /// Get all available extensions.
+    ///
+    /// This is the same as `ALL_EXTENSIONS`.
+    pub fn all_extensions() -> Self {
+        ALL_EXTENSIONS
+    }
+
+    /// Get no extensions.
+    ///
+    /// This is the same as `NO_EXTENSIONS`.
+    pub fn no_extensions() -> Self {
+        NO_EXTENSIONS
+    }
+
     /// Get the WikiLinks mode if either wikilinks option is enabled.
     ///
     /// # Example
@@ -303,8 +355,8 @@ impl Extensions {
     ///
     /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
     /// let names = ext.to_names();
-    /// assert!(names.contains("tables"));
-    /// assert!(names.contains("strikethrough"));
+    /// assert!(names.contains(&"tables"));
+    /// assert!(names.contains(&"strikethrough"));
     /// ```
     pub fn to_names(&self) -> Vec<&'static str> {
         let mut names = Vec::new();

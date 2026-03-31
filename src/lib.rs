@@ -381,6 +381,18 @@ pub mod asciify;
 /// warnings, and errors during document processing.
 pub mod logging;
 
+/// XML utilities for document serialization.
+///
+/// This module provides XML escaping, building, and parsing utilities,
+/// inspired by Pandoc's XML handling.
+pub mod xml;
+
+/// CSV parsing utilities for table data import.
+///
+/// This module provides CSV parsing capabilities for importing table data
+/// into Markdown documents, inspired by Pandoc's CSV support.
+pub mod csv;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================

@@ -10,7 +10,8 @@
 //! use clmd::emoji::{EmojiMapper, has_emoji_shortcode};
 //!
 //! // Convert shortcode to emoji
-//! let emoji = EmojiMapper::shortcode_to_emoji(":smile:");
+//! let mapper = EmojiMapper::new();
+//! let emoji = mapper.shortcode_to_emoji(":smile:");
 //! assert_eq!(emoji, Some("😄"));
 //!
 //! // Check if text contains emoji shortcodes

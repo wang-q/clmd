@@ -63,6 +63,8 @@ clmd 是一个用 Rust 实现的高性能 CommonMark 规范解析器，参考了
 11. **Unicode 处理**：支持 Unicode 显示宽度计算
 12. **短代码支持**：支持自定义短代码扩展
 13. **标签过滤**：支持过滤特定 HTML 标签
+14. **CSV 表格导入**：支持从 CSV/TSV 文件导入表格数据
+15. **XML 序列化**：支持 XML 格式导出和工具函数
 
 ## 项目结构
 
@@ -84,6 +86,8 @@ src/
 ├── strings.rs          # 字符串处理
 ├── unicode_width.rs    # Unicode 显示宽度计算
 ├── adapters.rs         # 适配器
+├── xml.rs              # XML 工具函数（转义、构建、解析）
+├── csv.rs              # CSV/TSV 解析和 Markdown 表格转换
 ├── blocks/             # 块级元素解析模块
 │   ├── mod.rs          # 模块导出和文档
 │   ├── parser.rs       # 块解析器核心实现
@@ -1258,3 +1262,416 @@ clmd 的 AST 方式适合：
 6. **spine 栈**: 高效树导航，避免递归
 7. **memchr 优化**: 使用 SIMD 加速字节查找
 8. **编译时断言**: 验证类型大小约束
+
+## Pandoc 参考分析
+
+Pandoc 是一个用 Haskell 编写的通用文档转换工具，版本 3.9.0.2。它支持 50+ 种输入格式和 40+ 种输出格式，其模块化架构和抽象设计对 clmd 具有重要参考价值。
+
+### 项目概况
+
+- **版本**: 3.9.0.2
+- **语言**: Haskell
+- **核心架构**: 统一的 Reader → AST → Writer 转换管道
+- **许可证**: GPL-2.0+
+
+### 源码结构
+
+```
+src/Text/Pandoc/
+├── App.hs              # 应用程序入口和命令行处理
+├── Class.hs            # PandocMonad 类型类定义
+├── Options.hs          # 配置选项定义
+├── Error.hs            # 错误类型和退出码
+├── Logging.hs          # 结构化日志系统
+├── MediaBag.hs         # 二进制资源管理
+├── MIME.hs             # MIME 类型处理
+├── CSV.hs              # CSV 解析器
+├── XML.hs              # XML 工具函数
+├── URI.hs              # URI 处理工具
+├── UTF8.hs             # UTF-8 编码工具
+├── UUID.hs             # UUID 生成
+├── Readers.hs          # Reader 注册表
+├── Writers.hs          # Writer 注册表
+├── Parsing.hs          # 解析器组合子工具
+├── Extensions.hs       # Markdown 扩展管理
+├── Filter.hs           # 过滤器系统
+├── Template.hs         # 模板系统
+├── Transforms.hs       # AST 转换
+├── Citeproc.hs         # 引用处理
+├── Highlighting.hs     # 语法高亮
+├── PDF.hs              # PDF 生成
+├── Data.hs             # 嵌入数据文件
+├── Emoji.hs            # Emoji 短代码
+├── CSS.hs              # CSS 解析
+├── Shared.hs           # 共享工具函数
+├── Asciify.hs          # ASCII 转换
+├── Slides.hs           # 幻灯片处理
+├── Chunks.hs           # 文档分块
+├── Image.hs            # 图像处理
+├── ImageSize.hs        # 图像尺寸计算
+├── RoffChar.hs         # Roff 字符映射
+├── TeX.hs              # TeX 辅助函数
+├── Translations.hs     # 翻译支持
+├── Sources.hs          # 源文件处理
+├── Process.hs          # 外部进程调用
+├── Scripting.hs        # 脚本支持
+├── SelfContained.hs    # 自包含文档生成
+├── Format.hs           # 格式检测
+├── XMLFormat.hs        # XML 格式支持
+├── App/                # 应用程序子模块
+├── Class/              # PandocMonad 实现
+├── Citeproc/           # 引用处理子模块
+├── Data/               # 数据文件处理
+├── Filter/             # 过滤器实现
+├── Parsing/            # 解析工具子模块
+├── Readers/            # 各格式 Reader 实现
+├── Translations/       # 翻译文件
+└── Writers/            # 各格式 Writer 实现
+```
+
+### 核心设计亮点
+
+#### 1. Monad 抽象架构
+
+Pandoc 使用 `PandocMonad` 类型类抽象 IO 操作：
+
+```haskell
+class (Monad m, MonadIO m, Applicative m) => PandocMonad m where
+    lookupEnv :: Text -> m (Maybe Text)
+    getCurrentTime :: m UTCTime
+    getCurrentTimeZone :: m TimeZone
+    newStdGen :: m StdGen
+    newUniqueHash :: m Int
+    openURL :: Text -> m (Either E.SomeException (B.ByteString, Maybe MimeType))
+    readFileLazy :: FilePath -> m (Either E.SomeException BL.ByteString)
+    readFileStrict :: FilePath -> m (Either E.SomeException B.ByteString)
+    writeFileLazy :: FilePath -> BL.ByteString -> m ()
+    getModificationTime :: FilePath -> m (Either E.SomeException UTCTime)
+    getDirectory :: FilePath -> m (Either E.SomeException [FilePath])
+    doesFileExist :: FilePath -> m Bool
+    doesDirectoryExist :: FilePath -> m Bool
+    getCommonState :: m CommonState
+    putCommonState :: CommonState -> m ()
+    logOutput :: LogMessage -> m ()
+```
+
+**借鉴点**:
+- 统一的 IO 抽象支持纯函数测试
+- 状态管理（`CommonState`）集中化
+- 结构化日志系统
+
+clmd 已实现类似的抽象：
+- `context` 模块提供 IO 抽象
+- `logging` 模块提供结构化日志
+
+#### 2. Reader/Writer 架构
+
+统一的文档转换管道：
+
+```haskell
+-- Reader: 输入格式 → Pandoc AST
+readMarkdown :: PandocMonad m => ReaderOptions -> Text -> m Pandoc
+readHTML :: PandocMonad m => ReaderOptions -> Text -> m Pandoc
+readLaTeX :: PandocMonad m => ReaderOptions -> Text -> m Pandoc
+
+-- Writer: Pandoc AST → 输出格式
+writeMarkdown :: PandocMonad m => WriterOptions -> Pandoc -> m Text
+writeHTML :: PandocMonad m => WriterOptions -> Pandoc -> m Text
+writeLaTeX :: PandocMonad m => WriterOptions -> Pandoc -> m Text
+```
+
+**借鉴点**:
+- 统一的 AST 中间表示
+- 格式无关的转换管道
+- 可组合的 Reader/Writer
+
+clmd 已实现：
+- `readers` 模块提供统一 Reader 接口
+- `writers` 模块提供统一 Writer 接口
+- `pipeline` 模块提供转换管道
+
+#### 3. MediaBag 资源管理
+
+统一的二进制资源管理：
+
+```haskell
+data MediaItem = MediaItem
+    { mediaMimeType :: MimeType
+    , mediaPath :: FilePath
+    , mediaContents :: BL.ByteString
+    }
+
+newtype MediaBag = MediaBag (M.Map Text MediaItem)
+
+insertMedia :: FilePath -> Maybe MimeType -> BL.ByteString -> MediaBag -> MediaBag
+lookupMedia :: FilePath -> MediaBag -> Maybe MediaItem
+mediaDirectory :: MediaBag -> [(FilePath, MimeType, Int)]
+```
+
+**特点**:
+- 基于哈希的内容去重
+- 自动 MIME 类型检测
+- 安全的文件路径处理
+
+clmd 已实现：
+- `mediabag` 模块提供类似功能
+- SHA-256 哈希去重
+- Data URI 支持
+
+#### 4. 扩展系统
+
+使用位标志管理 Markdown 扩展：
+
+```haskell
+data Extension =
+      ExtTable
+    | ExtStrikethrough
+    | ExtTaskLists
+    | ExtFootnotes
+    | ExtDefinitionLists
+    | ExtEmoji
+    -- ... 更多扩展
+
+parseExtensions :: Text -> Extensions
+```
+
+**借鉴点**:
+- 细粒度的扩展控制
+- 扩展组合和检测
+- 格式特定的默认扩展
+
+clmd 已实现：
+- `extensions` 模块使用 bitflags
+- 类似 Pandoc 的扩展管理
+
+#### 5. 过滤器系统
+
+支持多种过滤器类型：
+
+```haskell
+data Filter =
+      LuaFilter FilePath
+    | JSONFilter FilePath
+    | PythonFilter FilePath
+
+applyFilters :: PandocMonad m
+             => [Filter]
+             -> [Text]
+             -> MediaBag
+             -> Pandoc
+             -> m (Pandoc, MediaBag)
+```
+
+**特点**:
+- 支持 Lua/JSON/Python 过滤器
+- AST 转换管道
+- 保持 MediaBag 同步
+
+clmd 已实现：
+- `filter` 模块提供过滤器 trait
+- `transforms` 模块提供 AST 转换
+
+#### 6. 模板系统
+
+灵活的模板引擎：
+
+```haskell
+data Template = Template
+    { templatePath :: Maybe FilePath
+    , templateContent :: Text
+    }
+
+applyTemplate :: Template -> Context -> Text -> Either Text Text
+```
+
+**特点**:
+- 变量替换
+- 条件渲染
+- 部分模板
+
+clmd 已实现：
+- `template` 模块提供类似功能
+- 简单变量替换语法
+
+#### 7. 错误处理
+
+统一的错误类型和退出码：
+
+```haskell
+data PandocError =
+      PandocIOError Text IOError
+    | PandocParseError Text
+    | PandocParsecError Text ParseError
+    | PandocResourceNotFound Text
+    | PandocTemplateError Text
+    | PandocOptionError Text
+    | PandocSyntaxMapError Text
+    | PandocValidationError Text
+    | PandocPDFError Text
+    | PandocFilterError Text Text
+    | PandocLuaError Text
+    | PandocCouldNotFindDataFileError Text
+    | PandocUTF8DecodingError FilePath
+    | PandocIpynbDecodingError Text
+    | PandocUnknownReaderError Text
+    | PandocUnknownWriterError Text
+    | PandocBibliographyError Text
+    | PandocCiteprocError Text
+
+-- 退出码
+exitSuccess :: Int
+exitFailure :: Int
+```
+
+**借鉴点**:
+- 详细的错误分类
+- 标准化的退出码
+- 用户友好的错误信息
+
+clmd 已实现：
+- `error` 模块提供类似错误类型
+- Pandoc 兼容的退出码
+
+#### 8. CSV 解析
+
+简单的 CSV 解析器：
+
+```haskell
+data CSVOptions = CSVOptions
+    { csvDelim :: Char
+    , csvQuote :: Maybe Char
+    , csvKeepSpace :: Bool
+    , csvEscape :: Maybe Char
+    }
+
+parseCSV :: CSVOptions -> Text -> Either ParseError [[Text]]
+```
+
+**特点**:
+- 可配置的解析选项
+- 引号字段支持
+- 转义字符处理
+
+clmd 已实现：
+- `csv` 模块提供类似功能
+- `CsvOptions` 配置结构体
+- Markdown 表格转换
+
+#### 9. XML 工具
+
+XML 转义和构建工具：
+
+```haskell
+escapeXML :: Text -> Text
+escapeXMLAttr :: Text -> Text
+inTags :: Text -> [(Text, Text)] -> Text -> Text
+inTagsIndented :: Int -> Text -> [(Text, Text)] -> Text -> Text
+```
+
+**特点**:
+- 实体转义
+- 属性值转义
+- 缩进格式化
+
+clmd 已实现：
+- `xml` 模块提供类似功能
+- `XmlBuilder` 用于程序化构建
+- `XmlElement` 树结构
+
+### 对 clmd 的启示
+
+#### 1. 模块化设计
+
+Pandoc 的模块划分清晰，每个模块职责单一：
+- `App`: 应用程序逻辑
+- `Class`: 抽象类型类
+- `Options`: 配置管理
+- `Error`: 错误处理
+- `Logging`: 日志系统
+- `MediaBag`: 资源管理
+- `Readers/Writers`: 格式转换
+
+clmd 已采用类似结构：
+- `context`: IO 抽象
+- `options`: 配置管理
+- `error`: 错误处理
+- `logging`: 日志系统
+- `mediabag`: 资源管理
+- `readers/writers`: 格式转换
+
+#### 2. 统一的 AST
+
+Pandoc 使用统一的 `Pandoc` AST 作为中间表示：
+- 格式无关的文档结构
+- 支持元数据
+- 可扩展的块和内联元素
+
+clmd 已实现：
+- `nodes` 模块定义统一 AST
+- `NodeValue` 枚举包含所有节点类型
+- 支持元数据和属性
+
+#### 3. 配置系统
+
+Pandoc 使用 `ReaderOptions` 和 `WriterOptions`：
+- 分离读取和写入选项
+- 支持扩展配置
+- 格式特定的选项
+
+clmd 已实现：
+- `parser::options` 提供解析选项
+- `render` 提供渲染选项
+- `extensions` 管理扩展配置
+
+#### 4. 可测试性
+
+Pandoc 的 Monad 抽象使测试更容易：
+- 纯函数测试
+- Mock IO 操作
+- 状态隔离
+
+clmd 已实现：
+- `context` 模块支持 Mock 上下文
+- 单元测试覆盖核心功能
+
+### 核心算法参考
+
+| 功能 | Pandoc (Haskell) | clmd (Rust) |
+|------|------------------|-------------|
+| 文档解析 | Reader 体系 | `readers` 模块 |
+| 文档渲染 | Writer 体系 | `writers` 模块 |
+| AST 转换 | Transform 函数 | `transforms` 模块 |
+| 资源管理 | MediaBag | `mediabag` 模块 |
+| 模板处理 | Template | `template` 模块 |
+| 过滤器 | Filter 类型 | `filter` 模块 |
+| CSV 解析 | CSVOptions | `csv` 模块 |
+| XML 处理 | XML 函数 | `xml` 模块 |
+
+### 已实现的功能
+
+基于 Pandoc 架构分析，clmd 已实现以下功能：
+
+1. **IO 抽象** (`context`): 类似 PandocMonad 的统一 IO 抽象
+2. **资源管理** (`mediabag`): 类似 MediaBag 的二进制资源管理
+3. **Reader/Writer** (`readers`/`writers`): 统一的格式转换接口
+4. **扩展系统** (`extensions`): 类似 Pandoc 的扩展管理
+5. **过滤器** (`filter`): AST 转换过滤器
+6. **模板** (`template`): 变量替换模板系统
+7. **错误处理** (`error`): 详细的错误类型和退出码
+8. **日志系统** (`logging`): 结构化日志
+9. **CSV 解析** (`csv`): CSV/TSV 解析和表格转换
+10. **XML 工具** (`xml`): XML 转义和构建工具
+11. **MIME 处理** (`mime`): MIME 类型检测
+12. **URI 处理** (`uri`): URI 解析和操作
+
+### 待实现的功能
+
+参考 Pandoc，clmd 可以考虑实现：
+
+1. **更多格式支持**: DOCX、ODT、EPUB 等
+2. **引用处理**: 类似 Citeproc 的引用系统
+3. **幻灯片支持**: 类似 Slides 的幻灯片生成
+4. **Lua 过滤器**: 支持 Lua 脚本过滤器
+5. **数学公式**: LaTeX 数学公式支持
+6. **文档分块**: 类似 Chunks 的文档分块处理
+7. **翻译支持**: 类似 Translations 的多语言支持

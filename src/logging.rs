@@ -9,9 +9,9 @@
 //! ```
 //! use clmd::logging::{Logger, LogLevel, LogEntry};
 //!
-//! let mut logger = Logger::new();
-//! logger.log(LogLevel::Info, "Processing document", None);
-//! logger.warn("Deprecated feature used", Some("parser"));
+//! let logger = Logger::new();
+//! logger.log(LogLevel::Info, "Processing document");
+//! logger.warn("Deprecated feature used");
 //!
 //! for entry in logger.entries() {
 //!     println!("[{}] {}", entry.level, entry.message);

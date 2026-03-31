@@ -495,6 +495,186 @@ pub fn is_ascii(s: &str) -> bool {
     s.bytes().all(|b| b.is_ascii())
 }
 
+/// Split a string by a separator predicate.
+///
+/// Similar to `split_by` in Pandoc's Shared module.
+/// Groups consecutive separators together and filters out empty strings.
+///
+/// # Example
+///
+/// ```
+/// use clmd::strings::split_by;
+///
+/// let result: Vec<&str> = split_by("a,b,,c", |c| c == ',');
+/// assert_eq!(result, vec!["a", "b", "c"]);
+/// ```
+pub fn split_by(s: &str, is_sep: impl Fn(char) -> bool) -> Vec<&str> {
+    s.split(is_sep).filter(|s| !s.is_empty()).collect()
+}
+
+/// Trim leading and trailing whitespace (including newlines).
+///
+/// Similar to Pandoc's `trim` function.
+pub fn trim(s: &str) -> &str {
+    s.trim_start_matches(is_ascii_whitespace)
+        .trim_end_matches(is_ascii_whitespace)
+}
+
+/// Check if a character is ASCII whitespace (space, tab, CR, LF).
+fn is_ascii_whitespace(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\r' | '\n')
+}
+
+/// Trim leading whitespace.
+pub fn trim_left(s: &str) -> &str {
+    s.trim_start_matches(is_ascii_whitespace)
+}
+
+/// Trim trailing whitespace.
+pub fn trim_right(s: &str) -> &str {
+    s.trim_end_matches(is_ascii_whitespace)
+}
+
+/// Strip trailing newlines from a string.
+///
+/// Similar to Pandoc's `stripTrailingNewlines`.
+pub fn strip_trailing_newlines(s: &str) -> &str {
+    s.trim_end_matches('\n')
+}
+
+/// Convert CamelCase to hyphenated lowercase (e.g., "CamelCase" -> "camel-case").
+///
+/// Similar to Pandoc's `camelCaseToHyphenated`.
+pub fn camel_case_to_hyphenated(s: &str) -> String {
+    let mut result = String::with_capacity(s.len() * 2);
+    let mut prev_was_upper = false;
+
+    for (i, c) in s.chars().enumerate() {
+        if c.is_uppercase() {
+            // Add hyphen before uppercase letter if:
+            // 1. Not the first character
+            // 2. Previous character was lowercase, OR
+            // 3. Next character is lowercase (handles "ABCDef" -> "abc-def")
+            if i > 0 && !prev_was_upper {
+                result.push('-');
+            } else if i > 0 {
+                // Check if next character is lowercase
+                let next_is_lower = s.chars().nth(i + 1).map(|n| n.is_lowercase()).unwrap_or(false);
+                if next_is_lower {
+                    result.push('-');
+                }
+            }
+            result.push(c.to_lowercase().next().unwrap_or(c));
+            prev_was_upper = true;
+        } else {
+            result.push(c);
+            prev_was_upper = false;
+        }
+    }
+
+    result
+}
+
+/// Convert a number to a Roman numeral (for values < 4000).
+///
+/// Similar to Pandoc's `toRomanNumeral`.
+pub fn to_roman_numeral(n: u32) -> Option<String> {
+    if n == 0 || n >= 4000 {
+        return None;
+    }
+
+    let values = [
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ];
+
+    let mut result = String::new();
+    let mut n = n;
+
+    for (value, symbol) in values.iter() {
+        while n >= *value {
+            result.push_str(symbol);
+            n -= value;
+        }
+    }
+
+    Some(result)
+}
+
+/// Convert tabs to spaces.
+///
+/// Similar to Pandoc's `tabFilter`.
+/// If tab_stop is 0, tabs are preserved.
+pub fn tab_filter(s: &str, tab_stop: usize) -> String {
+    if tab_stop == 0 {
+        return s.to_string();
+    }
+
+    let mut result = String::with_capacity(s.len());
+
+    for line in s.lines() {
+        let mut col = 0;
+        for c in line.chars() {
+            if c == '\t' {
+                let spaces = tab_stop - (col % tab_stop);
+                result.extend(std::iter::repeat(' ').take(spaces));
+                col += spaces;
+            } else {
+                result.push(c);
+                col += 1;
+            }
+        }
+        result.push('\n');
+    }
+
+    // Remove trailing newline if input didn't end with one
+    if !s.ends_with('\n') && !s.is_empty() {
+        result.pop();
+    }
+
+    result
+}
+
+/// Wrap text in double quotes.
+pub fn in_quotes(s: &str) -> String {
+    format!("\"{}\"", s)
+}
+
+/// Check if a string is a valid email address (basic check).
+pub fn is_email(s: &str) -> bool {
+    // Basic email validation: local@domain
+    let parts: Vec<&str> = s.split('@').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+
+    let local = parts[0];
+    let domain = parts[1];
+
+    // Local part must not be empty and domain must contain a dot
+    !local.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
+}
+
+/// Capitalize the first letter of a string.
+pub fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -575,5 +755,68 @@ mod tests {
         assert!(looks_like_url("ftp://example.com"));
         assert!(!looks_like_url("example.com"));
         assert!(!looks_like_url("/path/to/file"));
+    }
+
+    #[test]
+    fn test_trim() {
+        assert_eq!(trim("  hello  "), "hello");
+        assert_eq!(trim("\t\nhello\r\n"), "hello");
+        assert_eq!(trim("hello"), "hello");
+    }
+
+    #[test]
+    fn test_strip_trailing_newlines() {
+        assert_eq!(strip_trailing_newlines("hello\n\n"), "hello");
+        assert_eq!(strip_trailing_newlines("hello\n"), "hello");
+        assert_eq!(strip_trailing_newlines("hello"), "hello");
+    }
+
+    #[test]
+    fn test_camel_case_to_hyphenated() {
+        assert_eq!(camel_case_to_hyphenated("CamelCase"), "camel-case");
+        assert_eq!(camel_case_to_hyphenated("ABCDef"), "abc-def");
+        assert_eq!(camel_case_to_hyphenated("simple"), "simple");
+        assert_eq!(camel_case_to_hyphenated("HTTPServer"), "http-server");
+    }
+
+    #[test]
+    fn test_to_roman_numeral() {
+        assert_eq!(to_roman_numeral(1), Some("I".to_string()));
+        assert_eq!(to_roman_numeral(4), Some("IV".to_string()));
+        assert_eq!(to_roman_numeral(9), Some("IX".to_string()));
+        assert_eq!(to_roman_numeral(49), Some("XLIX".to_string()));
+        assert_eq!(to_roman_numeral(1994), Some("MCMXCIV".to_string()));
+        assert_eq!(to_roman_numeral(0), None);
+        assert_eq!(to_roman_numeral(4000), None);
+    }
+
+    #[test]
+    fn test_tab_filter() {
+        assert_eq!(tab_filter("hello\tworld", 4), "hello   world");
+        assert_eq!(tab_filter("a\tb", 8), "a       b");
+        assert_eq!(tab_filter("no tabs", 4), "no tabs");
+        assert_eq!(tab_filter("tab\there", 0), "tab\there"); // Preserved when tab_stop is 0
+    }
+
+    #[test]
+    fn test_in_quotes() {
+        assert_eq!(in_quotes("hello"), "\"hello\"");
+    }
+
+    #[test]
+    fn test_is_email() {
+        assert!(is_email("test@example.com"));
+        assert!(is_email("user.name@domain.org"));
+        assert!(!is_email("invalid"));
+        assert!(!is_email("@example.com"));
+        assert!(!is_email("test@"));
+    }
+
+    #[test]
+    fn test_capitalize() {
+        assert_eq!(capitalize("hello"), "Hello");
+        assert_eq!(capitalize("HELLO"), "Hello");
+        assert_eq!(capitalize("h"), "H");
+        assert_eq!(capitalize(""), "");
     }
 }
