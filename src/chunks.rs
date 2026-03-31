@@ -15,7 +15,6 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::NodeValue;
-use std::collections::HashMap;
 
 /// Configuration for document chunking.
 #[derive(Debug, Clone)]
@@ -290,13 +289,17 @@ impl ChunkedDocument {
     pub fn nav_links_for(&self, chunk: &Chunk) -> NavLinks {
         NavLinks {
             prev: chunk.prev_id.as_ref().and_then(|id| {
-                self.get_by_id(id).map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Previous")))
+                self.get_by_id(id).map(|c| {
+                    Link::new(&c.url(), c.title.as_deref().unwrap_or("Previous"))
+                })
             }),
             next: chunk.next_id.as_ref().and_then(|id| {
-                self.get_by_id(id).map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Next")))
+                self.get_by_id(id)
+                    .map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Next")))
             }),
             up: chunk.parent_id.as_ref().and_then(|id| {
-                self.get_by_id(id).map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Up")))
+                self.get_by_id(id)
+                    .map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Up")))
             }),
             toc: if self.config.generate_toc {
                 Some(Link::new("index.html", "Table of Contents"))
@@ -329,14 +332,13 @@ impl Chunker {
         let mut doc = ChunkedDocument::new(self.config.clone());
         let mut current_chunk: Option<Chunk> = None;
         let mut chunk_index = 0;
-        let mut section_count = 0;
-        
+
         let root_node = arena.get(root);
         let mut child_opt = root_node.first_child;
-        
+
         while let Some(child_id) = child_opt {
             let node = arena.get(child_id);
-            
+
             // Check if this node starts a new chunk
             let is_chunk_boundary = if let NodeValue::Heading(heading) = &node.value {
                 match heading.level {
@@ -347,11 +349,15 @@ impl Chunker {
             } else {
                 false
             };
-            
+
             if is_chunk_boundary {
                 let title = get_heading_text(arena, child_id);
-                let heading_level = if let NodeValue::Heading(h) = &node.value { h.level } else { 1 };
-                
+                let heading_level = if let NodeValue::Heading(h) = &node.value {
+                    h.level
+                } else {
+                    1
+                };
+
                 // Save current chunk if it has content
                 if let Some(chunk) = current_chunk.take() {
                     if !chunk.is_empty() {
@@ -359,53 +365,52 @@ impl Chunker {
                         chunk_index += 1;
                     }
                 }
-                
+
                 // Start new chunk
                 let id = format!("{}-{:03}", self.config.base_name, chunk_index);
-                let file_name = format!("{}-{:03}.{}", self.config.base_name, chunk_index, self.config.extension);
-                
+                let file_name = format!(
+                    "{}-{:03}.{}",
+                    self.config.base_name, chunk_index, self.config.extension
+                );
+
                 current_chunk = Some(
                     Chunk::new(&id, chunk_index)
                         .with_file_name(&file_name)
                         .with_title(&title)
-                        .with_level(heading_level)
+                        .with_level(heading_level),
                 );
-                
-                section_count = 1;
-            } else {
-                section_count += 1;
             }
-            
+
             // Add node to current chunk
             if let Some(ref mut chunk) = current_chunk {
                 chunk.add_node(child_id);
             }
-            
+
             child_opt = node.next;
         }
-        
+
         // Don't forget the last chunk
         if let Some(chunk) = current_chunk {
             if !chunk.is_empty() {
                 doc.chunks.push(chunk);
             }
         }
-        
+
         // Set up navigation links
         self.setup_navigation(&mut doc);
-        
+
         // Generate TOC
         if self.config.generate_toc {
             doc.root_toc = self.generate_toc(arena, root);
         }
-        
+
         doc
     }
 
     /// Set up navigation links between chunks.
     fn setup_navigation(&self, doc: &mut ChunkedDocument) {
         let n = doc.chunks.len();
-        
+
         // First pass: set prev/next links
         for i in 0..n {
             if i > 0 {
@@ -415,7 +420,7 @@ impl Chunker {
                 doc.chunks[i].next_id = Some(doc.chunks[i + 1].id.clone());
             }
         }
-        
+
         // Second pass: set parent/child links
         for i in 0..n {
             let chunk_level = doc.chunks[i].level;
@@ -437,18 +442,18 @@ impl Chunker {
     fn generate_toc(&self, arena: &NodeArena, root: NodeId) -> Vec<TocEntry> {
         let mut toc = Vec::new();
         let mut stack: Vec<&mut TocEntry> = Vec::new();
-        
+
         let root_node = arena.get(root);
         let mut child_opt = root_node.first_child;
-        
+
         while let Some(child_id) = child_opt {
             let node = arena.get(child_id);
-            
+
             if let NodeValue::Heading(heading) = &node.value {
                 let title = get_heading_text(arena, child_id);
                 let anchor = make_anchor(&title);
                 let entry = TocEntry::new(&title, &anchor, heading.level);
-                
+
                 // Pop stack to find correct parent
                 while let Some(parent) = stack.last() {
                     if parent.level < heading.level {
@@ -456,21 +461,21 @@ impl Chunker {
                     }
                     stack.pop();
                 }
-                
+
                 if let Some(parent) = stack.last_mut() {
                     parent.add_child(entry);
                 } else {
                     toc.push(entry);
                 }
-                
+
                 // Note: This won't work perfectly because we can't get a mutable reference
                 // to the entry we just pushed. For a real implementation, we'd need to
                 // use indices or Rc<RefCell<>>.
             }
-            
+
             child_opt = node.next;
         }
-        
+
         toc
     }
 }
@@ -491,11 +496,11 @@ fn get_heading_text(arena: &NodeArena, heading_id: NodeId) -> String {
 /// Recursively collect text from a node and its children.
 fn collect_text_recursive(arena: &NodeArena, node_id: NodeId, result: &mut String) {
     let node = arena.get(node_id);
-    
+
     if let NodeValue::Text(text) = &node.value {
         result.push_str(text);
     }
-    
+
     let mut child_opt = node.first_child;
     while let Some(child_id) = child_opt {
         collect_text_recursive(arena, child_id, result);
@@ -533,7 +538,7 @@ mod tests {
             .extension("xhtml")
             .nav_links(true)
             .generate_toc(false);
-        
+
         assert_eq!(config.max_sections_per_chunk, 5);
         assert!(config.split_on_h1);
         assert!(config.split_on_h2);
@@ -549,14 +554,14 @@ mod tests {
             .with_file_name("chunk-001.html")
             .with_title("Test Chunk")
             .with_level(1);
-        
+
         assert_eq!(chunk.id, "chunk-001");
         assert_eq!(chunk.file_name, "chunk-001.html");
         assert_eq!(chunk.title, Some("Test Chunk".to_string()));
         assert_eq!(chunk.level, 1);
         // Chunk has title but no nodes, so it's not empty
         assert!(!chunk.is_empty());
-        
+
         // Test truly empty chunk
         let empty_chunk = Chunk::new("empty", 0);
         assert!(empty_chunk.is_empty());
@@ -567,7 +572,7 @@ mod tests {
         let mut entry = TocEntry::new("Title", "anchor", 1);
         let child = TocEntry::new("Child", "child-anchor", 2);
         entry.add_child(child);
-        
+
         assert_eq!(entry.title, "Title");
         assert_eq!(entry.anchor, "anchor");
         assert_eq!(entry.level, 1);
@@ -586,9 +591,9 @@ mod tests {
         let md = "# Section 1\n\nContent 1\n\n# Section 2\n\nContent 2";
         let options = Options::default();
         let (arena, root) = parse_document(md, &options);
-        
+
         let doc = chunk_document(&arena, root);
-        
+
         // Should create 2 chunks (one for each H1)
         assert_eq!(doc.len(), 2);
         assert_eq!(doc.get(0).unwrap().title, Some("Section 1".to_string()));
@@ -600,21 +605,21 @@ mod tests {
         let md = "# First\n\n# Second\n\n# Third";
         let options = Options::default();
         let (arena, root) = parse_document(md, &options);
-        
+
         let doc = chunk_document(&arena, root);
-        
+
         let first = doc.get(0).unwrap();
         let second = doc.get(1).unwrap();
         let third = doc.get(2).unwrap();
-        
+
         // First has no prev, has next
         assert!(first.prev_id.is_none());
         assert_eq!(first.next_id, Some(second.id.clone()));
-        
+
         // Second has prev and next
         assert_eq!(second.prev_id, Some(first.id.clone()));
         assert_eq!(second.next_id, Some(third.id.clone()));
-        
+
         // Third has prev, no next
         assert_eq!(third.prev_id, Some(second.id.clone()));
         assert!(third.next_id.is_none());
@@ -625,11 +630,11 @@ mod tests {
         let md = "# First\n\n# Second";
         let options = Options::default();
         let (arena, root) = parse_document(md, &options);
-        
+
         let doc = chunk_document(&arena, root);
         let chunk = doc.get(0).unwrap();
         let nav = doc.nav_links_for(chunk);
-        
+
         assert!(nav.prev.is_none());
         assert!(nav.next.is_some());
         assert!(nav.toc.is_some());
@@ -651,15 +656,13 @@ mod tests {
 
     #[test]
     fn test_chunker_with_config() {
-        let config = ChunkConfig::new()
-            .split_on_h1(true)
-            .max_sections(1);
-        
+        let config = ChunkConfig::new().split_on_h1(true).max_sections(1);
+
         let chunker = Chunker::new(config);
         let md = "# A\n\n# B\n\n# C";
         let options = Options::default();
         let (arena, root) = parse_document(md, &options);
-        
+
         let doc = chunker.chunk(&arena, root);
         assert_eq!(doc.len(), 3);
     }

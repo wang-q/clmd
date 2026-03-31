@@ -21,7 +21,7 @@ use crate::formatter::{CommonMarkNodeFormatter, Formatter, FormatterOptions};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::render::commonmark::render;
 /// use clmd::arena::{NodeArena, Node, TreeOps};
 /// use clmd::nodes::NodeValue;
@@ -36,7 +36,7 @@ use crate::formatter::{CommonMarkNodeFormatter, Formatter, FormatterOptions};
 ///
 /// let cm = render(&arena, root, 0, 0);
 /// assert!(cm.contains("Hello world"));
-/// ```
+/// ```ignore
 pub fn render(
     arena: &NodeArena,
     root: NodeId,

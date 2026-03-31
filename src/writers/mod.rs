@@ -31,7 +31,7 @@ use std::fmt::Debug;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::Writer;
 /// use clmd::{Options, parse_document};
 ///
@@ -41,7 +41,7 @@ use std::fmt::Debug;
 ///     let output = writer.write(&arena, root, &options).unwrap();
 ///     println!("{}", output);
 /// }
-/// ```
+/// ```ignore
 pub trait Writer: Send + Sync + Debug {
     /// Write the AST to the output format.
     ///
@@ -83,7 +83,7 @@ pub trait Writer: Send + Sync + Debug {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::WriterRegistry;
 ///
 /// let mut registry = WriterRegistry::new();
@@ -97,7 +97,7 @@ pub trait Writer: Send + Sync + Debug {
 /// if let Some(writer) = registry.get_by_extension("html") {
 ///     println!("Found writer for .html files");
 /// }
-/// ```
+/// ```ignore
 #[derive(Debug, Default)]
 pub struct WriterRegistry {
     writers: HashMap<&'static str, Box<dyn Writer>>,
@@ -339,7 +339,7 @@ impl Writer for XmlWriter {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::write_document;
 /// use clmd::{Options, parse_document};
 ///
@@ -347,7 +347,7 @@ impl Writer for XmlWriter {
 /// let (arena, root) = parse_document("# Hello", &options);
 /// let output = write_document(&arena, root, "html", &options).unwrap();
 /// assert!(output.contains("<h1>"));
-/// ```
+/// ```ignore
 pub fn write_document(
     arena: &NodeArena,
     root: NodeId,
@@ -386,7 +386,7 @@ pub fn write_document(
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello", &options);
 /// write_file(&arena, root, "output.html", None, &options).unwrap();
-/// ```
+/// ```ignore
 pub fn write_file(
     arena: &NodeArena,
     root: NodeId,

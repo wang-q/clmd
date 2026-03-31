@@ -1732,6 +1732,11 @@ clmd 已实现：
 - 带源位置的数据包装（Spanned）
 - 错误报告精确定位
 
+#### 6. Transforms 模块增强
+- 新增 `EastAsianLineBreaks` 转换类型
+- 实现东亚语言软换行过滤（CJK 字符间软换行移除）
+- 改进东亚语言排版支持
+
 #### 5. 实用工具模块
 - 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
 

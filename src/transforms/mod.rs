@@ -96,6 +96,10 @@ pub enum Transform {
     /// Add IDs to headers.
     AutoIdent,
 
+    /// Remove soft breaks between CJK characters.
+    /// This improves typography for East Asian languages.
+    EastAsianLineBreaks,
+
     /// Custom transform function.
     Custom {
         /// Name of the transform.
@@ -157,6 +161,7 @@ impl Transform {
             Self::CapitalizeHeaders => "capitalize-headers".to_string(),
             Self::AbsToRel { base_url } => format!("abs-to-rel({})", base_url),
             Self::AutoIdent => "auto-ident".to_string(),
+            Self::EastAsianLineBreaks => "east-asian-line-breaks".to_string(),
             Self::Custom { name, .. } => format!("custom({})", name),
         }
     }
@@ -181,6 +186,12 @@ impl Transform {
     /// Create an auto-ident transform.
     pub fn auto_ident() -> Self {
         Self::AutoIdent
+    }
+
+    /// Create an East Asian line breaks transform.
+    /// Removes soft breaks between CJK characters for better typography.
+    pub fn east_asian_line_breaks() -> Self {
+        Self::EastAsianLineBreaks
     }
 
     /// Apply this transform to a document.
@@ -215,6 +226,9 @@ impl Transform {
                 transforms::apply_abs_to_rel(arena, root, base_url)
             }
             Self::AutoIdent => transforms::apply_auto_ident(arena, root),
+            Self::EastAsianLineBreaks => {
+                transforms::apply_east_asian_line_breaks(arena, root)
+            }
             Self::Custom { apply, .. } => apply(arena, root),
             _ => Ok(()), // Other transforms not yet implemented
         }
@@ -584,7 +598,10 @@ pub mod transforms {
     }
 
     /// Apply strip footnotes transform.
-    pub fn apply_strip_footnotes(arena: &mut NodeArena, root: NodeId) -> ClmdResult<()> {
+    pub fn apply_strip_footnotes(
+        arena: &mut NodeArena,
+        _root: NodeId,
+    ) -> ClmdResult<()> {
         use crate::arena::TreeOps;
 
         // Collect footnote nodes to remove
@@ -675,8 +692,6 @@ pub mod transforms {
 
     /// Apply auto-ident transform (add IDs to headers).
     pub fn apply_auto_ident(arena: &mut NodeArena, root: NodeId) -> ClmdResult<()> {
-        use crate::arena::TreeOps;
-
         // Collect headers and their text content
         let mut headers: Vec<(NodeId, String)> = Vec::new();
         collect_headers_for_ident(arena, root, &mut headers);
@@ -741,6 +756,110 @@ pub mod transforms {
             .replace(|c: char| !c.is_alphanumeric() && c != '-', "")
             .trim_matches('-')
             .to_string()
+    }
+
+    /// Apply East Asian line break filter.
+    /// Removes soft breaks between CJK characters for better typography.
+    pub fn apply_east_asian_line_breaks(
+        arena: &mut NodeArena,
+        root: NodeId,
+    ) -> ClmdResult<()> {
+        // Collect all soft breaks that should be removed
+        let mut to_remove: Vec<NodeId> = Vec::new();
+        collect_soft_breaks_between_cjk(arena, root, &mut to_remove);
+
+        // Remove the collected soft breaks by unlinking them from the tree
+        for node_id in to_remove {
+            unlink_node(arena, node_id);
+        }
+
+        Ok(())
+    }
+
+    fn collect_soft_breaks_between_cjk(
+        arena: &NodeArena,
+        node_id: NodeId,
+        to_remove: &mut Vec<NodeId>,
+    ) {
+        use crate::char::{is_cjk, is_cjk_punctuation};
+
+        let node = arena.get(node_id);
+
+        // Check if this is a soft break
+        if let NodeValue::SoftBreak = &node.value {
+            // Check if the previous sibling ends with CJK
+            let prev_cjk = node.prev.and_then(|prev_id| {
+                let prev_node = arena.get(prev_id);
+                if let NodeValue::Text(text) = &prev_node.value {
+                    text.chars()
+                        .last()
+                        .map(|c| is_cjk(c) || is_cjk_punctuation(c))
+                } else {
+                    None
+                }
+            });
+
+            // Check if the next sibling starts with CJK
+            let next_cjk = node.next.and_then(|next_id| {
+                let next_node = arena.get(next_id);
+                if let NodeValue::Text(text) = &next_node.value {
+                    text.chars()
+                        .next()
+                        .map(|c| is_cjk(c) || is_cjk_punctuation(c))
+                } else {
+                    None
+                }
+            });
+
+            // Remove if both sides are CJK
+            if prev_cjk == Some(true) && next_cjk == Some(true) {
+                to_remove.push(node_id);
+            }
+        }
+
+        // Recurse into children
+        let mut child = node.first_child;
+        while let Some(child_id) = child {
+            collect_soft_breaks_between_cjk(arena, child_id, to_remove);
+            child = arena.get(child_id).next;
+        }
+    }
+
+    /// Unlink a node from the tree without removing it from the arena.
+    fn unlink_node(arena: &mut NodeArena, node_id: NodeId) {
+        let node = arena.get(node_id);
+        let parent_id = node.parent;
+        let prev_id = node.prev;
+        let next_id = node.next;
+
+        // Update parent's first_child if necessary
+        if let Some(parent) = parent_id {
+            let parent_node = arena.get_mut(parent);
+            if parent_node.first_child == Some(node_id) {
+                parent_node.first_child = next_id;
+            }
+            if parent_node.last_child == Some(node_id) {
+                parent_node.last_child = prev_id;
+            }
+        }
+
+        // Update previous sibling's next pointer
+        if let Some(prev) = prev_id {
+            let prev_node = arena.get_mut(prev);
+            prev_node.next = next_id;
+        }
+
+        // Update next sibling's prev pointer
+        if let Some(next) = next_id {
+            let next_node = arena.get_mut(next);
+            next_node.prev = prev_id;
+        }
+
+        // Clear the node's links
+        let node = arena.get_mut(node_id);
+        node.parent = None;
+        node.prev = None;
+        node.next = None;
     }
 }
 

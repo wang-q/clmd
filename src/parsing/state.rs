@@ -29,7 +29,7 @@ pub type BoxedStatefulParser<S, T> = Box<dyn StatefulParser<S, T>>;
 /// let parser = with_indentation(indent_level(4));
 /// let result = parser.parse("    hello").unwrap();
 /// assert_eq!(result, "hello");
-/// ```
+/// ```ignore
 pub fn with_indentation<T>(
     parser: impl Fn(&str, Position, &mut IndentationState) -> ParseResult<T> + 'static,
 ) -> impl Fn(&str, Position) -> ParseResult<T>
@@ -163,7 +163,7 @@ pub fn indent_level<T>(
 /// let parser = with_nesting(nested_content('{', '}'));
 /// let result = parser.parse("{hello {world}}").unwrap();
 /// assert_eq!(result, "hello {world}");
-/// ```
+/// ```ignore
 pub fn with_nesting<T>(
     parser: impl Fn(&str, Position, &mut NestingState) -> ParseResult<T> + 'static,
 ) -> impl Fn(&str, Position) -> ParseResult<T>

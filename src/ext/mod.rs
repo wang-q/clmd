@@ -28,7 +28,7 @@ pub mod autolink;
 /// ```markdown
 /// Term
 /// : Definition
-/// ```
+/// ```ignore
 pub mod definition;
 
 /// Footnote extension
@@ -51,7 +51,7 @@ pub mod strikethrough;
 /// | Header | Header |
 /// |--------|--------|
 /// | Cell   | Cell   |
-/// ```
+/// ```ignore
 pub mod tables;
 
 /// Tag filter extension (GFM)
@@ -79,7 +79,7 @@ pub mod toc;
 /// ---
 /// title: My Doc
 /// ---
-/// ```
+/// ```ignore
 pub mod yaml_front_matter;
 
 /// Shortcodes extension

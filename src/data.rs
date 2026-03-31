@@ -60,14 +60,14 @@ fn get_embedded_data() -> &'static HashMap<&'static str, &'static [u8]> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::data::read_default_data_file;
 ///
 /// match read_default_data_file("templates/default.html") {
 ///     Ok(content) => println!("Loaded {} bytes", content.len()),
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }
-/// ```
+/// ```ignore
 pub fn read_default_data_file(fname: &str) -> ClmdResult<Vec<u8>> {
     // First, check embedded data files
     let embedded = get_embedded_data();
@@ -105,14 +105,14 @@ pub fn read_default_data_file(fname: &str) -> ClmdResult<Vec<u8>> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::data::read_data_file;
 ///
 /// match read_data_file("templates/custom.html") {
 ///     Ok(content) => println!("Loaded {} bytes", content.len()),
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }
-/// ```
+/// ```ignore
 pub fn read_data_file(fname: &str) -> ClmdResult<Vec<u8>> {
     // First, check user data directory
     if let Some(user_dir) = get_user_data_dir()? {

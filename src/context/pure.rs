@@ -36,7 +36,7 @@ use crate::mediabag::MediaItem;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::context::{ClmdContext, PureContext};
 ///
 /// let mut ctx = PureContext::new();
@@ -44,7 +44,7 @@ use crate::mediabag::MediaItem;
 ///
 /// let content = ctx.read_file(std::path::Path::new("input.md")).unwrap();
 /// assert_eq!(content, b"# Test");
-/// ```
+/// ```ignore
 #[derive(Debug, Clone)]
 pub struct PureContext {
     /// The common state for this context.

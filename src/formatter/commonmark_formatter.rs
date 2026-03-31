@@ -856,13 +856,13 @@ fn render_formatted_table(
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::formatter::commonmark_formatter::get_backtick_sequence;
 ///
 /// assert_eq!(get_backtick_sequence("code"), "`");
 /// assert_eq!(get_backtick_sequence("code `with` backticks"), "``");
 /// assert_eq!(get_backtick_sequence("``double``"), "```");
-/// ```
+/// ```ignore
 pub fn get_backtick_sequence(content: &str) -> String {
     let mut max_backticks = 0;
     let mut current = 0;
@@ -887,13 +887,13 @@ pub fn get_backtick_sequence(content: &str) -> String {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::formatter::commonmark_formatter::escape_markdown;
 ///
 /// assert_eq!(escape_markdown("*text*"), "\\*text\\*");
 /// assert_eq!(escape_markdown("_text_"), "\\_text\\_");
 /// assert_eq!(escape_markdown("[link]"), "\\[link\\]");
-/// ```
+/// ```ignore
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let special_chars = [

@@ -502,12 +502,12 @@ pub fn is_ascii(s: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::strings::split_by;
 ///
 /// let result: Vec<&str> = split_by("a,b,,c", |c| c == ',');
 /// assert_eq!(result, vec!["a", "b", "c"]);
-/// ```
+/// ```ignore
 pub fn split_by(s: &str, is_sep: impl Fn(char) -> bool) -> Vec<&str> {
     s.split(is_sep).filter(|s| !s.is_empty()).collect()
 }

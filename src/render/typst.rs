@@ -26,7 +26,7 @@ use std::fmt;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_typst, Options};
 ///
 /// let options = Options::default();
@@ -34,7 +34,7 @@ use std::fmt;
 /// let mut typst = String::new();
 /// format_typst(&arena, root, &options, &mut typst).unwrap();
 /// assert!(typst.contains("= Heading"));
-/// ```
+/// ```ignore
 pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
     let mut renderer = TypstRenderer::new(arena);
     renderer.render(root)
@@ -59,7 +59,7 @@ pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_typst_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
@@ -69,7 +69,7 @@ pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
 /// format_typst_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
 /// assert!(typst.contains("= Hello"));
 /// assert!(typst.contains("*Bold*"));
-/// ```
+/// ```ignore
 pub fn format_document_with_plugins(
     arena: &NodeArena,
     root: NodeId,

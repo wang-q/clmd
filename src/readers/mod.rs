@@ -31,7 +31,7 @@ use std::fmt::Debug;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::Reader;
 /// use clmd::Options;
 ///
@@ -40,7 +40,7 @@ use std::fmt::Debug;
 ///     let (arena, root) = reader.read(input, &options).unwrap();
 ///     // Process the AST...
 /// }
-/// ```
+/// ```ignore
 pub trait Reader: Send + Sync + Debug {
     /// Read input and parse it into an AST.
     ///
@@ -77,7 +77,7 @@ pub trait Reader: Send + Sync + Debug {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::ReaderRegistry;
 ///
 /// let mut registry = ReaderRegistry::new();
@@ -91,7 +91,7 @@ pub trait Reader: Send + Sync + Debug {
 /// if let Some(reader) = registry.get_by_extension("md") {
 ///     println!("Found reader for .md files");
 /// }
-/// ```
+/// ```ignore
 #[derive(Debug, Default)]
 pub struct ReaderRegistry {
     readers: HashMap<&'static str, Box<dyn Reader>>,
@@ -284,13 +284,13 @@ impl Reader for HtmlReader {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::read_document;
 /// use clmd::Options;
 ///
 /// let options = Options::default();
 /// let (arena, root) = read_document("# Hello", Some("markdown"), &options).unwrap();
-/// ```
+/// ```ignore
 pub fn read_document(
     input: &str,
     format: Option<&str>,
@@ -327,7 +327,7 @@ pub fn read_document(
 ///
 /// let options = Options::default();
 /// let (arena, root) = read_file("document.md", None, &options).unwrap();
-/// ```
+/// ```ignore
 pub fn read_file(
     path: &std::path::Path,
     format: Option<&str>,

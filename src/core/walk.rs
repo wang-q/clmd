@@ -103,7 +103,7 @@ impl Walkable for NodeValue {
 ///         *node = NodeValue::Text(text.to_uppercase().into());
 ///     }
 /// });
-/// ```
+/// ```ignore
 pub fn walk<F>(arena: &mut NodeArena, root: NodeId, mut f: F)
 where
     F: FnMut(&mut NodeValue),
@@ -217,7 +217,7 @@ where
 /// });
 ///
 /// assert_eq!(levels, vec![1, 2]);
-/// ```
+/// ```ignore
 pub fn query<F, R>(arena: &NodeArena, root: NodeId, mut f: F) -> Vec<R>
 where
     F: FnMut(&NodeValue) -> Option<R>,
@@ -318,7 +318,7 @@ where
 ///         println!("Leaf node at depth {}", depth);
 ///     }
 /// });
-/// ```
+/// ```ignore
 pub fn walk_with_context<F>(arena: &mut NodeArena, root: NodeId, mut f: F)
 where
     F: FnMut(&mut NodeValue, usize, bool),

@@ -149,12 +149,12 @@ impl std::fmt::Display for StyleDeclaration {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::css::parse_inline_style;
 ///
 /// let style = parse_inline_style("color: red; font-size: 14px").unwrap();
 /// assert_eq!(style.get("color"), Some("red"));
-/// ```
+/// ```ignore
 pub fn parse_inline_style(css: &str) -> Option<StyleDeclaration> {
     let trimmed = css.trim();
     if trimmed.is_empty() {

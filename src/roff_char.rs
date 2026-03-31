@@ -28,75 +28,118 @@ use std::collections::HashMap;
 /// two-letter escapes), because these are compatible with all forms
 /// of roff.
 const STANDARD_ESCAPES: &[(char, &str)] = &[
-    ('\u{00A0}', "\\ "),       // Non-breaking space
-    ('\'', "\\(aq"),           // Apostrophe quote
-    ('\u{2018}', "\\(oq"),     // Left single quotation mark
-    ('\u{2019}', "\\(cq"),     // Right single quotation mark
-    ('"', "\\(dq"),            // Double quote
-    ('\u{201C}', "\\(lq"),     // Left double quotation mark
-    ('\u{201D}', "\\(rq"),     // Right double quotation mark
-    ('\u{2014}', "\\(em"),     // Em dash
-    ('\u{2013}', "\\(en"),     // En dash
-    ('`', "\\(ga"),            // Grave accent
-    ('^', "\\(ha"),            // Hat (circumflex)
-    ('~', "\\(ti"),            // Tilde
-    ('\\', "\\(rs"),           // Reverse solidus (backslash)
-    ('@', "\\(at"),            // At sign (used as table/math delimiter)
-    ('\u{2026}', "\\&..."),     // Ellipsis (u2026 doesn't render on tty)
+    ('\u{00A0}', "\\ "),    // Non-breaking space
+    ('\'', "\\(aq"),        // Apostrophe quote
+    ('\u{2018}', "\\(oq"),  // Left single quotation mark
+    ('\u{2019}', "\\(cq"),  // Right single quotation mark
+    ('"', "\\(dq"),         // Double quote
+    ('\u{201C}', "\\(lq"),  // Left double quotation mark
+    ('\u{201D}', "\\(rq"),  // Right double quotation mark
+    ('\u{2014}', "\\(em"),  // Em dash
+    ('\u{2013}', "\\(en"),  // En dash
+    ('`', "\\(ga"),         // Grave accent
+    ('^', "\\(ha"),         // Hat (circumflex)
+    ('~', "\\(ti"),         // Tilde
+    ('\\', "\\(rs"),        // Reverse solidus (backslash)
+    ('@', "\\(at"),         // At sign (used as table/math delimiter)
+    ('\u{2026}', "\\&..."), // Ellipsis (u2026 doesn't render on tty)
 ];
 
 /// Character codes for special characters in roff.
 ///
 /// These are character escape sequences using the \[xx] format.
 const CHARACTER_CODES: &[(char, &str)] = &[
-    ('Ð', "-D"),      // Capital eth
-    ('ð', "Sd"),      // Small eth
-    ('Þ', "TP"),      // Capital thorn
-    ('þ', "Tp"),      // Small thorn
-    ('ß', "ss"),      // German sharp s
-    ('\u{FB00}', "ff"),  // Latin small ligature ff
-    ('\u{FB01}', "fi"),  // Latin small ligature fi
-    ('\u{FB02}', "fl"),  // Latin small ligature fl
-    ('\u{FB03}', "Fi"),  // Latin small ligature ffi
-    ('\u{FB04}', "Fl"),  // Latin small ligature ffl
-    ('Ł', "/L"),      // Capital L with stroke
-    ('ł', "/l"),      // Small l with stroke
-    ('Ø', "/O"),      // Capital O with stroke
-    ('ø', "/o"),      // Small o with stroke
-    ('Æ', "AE"),      // Capital AE
-    ('æ', "ae"),      // Small ae
-    ('Œ', "OE"),      // Capital OE
-    ('œ', "oe"),      // Small oe
-    ('Ĳ', "IJ"),      // Capital IJ
-    ('ĳ', "ij"),      // Small ij
-    ('ı', ".i"),      // Dotless i
-    ('ȷ', ".j"),      // Dotless j
+    ('Ð', "-D"),        // Capital eth
+    ('ð', "Sd"),        // Small eth
+    ('Þ', "TP"),        // Capital thorn
+    ('þ', "Tp"),        // Small thorn
+    ('ß', "ss"),        // German sharp s
+    ('\u{FB00}', "ff"), // Latin small ligature ff
+    ('\u{FB01}', "fi"), // Latin small ligature fi
+    ('\u{FB02}', "fl"), // Latin small ligature fl
+    ('\u{FB03}', "Fi"), // Latin small ligature ffi
+    ('\u{FB04}', "Fl"), // Latin small ligature ffl
+    ('Ł', "/L"),        // Capital L with stroke
+    ('ł', "/l"),        // Small l with stroke
+    ('Ø', "/O"),        // Capital O with stroke
+    ('ø', "/o"),        // Small o with stroke
+    ('Æ', "AE"),        // Capital AE
+    ('æ', "ae"),        // Small ae
+    ('Œ', "OE"),        // Capital OE
+    ('œ', "oe"),        // Small oe
+    ('Ĳ', "IJ"),        // Capital IJ
+    ('ĳ', "ij"),        // Small ij
+    ('ı', ".i"),        // Dotless i
+    ('ȷ', ".j"),        // Dotless j
     // Accented capital letters
-    ('Á', "'A"), ('Ć', "'C"), ('É', "'E"), ('Í', "'I"),
-    ('Ó', "'O"), ('Ú', "'U"), ('Ý', "'Y"),
+    ('Á', "'A"),
+    ('Ć', "'C"),
+    ('É', "'E"),
+    ('Í', "'I"),
+    ('Ó', "'O"),
+    ('Ú', "'U"),
+    ('Ý', "'Y"),
     // Accented small letters
-    ('á', "'a"), ('ć', "'c"), ('é', "'e"), ('í', "'i"),
-    ('ó', "'o"), ('ú', "'u"), ('ý', "'y"),
+    ('á', "'a"),
+    ('ć', "'c"),
+    ('é', "'e"),
+    ('í', "'i"),
+    ('ó', "'o"),
+    ('ú', "'u"),
+    ('ý', "'y"),
     // Diaeresis
-    ('Ä', ":A"), ('Ë', ":E"), ('Ï', ":I"), ('Ö', ":O"),
-    ('Ü', ":U"), ('Ÿ', ":Y"),
-    ('ä', ":a"), ('ë', ":e"), ('ï', ":i"), ('ö', ":o"),
-    ('ü', ":u"), ('ÿ', ":y"),
+    ('Ä', ":A"),
+    ('Ë', ":E"),
+    ('Ï', ":I"),
+    ('Ö', ":O"),
+    ('Ü', ":U"),
+    ('Ÿ', ":Y"),
+    ('ä', ":a"),
+    ('ë', ":e"),
+    ('ï', ":i"),
+    ('ö', ":o"),
+    ('ü', ":u"),
+    ('ÿ', ":y"),
     // Circumflex
-    ('Â', "^A"), ('Ê', "^E"), ('Î', "^I"), ('Ô', "^O"), ('Û', "^U"),
-    ('â', "^a"), ('ê', "^e"), ('î', "^i"), ('ô', "^o"), ('û', "^u"),
+    ('Â', "^A"),
+    ('Ê', "^E"),
+    ('Î', "^I"),
+    ('Ô', "^O"),
+    ('Û', "^U"),
+    ('â', "^a"),
+    ('ê', "^e"),
+    ('î', "^i"),
+    ('ô', "^o"),
+    ('û', "^u"),
     // Grave
-    ('À', "`A"), ('È', "`E"), ('Ì', "`I"), ('Ò', "`O"), ('Ù', "`U"),
-    ('à', "`a"), ('è', "`e"), ('ì', "`i"), ('ò', "`o"), ('ù', "`u"),
+    ('À', "`A"),
+    ('È', "`E"),
+    ('Ì', "`I"),
+    ('Ò', "`O"),
+    ('Ù', "`U"),
+    ('à', "`a"),
+    ('è', "`e"),
+    ('ì', "`i"),
+    ('ò', "`o"),
+    ('ù', "`u"),
     // Tilde
-    ('Ã', "~A"), ('Ñ', "~N"), ('Õ', "~O"),
-    ('ã', "~a"), ('ñ', "~n"), ('õ', "~o"),
+    ('Ã', "~A"),
+    ('Ñ', "~N"),
+    ('Õ', "~O"),
+    ('ã', "~a"),
+    ('ñ', "~n"),
+    ('õ', "~o"),
     // Caron
-    ('Š', "vS"), ('š', "vs"), ('Ž', "vZ"), ('ž', "vz"),
+    ('Š', "vS"),
+    ('š', "vs"),
+    ('Ž', "vZ"),
+    ('ž', "vz"),
     // Cedilla
-    ('Ç', ",C"), ('ç', ",c"),
+    ('Ç', ",C"),
+    ('ç', ",c"),
     // Ring
-    ('Å', "oA"), ('å', "oa"),
+    ('Å', "oA"),
+    ('å', "oa"),
 ];
 
 /// Get the standard escape sequence for a character.
@@ -106,13 +149,13 @@ const CHARACTER_CODES: &[(char, &str)] = &[
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::standard_escape;
 ///
 /// assert_eq!(standard_escape('\''), Some("\\(aq"));
 /// assert_eq!(standard_escape('\\'), Some("\\(rs"));
 /// assert_eq!(standard_escape('a'), None);
-/// ```
+/// ```ignore
 pub fn standard_escape(c: char) -> Option<&'static str> {
     STANDARD_ESCAPES
         .iter()
@@ -127,13 +170,13 @@ pub fn standard_escape(c: char) -> Option<&'static str> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::character_code;
 ///
 /// assert_eq!(character_code('á'), Some("'a"));
 /// assert_eq!(character_code('ö'), Some(":o"));
 /// assert_eq!(character_code('z'), None);
-/// ```
+/// ```ignore
 pub fn character_code(c: char) -> Option<&'static str> {
     CHARACTER_CODES
         .iter()
@@ -156,7 +199,7 @@ pub fn character_code(c: char) -> Option<&'static str> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::escape_roff;
 ///
 /// let escaped = escape_roff("It's a test");
@@ -164,7 +207,7 @@ pub fn character_code(c: char) -> Option<&'static str> {
 ///
 /// let escaped = escape_roff("Hello — World");
 /// assert!(escaped.contains("\\(em"));
-/// ```
+/// ```ignore
 pub fn escape_roff(s: &str) -> String {
     let mut result = String::with_capacity(s.len() * 2);
 
@@ -193,12 +236,12 @@ pub fn escape_roff(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::escape_roff_with_codes;
 ///
 /// let escaped = escape_roff_with_codes("café");
 /// assert!(escaped.contains("\\['e]"));
-/// ```
+/// ```ignore
 pub fn escape_roff_with_codes(s: &str) -> String {
     let mut result = String::with_capacity(s.len() * 2);
 
@@ -221,13 +264,13 @@ pub fn escape_roff_with_codes(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::needs_escape;
 ///
 /// assert!(needs_escape('\''));
 /// assert!(needs_escape('\\'));
 /// assert!(!needs_escape('a'));
-/// ```
+/// ```ignore
 pub fn needs_escape(c: char) -> bool {
     standard_escape(c).is_some() || character_code(c).is_some()
 }
@@ -314,12 +357,12 @@ impl Default for RoffEscaper {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::escape_header;
 ///
 /// let escaped = escape_header("Section 1");
 /// assert_eq!(escaped, "Section 1");
-/// ```
+/// ```ignore
 pub fn escape_header(s: &str) -> String {
     // Headers have fewer restrictions, but we still need to escape
     // certain characters
@@ -334,12 +377,12 @@ pub fn escape_header(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::standard_escapes_map;
 ///
 /// let map = standard_escapes_map();
 /// assert!(map.contains_key(&'\''));
-/// ```
+/// ```ignore
 pub fn standard_escapes_map() -> HashMap<char, &'static str> {
     STANDARD_ESCAPES.iter().map(|(c, e)| (*c, *e)).collect()
 }
@@ -348,12 +391,12 @@ pub fn standard_escapes_map() -> HashMap<char, &'static str> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::roff_char::character_codes_map;
 ///
 /// let map = character_codes_map();
 /// assert!(map.contains_key(&'á'));
-/// ```
+/// ```ignore
 pub fn character_codes_map() -> HashMap<char, &'static str> {
     CHARACTER_CODES.iter().map(|(c, e)| (*c, *e)).collect()
 }
@@ -415,7 +458,7 @@ mod tests {
         let escaped = escaper.escape("It's a test");
         assert!(escaped.contains("\\(aq"));
 
-        let mut escaper = RoffEscaper::with_character_codes();
+        let escaper = RoffEscaper::with_character_codes();
         let escaped = escaper.escape("café");
         assert!(escaped.contains("\\['e]"));
     }

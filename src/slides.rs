@@ -563,9 +563,7 @@ mod tests {
 
     #[test]
     fn test_slide_creation() {
-        let slide = Slide::new(0)
-            .with_title("Test Slide")
-            .with_level(2);
+        let slide = Slide::new(0).with_title("Test Slide").with_level(2);
 
         assert_eq!(slide.title, Some("Test Slide".to_string()));
         assert_eq!(slide.level, 2);

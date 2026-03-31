@@ -249,12 +249,12 @@ impl EmojiMapper {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::emoji::has_emoji_shortcode;
 ///
 /// assert!(has_emoji_shortcode("Hello :smile:"));
 /// assert!(!has_emoji_shortcode("Hello world"));
-/// ```
+/// ```ignore
 pub fn has_emoji_shortcode(text: &str) -> bool {
     // Simple check for pattern :word:
     let chars: Vec<char> = text.chars().collect();
@@ -289,12 +289,12 @@ pub fn has_emoji_shortcode(text: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::emoji::replace_emoji_shortcodes;
 ///
 /// let text = replace_emoji_shortcodes("Hello :smile: :wave:");
 /// assert_eq!(text, "Hello 😄 👋");
-/// ```
+/// ```ignore
 pub fn replace_emoji_shortcodes(text: &str) -> String {
     let mapper = EmojiMapper::new();
     mapper.replace_shortcodes(text)

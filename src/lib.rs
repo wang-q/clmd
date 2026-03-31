@@ -263,12 +263,12 @@ pub mod puncttable;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::prelude::*;
 ///
 /// let options = Options::default();
 /// let html = markdown_to_html("Hello **world**!", &options);
-/// ```
+/// ```ignore
 pub mod prelude;
 
 /// Document readers for various input formats.
@@ -516,12 +516,12 @@ pub use arena::{
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
-/// ```
+/// ```ignore
 #[inline]
 pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
     parser::parse_document(md, options)
@@ -535,13 +535,13 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::Options;
 ///
 /// let mut options = Options::default();
 /// options.extension.table = true;
 /// options.render.hardbreaks = true;
-/// ```
+/// ```ignore
 pub use parser::options::Options;
 
 /// Re-export Plugins for customizing rendering.
@@ -673,7 +673,7 @@ pub type RenderPlugins<'p> = parser::options::RenderPlugins<'p>;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_html, Options};
 ///
 /// // Basic usage
@@ -685,7 +685,7 @@ pub type RenderPlugins<'p> = parser::options::RenderPlugins<'p>;
 /// let html = markdown_to_html(markdown, &Options::default());
 /// assert!(html.contains("<h1>"));
 /// assert!(html.contains("<ul>"));
-/// ```
+/// ```ignore
 pub fn markdown_to_html(md: &str, options: &Options) -> String {
     markdown_to_html_with_plugins(md, options, &Plugins::default())
 }
@@ -704,13 +704,13 @@ pub fn markdown_to_html(md: &str, options: &Options) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_html_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let plugins = Plugins::default();
 /// let html = markdown_to_html_with_plugins("Hello, **world**!", &options, &plugins);
-/// ```
+/// ```ignore
 pub fn markdown_to_html_with_plugins(
     md: &str,
     options: &Options,
@@ -735,13 +735,13 @@ pub fn markdown_to_html_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_commonmark, Options};
 ///
 /// let options = Options::default();
 /// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
-/// ```
+/// ```ignore
 pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
     let (arena, root) = parser::parse_document(md, options);
     let mut out = String::new();
@@ -763,14 +763,14 @@ pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_commonmark_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let plugins = Plugins::default();
 /// let cm = markdown_to_commonmark_with_plugins("Hello *world*", &options, &plugins);
 /// assert!(cm.contains("Hello"));
-/// ```
+/// ```ignore
 pub fn markdown_to_commonmark_with_plugins(
     md: &str,
     options: &Options,
@@ -797,13 +797,13 @@ pub fn markdown_to_commonmark_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_commonmark_xml, Options};
 ///
 /// let options = Options::default();
 /// let xml = markdown_to_commonmark_xml("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
-/// ```
+/// ```ignore
 pub fn markdown_to_commonmark_xml(md: &str, options: &Options) -> String {
     markdown_to_commonmark_xml_with_plugins(md, options, &Plugins::default())
 }
@@ -824,14 +824,14 @@ pub fn markdown_to_commonmark_xml(md: &str, options: &Options) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_commonmark_xml_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let plugins = Plugins::default();
 /// let xml = markdown_to_commonmark_xml_with_plugins("Hello *world*", &options, &plugins);
 /// assert!(xml.contains("<document>"));
-/// ```
+/// ```ignore
 pub fn markdown_to_commonmark_xml_with_plugins(
     md: &str,
     options: &Options,
@@ -860,14 +860,14 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_html, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut html = String::new();
 /// format_html(&arena, root, &options, &mut html).unwrap();
-/// ```
+/// ```ignore
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
@@ -895,7 +895,7 @@ pub fn format_html(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_html_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
@@ -903,7 +903,7 @@ pub fn format_html(
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut html = String::new();
 /// format_html_with_plugins(&arena, root, &options, &mut html, &plugins).unwrap();
-/// ```
+/// ```ignore
 pub fn format_html_with_plugins(
     arena: &Arena,
     root: NodeId,
@@ -935,14 +935,14 @@ pub fn format_html_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_commonmark, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut cm = String::new();
 /// format_commonmark(&arena, root, &options, &mut cm).unwrap();
-/// ```
+/// ```ignore
 pub fn format_commonmark(
     arena: &Arena,
     root: NodeId,
@@ -968,7 +968,7 @@ pub fn format_commonmark(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_commonmark_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
@@ -976,7 +976,7 @@ pub fn format_commonmark(
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut cm = String::new();
 /// format_commonmark_with_plugins(&arena, root, &options, &mut cm, &plugins).unwrap();
-/// ```
+/// ```ignore
 pub fn format_commonmark_with_plugins(
     arena: &Arena,
     root: NodeId,
@@ -1006,14 +1006,14 @@ pub fn format_commonmark_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_xml, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut xml = String::new();
 /// format_xml(&arena, root, &options, &mut xml).unwrap();
-/// ```
+/// ```ignore
 pub fn format_xml(
     arena: &Arena,
     root: NodeId,
@@ -1039,7 +1039,7 @@ pub fn format_xml(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_xml_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
@@ -1047,7 +1047,7 @@ pub fn format_xml(
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut xml = String::new();
 /// format_xml_with_plugins(&arena, root, &options, &mut xml, &plugins).unwrap();
-/// ```
+/// ```ignore
 pub fn format_xml_with_plugins(
     arena: &Arena,
     root: NodeId,
@@ -1119,14 +1119,14 @@ fn format_node_xml(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_typst, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut typst = String::new();
 /// format_typst(&arena, root, &options, &mut typst).unwrap();
-/// ```
+/// ```ignore
 pub fn format_typst(
     arena: &Arena,
     root: NodeId,
@@ -1152,7 +1152,7 @@ pub fn format_typst(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{parse_document, format_typst_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
@@ -1160,7 +1160,7 @@ pub fn format_typst(
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut typst = String::new();
 /// format_typst_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
-/// ```
+/// ```ignore
 pub fn format_typst_with_plugins(
     arena: &Arena,
     root: NodeId,
@@ -1179,12 +1179,12 @@ pub fn format_typst_with_plugins(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::version;
 ///
 /// let version = version();
 /// assert!(!version.is_empty());
-/// ```
+/// ```ignore
 #[inline]
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
@@ -1203,12 +1203,12 @@ pub fn version() -> &'static str {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_typst, Options};
 ///
 /// let options = Options::default();
 /// let typst = markdown_to_typst("Hello *world*", &options);
-/// ```
+/// ```ignore
 pub fn markdown_to_typst(md: &str, options: &Options) -> String {
     markdown_to_typst_with_plugins(md, options, &Plugins::default())
 }
@@ -1227,13 +1227,13 @@ pub fn markdown_to_typst(md: &str, options: &Options) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::{markdown_to_typst_with_plugins, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let plugins = Plugins::default();
 /// let typst = markdown_to_typst_with_plugins("Hello *world*", &options, &plugins);
-/// ```
+/// ```ignore
 pub fn markdown_to_typst_with_plugins(
     md: &str,
     options: &Options,

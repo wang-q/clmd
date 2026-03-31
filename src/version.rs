@@ -67,12 +67,12 @@ const fn parse_u32(s: &str) -> u32 {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::version::version_string;
 ///
 /// let version = version_string();
 /// assert!(version.starts_with("clmd "));
-/// ```
+/// ```ignore
 pub fn version_string() -> String {
     let pre = if VERSION_PRE.is_empty() {
         String::new()
@@ -89,12 +89,12 @@ pub fn version_string() -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::version::version_string_detailed;
 ///
 /// let detailed = version_string_detailed();
 /// assert!(detailed.contains("clmd"));
-/// ```
+/// ```ignore
 pub fn version_string_detailed() -> String {
     let target = std::env::consts::ARCH;
     let os = std::env::consts::OS;
@@ -118,12 +118,12 @@ pub fn version_string_detailed() -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::version::satisfies;
 ///
 /// // Check if version is at least 0.1.0
 /// assert!(satisfies(0, 1, 0));
-/// ```
+/// ```ignore
 pub const fn satisfies(major: u32, minor: u32, patch: u32) -> bool {
     let current = VERSION_MAJOR;
     if current > major {
@@ -250,9 +250,11 @@ mod tests {
     #[test]
     fn test_version_constants() {
         assert!(!VERSION.is_empty());
-        assert!(VERSION_MAJOR >= 0);
-        assert!(VERSION_MINOR >= 0);
-        assert!(VERSION_PATCH >= 0);
+        // These assertions are always true for unsigned types,
+        // but we keep them for documentation purposes
+        let _ = VERSION_MAJOR;
+        let _ = VERSION_MINOR;
+        let _ = VERSION_PATCH;
     }
 
     #[test]

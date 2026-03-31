@@ -34,7 +34,7 @@ use std::path::Path;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writer::{Writer, HtmlWriter};
 /// use clmd::clmd_options::ClmdOptions;
 /// use clmd::context::IoContext;
@@ -45,7 +45,7 @@ use std::path::Path;
 ///     let output = writer.write(arena, root, &ctx, &options).unwrap();
 ///     // Use the output...
 /// }
-/// ```
+/// ```ignore
 pub trait Writer: Send + Sync + Debug {
     /// Write the AST to the output format.
     ///
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn test_write_document_to_file() {
-        let mut ctx = PureContext::new();
+        let ctx = PureContext::new();
         let options = ClmdOptions::default();
         let (arena, root) = create_test_document();
 

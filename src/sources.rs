@@ -15,7 +15,6 @@
 
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 /// A source of input text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,7 +60,10 @@ impl Source {
     }
 
     /// Create a source from a named string.
-    pub fn from_named_string(name: impl Into<String>, content: impl Into<String>) -> Self {
+    pub fn from_named_string(
+        name: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
         Self::String {
             name: Some(name.into()),
             content: content.into(),
@@ -89,7 +91,9 @@ impl Source {
     pub fn name(&self) -> String {
         match self {
             Self::File { path, .. } => path.display().to_string(),
-            Self::String { name, .. } => name.clone().unwrap_or_else(|| "<string>".to_string()),
+            Self::String { name, .. } => {
+                name.clone().unwrap_or_else(|| "<string>".to_string())
+            }
             Self::Url { url, .. } => url.clone(),
         }
     }
@@ -294,7 +298,11 @@ impl fmt::Display for SourceRange {
                 self.start.line, self.start.column, self.end.column
             )
         } else {
-            write!(f, "{}:{}-{}:{}", self.start.line, self.start.column, self.end.line, self.end.column)
+            write!(
+                f,
+                "{}:{}-{}:{}",
+                self.start.line, self.start.column, self.end.line, self.end.column
+            )
         }
     }
 }
@@ -375,7 +383,11 @@ impl Sources {
     }
 
     /// Add a named string source.
-    pub fn add_named_string(&mut self, name: impl Into<String>, content: impl Into<String>) {
+    pub fn add_named_string(
+        &mut self,
+        name: impl Into<String>,
+        content: impl Into<String>,
+    ) {
         self.add(Source::from_named_string(name, content));
     }
 

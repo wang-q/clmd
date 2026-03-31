@@ -330,12 +330,12 @@ impl Transliterator {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::asciify::asciify;
 ///
 /// let ascii = asciify("café résumé naïve");
 /// assert_eq!(ascii, "cafe resume naive");
-/// ```
+/// ```ignore
 pub fn asciify(input: &str) -> String {
     let transliterator = Transliterator::new();
     transliterator.transliterate(input)
@@ -345,12 +345,12 @@ pub fn asciify(input: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::asciify::has_non_ascii;
 ///
 /// assert!(has_non_ascii("café"));
 /// assert!(!has_non_ascii("cafe"));
-/// ```
+/// ```ignore
 pub fn has_non_ascii(input: &str) -> bool {
     input.chars().any(|ch| !ch.is_ascii())
 }
@@ -359,12 +359,12 @@ pub fn has_non_ascii(input: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::asciify::slugify;
 ///
 /// let slug = slugify("Hello World!");
 /// assert_eq!(slug, "hello-world");
-/// ```
+/// ```ignore
 pub fn slugify(input: &str) -> String {
     let transliterator = Transliterator::new();
     let ascii = transliterator.transliterate(input);

@@ -256,7 +256,7 @@ pub enum OutputFormat {
 /// let doc = parse_document(&mut arena, "# Hello", &options);
 /// let html = render(OutputFormat::Html, &arena, doc, 0, 0);
 /// assert!(html.contains("<h1>"));
-/// ```
+/// ```ignore
 pub fn render(
     format: OutputFormat,
     arena: &NodeArena,

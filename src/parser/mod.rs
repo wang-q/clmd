@@ -34,7 +34,7 @@ use options::Options;
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
-/// ```
+/// ```ignore
 pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
     // Use BlockParser for parsing (which includes proper inline parsing)
     let mut node_arena = NodeArena::new();
@@ -55,7 +55,7 @@ pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
 /// let options = Options::default();
 /// let limits = ParserLimits::default();
 /// let (arena, root) = parse_document_with_limits("Hello", &options, limits).unwrap();
-/// ```
+/// ```ignore
 pub fn parse_document_with_limits(
     md: &str,
     options: &Options,

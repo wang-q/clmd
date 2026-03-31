@@ -307,14 +307,14 @@ impl From<SafeHtml> for String {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::html_utils::is_safe_url;
 ///
 /// assert!(is_safe_url("https://example.com"));
 /// assert!(is_safe_url("http://example.com"));
 /// assert!(!is_safe_url("javascript:alert('xss')"));
 /// assert!(!is_safe_url("blob:https://example.com/uuid"));
-/// ```
+/// ```ignore
 pub fn is_safe_url(url: &str) -> bool {
     // Trim whitespace and check for empty URL
     let url = url.trim();

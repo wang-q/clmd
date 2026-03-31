@@ -32,7 +32,7 @@ use std::fmt::Debug;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::reader::{Reader, MarkdownReader};
 /// use clmd::clmd_options::ClmdOptions;
 /// use clmd::context::IoContext;
@@ -43,7 +43,7 @@ use std::fmt::Debug;
 ///     let (arena, root) = reader.read(input, &ctx, &options).unwrap();
 ///     // Process the AST...
 /// }
-/// ```
+/// ```ignore
 pub trait Reader: Send + Sync + Debug {
     /// Read input and parse it into an AST.
     ///

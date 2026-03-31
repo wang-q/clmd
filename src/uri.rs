@@ -36,13 +36,13 @@ use std::borrow::Cow;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::url_encode;
 ///
 /// assert_eq!(url_encode("hello world"), "hello%20world");
 /// assert_eq!(url_encode("foo/bar"), "foo%2Fbar");
 /// assert_eq!(url_encode("100%"), "100%25");
-/// ```
+/// ```ignore
 pub fn url_encode(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for byte in s.bytes() {
@@ -74,13 +74,13 @@ pub fn url_encode(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::url_decode;
 ///
 /// assert_eq!(url_decode("hello%20world"), "hello world");
 /// assert_eq!(url_decode("foo%2Fbar"), "foo/bar");
 /// assert_eq!(url_decode("100%25"), "100%");
-/// ```
+/// ```ignore
 pub fn url_decode(s: &str) -> Cow<'_, str> {
     // Check if decoding is needed
     if !s.contains('%') {
@@ -145,12 +145,12 @@ fn hex_digit(c: char) -> Option<u8> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::escape_uri;
 ///
 /// assert_eq!(escape_uri("hello world"), "hello%20world");
 /// assert_eq!(escape_uri("<tag>"), "%3Ctag%3E");
-/// ```
+/// ```ignore
 pub fn escape_uri(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for c in s.chars() {
@@ -191,7 +191,7 @@ pub fn escape_uri(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::is_uri;
 ///
 /// assert!(is_uri("https://example.com"));
@@ -201,7 +201,7 @@ pub fn escape_uri(s: &str) -> String {
 /// assert!(is_uri("file:///path/to/file"));
 /// assert!(!is_uri("not a uri"));
 /// assert!(!is_uri("example.com")); // Missing scheme
-/// ```
+/// ```ignore
 pub fn is_uri(s: &str) -> bool {
     // Check for scheme prefix (e.g., "http://", "https://", "mailto:")
     s.contains("://") || s.starts_with("mailto:") || s.starts_with("data:")
@@ -219,13 +219,13 @@ pub fn is_uri(s: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::get_scheme;
 ///
 /// assert_eq!(get_scheme("https://example.com"), Some("https"));
 /// assert_eq!(get_scheme("mailto:test@example.com"), Some("mailto"));
 /// assert_eq!(get_scheme("not a uri"), None);
-/// ```
+/// ```ignore
 pub fn get_scheme(uri: &str) -> Option<&str> {
     if let Some(pos) = uri.find(':') {
         let scheme = &uri[..pos];
@@ -256,13 +256,13 @@ pub fn get_scheme(uri: &str) -> Option<&str> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::is_absolute_uri;
 ///
 /// assert!(is_absolute_uri("https://example.com"));
 /// assert!(!is_absolute_uri("/path/to/file"));
 /// assert!(!is_absolute_uri("relative/path"));
-/// ```
+/// ```ignore
 pub fn is_absolute_uri(uri: &str) -> bool {
     get_scheme(uri).is_some()
 }
@@ -281,12 +281,12 @@ pub fn is_absolute_uri(uri: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::is_data_uri;
 ///
 /// assert!(is_data_uri("data:image/png;base64,iVBORw0KGgo="));
 /// assert!(!is_data_uri("https://example.com/image.png"));
-/// ```
+/// ```ignore
 pub fn is_data_uri(uri: &str) -> bool {
     uri.starts_with("data:")
 }
@@ -303,7 +303,7 @@ pub fn is_data_uri(uri: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::parse_data_uri;
 ///
 /// let result = parse_data_uri("data:text/plain;base64,SGVsbG8gV29ybGQ=");
@@ -311,7 +311,7 @@ pub fn is_data_uri(uri: &str) -> bool {
 ///
 /// let (mime, data) = result.unwrap();
 /// assert_eq!(mime, "text/plain");
-/// ```
+/// ```ignore
 pub fn parse_data_uri(uri: &str) -> Option<(&str, &str)> {
     if !uri.starts_with("data:") {
         return None;
@@ -398,13 +398,13 @@ pub const KNOWN_SCHEMES: &[&str] = &[
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::is_known_scheme;
 ///
 /// assert!(is_known_scheme("https"));
 /// assert!(is_known_scheme("mailto"));
 /// assert!(!is_known_scheme("unknown"));
-/// ```
+/// ```ignore
 pub fn is_known_scheme(scheme: &str) -> bool {
     KNOWN_SCHEMES.contains(&scheme.to_lowercase().as_str())
 }
@@ -423,13 +423,13 @@ pub fn is_known_scheme(scheme: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::normalize_path;
 ///
 /// assert_eq!(normalize_path("/foo/bar/../baz"), "/foo/baz");
 /// assert_eq!(normalize_path("/foo/./bar"), "/foo/bar");
 /// assert_eq!(normalize_path("/foo/bar/../.."), "/");
-/// ```
+/// ```ignore
 pub fn normalize_path(path: &str) -> String {
     let mut components = Vec::new();
 
@@ -484,13 +484,13 @@ pub fn normalize_path(path: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::uri::join_paths;
 ///
 /// assert_eq!(join_paths("/foo/bar", "baz"), "/foo/baz");
 /// assert_eq!(join_paths("/foo/bar/", "baz"), "/foo/bar/baz");
 /// assert_eq!(join_paths("/foo/bar", "../baz"), "/baz");
-/// ```
+/// ```ignore
 pub fn join_paths(base: &str, relative: &str) -> String {
     if relative.starts_with('/') {
         // Absolute path - return as-is

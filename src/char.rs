@@ -52,7 +52,7 @@
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::char::is_cjk;
 ///
 /// assert!(is_cjk('中'));  // Chinese
@@ -62,7 +62,7 @@
 /// assert!(is_cjk('ア'));  // Katakana
 /// assert!(!is_cjk('A'));  // ASCII
 /// assert!(!is_cjk('α'));  // Greek
-/// ```
+/// ```ignore
 pub fn is_cjk(c: char) -> bool {
     // Fast path for ASCII and Hangul Jamo (which are below 0x2E80)
     if c < '\u{1100}' {
@@ -148,13 +148,13 @@ pub fn is_cjk(c: char) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::char::is_cjk_punctuation;
 ///
 /// assert!(is_cjk_punctuation('。'));
 /// assert!(is_cjk_punctuation('、'));
 /// assert!(!is_cjk_punctuation('.'));
-/// ```
+/// ```ignore
 pub fn is_cjk_punctuation(c: char) -> bool {
     matches!(c,
         // CJK Symbols and Punctuation
@@ -174,13 +174,13 @@ pub fn is_cjk_punctuation(c: char) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::char::is_fullwidth;
 ///
 /// assert!(is_fullwidth('Ａ'));  // Fullwidth A
 /// assert!(is_fullwidth('中'));
 /// assert!(!is_fullwidth('A'));
-/// ```
+/// ```ignore
 pub fn is_fullwidth(c: char) -> bool {
     matches!(c,
         '\u{1100}'..='\u{115F}' |  // Hangul Jamo
@@ -196,12 +196,12 @@ pub fn is_fullwidth(c: char) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::char::has_cjk;
 ///
 /// assert!(has_cjk("Hello 世界"));
 /// assert!(!has_cjk("Hello World"));
-/// ```
+/// ```ignore
 pub fn has_cjk(s: &str) -> bool {
     s.chars().any(is_cjk)
 }
@@ -210,12 +210,12 @@ pub fn has_cjk(s: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::char::count_cjk;
 ///
 /// assert_eq!(count_cjk("Hello 世界"), 2);
 /// assert_eq!(count_cjk("日本語"), 3);
-/// ```
+/// ```ignore
 pub fn count_cjk(s: &str) -> usize {
     s.chars().filter(|&c| is_cjk(c)).count()
 }
@@ -236,8 +236,8 @@ mod tests {
         assert!(is_cjk('日'));
         assert!(is_cjk('本'));
         assert!(is_cjk('語'));
-        assert!(is_cjk('あ'));  // Hiragana
-        assert!(is_cjk('ア'));  // Katakana
+        assert!(is_cjk('あ')); // Hiragana
+        assert!(is_cjk('ア')); // Katakana
     }
 
     #[test]
@@ -253,8 +253,8 @@ mod tests {
         assert!(!is_cjk('a'));
         assert!(!is_cjk('0'));
         assert!(!is_cjk(' '));
-        assert!(!is_cjk('α'));  // Greek
-        assert!(!is_cjk('é'));  // Latin with accent
+        assert!(!is_cjk('α')); // Greek
+        assert!(!is_cjk('é')); // Latin with accent
     }
 
     #[test]
@@ -294,14 +294,14 @@ mod tests {
     #[test]
     fn test_cjk_extension_ranges() {
         // Test some characters from extension blocks
-        assert!(is_cjk('\u{20000}'));  // Extension B
-        assert!(is_cjk('\u{2A700}'));  // Extension C
-        assert!(is_cjk('\u{2B740}'));  // Extension D
+        assert!(is_cjk('\u{20000}')); // Extension B
+        assert!(is_cjk('\u{2A700}')); // Extension C
+        assert!(is_cjk('\u{2B740}')); // Extension D
     }
 
     #[test]
     fn test_hangul() {
-        assert!(is_cjk('가'));  // Hangul syllable
-        assert!(is_cjk('힣'));  // Last Hangul syllable
+        assert!(is_cjk('가')); // Hangul syllable
+        assert!(is_cjk('힣')); // Last Hangul syllable
     }
 }

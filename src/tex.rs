@@ -197,8 +197,13 @@ impl TokenType {
 
     /// Check if this token type represents a group delimiter.
     pub fn is_group_delimiter(self) -> bool {
-        matches!(self, TokenType::GroupStart | TokenType::GroupEnd |
-                       TokenType::BeginGroup | TokenType::EndGroup)
+        matches!(
+            self,
+            TokenType::GroupStart
+                | TokenType::GroupEnd
+                | TokenType::BeginGroup
+                | TokenType::EndGroup
+        )
     }
 
     /// Check if this token type represents math mode delimiter.
@@ -317,7 +322,8 @@ impl TeXParser {
                 tokens.push(token);
             }
         }
-        tokens.push(Token::new(TokenType::EOF, "").with_position(self.line, self.column));
+        tokens
+            .push(Token::new(TokenType::EOF, "").with_position(self.line, self.column));
         tokens
     }
 
@@ -334,45 +340,55 @@ impl TeXParser {
             '\\' => self.read_control_sequence(),
             '{' => {
                 self.advance();
-                Token::new(TokenType::GroupStart, "{").with_position(start_line, start_column)
+                Token::new(TokenType::GroupStart, "{")
+                    .with_position(start_line, start_column)
             }
             '}' => {
                 self.advance();
-                Token::new(TokenType::GroupEnd, "}").with_position(start_line, start_column)
+                Token::new(TokenType::GroupEnd, "}")
+                    .with_position(start_line, start_column)
             }
             '$' => {
                 self.advance();
-                Token::new(TokenType::MathShift, "$").with_position(start_line, start_column)
+                Token::new(TokenType::MathShift, "$")
+                    .with_position(start_line, start_column)
             }
             '%' => self.read_comment(),
             '&' => {
                 self.advance();
-                Token::new(TokenType::AlignmentTab, "&").with_position(start_line, start_column)
+                Token::new(TokenType::AlignmentTab, "&")
+                    .with_position(start_line, start_column)
             }
             '#' => {
                 self.advance();
-                Token::new(TokenType::Parameter, "#").with_position(start_line, start_column)
+                Token::new(TokenType::Parameter, "#")
+                    .with_position(start_line, start_column)
             }
             '^' => {
                 self.advance();
-                Token::new(TokenType::Superscript, "^").with_position(start_line, start_column)
+                Token::new(TokenType::Superscript, "^")
+                    .with_position(start_line, start_column)
             }
             '_' => {
                 self.advance();
-                Token::new(TokenType::Subscript, "_").with_position(start_line, start_column)
+                Token::new(TokenType::Subscript, "_")
+                    .with_position(start_line, start_column)
             }
             '\n' | '\r' => {
                 self.advance();
-                Token::new(TokenType::Newline, "\n").with_position(start_line, start_column)
+                Token::new(TokenType::Newline, "\n")
+                    .with_position(start_line, start_column)
             }
             ' ' => self.read_whitespace(),
             '\t' => {
                 self.advance();
-                Token::new(TokenType::Whitespace, "\t").with_position(start_line, start_column)
+                Token::new(TokenType::Whitespace, "\t")
+                    .with_position(start_line, start_column)
             }
             '~' => {
                 self.advance();
-                Token::new(TokenType::ActiveCharacter, "~").with_position(start_line, start_column)
+                Token::new(TokenType::ActiveCharacter, "~")
+                    .with_position(start_line, start_column)
             }
             c if c.is_ascii_alphabetic() => self.read_word(),
             c => {
@@ -406,7 +422,8 @@ impl TeXParser {
             }
         }
 
-        Token::new(TokenType::ControlSequence, name).with_position(start_line, start_column)
+        Token::new(TokenType::ControlSequence, name)
+            .with_position(start_line, start_column)
     }
 
     fn read_word(&mut self) -> Token {
@@ -440,7 +457,8 @@ impl TeXParser {
             }
         }
 
-        Token::new(TokenType::Whitespace, whitespace).with_position(start_line, start_column)
+        Token::new(TokenType::Whitespace, whitespace)
+            .with_position(start_line, start_column)
     }
 
     fn read_comment(&mut self) -> Token {
@@ -461,6 +479,7 @@ impl TeXParser {
         Token::new(TokenType::Comment, comment).with_position(start_line, start_column)
     }
 
+    #[allow(dead_code)]
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.current_char() {
             if c == ' ' || c == '\t' || c == '\r' {
@@ -546,7 +565,10 @@ pub fn is_env_start(token: &Token) -> bool {
     if !token.is_control_sequence() {
         return false;
     }
-    matches!(token.as_str(), "begin" | "end" | "documentclass" | "usepackage")
+    matches!(
+        token.as_str(),
+        "begin" | "end" | "documentclass" | "usepackage"
+    )
 }
 
 #[cfg(test)]
@@ -642,20 +664,26 @@ mod tests {
     #[test]
     fn test_tokenize_comment() {
         let tokens = tokenize("Hello % comment\nworld");
-        assert!(tokens.iter().any(|t| matches!(t.token_type, TokenType::Comment)));
+        assert!(tokens
+            .iter()
+            .any(|t| matches!(t.token_type, TokenType::Comment)));
         assert!(tokens.iter().any(|t| t.as_str().contains("comment")));
     }
 
     #[test]
     fn test_tokenize_newline() {
         let tokens = tokenize("line1\nline2");
-        assert!(tokens.iter().any(|t| matches!(t.token_type, TokenType::Newline)));
+        assert!(tokens
+            .iter()
+            .any(|t| matches!(t.token_type, TokenType::Newline)));
     }
 
     #[test]
     fn test_tokenize_eof() {
         let tokens = tokenize("test");
-        assert!(tokens.last().map_or(false, |t| matches!(t.token_type, TokenType::EOF)));
+        assert!(tokens
+            .last()
+            .map_or(false, |t| matches!(t.token_type, TokenType::EOF)));
     }
 
     #[test]

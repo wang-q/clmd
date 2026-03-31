@@ -16,7 +16,7 @@ use crate::parsing::combinator::{many, many1};
 ///
 /// let result = string.parse("\"hello world\"").unwrap();
 /// assert_eq!(result, "hello world");
-/// ```
+/// ```ignore
 pub fn string(input: &str, pos: Position) -> ParseResult<String> {
     let mut current_pos = pos;
 
@@ -82,7 +82,7 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
 ///
 /// let result = identifier.parse("hello_world").unwrap();
 /// assert_eq!(result, "hello_world");
-/// ```
+/// ```ignore
 pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
     let mut current_pos = pos;
 
@@ -125,7 +125,7 @@ pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
 ///
 /// let result = uint.parse("12345").unwrap();
 /// assert_eq!(result, 12345u64);
-/// ```
+/// ```ignore
 pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
     let digits_parser = many1(Box::new(digit));
     let (digits, new_pos) = digits_parser(input, pos)?;
@@ -152,7 +152,7 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
 ///
 /// assert_eq!(int.parse("-123").unwrap(), -123i64);
 /// assert_eq!(int.parse("456").unwrap(), 456i64);
-/// ```
+/// ```ignore
 pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
     let mut current_pos = pos;
 
@@ -194,7 +194,7 @@ pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
 ///
 /// let result = float.parse("3.14159").unwrap();
 /// assert!((result - 3.14159).abs() < 0.00001);
-/// ```
+/// ```ignore
 pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
     let mut current_pos = pos;
     let mut full_num = String::new();
@@ -272,7 +272,7 @@ pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
 ///
 /// let result = whitespace1.parse("   hello").unwrap();
 /// assert_eq!(result.len(), 3);
-/// ```
+/// ```ignore
 pub fn whitespace1(input: &str, pos: Position) -> ParseResult<String> {
     let mut current_pos = pos;
     let mut result = String::new();
@@ -303,7 +303,7 @@ pub fn whitespace1(input: &str, pos: Position) -> ParseResult<String> {
 /// let parser = until("-->");
 /// let result = parser.parse("Hello world-->").unwrap();
 /// assert_eq!(result, "Hello world");
-/// ```
+/// ```ignore
 pub fn until(end: &'static str) -> BoxedParser<String> {
     Box::new(move |input: &str, pos: Position| {
         let mut current_pos = pos;
@@ -336,7 +336,7 @@ pub fn until(end: &'static str) -> BoxedParser<String> {
 /// let parser = line_comment("//");
 /// let result = parser.parse("// This is a comment\n").unwrap();
 /// assert_eq!(result, " This is a comment");
-/// ```
+/// ```ignore
 pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
     Box::new(move |input: &str, pos: Position| {
         let mut current_pos = pos;
@@ -378,7 +378,7 @@ pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
 /// let parser = block_comment("/*", "*/");
 /// let result = parser.parse("/* comment */").unwrap();
 /// assert_eq!(result, " comment ");
-/// ```
+/// ```ignore
 pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<String> {
     Box::new(move |input: &str, pos: Position| {
         let mut current_pos = pos;

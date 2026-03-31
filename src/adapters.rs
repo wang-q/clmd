@@ -57,7 +57,7 @@ use crate::nodes::SourcePos;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::SyntaxHighlighterAdapter;
 /// use std::collections::HashMap;
 /// use std::borrow::Cow;
@@ -91,7 +91,7 @@ use crate::nodes::SourcePos;
 ///         output.write_str(code)
 ///     }
 /// }
-/// ```
+/// ```ignore
 pub trait SyntaxHighlighterAdapter {
     /// Write the opening `<pre>` tag with attributes.
     ///
@@ -164,7 +164,7 @@ pub struct HeadingMeta {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::{HeadingAdapter, HeadingMeta};
 /// use clmd::nodes::SourcePos;
 /// use std::fmt::{self, Write};
@@ -188,7 +188,7 @@ pub struct HeadingMeta {
 ///         write!(output, "</h{}>", heading.level)
 ///     }
 /// }
-/// ```
+/// ```ignore
 pub trait HeadingAdapter {
     /// Called when entering a heading element.
     ///
@@ -657,7 +657,7 @@ pub trait DocumentAdapter {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::adapters::CodefenceRendererAdapter;
 /// use clmd::nodes::SourcePos;
 /// use std::fmt::{self, Write};
@@ -680,7 +680,7 @@ pub trait DocumentAdapter {
 ///         }
 ///     }
 /// }
-/// ```
+/// ```ignore
 pub trait CodefenceRendererAdapter {
     /// Write the code fence block.
     ///

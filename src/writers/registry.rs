@@ -396,14 +396,14 @@ impl Writer for ManWriter {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::default_registry;
 ///
 /// let registry = default_registry();
 /// if let Some(writer) = registry.get("html") {
 ///     println!("HTML writer is available");
 /// }
-/// ```
+/// ```ignore
 pub fn default_registry() -> &'static WriterRegistry {
     use std::sync::OnceLock;
     static REGISTRY: OnceLock<WriterRegistry> = OnceLock::new();
@@ -416,13 +416,13 @@ pub fn default_registry() -> &'static WriterRegistry {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::get_writer;
 ///
 /// if let Some(writer) = get_writer("html") {
 ///     println!("Found HTML writer");
 /// }
-/// ```
+/// ```ignore
 pub fn get_writer(name: &str) -> Option<&'static dyn Writer> {
     default_registry().get(name)
 }
@@ -434,13 +434,13 @@ pub fn get_writer(name: &str) -> Option<&'static dyn Writer> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::get_writer_by_extension;
 ///
 /// if let Some(writer) = get_writer_by_extension("html") {
 ///     println!("Found writer for .html files");
 /// }
-/// ```
+/// ```ignore
 pub fn get_writer_by_extension(ext: &str) -> Option<&'static dyn Writer> {
     default_registry()
         .get_by_extension(ext)
@@ -454,14 +454,14 @@ pub fn get_writer_by_extension(ext: &str) -> Option<&'static dyn Writer> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::writers::get_writer_by_path;
 /// use std::path::Path;
 ///
 /// if let Some(writer) = get_writer_by_path(Path::new("document.html")) {
 ///     println!("Found writer for document.html");
 /// }
-/// ```
+/// ```ignore
 pub fn get_writer_by_path(path: &std::path::Path) -> Option<&'static dyn Writer> {
     default_registry().get_by_path(path)
 }

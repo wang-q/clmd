@@ -10,7 +10,7 @@
 use clmd::arena::{Node, NodeArena, TreeOps};
 use clmd::core::monad::{ClmdIO, ClmdMonad, ClmdPure, Verbosity};
 use clmd::error::ClmdResult;
-use clmd::filter::{Filter, FilterChain, FilterError};
+use clmd::filter::{Filter, FilterChain};
 use clmd::mediabag::MediaBag;
 use clmd::mime::get_mime_type;
 use clmd::pipeline::PipelineBuilder;
@@ -83,7 +83,7 @@ fn main() -> ClmdResult<()> {
 
     // 5. Template System
     println!("5. Template System:");
-    let engine = TemplateEngine::new();
+    let _engine = TemplateEngine::new();
     let template = TemplateEngine::default_html_template();
 
     let mut ctx = TemplateContext::new();

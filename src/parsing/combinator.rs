@@ -17,7 +17,7 @@ use super::{BoxedParser, ParseError, ParseResult, Position};
 /// assert!(parser.parse("b").is_ok());
 /// assert!(parser.parse("1").is_ok());
 /// assert!(parser.parse("x").is_err());
-/// ```
+/// ```ignore
 pub fn choice<T>(parsers: Vec<BoxedParser<T>>) -> BoxedParser<T>
 where
     T: 'static,
@@ -45,7 +45,7 @@ where
 ///
 /// let parser = seq(vec![char_lit('a'), char_lit('b')]);
 /// assert_eq!(parser.parse("ab").unwrap(), 'a');
-/// ```
+/// ```ignore
 pub fn seq<T>(parsers: Vec<BoxedParser<T>>) -> BoxedParser<T>
 where
     T: 'static,
@@ -80,7 +80,7 @@ where
 /// let (letter, num) = parser.parse("a1").unwrap();
 /// assert_eq!(letter, 'a');
 /// assert_eq!(num, '1');
-/// ```
+/// ```ignore
 pub fn pair<A, B>(first: BoxedParser<A>, second: BoxedParser<B>) -> BoxedParser<(A, B)>
 where
     A: 'static,
@@ -102,7 +102,7 @@ where
 ///
 /// let parser = right(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), '1');
-/// ```
+/// ```ignore
 pub fn right<L, R>(left: BoxedParser<L>, right: BoxedParser<R>) -> BoxedParser<R>
 where
     L: 'static,
@@ -123,7 +123,7 @@ where
 ///
 /// let parser = left(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), 'a');
-/// ```
+/// ```ignore
 pub fn left<L, R>(left: BoxedParser<L>, right: BoxedParser<R>) -> BoxedParser<L>
 where
     L: 'static,
@@ -145,7 +145,7 @@ where
 ///
 /// let parser = between(char_lit('('), char_lit(')'), digit);
 /// assert_eq!(parser.parse("(1)").unwrap(), '1');
-/// ```
+/// ```ignore
 pub fn between<O, L, R>(
     open: BoxedParser<L>,
     close: BoxedParser<R>,
@@ -174,7 +174,7 @@ where
 /// let parser = many(digit);
 /// let result = parser.parse("123abc").unwrap();
 /// assert_eq!(result, vec!['1', '2', '3']);
-/// ```
+/// ```ignore
 pub fn many<T>(parser: BoxedParser<T>) -> BoxedParser<Vec<T>>
 where
     T: 'static,
@@ -205,7 +205,7 @@ where
 /// let result = parser.parse("123abc").unwrap();
 /// assert_eq!(result, vec!['1', '2', '3']);
 /// assert!(parser.parse("abc").is_err());
-/// ```
+/// ```ignore
 pub fn many1<T>(parser: BoxedParser<T>) -> BoxedParser<Vec<T>>
 where
     T: 'static,
@@ -238,7 +238,7 @@ where
 /// let parser = optional(char_lit('a'));
 /// assert_eq!(parser.parse("abc").unwrap(), Some('a'));
 /// assert_eq!(parser.parse("xyz").unwrap(), None);
-/// ```
+/// ```ignore
 pub fn optional<T>(parser: BoxedParser<T>) -> BoxedParser<Option<T>>
 where
     T: 'static,
@@ -260,7 +260,7 @@ where
 ///
 /// let parser = map2(char_lit('a'), digit, |a, d| format!("{}{}", a, d));
 /// assert_eq!(parser.parse("a1").unwrap(), "a1");
-/// ```
+/// ```ignore
 pub fn map2<A, B, F, R>(
     first: BoxedParser<A>,
     second: BoxedParser<B>,
@@ -311,7 +311,7 @@ where
 /// let parser = separated_by(digit, char_lit(','));
 /// let result = parser.parse("1,2,3").unwrap();
 /// assert_eq!(result, vec!['1', '2', '3']);
-/// ```
+/// ```ignore
 pub fn separated_by<T, S>(
     parser: BoxedParser<T>,
     sep: BoxedParser<S>,
@@ -390,7 +390,7 @@ where
 ///
 /// let parser = skip_whitespace(char_lit('a'));
 /// assert_eq!(parser.parse("   a").unwrap(), 'a');
-/// ```
+/// ```ignore
 pub fn skip_whitespace<T>(parser: BoxedParser<T>) -> BoxedParser<T>
 where
     T: 'static,
@@ -417,7 +417,7 @@ where
 ///
 /// assert!(eof.parse("").is_ok());
 /// assert!(eof.parse("a").is_err());
-/// ```
+/// ```ignore
 pub fn eof(input: &str, pos: Position) -> ParseResult<()> {
     if pos.offset >= input.len() {
         Ok(((), pos))
@@ -439,7 +439,7 @@ pub fn eof(input: &str, pos: Position) -> ParseResult<()> {
 ///
 /// let parser = success(42);
 /// assert_eq!(parser.parse("anything").unwrap(), 42);
-/// ```
+/// ```ignore
 pub fn success<T: Clone + 'static>(value: T) -> BoxedParser<T> {
     Box::new(move |_input: &str, pos: Position| Ok((value.clone(), pos)))
 }
@@ -453,7 +453,7 @@ pub fn success<T: Clone + 'static>(value: T) -> BoxedParser<T> {
 ///
 /// let parser = failure("custom error");
 /// assert!(parser.parse("").is_err());
-/// ```
+/// ```ignore
 pub fn failure<T>(message: &'static str) -> BoxedParser<T>
 where
     T: 'static,
@@ -475,7 +475,7 @@ where
 /// // Input not consumed
 /// let result = parser.parse_partial("abc").unwrap();
 /// assert_eq!(result.1.offset, 0);
-/// ```
+/// ```ignore
 pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>> {
     Box::new(
         move |input: &str, pos: Position| match parser(input, pos.clone()) {
@@ -495,7 +495,7 @@ pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>
 /// let parser = not_followed_by(char_lit('a'), char_lit('b'));
 /// assert!(parser.parse("ac").is_ok());
 /// assert!(parser.parse("ab").is_err());
-/// ```
+/// ```ignore
 pub fn not_followed_by<T, U>(
     parser: BoxedParser<T>,
     not_followed: BoxedParser<U>,

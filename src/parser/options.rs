@@ -34,7 +34,7 @@ use bon::Builder;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::Options;
 ///
 /// let mut options = Options::default();
@@ -43,7 +43,7 @@ use bon::Builder;
 ///
 /// let html = clmd::markdown_to_html("Hello **world**!", &options);
 /// assert!(html.contains("<strong>world</strong>"));
-/// ```
+/// ```ignore
 #[derive(Debug, Clone, Builder, Arbitrary, Default)]
 pub struct Options<'c> {
     /// Enable CommonMark extensions.

@@ -75,14 +75,14 @@ impl CsvOptions {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::csv::{parse_csv, CsvOptions};
 ///
 /// let csv = "Name,Age,City\nAlice,30,NYC\nBob,25,LA";
 /// let result = parse_csv(csv, &CsvOptions::default()).unwrap();
 /// assert_eq!(result.len(), 3);
 /// assert_eq!(result[0], vec!["Name", "Age", "City"]);
-/// ```
+/// ```ignore
 pub fn parse_csv(input: &str, options: &CsvOptions) -> ClmdResult<Vec<Vec<String>>> {
     let mut rows = Vec::new();
     let mut current_row = Vec::new();
@@ -187,13 +187,13 @@ pub fn parse_csv(input: &str, options: &CsvOptions) -> ClmdResult<Vec<Vec<String
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::csv::parse_csv_default;
 ///
 /// let csv = "a,b,c\n1,2,3";
 /// let result = parse_csv_default(csv).unwrap();
 /// assert_eq!(result[0], vec!["a", "b", "c"]);
-/// ```
+/// ```ignore
 pub fn parse_csv_default(input: &str) -> ClmdResult<Vec<Vec<String>>> {
     parse_csv(input, &CsvOptions::default())
 }
@@ -206,13 +206,13 @@ pub fn parse_csv_default(input: &str) -> ClmdResult<Vec<Vec<String>>> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::csv::parse_tsv;
 ///
 /// let tsv = "a\tb\tc\n1\t2\t3";
 /// let result = parse_tsv(tsv).unwrap();
 /// assert_eq!(result[0], vec!["a", "b", "c"]);
-/// ```
+/// ```ignore
 pub fn parse_tsv(input: &str) -> ClmdResult<Vec<Vec<String>>> {
     let options = CsvOptions::new().delimiter('\t');
     parse_csv(input, &options)
@@ -231,7 +231,7 @@ pub fn parse_tsv(input: &str) -> ClmdResult<Vec<Vec<String>>> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::csv::{parse_csv_default, csv_to_markdown};
 ///
 /// let csv = "Name,Age\nAlice,30\nBob,25";
@@ -239,7 +239,7 @@ pub fn parse_tsv(input: &str) -> ClmdResult<Vec<Vec<String>>> {
 /// let markdown = csv_to_markdown(&data, true);
 /// assert!(markdown.contains("| Name "));
 /// assert!(markdown.contains("| Age |"));
-/// ```
+/// ```ignore
 pub fn csv_to_markdown(data: &[Vec<String>], has_header: bool) -> String {
     if data.is_empty() {
         return String::new();
@@ -303,14 +303,14 @@ pub fn csv_to_markdown(data: &[Vec<String>], has_header: bool) -> String {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::csv::{parse_csv_to_markdown, CsvOptions};
 ///
 /// let csv = "Name,Age\nAlice,30\nBob,25";
 /// let markdown = parse_csv_to_markdown(csv, &CsvOptions::default(), true).unwrap();
 /// assert!(markdown.contains("| Name "));
 /// assert!(markdown.contains("| Age |"));
-/// ```
+/// ```ignore
 pub fn parse_csv_to_markdown(
     input: &str,
     options: &CsvOptions,

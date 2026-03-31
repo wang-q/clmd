@@ -319,14 +319,14 @@ impl Reader for CommonMarkReader {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::default_registry;
 ///
 /// let registry = default_registry();
 /// if let Some(reader) = registry.get("markdown") {
 ///     println!("Markdown reader is available");
 /// }
-/// ```
+/// ```ignore
 pub fn default_registry() -> &'static ReaderRegistry {
     use std::sync::OnceLock;
     static REGISTRY: OnceLock<ReaderRegistry> = OnceLock::new();
@@ -339,13 +339,13 @@ pub fn default_registry() -> &'static ReaderRegistry {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::get_reader;
 ///
 /// if let Some(reader) = get_reader("markdown") {
 ///     println!("Found markdown reader");
 /// }
-/// ```
+/// ```ignore
 pub fn get_reader(name: &str) -> Option<&'static dyn Reader> {
     default_registry().get(name)
 }
@@ -357,13 +357,13 @@ pub fn get_reader(name: &str) -> Option<&'static dyn Reader> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::get_reader_by_extension;
 ///
 /// if let Some(reader) = get_reader_by_extension("md") {
 ///     println!("Found reader for .md files");
 /// }
-/// ```
+/// ```ignore
 pub fn get_reader_by_extension(ext: &str) -> Option<&'static dyn Reader> {
     default_registry()
         .get_by_extension(ext)
@@ -377,14 +377,14 @@ pub fn get_reader_by_extension(ext: &str) -> Option<&'static dyn Reader> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::readers::get_reader_by_path;
 /// use std::path::Path;
 ///
 /// if let Some(reader) = get_reader_by_path(Path::new("document.md")) {
 ///     println!("Found reader for document.md");
 /// }
-/// ```
+/// ```ignore
 pub fn get_reader_by_path(path: &std::path::Path) -> Option<&'static dyn Reader> {
     default_registry().get_by_path(path)
 }

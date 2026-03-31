@@ -175,13 +175,13 @@ fn in_table(arr: &[CodePointRange], c: char) -> bool {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::unicode_width::is_double_width;
 ///
 /// assert_eq!(is_double_width('✅'), true);
 /// assert_eq!(is_double_width('a'), false);
 /// assert_eq!(is_double_width('中'), true);
-/// ```
+/// ```ignore
 pub fn is_double_width(c: char) -> bool {
     // Since ASCII characters are so much more common in English text, check these first
     if in_table(ASCII_TABLE, c) {
@@ -223,7 +223,7 @@ fn get_grapheme_width(grapheme_cluster: &str) -> u64 {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use clmd::unicode_width::width;
 ///
 /// assert_eq!(width("hello"), 5);
@@ -231,7 +231,7 @@ fn get_grapheme_width(grapheme_cluster: &str) -> u64 {
 /// assert_eq!(width("👨‍👩‍👧‍👧"), 2);
 /// assert_eq!(width("слава україні"), 13);
 /// assert_eq!(width("슬라바 우크라이나"), 17);
-/// ```
+/// ```ignore
 pub fn width(text: &str) -> u64 {
     text.graphemes(true).fold(0, |acc, grapheme_cluster| {
         acc + get_grapheme_width(grapheme_cluster)

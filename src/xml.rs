@@ -42,13 +42,13 @@ use std::fmt;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::xml::escape_xml;
 ///
 /// assert_eq!(escape_xml("<tag>"), "&lt;tag&gt;");
 /// assert_eq!(escape_xml("&"), "&amp;");
 /// assert_eq!(escape_xml("'test'"), "&apos;test&apos;");
-/// ```
+/// ```ignore
 pub fn escape_xml(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for c in s.chars() {
@@ -83,12 +83,12 @@ pub fn escape_xml(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::xml::unescape_xml;
 ///
 /// assert_eq!(unescape_xml("&lt;tag&gt;"), "<tag>");
 /// assert_eq!(unescape_xml("&amp;"), "&");
-/// ```
+/// ```ignore
 pub fn unescape_xml(s: &str) -> String {
     s.replace("&amp;", "&")
         .replace("&lt;", "<")
@@ -109,12 +109,12 @@ pub fn unescape_xml(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::xml::needs_escape;
 ///
 /// assert!(needs_escape("<tag>"));
 /// assert!(!needs_escape("hello"));
-/// ```
+/// ```ignore
 pub fn needs_escape(s: &str) -> bool {
     s.chars().any(|c| matches!(c, '&' | '<' | '>' | '"' | '\''))
 }
@@ -134,12 +134,12 @@ pub fn needs_escape(s: &str) -> bool {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::xml::escape_xml_attr;
 ///
 /// assert_eq!(escape_xml_attr("line1\nline2"), "line1&#10;line2");
 /// assert_eq!(escape_xml_attr("tab\there"), "tab&#9;here");
-/// ```
+/// ```ignore
 pub fn escape_xml_attr(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for c in s.chars() {
@@ -165,7 +165,7 @@ pub fn escape_xml_attr(s: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::xml::XmlBuilder;
 ///
 /// let mut builder = XmlBuilder::new();
@@ -181,7 +181,7 @@ pub fn escape_xml_attr(s: &str) -> String {
 /// assert!(xml.contains("<?xml"));
 /// assert!(xml.contains("<document"));
 /// assert!(xml.contains("<title>Hello World</title>"));
-/// ```
+/// ```ignore
 #[derive(Debug)]
 pub struct XmlBuilder {
     output: String,

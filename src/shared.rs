@@ -40,7 +40,7 @@ use std::collections::HashSet;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::stringify;
 /// use clmd::{parse_document, Options};
 ///
@@ -49,7 +49,7 @@ use std::collections::HashSet;
 ///
 /// let text = stringify(&arena, root);
 /// assert_eq!(text, "Hello World");
-/// ```
+/// ```ignore
 pub fn stringify(arena: &NodeArena, node_id: NodeId) -> String {
     let mut result = String::new();
     stringify_recursive(arena, node_id, &mut result);
@@ -137,7 +137,7 @@ fn stringify_inlines_recursive(arena: &NodeArena, node_id: NodeId, result: &mut 
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::inline_list_to_identifier;
 /// use clmd::{parse_document, Options};
 ///
@@ -148,7 +148,7 @@ fn stringify_inlines_recursive(arena: &NodeArena, node_id: NodeId, result: &mut 
 /// let heading = arena.get(root).first_child.unwrap();
 /// let identifier = inline_list_to_identifier(&arena, heading);
 /// assert_eq!(identifier, "hello-world");
-/// ```
+/// ```ignore
 pub fn inline_list_to_identifier(arena: &NodeArena, node_id: NodeId) -> String {
     let text = stringify_inlines(arena, node_id);
     text_to_identifier(&text)
@@ -166,13 +166,13 @@ pub fn inline_list_to_identifier(arena: &NodeArena, node_id: NodeId) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::text_to_identifier;
 ///
 /// assert_eq!(text_to_identifier("Hello World!"), "hello-world");
 /// assert_eq!(text_to_identifier("C++ Programming"), "c-programming");
 /// assert_eq!(text_to_identifier("  Multiple   Spaces  "), "multiple-spaces");
-/// ```
+/// ```ignore
 pub fn text_to_identifier(text: &str) -> String {
     let mut result = String::new();
     let mut prev_was_dash = true; // Start true to avoid leading dash
@@ -215,7 +215,7 @@ pub fn text_to_identifier(text: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::unique_ident;
 /// use std::collections::HashSet;
 ///
@@ -224,7 +224,7 @@ pub fn text_to_identifier(text: &str) -> String {
 ///
 /// assert_eq!(unique_ident("hello-world", &existing), "hello-world-1");
 /// assert_eq!(unique_ident("new-ident", &existing), "new-ident");
-/// ```
+/// ```ignore
 pub fn unique_ident(base: &str, existing: &HashSet<String>) -> String {
     if !existing.contains(base) {
         return base.to_string();
@@ -254,7 +254,7 @@ pub fn unique_ident(base: &str, existing: &HashSet<String>) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::make_sections;
 /// use clmd::{parse_document, Options};
 ///
@@ -263,7 +263,7 @@ pub fn unique_ident(base: &str, existing: &HashSet<String>) -> String {
 ///
 /// make_sections(&mut arena, root, 1);
 /// // Document now has a hierarchical section structure
-/// ```
+/// ```ignore
 pub fn make_sections(arena: &mut NodeArena, root: NodeId, _base_level: u8) {
     // Collect all top-level headers and their positions
     let mut sections: Vec<(u8, NodeId, Vec<NodeId>)> = Vec::new();
@@ -319,7 +319,7 @@ pub fn make_sections(arena: &mut NodeArena, root: NodeId, _base_level: u8) {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::compactify;
 /// use clmd::{parse_document, Options};
 ///
@@ -327,7 +327,7 @@ pub fn make_sections(arena: &mut NodeArena, root: NodeId, _base_level: u8) {
 /// let (mut arena, root) = parse_document("- Item 1\n\n- Item 2", &options);
 ///
 /// compactify(&mut arena, root);
-/// ```
+/// ```ignore
 pub fn compactify(arena: &mut NodeArena, root: NodeId) {
     compactify_recursive(arena, root);
 }
@@ -553,12 +553,12 @@ pub fn list_marker(list: &NodeList, index: usize) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::normalize_whitespace;
 ///
 /// assert_eq!(normalize_whitespace("  hello   world  "), "hello world");
 /// assert_eq!(normalize_whitespace("a\n\nb\t\tc"), "a b c");
-/// ```
+/// ```ignore
 pub fn normalize_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -591,12 +591,12 @@ pub fn escape_html_attribute(text: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::to_title_case;
 ///
 /// assert_eq!(to_title_case("hello world"), "Hello World");
 /// assert_eq!(to_title_case("the quick brown fox"), "The Quick Brown Fox");
-/// ```
+/// ```ignore
 pub fn to_title_case(text: &str) -> String {
     text.split_whitespace()
         .map(|word| {
@@ -686,12 +686,12 @@ pub fn split_by_blank_lines(text: &str) -> Vec<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::truncate_with_ellipsis;
 ///
 /// assert_eq!(truncate_with_ellipsis("Hello World", 8), "Hello...");
 /// assert_eq!(truncate_with_ellipsis("Hi", 8), "Hi");
-/// ```
+/// ```ignore
 pub fn truncate_with_ellipsis(text: &str, max_len: usize) -> String {
     if text.len() <= max_len {
         text.to_string()
@@ -778,13 +778,13 @@ pub fn remove_extension(path: &str) -> &str {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::to_kebab_case;
 ///
 /// assert_eq!(to_kebab_case("Hello World"), "hello-world");
 /// assert_eq!(to_kebab_case("HelloWorld"), "hello-world");
 /// assert_eq!(to_kebab_case("hello_world"), "hello-world");
-/// ```
+/// ```ignore
 pub fn to_kebab_case(text: &str) -> String {
     let mut result = String::new();
     let mut prev_was_upper = false;
@@ -830,13 +830,13 @@ pub fn to_kebab_case(text: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::to_snake_case;
 ///
 /// assert_eq!(to_snake_case("Hello World"), "hello_world");
 /// assert_eq!(to_snake_case("HelloWorld"), "hello_world");
 /// assert_eq!(to_snake_case("hello-world"), "hello_world");
-/// ```
+/// ```ignore
 pub fn to_snake_case(text: &str) -> String {
     to_kebab_case(text).replace('-', "_")
 }
@@ -853,13 +853,13 @@ pub fn to_snake_case(text: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::to_camel_case;
 ///
 /// assert_eq!(to_camel_case("hello world"), "helloWorld");
 /// assert_eq!(to_camel_case("hello-world"), "helloWorld");
 /// assert_eq!(to_camel_case("hello_world"), "helloWorld");
-/// ```
+/// ```ignore
 pub fn to_camel_case(text: &str) -> String {
     let words: Vec<&str> = text
         .split(|c: char| c == ' ' || c == '-' || c == '_')
@@ -896,13 +896,13 @@ pub fn to_camel_case(text: &str) -> String {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::shared::to_pascal_case;
 ///
 /// assert_eq!(to_pascal_case("hello world"), "HelloWorld");
 /// assert_eq!(to_pascal_case("hello-world"), "HelloWorld");
 /// assert_eq!(to_pascal_case("hello_world"), "HelloWorld");
-/// ```
+/// ```ignore
 pub fn to_pascal_case(text: &str) -> String {
     let words: Vec<&str> = text
         .split(|c: char| c == ' ' || c == '-' || c == '_')

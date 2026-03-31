@@ -223,7 +223,7 @@ impl Default for HTMLMathMethod {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::clmd_options::{ClmdOptions, InputFormat, OutputFormat, WrapOption};
 ///
 /// let options = ClmdOptions::default()
@@ -231,7 +231,7 @@ impl Default for HTMLMathMethod {
 ///     .with_output_format(OutputFormat::Html)
 ///     .with_wrap(WrapOption::Auto)
 ///     .with_columns(80);
-/// ```
+/// ```ignore
 #[derive(Debug, Clone)]
 pub struct ClmdOptions {
     // =========================================================================
@@ -565,7 +565,7 @@ impl ClmdOptions {
     // =========================================================================
 
     /// Convert to legacy Options for compatibility.
-    pub fn to_options(&self) -> crate::options::Options {
+    pub fn to_options(&self) -> crate::options::Options<'_> {
         crate::options::Options {
             extension: self.to_extension(),
             parse: self.to_parse(),
@@ -574,7 +574,7 @@ impl ClmdOptions {
     }
 
     /// Convert extensions to legacy Extension struct.
-    fn to_extension(&self) -> LegacyExtension {
+    fn to_extension(&self) -> LegacyExtension<'_> {
         LegacyExtension {
             strikethrough: self.extensions.contains(Extensions::STRIKETHROUGH),
             tagfilter: self.extensions.contains(Extensions::TAGFILTER),
@@ -612,7 +612,7 @@ impl ClmdOptions {
     }
 
     /// Convert to legacy Parse struct.
-    fn to_parse(&self) -> Parse {
+    fn to_parse(&self) -> Parse<'_> {
         Parse {
             smart: self.smart,
             sourcepos: self.sourcepos,

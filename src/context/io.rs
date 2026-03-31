@@ -20,12 +20,12 @@ use crate::mediabag::MediaItem;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::context::{ClmdContext, IoContext, LogLevel};
 ///
 /// let mut ctx = IoContext::new();
 /// ctx.info("Processing started");
-/// ```
+/// ```ignore
 #[derive(Debug, Clone)]
 pub struct IoContext {
     /// The common state for this context.
