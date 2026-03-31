@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::xml::{escape_xml, XmlBuilder};
+//! use clmd::formats::xml::{escape_xml, XmlBuilder};
 //!
 //! // Escape XML special characters
 //! let escaped = escape_xml("<tag>");
@@ -43,7 +43,7 @@ use std::fmt;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::xml::escape_xml;
+/// use clmd::formats::xml::escape_xml;
 ///
 /// assert_eq!(escape_xml("<tag>"), "&lt;tag&gt;");
 /// assert_eq!(escape_xml("&"), "&amp;");
@@ -84,7 +84,7 @@ pub fn escape_xml(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::xml::unescape_xml;
+/// use clmd::formats::xml::unescape_xml;
 ///
 /// assert_eq!(unescape_xml("&lt;tag&gt;"), "<tag>");
 /// assert_eq!(unescape_xml("&amp;"), "&");
@@ -110,7 +110,7 @@ pub fn unescape_xml(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::xml::needs_escape;
+/// use clmd::formats::xml::needs_escape;
 ///
 /// assert!(needs_escape("<tag>"));
 /// assert!(!needs_escape("hello"));
@@ -135,7 +135,7 @@ pub fn needs_escape(s: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::xml::escape_xml_attr;
+/// use clmd::formats::xml::escape_xml_attr;
 ///
 /// assert_eq!(escape_xml_attr("line1\nline2"), "line1&#10;line2");
 /// assert_eq!(escape_xml_attr("tab\there"), "tab&#9;here");
@@ -166,7 +166,7 @@ pub fn escape_xml_attr(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::xml::XmlBuilder;
+/// use clmd::formats::xml::XmlBuilder;
 ///
 /// let mut builder = XmlBuilder::new();
 /// builder.declaration("1.0", "UTF-8");

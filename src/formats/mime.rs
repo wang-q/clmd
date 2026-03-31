@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::mime::{get_mime_type, get_mime_type_def, extension_from_mime_type};
+//! use clmd::formats::mime::{get_mime_type, get_mime_type_def, extension_from_mime_type};
 //! use std::path::Path;
 //!
 //! // Get MIME type from file path
@@ -179,7 +179,7 @@ fn reverse_mime_type_map() -> &'static HashMap<&'static str, &'static str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::get_mime_type;
+/// use clmd::formats::mime::get_mime_type;
 /// use std::path::Path;
 ///
 /// assert_eq!(get_mime_type(Path::new("image.png")), Some("image/png"));
@@ -207,7 +207,7 @@ pub fn get_mime_type(path: &Path) -> Option<MimeType> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::get_mime_type_def;
+/// use clmd::formats::mime::get_mime_type_def;
 /// use std::path::Path;
 ///
 /// assert_eq!(get_mime_type_def(Path::new("image.png")), "image/png");
@@ -230,7 +230,7 @@ pub fn get_mime_type_def(path: &Path) -> MimeType {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::extension_from_mime_type;
+/// use clmd::formats::mime::extension_from_mime_type;
 ///
 /// assert_eq!(extension_from_mime_type("image/png"), Some("png"));
 /// assert_eq!(extension_from_mime_type("text/html"), Some("html"));
@@ -257,7 +257,7 @@ pub fn extension_from_mime_type(mime_type: &str) -> Option<&'static str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::media_category;
+/// use clmd::formats::mime::media_category;
 ///
 /// assert_eq!(media_category("image/png"), Some("image"));
 /// assert_eq!(media_category("text/html"), Some("text"));
@@ -282,7 +282,7 @@ pub fn media_category(mime_type: &str) -> Option<&str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::media_category_from_path;
+/// use clmd::formats::mime::media_category_from_path;
 /// use std::path::Path;
 ///
 /// assert_eq!(media_category_from_path(Path::new("image.png")), Some("image"));
@@ -305,7 +305,7 @@ pub fn media_category_from_path(path: &Path) -> Option<&str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::is_image;
+/// use clmd::formats::mime::is_image;
 ///
 /// assert!(is_image("image/png"));
 /// assert!(is_image("image/jpeg"));
@@ -328,7 +328,7 @@ pub fn is_image(mime_type: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::is_text;
+/// use clmd::formats::mime::is_text;
 ///
 /// assert!(is_text("text/html"));
 /// assert!(is_text("text/plain"));
@@ -351,7 +351,7 @@ pub fn is_text(mime_type: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::is_font;
+/// use clmd::formats::mime::is_font;
 ///
 /// assert!(is_font("font/woff2"));
 /// assert!(is_font("font/ttf"));
@@ -374,7 +374,7 @@ pub fn is_font(mime_type: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::get_charset;
+/// use clmd::formats::mime::get_charset;
 ///
 /// assert_eq!(get_charset("text/html; charset=utf-8"), Some("utf-8"));
 /// assert_eq!(get_charset("text/plain"), None);
@@ -404,7 +404,7 @@ pub fn get_charset(mime_type: &str) -> Option<&str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::mime::normalize_mime_type;
+/// use clmd::formats::mime::normalize_mime_type;
 ///
 /// assert_eq!(normalize_mime_type("  text/html  "), "text/html");
 /// assert_eq!(normalize_mime_type("text/html; charset=utf-8"), "text/html");

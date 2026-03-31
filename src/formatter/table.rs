@@ -49,7 +49,7 @@
 //! ```
 
 use crate::nodes::TableAlignment;
-use crate::unicode_width::width as unicode_width;
+use crate::text::unicode_width::width as unicode_width;
 
 /// Represents a table cell with its content and visual display width.
 #[derive(Clone, Debug, PartialEq, Eq)]

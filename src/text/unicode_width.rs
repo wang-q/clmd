@@ -13,7 +13,7 @@
 //! # Examples
 //!
 //! ```
-//! use clmd::unicode_width::width;
+//! use clmd::text::unicode_width::width;
 //!
 //! assert_eq!(width("hello"), 5);
 //! assert_eq!(width("🦀"), 2);
@@ -176,7 +176,7 @@ fn in_table(arr: &[CodePointRange], c: char) -> bool {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::unicode_width::is_double_width;
+/// use clmd::text::unicode_width::is_double_width;
 ///
 /// assert_eq!(is_double_width('✅'), true);
 /// assert_eq!(is_double_width('a'), false);
@@ -224,7 +224,7 @@ fn get_grapheme_width(grapheme_cluster: &str) -> u64 {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::unicode_width::width;
+/// use clmd::text::unicode_width::width;
 ///
 /// assert_eq!(width("hello"), 5);
 /// assert_eq!(width("🦀"), 2);

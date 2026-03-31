@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::css::{StyleDeclaration, parse_inline_style};
+//! use clmd::formats::css::{StyleDeclaration, parse_inline_style};
 //!
 //! let style = parse_inline_style("color: red; font-size: 14px").unwrap();
 //! assert_eq!(style.get("color"), Some("red"));
@@ -34,7 +34,7 @@ impl StyleDeclaration {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::css::StyleDeclaration;
+    /// use clmd::formats::css::StyleDeclaration;
     ///
     /// let style = StyleDeclaration::from_css("color: red; font-size: 14px");
     /// assert_eq!(style.get("color"), Some("red"));
@@ -94,7 +94,7 @@ impl StyleDeclaration {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::css::StyleDeclaration;
+    /// use clmd::formats::css::StyleDeclaration;
     ///
     /// let mut style = StyleDeclaration::new();
     /// style.set("color", "red");
@@ -150,7 +150,7 @@ impl std::fmt::Display for StyleDeclaration {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::css::parse_inline_style;
+/// use clmd::formats::css::parse_inline_style;
 ///
 /// let style = parse_inline_style("color: red; font-size: 14px").unwrap();
 /// assert_eq!(style.get("color"), Some("red"));
@@ -246,7 +246,7 @@ pub mod units {
     /// # Example
     ///
     /// ```
-    /// use clmd::css::units::extract_number;
+    /// use clmd::formats::css::units::extract_number;
     ///
     /// assert_eq!(extract_number("14px"), Some(14.0));
     /// assert_eq!(extract_number("1.5em"), Some(1.5));

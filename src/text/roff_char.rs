@@ -9,7 +9,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::roff_char::{escape_roff, standard_escape};
+//! use clmd::text::roff_char::{escape_roff, standard_escape};
 //!
 //! // Escape a string for roff output
 //! let escaped = escape_roff("It's a test");
@@ -150,7 +150,7 @@ const CHARACTER_CODES: &[(char, &str)] = &[
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::standard_escape;
+/// use clmd::text::roff_char::standard_escape;
 ///
 /// assert_eq!(standard_escape('\''), Some("\\(aq"));
 /// assert_eq!(standard_escape('\\'), Some("\\(rs"));
@@ -171,7 +171,7 @@ pub fn standard_escape(c: char) -> Option<&'static str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::character_code;
+/// use clmd::text::roff_char::character_code;
 ///
 /// assert_eq!(character_code('á'), Some("'a"));
 /// assert_eq!(character_code('ö'), Some(":o"));
@@ -200,7 +200,7 @@ pub fn character_code(c: char) -> Option<&'static str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::escape_roff;
+/// use clmd::text::roff_char::escape_roff;
 ///
 /// let escaped = escape_roff("It's a test");
 /// assert!(escaped.contains("\\(aq"));
@@ -237,7 +237,7 @@ pub fn escape_roff(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::escape_roff_with_codes;
+/// use clmd::text::roff_char::escape_roff_with_codes;
 ///
 /// let escaped = escape_roff_with_codes("café");
 /// assert!(escaped.contains("\\['e]"));
@@ -265,7 +265,7 @@ pub fn escape_roff_with_codes(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::needs_escape;
+/// use clmd::text::roff_char::needs_escape;
 ///
 /// assert!(needs_escape('\''));
 /// assert!(needs_escape('\\'));
@@ -358,7 +358,7 @@ impl Default for RoffEscaper {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::escape_header;
+/// use clmd::text::roff_char::escape_header;
 ///
 /// let escaped = escape_header("Section 1");
 /// assert_eq!(escaped, "Section 1");
@@ -378,7 +378,7 @@ pub fn escape_header(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::standard_escapes_map;
+/// use clmd::text::roff_char::standard_escapes_map;
 ///
 /// let map = standard_escapes_map();
 /// assert!(map.contains_key(&'\''));
@@ -392,7 +392,7 @@ pub fn standard_escapes_map() -> HashMap<char, &'static str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::roff_char::character_codes_map;
+/// use clmd::text::roff_char::character_codes_map;
 ///
 /// let map = character_codes_map();
 /// assert!(map.contains_key(&'á'));

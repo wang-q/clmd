@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::tex::{Token, TokenType};
+//! use clmd::formats::tex::{Token, TokenType};
 //!
 //! let token = Token::word("hello");
 //! assert!(matches!(token.token_type, TokenType::Word));

@@ -76,7 +76,7 @@ impl CsvOptions {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::csv::{parse_csv, CsvOptions};
+/// use clmd::formats::csv::{parse_csv, CsvOptions};
 ///
 /// let csv = "Name,Age,City\nAlice,30,NYC\nBob,25,LA";
 /// let result = parse_csv(csv, &CsvOptions::default()).unwrap();
@@ -188,7 +188,7 @@ pub fn parse_csv(input: &str, options: &CsvOptions) -> ClmdResult<Vec<Vec<String
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::csv::parse_csv_default;
+/// use clmd::formats::csv::parse_csv_default;
 ///
 /// let csv = "a,b,c\n1,2,3";
 /// let result = parse_csv_default(csv).unwrap();
@@ -207,7 +207,7 @@ pub fn parse_csv_default(input: &str) -> ClmdResult<Vec<Vec<String>>> {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::csv::parse_tsv;
+/// use clmd::formats::csv::parse_tsv;
 ///
 /// let tsv = "a\tb\tc\n1\t2\t3";
 /// let result = parse_tsv(tsv).unwrap();
@@ -232,7 +232,7 @@ pub fn parse_tsv(input: &str) -> ClmdResult<Vec<Vec<String>>> {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::csv::{parse_csv_default, csv_to_markdown};
+/// use clmd::formats::csv::{parse_csv_default, csv_to_markdown};
 ///
 /// let csv = "Name,Age\nAlice,30\nBob,25";
 /// let data = parse_csv_default(csv).unwrap();
@@ -304,7 +304,7 @@ pub fn csv_to_markdown(data: &[Vec<String>], has_header: bool) -> String {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::csv::{parse_csv_to_markdown, CsvOptions};
+/// use clmd::formats::csv::{parse_csv_to_markdown, CsvOptions};
 ///
 /// let csv = "Name,Age\nAlice,30\nBob,25";
 /// let markdown = parse_csv_to_markdown(csv, &CsvOptions::default(), true).unwrap();

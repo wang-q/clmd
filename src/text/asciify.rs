@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::asciify::asciify;
+//! use clmd::text::asciify::asciify;
 //!
 //! let ascii = asciify("café résumé naïve");
 //! assert_eq!(ascii, "cafe resume naive");
@@ -51,7 +51,7 @@ impl Transliterator {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::asciify::Transliterator;
+    /// use clmd::text::asciify::Transliterator;
     ///
     /// let transliterator = Transliterator::new();
     /// let result = transliterator.transliterate("café");
@@ -331,7 +331,7 @@ impl Transliterator {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::asciify::asciify;
+/// use clmd::text::asciify::asciify;
 ///
 /// let ascii = asciify("café résumé naïve");
 /// assert_eq!(ascii, "cafe resume naive");
@@ -346,7 +346,7 @@ pub fn asciify(input: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::asciify::has_non_ascii;
+/// use clmd::text::asciify::has_non_ascii;
 ///
 /// assert!(has_non_ascii("café"));
 /// assert!(!has_non_ascii("cafe"));
@@ -360,7 +360,7 @@ pub fn has_non_ascii(input: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::asciify::slugify;
+/// use clmd::text::asciify::slugify;
 ///
 /// let slug = slugify("Hello World!");
 /// assert_eq!(slug, "hello-world");

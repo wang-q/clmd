@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::char::is_cjk;
+//! use clmd::text::char::is_cjk;
 //!
 //! assert!(is_cjk('中'));
 //! assert!(is_cjk('日'));
@@ -53,7 +53,7 @@
 /// # Example
 ///
 /// ```ignore
-/// use clmd::char::is_cjk;
+/// use clmd::text::char::is_cjk;
 ///
 /// assert!(is_cjk('中'));  // Chinese
 /// assert!(is_cjk('日'));  // Japanese
@@ -149,7 +149,7 @@ pub fn is_cjk(c: char) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::char::is_cjk_punctuation;
+/// use clmd::text::char::is_cjk_punctuation;
 ///
 /// assert!(is_cjk_punctuation('。'));
 /// assert!(is_cjk_punctuation('、'));
@@ -175,7 +175,7 @@ pub fn is_cjk_punctuation(c: char) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::char::is_fullwidth;
+/// use clmd::text::char::is_fullwidth;
 ///
 /// assert!(is_fullwidth('Ａ'));  // Fullwidth A
 /// assert!(is_fullwidth('中'));
@@ -197,7 +197,7 @@ pub fn is_fullwidth(c: char) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::char::has_cjk;
+/// use clmd::text::char::has_cjk;
 ///
 /// assert!(has_cjk("Hello 世界"));
 /// assert!(!has_cjk("Hello World"));
@@ -211,7 +211,7 @@ pub fn has_cjk(s: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::char::count_cjk;
+/// use clmd::text::char::count_cjk;
 ///
 /// assert_eq!(count_cjk("Hello 世界"), 2);
 /// assert_eq!(count_cjk("日本語"), 3);

@@ -781,7 +781,7 @@ pub mod transforms {
         node_id: NodeId,
         to_remove: &mut Vec<NodeId>,
     ) {
-        use crate::char::{is_cjk, is_cjk_punctuation};
+        use crate::text::char::{is_cjk, is_cjk_punctuation};
 
         let node = arena.get(node_id);
 

@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::emoji::{EmojiMapper, has_emoji_shortcode};
+//! use clmd::text::emoji::{EmojiMapper, has_emoji_shortcode};
 //!
 //! // Convert shortcode to emoji
 //! let mapper = EmojiMapper::new();
@@ -69,7 +69,7 @@ impl EmojiMapper {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::emoji::EmojiMapper;
+    /// use clmd::text::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();
     /// assert_eq!(mapper.shortcode_to_emoji(":smile:"), Some("😄"));
@@ -84,7 +84,7 @@ impl EmojiMapper {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::emoji::EmojiMapper;
+    /// use clmd::text::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();
     /// let text = mapper.emoji_to_shortcode("😄");
@@ -102,7 +102,7 @@ impl EmojiMapper {
     /// # Example
     ///
     /// ```
-    /// use clmd::emoji::EmojiMapper;
+    /// use clmd::text::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();
     /// let text = mapper.replace_shortcodes("Hello :smile: :wave:");
@@ -250,7 +250,7 @@ impl EmojiMapper {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::emoji::has_emoji_shortcode;
+/// use clmd::text::emoji::has_emoji_shortcode;
 ///
 /// assert!(has_emoji_shortcode("Hello :smile:"));
 /// assert!(!has_emoji_shortcode("Hello world"));
@@ -290,7 +290,7 @@ pub fn has_emoji_shortcode(text: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::emoji::replace_emoji_shortcodes;
+/// use clmd::text::emoji::replace_emoji_shortcodes;
 ///
 /// let text = replace_emoji_shortcodes("Hello :smile: :wave:");
 /// assert_eq!(text, "Hello 😄 👋");

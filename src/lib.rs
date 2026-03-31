@@ -264,14 +264,14 @@ pub mod test_utils;
 /// String processing utilities.
 pub mod strings;
 
-/// Unicode display width calculation.
-pub mod unicode_width;
-
 /// Scanner utilities for CommonMark syntax.
 pub mod scanners;
 
-/// Unicode punctuation character lookup table.
-pub mod puncttable;
+/// Text processing utilities.
+///
+/// This module provides utilities for text processing, character handling,
+/// and Unicode support.
+pub mod text;
 
 /// Prelude module for convenient imports.
 ///
@@ -332,12 +332,6 @@ pub mod context;
 /// - [`monad`](core::monad): Monad abstraction for IO and pure operations
 pub mod core;
 
-/// MIME type utilities.
-///
-/// This module provides MIME type detection and management, inspired by
-/// Pandoc's MIME module.
-pub mod mime;
-
 /// URI handling utilities.
 ///
 /// This module provides URI parsing, encoding, and manipulation utilities,
@@ -358,32 +352,12 @@ pub mod filter;
 /// parsing and rendering.
 pub mod transforms;
 
-/// CJK character detection utilities.
-///
-/// This module provides utilities for detecting CJK (Chinese, Japanese, Korean)
-/// characters and punctuation, inspired by Pandoc's Char module. These utilities
-/// are essential for proper East Asian typography support.
-pub mod char;
-
-/// Roff character escaping utilities.
-///
-/// This module provides character escaping for roff/groff format, used for
-/// generating Unix manual pages. Inspired by Pandoc's RoffChar module.
-pub mod roff_char;
-
 /// Slide show processing utilities.
 ///
 /// This module provides functionality for converting Markdown documents into
 /// slide shows, inspired by Pandoc's Slides module. Supports multiple output
 /// formats including reveal.js and beamer.
 pub mod slides;
-
-/// TeX token types and utilities.
-///
-/// This module provides TeX/LaTeX token types and parsing utilities,
-/// inspired by Pandoc's TeX module. Useful for LaTeX parsing and math
-/// formula handling.
-pub mod tex;
 
 /// Document chunking utilities.
 ///
@@ -406,41 +380,11 @@ pub mod sources;
 /// variable substitution syntax similar to Pandoc's templates.
 pub mod template;
 
-/// Emoji support for Markdown documents.
-///
-/// This module provides emoji shortcode to Unicode conversion,
-/// inspired by Pandoc's emoji support.
-pub mod emoji;
-
-/// CSS parsing utilities.
-///
-/// This module provides basic CSS parsing capabilities for inline styles,
-/// inspired by Pandoc's CSS handling.
-pub mod css;
-
-/// ASCII transliteration utilities.
-///
-/// This module provides Unicode to ASCII transliteration,
-/// inspired by Pandoc's asciify functionality.
-pub mod asciify;
-
 /// Logging system for clmd.
 ///
 /// This module provides a structured logging system for tracking operations,
 /// warnings, and errors during document processing.
 pub mod logging;
-
-/// XML utilities for document serialization.
-///
-/// This module provides XML escaping, building, and parsing utilities,
-/// inspired by Pandoc's XML handling.
-pub mod xml;
-
-/// CSV parsing utilities for table data import.
-///
-/// This module provides CSV parsing capabilities for importing table data
-/// into Markdown documents, inspired by Pandoc's CSV support.
-pub mod csv;
 
 /// Shared utility functions for document processing.
 ///

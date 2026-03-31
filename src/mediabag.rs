@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use crate::mime::{self, get_mime_type_def};
+use crate::formats::mime::{self, get_mime_type_def};
 
 /// A media item stored in the MediaBag.
 #[derive(Debug, Clone, PartialEq, Eq)]

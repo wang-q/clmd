@@ -17,6 +17,12 @@
 //! }
 //! ```ignore
 
+pub mod css;
+pub mod csv;
+pub mod mime;
+pub mod tex;
+pub mod xml;
+
 use crate::error::{ClmdError, ClmdResult};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display};
