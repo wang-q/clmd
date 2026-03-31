@@ -384,6 +384,13 @@ pub mod tex;
 /// websites, and other multi-page outputs.
 pub mod chunks;
 
+/// Source file management utilities.
+///
+/// This module provides functionality for managing multiple source files
+/// and tracking source positions, inspired by Pandoc's Sources module.
+/// Useful for multi-file input and error reporting with precise locations.
+pub mod sources;
+
 /// Template system for document rendering.
 ///
 /// This module provides a flexible template system for document rendering,

@@ -1725,6 +1725,13 @@ clmd 已实现：
 - 目录树生成
 - EPUB/网站生成支持
 
+**源文件管理模块 (`sources`)**：
+- 多源文件输入管理（文件、字符串、URL）
+- 源位置跟踪（行号、列号、偏移量）
+- 源范围表示和合并
+- 带源位置的数据包装（Spanned）
+- 错误报告精确定位
+
 #### 5. 实用工具模块
 - 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
 
