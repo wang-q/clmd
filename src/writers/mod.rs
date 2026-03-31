@@ -16,8 +16,8 @@
 //! ```
 //! use clmd::writers::{WriterRegistry, WriterOptions};
 //!
-//! let registry = WriterRegistry::new();
-//! let writer = registry.get("html").unwrap();
+//! let registry = WriterRegistry::with_defaults();
+//! assert!(registry.get("html").is_some());
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
@@ -26,7 +26,10 @@ use crate::parser::options::Options;
 
 pub mod registry;
 
-pub use registry::WriterRegistry;
+pub use registry::{
+    default_registry, get_writer, get_writer_by_extension, get_writer_by_path,
+    CommonMarkWriter, HtmlWriter, LatexWriter, ManWriter, WriterRegistry, XmlWriter,
+};
 
 /// Options for writing documents.
 #[derive(Debug, Clone)]
@@ -155,7 +158,12 @@ pub trait Writer: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the document cannot be rendered.
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError>;
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError>;
 
     /// Check if this writer supports the given file extension.
     fn supports_extension(&self, ext: &str) -> bool {
@@ -169,7 +177,11 @@ pub trait Writer: Send + Sync {
 pub type BoxedWriter = Box<dyn Writer>;
 
 /// Write a document to HTML.
-pub fn write_html(arena: &NodeArena, root: NodeId, _options: &WriterOptions<'_>) -> Result<String, ClmdError> {
+pub fn write_html(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions<'_>,
+) -> Result<String, ClmdError> {
     use crate::render::html;
 
     let options_flags = 0; // TODO: Convert from WriterOptions
@@ -177,7 +189,11 @@ pub fn write_html(arena: &NodeArena, root: NodeId, _options: &WriterOptions<'_>)
 }
 
 /// Write a document to CommonMark.
-pub fn write_commonmark(arena: &NodeArena, root: NodeId, options: &WriterOptions<'_>) -> Result<String, ClmdError> {
+pub fn write_commonmark(
+    arena: &NodeArena,
+    root: NodeId,
+    options: &WriterOptions<'_>,
+) -> Result<String, ClmdError> {
     use crate::render::commonmark;
 
     let options_flags = 0; // TODO: Convert from WriterOptions
@@ -186,7 +202,11 @@ pub fn write_commonmark(arena: &NodeArena, root: NodeId, options: &WriterOptions
 }
 
 /// Write a document to XML.
-pub fn write_xml(arena: &NodeArena, root: NodeId, _options: &WriterOptions<'_>) -> Result<String, ClmdError> {
+pub fn write_xml(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions<'_>,
+) -> Result<String, ClmdError> {
     use crate::render::xml;
 
     let options_flags = 0; // TODO: Convert from WriterOptions
@@ -194,13 +214,21 @@ pub fn write_xml(arena: &NodeArena, root: NodeId, _options: &WriterOptions<'_>) 
 }
 
 /// Write a document to LaTeX.
-pub fn write_latex(_arena: &NodeArena, _root: NodeId, _options: &WriterOptions<'_>) -> Result<String, ClmdError> {
+pub fn write_latex(
+    _arena: &NodeArena,
+    _root: NodeId,
+    _options: &WriterOptions<'_>,
+) -> Result<String, ClmdError> {
     // TODO: Implement LaTeX writer
     Err(ClmdError::not_implemented("LaTeX writer"))
 }
 
 /// Write a document to Man page format.
-pub fn write_man(_arena: &NodeArena, _root: NodeId, _options: &WriterOptions<'_>) -> Result<String, ClmdError> {
+pub fn write_man(
+    _arena: &NodeArena,
+    _root: NodeId,
+    _options: &WriterOptions<'_>,
+) -> Result<String, ClmdError> {
     // TODO: Implement Man page writer
     Err(ClmdError::not_implemented("Man page writer"))
 }

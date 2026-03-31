@@ -76,7 +76,8 @@ impl ReaderRegistry {
     /// ```
     pub fn register(&mut self, reader: impl Reader + 'static) {
         let name = reader.name().to_lowercase();
-        let extensions: Vec<_> = reader.extensions().iter().map(|e| e.to_string()).collect();
+        let extensions: Vec<_> =
+            reader.extensions().iter().map(|e| e.to_string()).collect();
 
         self.readers.insert(name.clone(), Box::new(reader));
 
@@ -99,7 +100,9 @@ impl ReaderRegistry {
     /// }
     /// ```
     pub fn get(&self, name: &str) -> Option<&dyn Reader> {
-        self.readers.get(name.to_lowercase().as_str()).map(|r| r.as_ref())
+        self.readers
+            .get(name.to_lowercase().as_str())
+            .map(|r| r.as_ref())
     }
 
     /// Get a reader by file extension.
@@ -231,7 +234,11 @@ impl Reader for MarkdownReader {
         &["md", "markdown", "mdown", "mkd", "mkdn"]
     }
 
-    fn read<'c>(&self, input: &str, options: &ReaderOptions<'c>) -> Result<(NodeArena, NodeId), ClmdError> {
+    fn read<'c>(
+        &self,
+        input: &str,
+        options: &ReaderOptions<'c>,
+    ) -> Result<(NodeArena, NodeId), ClmdError> {
         crate::readers::read_markdown(input, options)
     }
 }
@@ -262,7 +269,11 @@ impl Reader for HtmlReader {
         &["html", "htm", "xhtml"]
     }
 
-    fn read<'c>(&self, input: &str, options: &ReaderOptions<'c>) -> Result<(NodeArena, NodeId), ClmdError> {
+    fn read<'c>(
+        &self,
+        input: &str,
+        options: &ReaderOptions<'c>,
+    ) -> Result<(NodeArena, NodeId), ClmdError> {
         crate::readers::read_html(input, options)
     }
 }
@@ -293,7 +304,11 @@ impl Reader for CommonMarkReader {
         &["commonmark", "cm"]
     }
 
-    fn read<'c>(&self, input: &str, options: &ReaderOptions<'c>) -> Result<(NodeArena, NodeId), ClmdError> {
+    fn read<'c>(
+        &self,
+        input: &str,
+        options: &ReaderOptions<'c>,
+    ) -> Result<(NodeArena, NodeId), ClmdError> {
         crate::readers::read_commonmark(input, options)
     }
 }
@@ -425,7 +440,9 @@ mod tests {
         let reader = registry.get_by_path(Path::new("document.md")).unwrap();
         assert_eq!(reader.name(), "markdown");
 
-        let reader = registry.get_by_path(Path::new("/path/to/file.html")).unwrap();
+        let reader = registry
+            .get_by_path(Path::new("/path/to/file.html"))
+            .unwrap();
         assert_eq!(reader.name(), "html");
 
         assert!(registry.get_by_path(Path::new("no_extension")).is_none());

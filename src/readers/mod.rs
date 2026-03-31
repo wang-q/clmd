@@ -14,8 +14,8 @@
 //! ```
 //! use clmd::readers::{ReaderRegistry, ReaderOptions};
 //!
-//! let registry = ReaderRegistry::new();
-//! let reader = registry.get("markdown").unwrap();
+//! let registry = ReaderRegistry::with_defaults();
+//! assert!(registry.get("markdown").is_some());
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
@@ -24,7 +24,10 @@ use crate::parser::options::Options;
 
 pub mod registry;
 
-pub use registry::ReaderRegistry;
+pub use registry::{
+    default_registry, get_reader, get_reader_by_extension, get_reader_by_path,
+    CommonMarkReader, HtmlReader, MarkdownReader, ReaderRegistry,
+};
 
 /// Options for reading documents.
 #[derive(Debug, Clone)]
@@ -109,7 +112,11 @@ pub trait Reader: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the document cannot be parsed.
-    fn read<'c>(&self, input: &str, options: &ReaderOptions<'c>) -> Result<(NodeArena, NodeId), ClmdError>;
+    fn read<'c>(
+        &self,
+        input: &str,
+        options: &ReaderOptions<'c>,
+    ) -> Result<(NodeArena, NodeId), ClmdError>;
 
     /// Check if this reader supports the given file extension.
     fn supports_extension(&self, ext: &str) -> bool {
@@ -123,9 +130,12 @@ pub trait Reader: Send + Sync {
 pub type BoxedReader = Box<dyn Reader>;
 
 /// Read a Markdown document.
-pub fn read_markdown(input: &str, _options: &ReaderOptions<'_>) -> Result<(NodeArena, NodeId), ClmdError> {
-    use crate::parser::parse_document;
+pub fn read_markdown(
+    input: &str,
+    _options: &ReaderOptions<'_>,
+) -> Result<(NodeArena, NodeId), ClmdError> {
     use crate::parser::options::Options;
+    use crate::parser::parse_document;
 
     let options = Options::default();
     let (arena, root) = parse_document(input, &options);
@@ -133,7 +143,10 @@ pub fn read_markdown(input: &str, _options: &ReaderOptions<'_>) -> Result<(NodeA
 }
 
 /// Read an HTML document.
-pub fn read_html(input: &str, _options: &ReaderOptions<'_>) -> Result<(NodeArena, NodeId), ClmdError> {
+pub fn read_html(
+    input: &str,
+    _options: &ReaderOptions<'_>,
+) -> Result<(NodeArena, NodeId), ClmdError> {
     use crate::from::html::convert;
 
     // Convert HTML to Markdown first, then parse
@@ -144,7 +157,10 @@ pub fn read_html(input: &str, _options: &ReaderOptions<'_>) -> Result<(NodeArena
 }
 
 /// Read a CommonMark document.
-pub fn read_commonmark(input: &str, options: &ReaderOptions<'_>) -> Result<(NodeArena, NodeId), ClmdError> {
+pub fn read_commonmark(
+    input: &str,
+    options: &ReaderOptions<'_>,
+) -> Result<(NodeArena, NodeId), ClmdError> {
     // CommonMark is a subset of Markdown, so we use the same parser
     read_markdown(input, options)
 }

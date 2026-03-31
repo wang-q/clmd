@@ -70,12 +70,18 @@ impl fmt::Debug for Filter {
             Self::Lua(l) => f.debug_tuple("Lua").field(&l.path).finish(),
             Self::Citeproc => f.debug_struct("Citeproc").finish(),
             Self::HeaderShift(n) => f.debug_tuple("HeaderShift").field(n).finish(),
-            Self::LinkTransform { base_url, absolute_only } => f
+            Self::LinkTransform {
+                base_url,
+                absolute_only,
+            } => f
                 .debug_struct("LinkTransform")
                 .field("base_url", base_url)
                 .field("absolute_only", absolute_only)
                 .finish(),
-            Self::ImageTransform { base_url, embed_images } => f
+            Self::ImageTransform {
+                base_url,
+                embed_images,
+            } => f
                 .debug_struct("ImageTransform")
                 .field("base_url", base_url)
                 .field("embed_images", embed_images)
@@ -157,7 +163,6 @@ impl Filter {
             Self::HeaderShift(n) => format!("header-shift({})", n),
             Self::LinkTransform { .. } => "link-transform".to_string(),
             Self::ImageTransform { .. } => "image-transform".to_string(),
-
         }
     }
 
@@ -174,12 +179,24 @@ impl Filter {
     pub fn apply(&self, arena: &mut NodeArena, root: NodeId) -> Result<(), FilterError> {
         match self {
             Self::HeaderShift(shift) => filters::apply_header_shift(arena, root, *shift),
-            Self::LinkTransform { base_url, absolute_only } => {
-                filters::apply_link_transform(arena, root, base_url.as_deref(), *absolute_only)
-            }
-            Self::ImageTransform { base_url, embed_images } => {
-                filters::apply_image_transform(arena, root, base_url.as_deref(), *embed_images)
-            }
+            Self::LinkTransform {
+                base_url,
+                absolute_only,
+            } => filters::apply_link_transform(
+                arena,
+                root,
+                base_url.as_deref(),
+                *absolute_only,
+            ),
+            Self::ImageTransform {
+                base_url,
+                embed_images,
+            } => filters::apply_image_transform(
+                arena,
+                root,
+                base_url.as_deref(),
+                *embed_images,
+            ),
             Self::Native(f) => f.apply(arena, root),
             _ => Err(FilterError::NotImplemented(self.name())),
         }
@@ -550,7 +567,10 @@ mod tests {
     fn test_filter_names() {
         assert_eq!(Filter::header_shift(1).name(), "header-shift(1)");
         assert_eq!(Filter::Citeproc.name(), "citeproc");
-        assert!(Filter::link_transform().build().name().contains("link-transform"));
+        assert!(Filter::link_transform()
+            .build()
+            .name()
+            .contains("link-transform"));
     }
 
     #[test]

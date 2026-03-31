@@ -25,7 +25,10 @@ fn main() -> ClmdResult<()> {
     // 1. Using ClmdMonad for testable IO
     println!("1. ClmdMonad Example:");
     let monad = ClmdIO::with_verbosity(Verbosity::Info);
-    println!("   Created ClmdIO with verbosity: {:?}", monad.get_verbosity());
+    println!(
+        "   Created ClmdIO with verbosity: {:?}",
+        monad.get_verbosity()
+    );
 
     // For testing, you can use ClmdPure instead:
     let _test_monad = ClmdPure::default();
@@ -51,15 +54,18 @@ fn main() -> ClmdResult<()> {
 
     // 3. Document Conversion Pipeline
     println!("3. Document Conversion Pipeline:");
-    let pipeline = PipelineBuilder::new()
-        .from("markdown")
-        .to("html")
-        .build()?;
+    let pipeline = PipelineBuilder::new().from("markdown").to("html").build()?;
 
     let markdown_input = "# Hello World\n\nThis is a **test** document.";
     let html_output = pipeline.convert(markdown_input, &clmd::Options::default())?;
-    println!("   Input (Markdown): {}", markdown_input.lines().next().unwrap());
-    println!("   Output (HTML): {}...\n", &html_output[..html_output.len().min(100)]);
+    println!(
+        "   Input (Markdown): {}",
+        markdown_input.lines().next().unwrap()
+    );
+    println!(
+        "   Output (HTML): {}...\n",
+        &html_output[..html_output.len().min(100)]
+    );
 
     // 4. Filter Chain
     println!("4. Filter Chain:");
@@ -70,9 +76,9 @@ fn main() -> ClmdResult<()> {
     chain.add(Filter::header_shift(1)); // Increase header levels
 
     println!("   Applying header shift filter...");
-    chain.apply(&mut arena, root).map_err(|e| {
-        clmd::error::ClmdError::Other(format!("Filter error: {}", e))
-    })?;
+    chain
+        .apply(&mut arena, root)
+        .map_err(|e| clmd::error::ClmdError::Other(format!("Filter error: {}", e)))?;
     println!("   Filter applied successfully!\n");
 
     // 5. Template System
@@ -85,7 +91,10 @@ fn main() -> ClmdResult<()> {
     ctx.set("body", "<h1>Hello World</h1><p>Content here</p>");
 
     let rendered = template.render(&ctx);
-    println!("   Template rendered: {}...\n", &rendered[..rendered.len().min(80)]);
+    println!(
+        "   Template rendered: {}...\n",
+        &rendered[..rendered.len().min(80)]
+    );
 
     // 6. MediaBag Resource Management
     println!("6. MediaBag Resource Management:");

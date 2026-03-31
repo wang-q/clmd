@@ -76,7 +76,8 @@ impl WriterRegistry {
     /// ```
     pub fn register(&mut self, writer: impl Writer + 'static) {
         let name = writer.name().to_lowercase();
-        let extensions: Vec<_> = writer.extensions().iter().map(|e| e.to_string()).collect();
+        let extensions: Vec<_> =
+            writer.extensions().iter().map(|e| e.to_string()).collect();
 
         self.writers.insert(name.clone(), Box::new(writer));
 
@@ -99,7 +100,9 @@ impl WriterRegistry {
     /// }
     /// ```
     pub fn get(&self, name: &str) -> Option<&dyn Writer> {
-        self.writers.get(name.to_lowercase().as_str()).map(|w| w.as_ref())
+        self.writers
+            .get(name.to_lowercase().as_str())
+            .map(|w| w.as_ref())
     }
 
     /// Get a writer by file extension.
@@ -233,7 +236,12 @@ impl Writer for HtmlWriter {
         &["html", "htm", "xhtml"]
     }
 
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError> {
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError> {
         crate::writers::write_html(arena, root, options)
     }
 }
@@ -264,7 +272,12 @@ impl Writer for CommonMarkWriter {
         &["md", "markdown", "commonmark", "cm"]
     }
 
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError> {
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError> {
         crate::writers::write_commonmark(arena, root, options)
     }
 }
@@ -295,7 +308,12 @@ impl Writer for XmlWriter {
         &["xml"]
     }
 
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError> {
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError> {
         crate::writers::write_xml(arena, root, options)
     }
 }
@@ -326,7 +344,12 @@ impl Writer for LatexWriter {
         &["tex", "latex"]
     }
 
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError> {
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError> {
         crate::writers::write_latex(arena, root, options)
     }
 }
@@ -357,7 +380,12 @@ impl Writer for ManWriter {
         &["man", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
     }
 
-    fn write<'c>(&self, arena: &NodeArena, root: NodeId, options: &WriterOptions<'c>) -> Result<String, ClmdError> {
+    fn write<'c>(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        options: &WriterOptions<'c>,
+    ) -> Result<String, ClmdError> {
         crate::writers::write_man(arena, root, options)
     }
 }

@@ -230,8 +230,13 @@ pub fn get_scheme(uri: &str) -> Option<&str> {
     if let Some(pos) = uri.find(':') {
         let scheme = &uri[..pos];
         // Scheme must start with a letter and contain only valid characters
-        if scheme.chars().next().map_or(false, |c| c.is_ascii_alphabetic())
-            && scheme.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
+        if scheme
+            .chars()
+            .next()
+            .map_or(false, |c| c.is_ascii_alphabetic())
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
         {
             return Some(scheme);
         }

@@ -270,7 +270,10 @@ impl MediaBag {
     /// let images: Vec<_> = bag.filter_by_mime_type("image/").collect();
     /// assert_eq!(images.len(), 2);
     /// ```
-    pub fn filter_by_mime_type<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = &MediaItem> + 'a {
+    pub fn filter_by_mime_type<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> impl Iterator<Item = &MediaItem> + 'a {
         self.items
             .values()
             .filter(move |item| item.mime_type().starts_with(prefix))
@@ -324,14 +327,15 @@ impl MediaBag {
         media_path: Option<M>,
     ) -> std::io::Result<()> {
         let contents = std::fs::read(&path)?;
-        let key_path = media_path
-            .map(|p| p.as_ref().to_path_buf())
-            .unwrap_or_else(|| {
-                path.as_ref()
-                    .file_name()
-                    .map(|n| PathBuf::from(n))
-                    .unwrap_or_else(|| path.as_ref().to_path_buf())
-            });
+        let key_path =
+            media_path
+                .map(|p| p.as_ref().to_path_buf())
+                .unwrap_or_else(|| {
+                    path.as_ref()
+                        .file_name()
+                        .map(|n| PathBuf::from(n))
+                        .unwrap_or_else(|| path.as_ref().to_path_buf())
+                });
         self.insert_auto(key_path, contents);
         Ok(())
     }
@@ -545,9 +549,20 @@ impl Extend<(String, MediaItem)> for MediaBag {
 
 impl fmt::Display for MediaBag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "MediaBag ({} items, {} bytes):", self.len(), self.total_size())?;
+        writeln!(
+            f,
+            "MediaBag ({} items, {} bytes):",
+            self.len(),
+            self.total_size()
+        )?;
         for (path, item) in &self.items {
-            writeln!(f, "  {}: {} ({} bytes)", path, item.mime_type(), item.size())?;
+            writeln!(
+                f,
+                "  {}: {} ({} bytes)",
+                path,
+                item.mime_type(),
+                item.size()
+            )?;
         }
         Ok(())
     }
@@ -608,7 +623,8 @@ mod tests {
 
     #[test]
     fn test_media_item() {
-        let item = MediaItem::new("image.png", "image/png", vec![0x89, 0x50, 0x4E, 0x47]);
+        let item =
+            MediaItem::new("image.png", "image/png", vec![0x89, 0x50, 0x4E, 0x47]);
         assert_eq!(item.mime_type(), "image/png");
         assert_eq!(item.path().to_str(), Some("image.png"));
         assert_eq!(item.size(), 4);

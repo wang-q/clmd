@@ -20,11 +20,5 @@ pub mod monad;
 
 // Re-export commonly used types
 pub use monad::{
-    ClmdIO,
-    ClmdMonad,
-    ClmdPure,
-    LogMessage,
-    SharedMonad,
-    Verbosity,
-    share_monad,
+    share_monad, ClmdIO, ClmdMonad, ClmdPure, LogMessage, SharedMonad, Verbosity,
 };

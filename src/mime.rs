@@ -62,12 +62,21 @@ const MIME_TYPES: &[(&str, &str)] = &[
     // Document formats
     ("pdf", "application/pdf"),
     ("doc", "application/msword"),
-    ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    (
+        "docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ),
     ("odt", "application/vnd.oasis.opendocument.text"),
     ("xls", "application/vnd.ms-excel"),
-    ("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    (
+        "xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ),
     ("ppt", "application/vnd.ms-powerpoint"),
-    ("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+    (
+        "pptx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ),
     // Archive formats
     ("zip", "application/zip"),
     ("gz", "application/gzip"),
@@ -432,7 +441,10 @@ mod tests {
         assert_eq!(get_mime_type(Path::new("file.png")), Some("image/png"));
         assert_eq!(get_mime_type(Path::new("file.jpg")), Some("image/jpeg"));
         assert_eq!(get_mime_type(Path::new("file.html")), Some("text/html"));
-        assert_eq!(get_mime_type(Path::new("file.pdf")), Some("application/pdf"));
+        assert_eq!(
+            get_mime_type(Path::new("file.pdf")),
+            Some("application/pdf")
+        );
         assert_eq!(get_mime_type(Path::new("file.unknown")), None);
         assert_eq!(get_mime_type(Path::new("no_extension")), None);
     }
@@ -446,7 +458,10 @@ mod tests {
     #[test]
     fn test_get_mime_type_def() {
         assert_eq!(get_mime_type_def(Path::new("file.png")), "image/png");
-        assert_eq!(get_mime_type_def(Path::new("file.unknown")), "application/octet-stream");
+        assert_eq!(
+            get_mime_type_def(Path::new("file.unknown")),
+            "application/octet-stream"
+        );
     }
 
     #[test]
@@ -459,7 +474,10 @@ mod tests {
 
     #[test]
     fn test_extension_from_mime_type_with_params() {
-        assert_eq!(extension_from_mime_type("text/html; charset=utf-8"), Some("html"));
+        assert_eq!(
+            extension_from_mime_type("text/html; charset=utf-8"),
+            Some("html")
+        );
     }
 
     #[test]
@@ -473,7 +491,10 @@ mod tests {
 
     #[test]
     fn test_media_category_from_path() {
-        assert_eq!(media_category_from_path(Path::new("image.png")), Some("image"));
+        assert_eq!(
+            media_category_from_path(Path::new("image.png")),
+            Some("image")
+        );
         assert_eq!(media_category_from_path(Path::new("doc.txt")), Some("text"));
         assert_eq!(media_category_from_path(Path::new("unknown.xyz")), None);
     }
@@ -505,7 +526,10 @@ mod tests {
     #[test]
     fn test_get_charset() {
         assert_eq!(get_charset("text/html; charset=utf-8"), Some("utf-8"));
-        assert_eq!(get_charset("text/plain; charset=ISO-8859-1"), Some("ISO-8859-1"));
+        assert_eq!(
+            get_charset("text/plain; charset=ISO-8859-1"),
+            Some("ISO-8859-1")
+        );
         assert_eq!(get_charset("text/html"), None);
     }
 

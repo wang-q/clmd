@@ -44,11 +44,21 @@ enum TemplatePart {
     /// Literal text.
     Text(String),
     /// Variable substitution.
-    Variable { name: String, default: Option<String> },
+    Variable {
+        name: String,
+        default: Option<String>,
+    },
     /// Conditional block.
-    If { condition: String, then_branch: Vec<TemplatePart>, else_branch: Vec<TemplatePart> },
+    If {
+        condition: String,
+        then_branch: Vec<TemplatePart>,
+        else_branch: Vec<TemplatePart>,
+    },
     /// Loop block.
-    For { variable: String, body: Vec<TemplatePart> },
+    For {
+        variable: String,
+        body: Vec<TemplatePart>,
+    },
     /// Partial template inclusion.
     Partial(String),
 }
@@ -69,7 +79,11 @@ impl TemplateContext {
     }
 
     /// Set a variable value.
-    pub fn set<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) -> &mut Self {
+    pub fn set<K: Into<String>, V: Into<String>>(
+        &mut self,
+        key: K,
+        value: V,
+    ) -> &mut Self {
         self.variables.insert(key.into(), value.into());
         self
     }
@@ -88,7 +102,11 @@ impl TemplateContext {
     }
 
     /// Set a list variable.
-    pub fn set_list<K: Into<String>>(&mut self, key: K, items: Vec<TemplateContext>) -> &mut Self {
+    pub fn set_list<K: Into<String>>(
+        &mut self,
+        key: K,
+        items: Vec<TemplateContext>,
+    ) -> &mut Self {
         self.lists.insert(key.into(), items);
         self
     }
@@ -106,7 +124,11 @@ impl TemplateContext {
     }
 
     /// Create a context with document metadata.
-    pub fn from_metadata(title: Option<&str>, author: Option<&str>, date: Option<&str>) -> Self {
+    pub fn from_metadata(
+        title: Option<&str>,
+        author: Option<&str>,
+        date: Option<&str>,
+    ) -> Self {
         let mut ctx = Self::new();
         if let Some(title) = title {
             ctx.set("title", title);
@@ -139,8 +161,12 @@ impl fmt::Display for TemplateError {
         match self {
             Self::SyntaxError(msg) => write!(f, "Template syntax error: {}", msg),
             Self::VariableNotFound(name) => write!(f, "Variable not found: {}", name),
-            Self::PartialNotFound(name) => write!(f, "Partial template not found: {}", name),
-            Self::RecursiveInclude(name) => write!(f, "Recursive template inclusion: {}", name),
+            Self::PartialNotFound(name) => {
+                write!(f, "Partial template not found: {}", name)
+            }
+            Self::RecursiveInclude(name) => {
+                write!(f, "Recursive template inclusion: {}", name)
+            }
         }
     }
 }
@@ -269,7 +295,10 @@ impl Template {
     }
 
     /// Parse until a delimiter character.
-    fn parse_until(chars: &mut std::iter::Peekable<std::str::Chars>, delim: char) -> Result<String, TemplateError> {
+    fn parse_until(
+        chars: &mut std::iter::Peekable<std::str::Chars>,
+        delim: char,
+    ) -> Result<String, TemplateError> {
         let mut result = String::new();
         while let Some(ch) = chars.next() {
             if ch == delim {
@@ -362,7 +391,11 @@ impl Template {
                         .unwrap_or_default();
                     result.push_str(&value);
                 }
-                TemplatePart::If { condition, then_branch, else_branch } => {
+                TemplatePart::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
                     if context.is_truthy(condition) {
                         result.push_str(&self.render_parts(then_branch, context));
                     } else {
@@ -414,7 +447,11 @@ impl TemplateEngine {
     }
 
     /// Register a template.
-    pub fn register(&mut self, name: impl Into<String>, template: Template) -> &mut Self {
+    pub fn register(
+        &mut self,
+        name: impl Into<String>,
+        template: Template,
+    ) -> &mut Self {
         self.templates.insert(name.into(), template);
         self
     }
@@ -431,7 +468,11 @@ impl TemplateEngine {
     }
 
     /// Register a partial template.
-    pub fn register_partial(&mut self, name: impl Into<String>, template: Template) -> &mut Self {
+    pub fn register_partial(
+        &mut self,
+        name: impl Into<String>,
+        template: Template,
+    ) -> &mut Self {
         self.partials.insert(name.into(), template);
         self
     }
@@ -518,7 +559,7 @@ mod tests {
     #[test]
     fn test_if_condition() {
         let template = Template::compile("$if(show)$Visible$endif$").unwrap();
-        
+
         let mut ctx1 = TemplateContext::new();
         ctx1.set("show", "true");
         assert_eq!(template.render(&ctx1), "Visible");
@@ -543,12 +584,17 @@ mod tests {
     #[test]
     fn test_template_engine() {
         let mut engine = TemplateEngine::new();
-        engine.register_string("greeting", "Hello, ${name}!").unwrap();
+        engine
+            .register_string("greeting", "Hello, ${name}!")
+            .unwrap();
 
         let mut ctx = TemplateContext::new();
         ctx.set("name", "World");
 
-        assert_eq!(engine.render("greeting", &ctx), Some("Hello, World!".to_string()));
+        assert_eq!(
+            engine.render("greeting", &ctx),
+            Some("Hello, World!".to_string())
+        );
     }
 
     #[test]
@@ -567,7 +613,7 @@ mod tests {
     #[test]
     fn test_truthy_values() {
         let mut ctx = TemplateContext::new();
-        
+
         ctx.set("val", "true");
         assert!(ctx.is_truthy("val"));
 

@@ -7,12 +7,10 @@
 //! # Example
 //!
 //! ```
-//! use clmd::core::{ClmdMonad, ClmdIO, ClmdPure};
-//! use std::path::Path;
+//! use clmd::core::{ClmdMonad, ClmdIO, ClmdPure, Verbosity};
 //!
-//! fn read_document<M: ClmdMonad>(monad: &M, path: &Path) -> Result<String, clmd::error::ClmdError> {
-//!     monad.read_file(path)
-//! }
+//! let monad = ClmdIO::with_verbosity(Verbosity::Info);
+//! monad.log_info("Starting document conversion");
 //! ```
 
 use std::io;
@@ -266,13 +264,21 @@ impl ClmdMonad for ClmdIO {
 
     fn read_file(&self, path: &Path) -> Result<String, Self::Error> {
         std::fs::read_to_string(path).map_err(|e| {
-            ClmdError::io_error(format!("Failed to read file '{}': {}", path.display(), e))
+            ClmdError::io_error(format!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                e
+            ))
         })
     }
 
     fn read_file_bytes(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
         std::fs::read(path).map_err(|e| {
-            ClmdError::io_error(format!("Failed to read file '{}': {}", path.display(), e))
+            ClmdError::io_error(format!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                e
+            ))
         })
     }
 
@@ -283,7 +289,11 @@ impl ClmdMonad for ClmdIO {
         }
 
         std::fs::write(path, content).map_err(|e| {
-            ClmdError::io_error(format!("Failed to write file '{}': {}", path.display(), e))
+            ClmdError::io_error(format!(
+                "Failed to write file '{}': {}",
+                path.display(),
+                e
+            ))
         })
     }
 
@@ -294,7 +304,11 @@ impl ClmdMonad for ClmdIO {
         }
 
         std::fs::write(path, content).map_err(|e| {
-            ClmdError::io_error(format!("Failed to write file '{}': {}", path.display(), e))
+            ClmdError::io_error(format!(
+                "Failed to write file '{}': {}",
+                path.display(),
+                e
+            ))
         })
     }
 
@@ -420,14 +434,20 @@ impl ClmdPure {
     }
 
     /// Add a text file to the in-memory file system.
-    pub fn with_file<S: Into<String>>(mut self, path: impl AsRef<Path>, content: S) -> Self {
-        self.files.insert(path.as_ref().to_path_buf(), content.into());
+    pub fn with_file<S: Into<String>>(
+        mut self,
+        path: impl AsRef<Path>,
+        content: S,
+    ) -> Self {
+        self.files
+            .insert(path.as_ref().to_path_buf(), content.into());
         self
     }
 
     /// Add a binary file to the in-memory file system.
     pub fn with_binary_file(mut self, path: impl AsRef<Path>, content: Vec<u8>) -> Self {
-        self.binary_files.insert(path.as_ref().to_path_buf(), content);
+        self.binary_files
+            .insert(path.as_ref().to_path_buf(), content);
         self
     }
 
@@ -461,7 +481,9 @@ impl ClmdPure {
 
     /// Check if a message was logged.
     pub fn has_logged(&self, level: Verbosity, message: &str) -> bool {
-        self.logs.iter().any(|log| log.level == level && log.message.contains(message))
+        self.logs
+            .iter()
+            .any(|log| log.level == level && log.message.contains(message))
     }
 }
 
@@ -490,7 +512,11 @@ impl ClmdMonad for ClmdPure {
         Ok(())
     }
 
-    fn write_file_bytes(&self, _path: &Path, _content: &[u8]) -> Result<(), Self::Error> {
+    fn write_file_bytes(
+        &self,
+        _path: &Path,
+        _content: &[u8],
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -627,7 +653,10 @@ mod tests {
     #[test]
     fn test_clmd_pure_current_dir() {
         let pure = ClmdPure::new().with_current_dir("/custom/path");
-        assert_eq!(pure.get_current_dir().unwrap(), PathBuf::from("/custom/path"));
+        assert_eq!(
+            pure.get_current_dir().unwrap(),
+            PathBuf::from("/custom/path")
+        );
     }
 
     #[test]
