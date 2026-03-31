@@ -613,6 +613,20 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     },
                 ),
             ),
+            // Shortcode emoji
+            NodeFormattingHandler::new(
+                NodeValueType::ShortCode,
+                Box::new(
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        if let NodeValue::ShortCode(shortcode) = value {
+                            // Output the original shortcode format
+                            writer.append(format!(":{}:", shortcode.code));
+                        }
+                    },
+                ),
+            ),
         ]
     }
 }
@@ -1155,7 +1169,7 @@ mod tests {
         let formatter = CommonMarkNodeFormatter::new();
         let handlers = formatter.get_node_formatting_handlers();
         assert!(!handlers.is_empty());
-        assert_eq!(handlers.len(), 25); // All node types including TableRow and TableCell
+        assert_eq!(handlers.len(), 26); // All node types including TableRow, TableCell, and ShortCode
     }
 
     #[test]

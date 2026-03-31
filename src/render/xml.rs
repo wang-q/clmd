@@ -107,6 +107,9 @@ fn format_node_xml(
                 write!(output, " title=\"{}\"", escape_xml(&link.title))?;
             }
         }
+        NodeValue::ShortCode(shortcode) => {
+            write!(output, " code=\"{}\"", escape_xml(&shortcode.code))?;
+        }
         _ => {}
     }
 
@@ -153,6 +156,15 @@ fn format_node_xml(
                 if !code.literal.is_empty() {
                     output.write_str(">")?;
                     output.write_str(&escape_xml(&code.literal))?;
+                    write!(output, "</{tag_name}>")?;
+                } else {
+                    output.write_str(" />")?;
+                }
+            }
+            NodeValue::ShortCode(shortcode) => {
+                if !shortcode.emoji.is_empty() {
+                    output.write_str(">")?;
+                    output.write_str(&escape_xml(&shortcode.emoji))?;
                     write!(output, "</{tag_name}>")?;
                 } else {
                     output.write_str(" />")?;
@@ -225,6 +237,10 @@ impl<'a> XmlRenderer<'a> {
                 self.output
                     .push_str(&format!(" level=\"{}\"", heading.level));
             }
+            NodeValue::ShortCode(shortcode) => {
+                self.output
+                    .push_str(&format!(" code=\"{}\"", escape_xml(&shortcode.code)));
+            }
             _ => {}
         }
 
@@ -235,6 +251,15 @@ impl<'a> XmlRenderer<'a> {
                     if !text.is_empty() {
                         self.output.push('>');
                         self.output.push_str(&escape_xml(text));
+                        self.output.push_str(&format!("</{tag_name}>"));
+                    } else {
+                        self.output.push_str(" />");
+                    }
+                }
+                NodeValue::ShortCode(shortcode) => {
+                    if !shortcode.emoji.is_empty() {
+                        self.output.push('>');
+                        self.output.push_str(&escape_xml(&shortcode.emoji));
                         self.output.push_str(&format!("</{tag_name}>"));
                     } else {
                         self.output.push_str(" />");

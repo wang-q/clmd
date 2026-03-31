@@ -11,11 +11,18 @@ fn main() -> anyhow::Result<()> {
         .arg_required_else_help(true)
         .color(ColorChoice::Auto)
         .arg(
+            Arg::new("config")
+                .short('c')
+                .long("config")
+                .value_name("FILE")
+                .help("Configuration file path (TOML format)"),
+        )
+        .arg(
             Arg::new("extension")
                 .short('e')
                 .long("extension")
                 .action(ArgAction::Append)
-                .help("Enable extensions (table, strikethrough, tasklist, footnotes)"),
+                .help("Enable extensions (table, strikethrough, tasklist, footnotes, tagfilter)"),
         )
         .arg(
             Arg::new("safe")
@@ -38,20 +45,41 @@ fn main() -> anyhow::Result<()> {
 * Analysis: stats
 * Utilities: toc
 
+Configuration:
+  clmd looks for a configuration file at:
+    - $XDG_CONFIG_HOME/clmd/config.toml
+    - ~/.config/clmd/config.toml
+
 Examples:
   clmd to html README.md
   clmd fmt input.md
   clmd stats input.md
   clmd toc input.md
+  clmd -c /path/to/config.toml to html input.md
 "###,
         );
 
     let matches = app.get_matches();
 
-    // Build options from global flags
+    // Build options from configuration file first
     let mut options = clmd::Options::default();
 
-    // Handle extensions
+    // Load configuration file if specified or found at default location
+    if let Some(config_path) = matches.get_one::<String>("config") {
+        match clmd::config::Config::from_file(config_path) {
+            Ok(config) => {
+                config.apply_to_options(&mut options);
+            }
+            Err(e) => {
+                eprintln!("Error: failed to load config file '{}': {}", config_path, e);
+                std::process::exit(1);
+            }
+        }
+    } else if let Some(config) = clmd::config::Config::load_default() {
+        config.apply_to_options(&mut options);
+    }
+
+    // Handle extensions (command line overrides config file)
     if let Some(extensions) = matches.get_many::<String>("extension") {
         for ext in extensions {
             match ext.as_str() {
@@ -61,14 +89,23 @@ Examples:
                 "footnotes" => options.extension.footnotes = true,
                 "autolink" => options.extension.autolink = true,
                 "tagfilter" => options.extension.tagfilter = true,
+                "superscript" => options.extension.superscript = true,
+                "subscript" => options.extension.subscript = true,
+                "underline" => options.extension.underline = true,
+                "highlight" => options.extension.highlight = true,
+                "math" => options.extension.math_dollars = true,
+                "wikilink" => options.extension.wikilinks_title_after_pipe = true,
+                "spoiler" => options.extension.spoiler = true,
+                "alerts" => options.extension.alerts = true,
                 _ => eprintln!("Warning: unknown extension '{}'", ext),
             }
         }
     }
 
-    // Handle safe mode
+    // Handle safe mode (command line overrides config file)
     if matches.get_flag("safe") {
         options.render.r#unsafe = false;
+        options.extension.tagfilter = true;
     }
 
     match matches.subcommand() {

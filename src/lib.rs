@@ -192,6 +192,9 @@ pub mod adapters;
 /// Arena-based memory management for AST nodes.
 pub mod arena;
 
+/// Configuration file support.
+pub mod config;
+
 /// Error types and parsing limits.
 pub mod error;
 
@@ -485,11 +488,11 @@ pub fn markdown_to_html(md: &str, options: &Options) -> String {
 pub fn markdown_to_html_with_plugins(
     md: &str,
     options: &Options,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parser::parse_document(md, options);
     let mut out = String::new();
-    format_html(&arena, root, options, &mut out).unwrap();
+    format_html_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
     out
 }
 
@@ -642,10 +645,11 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
-    _options: &Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    let html = html::render(arena, root, 0);
+    let flags = parser::options_to_flags(options);
+    let html = html::render(arena, root, flags);
     write!(output, "{}", html)
 }
 
@@ -677,11 +681,13 @@ pub fn format_html(
 pub fn format_html_with_plugins(
     arena: &Arena,
     root: NodeId,
-    _options: &Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    write!(output, "{}", html::render(arena, root, 0))
+    let flags = parser::options_to_flags(options);
+    let highlighter = plugins.render.syntax_highlighter();
+    write!(output, "{}", html::render_with_highlighter(arena, root, flags, highlighter))
 }
 
 /// Format an existing AST to CommonMark.

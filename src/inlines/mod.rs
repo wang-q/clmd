@@ -39,7 +39,8 @@ mod text;
 mod utils;
 
 use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeCode, NodeLink, NodeValue};
+use crate::ext::shortcodes::parse_shortcode;
+use crate::nodes::{NodeCode, NodeLink, NodeShortCode, NodeValue};
 use autolinks::{match_email_autolink, match_url_autolink};
 use emphasis::{
     process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,
@@ -175,7 +176,28 @@ impl<'a> Subject<'a> {
             '!' => self.parse_bang(arena, parent),
             '\n' => self.parse_newline(arena, parent),
             '\'' | '"' if self.smart => self.handle_delim(arena, c, parent),
+            ':' => self.parse_shortcode(arena, parent),
             _ => self.parse_string(arena, parent),
+        }
+    }
+
+    /// Parse a shortcode emoji (e.g., `:thumbsup:` -> 👍)
+    fn parse_shortcode(&mut self, arena: &mut NodeArena, parent: NodeId) -> bool {
+        if let Some((emoji, len)) = parse_shortcode(self.input, self.pos) {
+            let shortcode_node = arena.alloc(Node::with_value(NodeValue::ShortCode(
+                Box::new(NodeShortCode {
+                    code: self.input[self.pos + 1..self.pos + len - 1].to_string(),
+                    emoji: emoji.to_string(),
+                }),
+            )));
+            TreeOps::append_child(arena, parent, shortcode_node);
+            self.pos += len;
+            true
+        } else {
+            // Not a valid shortcode, treat as literal text
+            self.append_text(arena, parent, ":");
+            self.advance();
+            true
         }
     }
 

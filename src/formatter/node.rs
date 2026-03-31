@@ -201,6 +201,8 @@ pub enum NodeValueType {
     Raw,
     /// Escaped tag node
     EscapedTag,
+    /// Shortcode emoji node
+    ShortCode,
     /// Other node type
     Other(&'static str),
 }
@@ -253,6 +255,7 @@ impl NodeValueType {
             NodeValue::Subtext => NodeValueType::Subtext,
             NodeValue::Raw(_) => NodeValueType::Raw,
             NodeValue::EscapedTag(_) => NodeValueType::EscapedTag,
+            NodeValue::ShortCode(_) => NodeValueType::ShortCode,
         }
     }
 
@@ -311,6 +314,7 @@ impl NodeValueType {
             NodeValueType::Subtext => "Subtext",
             NodeValueType::Raw => "Raw",
             NodeValueType::EscapedTag => "EscapedTag",
+            NodeValueType::ShortCode => "ShortCode",
             NodeValueType::Other(name) => name,
         }
     }

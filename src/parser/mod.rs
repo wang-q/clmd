@@ -79,11 +79,12 @@ pub(crate) const OPT_VALIDATE_UTF8: u32 = 1 << 3;
 pub(crate) const OPT_SMART: u32 = 1 << 4;
 pub(crate) const OPT_UNSAFE: u32 = 1 << 5;
 pub(crate) const OPT_TABLE: u32 = 1 << 6;
+pub(crate) const OPT_TAGFILTER: u32 = 1 << 7;
 
 /// Convert Options to legacy u32 flags.
 ///
 /// This is a temporary bridge until all components use the new Options system.
-fn options_to_flags(options: &Options) -> u32 {
+pub fn options_to_flags(options: &Options) -> u32 {
     let mut flags = 0u32;
 
     // Parse options
@@ -111,6 +112,9 @@ fn options_to_flags(options: &Options) -> u32 {
     // Extension options
     if options.extension.table {
         flags |= OPT_TABLE;
+    }
+    if options.extension.tagfilter {
+        flags |= OPT_TAGFILTER;
     }
 
     flags

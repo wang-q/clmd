@@ -54,6 +54,11 @@ pub mod strikethrough;
 /// ```
 pub mod tables;
 
+/// Tag filter extension (GFM)
+///
+/// Filters out certain HTML tags for security.
+pub mod tagfilter;
+
 /// Task list extension (GFM)
 ///
 /// Adds support for task list items with checkboxes.
@@ -69,5 +74,21 @@ pub mod toc;
 /// YAML Front Matter extension
 ///
 /// Adds support for YAML metadata at the beginning of documents.
-/// Syntax: `---\ntitle: My Doc\n---`
+/// Syntax:
+/// ```markdown
+/// ---
+/// title: My Doc
+/// ---
+/// ```
 pub mod yaml_front_matter;
+
+/// Shortcodes extension
+///
+/// Adds support for emoji shortcodes.
+/// Syntax: `:thumbsup:` -> 👍
+pub mod shortcodes;
+
+/// Shortcodes data
+///
+/// Contains the mapping of shortcode names to Unicode emoji.
+pub mod shortcodes_data;

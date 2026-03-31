@@ -2,7 +2,11 @@
 //!
 //! This module contains tests for the public API of the CLMD library.
 
-use crate::{format_html, markdown_to_html, parse_document, version, Options};
+use crate::{
+    format_html, markdown_to_html, parse_document, version, Options,
+};
+
+pub mod shortcodes;
 
 #[test]
 fn test_markdown_to_html_basic() {
@@ -109,4 +113,60 @@ fn test_parse_and_render_roundtrip() {
 fn test_version() {
     let v = version();
     assert!(!v.is_empty());
+}
+
+#[test]
+fn test_tagfilter_extension() {
+    let mut options = Options::default();
+    options.extension.tagfilter = true;
+
+    // Test that dangerous HTML tags are filtered
+    let html = markdown_to_html("<script>alert('xss')</script>", &options);
+    assert!(!html.contains("<script>"));
+    assert!(html.contains("&lt;script&gt;"));
+}
+
+#[cfg(feature = "syntect")]
+#[test]
+fn test_syntect_syntax_highlighting() {
+    use crate::plugins::syntect::SyntectAdapter;
+    use crate::markdown_to_html_with_plugins;
+    use crate::Plugins;
+
+    let options = Options::default();
+    let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
+
+    let mut plugins = Plugins::new();
+    plugins.render.set_syntax_highlighter(&adapter);
+
+    let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
+    let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+
+    // Should contain pre and code tags
+    assert!(html.contains("<pre"));
+    assert!(html.contains("<code"));
+
+    // With a theme, should contain styled spans
+    assert!(html.contains("<span") || html.contains("fn main"));
+}
+
+#[cfg(feature = "syntect")]
+#[test]
+fn test_syntect_css_class_mode() {
+    use crate::plugins::syntect::SyntectAdapter;
+    use crate::markdown_to_html_with_plugins;
+    use crate::Plugins;
+
+    let options = Options::default();
+    let adapter = SyntectAdapter::new(None); // CSS class mode
+
+    let mut plugins = Plugins::new();
+    plugins.render.set_syntax_highlighter(&adapter);
+
+    let markdown = "```python\nprint('hello')\n```";
+    let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+
+    assert!(html.contains("<pre"));
+    assert!(html.contains("<code"));
+    assert!(html.contains("print"));
 }

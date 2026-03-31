@@ -37,3 +37,6 @@ pub use crate::adapters::{
 mod owned;
 
 pub use owned::{DefaultSyntaxHighlighter, OwnedPlugins};
+
+#[cfg(feature = "syntect")]
+pub mod syntect;

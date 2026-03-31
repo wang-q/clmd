@@ -14,6 +14,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::nodes::{NodeHeading, NodeValue};
+use std::collections::HashSet;
 
 /// A TOC entry representing a heading
 #[derive(Debug, Clone)]
@@ -97,19 +98,22 @@ pub fn extract_heading_text(arena: &NodeArena, node_id: NodeId) -> String {
 /// Build TOC entries from document headings in the arena
 pub fn build_toc(arena: &NodeArena, document_id: NodeId) -> Vec<TocEntry> {
     let mut entries = Vec::new();
+    let mut used_anchors: HashSet<String> = HashSet::new();
 
     fn collect_headings(
         arena: &NodeArena,
         node_id: NodeId,
         entries: &mut Vec<TocEntry>,
+        used_anchors: &mut HashSet<String>,
     ) {
         let node = arena.get(node_id);
 
         // Check if this is a heading
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.value {
             let text = extract_heading_text(arena, node_id);
-            let anchor = generate_anchor(&text);
+            let anchor = generate_unique_anchor(&text, used_anchors);
 
+            used_anchors.insert(anchor.clone());
             entries.push(TocEntry {
                 level: *level as u32,
                 text,
@@ -120,13 +124,33 @@ pub fn build_toc(arena: &NodeArena, document_id: NodeId) -> Vec<TocEntry> {
         // Process children
         let mut current_opt = node.first_child;
         while let Some(child_id) = current_opt {
-            collect_headings(arena, child_id, entries);
+            collect_headings(arena, child_id, entries, used_anchors);
             current_opt = arena.get(child_id).next;
         }
     }
 
-    collect_headings(arena, document_id, &mut entries);
+    collect_headings(arena, document_id, &mut entries, &mut used_anchors);
     entries
+}
+
+/// Generate a unique anchor ID from heading text
+/// If the anchor already exists, appends -1, -2, etc. to make it unique
+fn generate_unique_anchor(text: &str, used_anchors: &HashSet<String>) -> String {
+    let base_anchor = generate_anchor(text);
+
+    if !used_anchors.contains(&base_anchor) {
+        return base_anchor;
+    }
+
+    // Find a unique suffix
+    let mut counter = 1;
+    loop {
+        let candidate = format!("{}-{}", base_anchor, counter);
+        if !used_anchors.contains(&candidate) {
+            return candidate;
+        }
+        counter += 1;
+    }
 }
 
 /// Render TOC entries to HTML
@@ -308,5 +332,54 @@ mod tests {
         let entries: Vec<TocEntry> = vec![];
         assert!(render_toc_html(&entries).is_empty());
         assert!(render_toc_commonmark(&entries).is_empty());
+    }
+
+    #[test]
+    fn test_generate_unique_anchor() {
+        let mut used = HashSet::new();
+
+        // First occurrence
+        let anchor1 = generate_unique_anchor("Hello World", &used);
+        assert_eq!(anchor1, "hello-world");
+        used.insert(anchor1.clone());
+
+        // Second occurrence - should get -1 suffix
+        let anchor2 = generate_unique_anchor("Hello World", &used);
+        assert_eq!(anchor2, "hello-world-1");
+        used.insert(anchor2.clone());
+
+        // Third occurrence - should get -2 suffix
+        let anchor3 = generate_unique_anchor("Hello World", &used);
+        assert_eq!(anchor3, "hello-world-2");
+        used.insert(anchor3.clone());
+
+        // Different text - should not have suffix
+        let anchor4 = generate_unique_anchor("Different Title", &used);
+        assert_eq!(anchor4, "different-title");
+    }
+
+    #[test]
+    fn test_build_toc_with_duplicate_headings() {
+        let mut arena = NodeArena::new();
+        let doc = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create duplicate headings
+        for _ in 0..3 {
+            let heading =
+                arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+                    level: 1,
+                    setext: false,
+                    closed: false,
+                })));
+            let text = arena.alloc(Node::with_value(NodeValue::make_text("Same Title")));
+            TreeOps::append_child(&mut arena, heading, text);
+            TreeOps::append_child(&mut arena, doc, heading);
+        }
+
+        let entries = build_toc(&arena, doc);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].anchor, "same-title");
+        assert_eq!(entries[1].anchor, "same-title-1");
+        assert_eq!(entries[2].anchor, "same-title-2");
     }
 }

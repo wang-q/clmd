@@ -149,6 +149,9 @@ pub enum NodeValue {
 
     /// An escaped tag (used during parsing).
     EscapedTag(&'static str),
+
+    /// A shortcode emoji (e.g., `:thumbsup:` -> 👍).
+    ShortCode(Box<NodeShortCode>),
 }
 
 /// A single node in the CommonMark AST.
@@ -547,6 +550,15 @@ pub struct NodeWikiLink {
     pub url: String,
 }
 
+/// Metadata for a shortcode emoji.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct NodeShortCode {
+    /// The shortcode name (e.g., "thumbsup").
+    pub code: String,
+    /// The emoji character (e.g., "👍").
+    pub emoji: String,
+}
+
 /// Metadata for a multiline block quote.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct NodeMultilineBlockQuote {
@@ -704,6 +716,7 @@ impl NodeValue {
                 | NodeValue::Escaped
                 | NodeValue::Raw(..)
                 | NodeValue::FrontMatter(..)
+                | NodeValue::ShortCode(..)
         )
     }
 
@@ -774,6 +787,7 @@ impl NodeValue {
             NodeValue::Alert(_) => "alert",
             NodeValue::Subtext => "subtext",
             NodeValue::EscapedTag(_) => "escaped_tag",
+            NodeValue::ShortCode(_) => "shortcode",
         }
     }
 

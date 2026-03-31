@@ -186,6 +186,9 @@ pub struct Extension<'c> {
     /// ```
     pub subtext: bool,
 
+    /// Enables shortcodes for emoji (e.g., `:thumbsup:` -> 👍).
+    pub shortcodes: bool,
+
     /// Wraps embedded image URLs using a function or custom trait object.
     #[arbitrary(default)]
     pub image_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,

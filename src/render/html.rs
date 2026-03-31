@@ -1,14 +1,29 @@
 //! HTML renderer
 
+use crate::adapters::SyntaxHighlighterAdapter;
 use crate::arena::{NodeArena, NodeId};
+use crate::ext::tagfilter::filter_html;
 use crate::html_utils::{escape_html, is_safe_url};
 use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
-use crate::parser::OPT_SOURCEPOS;
+use crate::parser::{OPT_SOURCEPOS, OPT_TAGFILTER};
+use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Write;
 
 /// Render a node tree as HTML
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    let mut renderer = HtmlRenderer::new(arena, options);
+    let mut renderer = HtmlRenderer::new(arena, options, None);
+    renderer.render(root)
+}
+
+/// Render a node tree as HTML with syntax highlighter
+pub fn render_with_highlighter(
+    arena: &NodeArena,
+    root: NodeId,
+    options: u32,
+    highlighter: Option<&dyn SyntaxHighlighterAdapter>,
+) -> String {
+    let mut renderer = HtmlRenderer::new(arena, options, highlighter);
     renderer.render(root)
 }
 
@@ -34,10 +49,16 @@ struct HtmlRenderer<'a> {
     item_child_count: Vec<usize>,
     /// Track table row index (0 = header, 1 = header end marker, 2+ = body)
     table_row_index: usize,
+    /// Optional syntax highlighter
+    syntax_highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
 }
 
 impl<'a> HtmlRenderer<'a> {
-    fn new(arena: &'a NodeArena, options: u32) -> Self {
+    fn new(
+        arena: &'a NodeArena,
+        options: u32,
+        highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
+    ) -> Self {
         // Optimization: pre-allocate output buffer with estimated capacity
         // Typical HTML output is about 2x the input size
         let estimated_capacity = arena.len() * 64;
@@ -53,6 +74,7 @@ impl<'a> HtmlRenderer<'a> {
             disable_tags: 0,
             item_child_count: Vec::new(),
             table_row_index: 0,
+            syntax_highlighter: highlighter,
         }
     }
 
@@ -228,8 +250,12 @@ impl<'a> HtmlRenderer<'a> {
                 } else {
                     self.cr();
                 }
-                // HTML blocks are always output as raw HTML
-                self.lit(&html_block.literal);
+                // HTML blocks are output as raw HTML, but filtered if tagfilter is enabled
+                if (self.options & OPT_TAGFILTER) != 0 {
+                    self.lit(&filter_html(&html_block.literal));
+                } else {
+                    self.lit(&html_block.literal);
+                }
                 self.lit("\n");
             }
             NodeValue::Paragraph => {
@@ -300,7 +326,11 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                self.lit(literal.as_ref());
+                if (self.options & OPT_TAGFILTER) != 0 {
+                    self.lit(&filter_html(literal.as_ref()));
+                } else {
+                    self.lit(literal.as_ref());
+                }
             }
             NodeValue::Emph => {
                 self.lit("<em>");
@@ -411,6 +441,12 @@ impl<'a> HtmlRenderer<'a> {
                     self.tag_stack.push("td");
                 }
             }
+            NodeValue::EscapedTag(data) => {
+                self.lit(data);
+            }
+            NodeValue::ShortCode(shortcode) => {
+                self.lit(&shortcode.emoji);
+            }
             _ => {}
         }
     }
@@ -519,21 +555,55 @@ impl<'a> HtmlRenderer<'a> {
         if let NodeValue::CodeBlock(code_block) = &node.value {
             self.in_code_block = true;
 
-            self.lit("<pre><code");
-            self.render_sourcepos(node_id);
-            if !code_block.info.is_empty() {
-                let lang = code_block.info.split_whitespace().next().unwrap_or("");
+            // Parse language from info string
+            let lang = if !code_block.info.is_empty() {
+                code_block.info.split_whitespace().next().unwrap_or("")
+            } else {
+                ""
+            };
+
+            // Check if we have a syntax highlighter
+            if let Some(highlighter) = self.syntax_highlighter {
+                // Use syntax highlighter for rendering
+                let mut attrs: HashMap<&str, Cow<'_, str>> = HashMap::new();
+                if !lang.is_empty() {
+                    attrs.insert("class", Cow::Owned(format!("language-{}", escape_html(lang))));
+                }
+
+                // Write pre tag
+                highlighter
+                    .write_pre_tag(&mut self.output, attrs.clone())
+                    .expect("write to String cannot fail");
+
+                // Write code tag
+                highlighter
+                    .write_code_tag(&mut self.output, attrs)
+                    .expect("write to String cannot fail");
+
+                // Write highlighted code
+                let lang_opt = if lang.is_empty() { None } else { Some(lang) };
+                highlighter
+                    .write_highlighted(&mut self.output, lang_opt, &code_block.literal)
+                    .expect("write to String cannot fail");
+
+                // Close tags
+                self.lit("</code></pre>");
+            } else {
+                // Default rendering without syntax highlighting
+                self.lit("<pre><code");
+                self.render_sourcepos(node_id);
                 if !lang.is_empty() {
                     write!(self.output, " class=\"language-{}\"", escape_html(lang))
                         .expect("write to String cannot fail");
                 }
+                self.lit(">");
+
+                // Write code content (escaped)
+                self.lit(&escape_html(&code_block.literal));
+
+                self.lit("</code></pre>");
             }
-            self.lit(">");
 
-            // Write code content
-            self.lit(&escape_html(&code_block.literal));
-
-            self.lit("</code></pre>");
             self.lit("\n");
             self.in_code_block = false;
         }
