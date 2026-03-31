@@ -78,11 +78,56 @@ cargo build
 cargo build --release
 ```
 
-### 测试
+## 代码规范
+
+- 使用 `cargo fmt` 格式化代码。
+- 使用 `cargo clippy` 检查潜在问题。
+- 优先使用标准库和项目中已引入的 crate。
+- 保持代码简洁，注重性能。
+- 所有公共 API 必须包含文档注释（英文）。
+
+## 测试规范
+
+### 测试策略
+
+项目采用**单元测试为主，文档示例为辅**的测试策略：
+
+- **单元测试**: 所有核心功能必须在 `#[cfg(test)]` 模块中编写单元测试，确保代码正确性
+- **文档示例**: 使用 `ignore` 属性标记文档中的代码示例，仅用于展示 API 用法，不作为测试执行
+
+### 文档示例规范
+
+所有文档注释中的代码示例必须使用 `ignore` 属性：
+
+```rust
+/// # Example
+///
+/// ```ignore
+/// use clmd::some_module::SomeType;
+///
+/// let instance = SomeType::new();
+/// ```
+pub fn new() -> Self {
+    // ...
+}
+```
+
+**原因**: doctest 编译和执行速度较慢，会显著增加 `cargo test` 的运行时间。将示例标记为 `ignore` 可以保持文档的完整性，同时确保测试快速执行。
+
+### 单元测试位置
+
+- 单元测试应放在文件底部的 `#[cfg(test)]` 模块中
+- 测试函数使用 `#[test]` 属性
+- 测试命名应清晰描述测试场景，如 `test_parse_empty_document` 或 `test_header_shift_positive`
+
+### 测试命令
 
 ```bash
-# 运行所有测试
+# 运行所有测试（包括单元测试和 doctests）
 cargo test
+
+# 仅运行单元测试
+cargo test --lib
 
 # 运行特定测试
 cargo test test_commonmark_spec -- --nocapture
@@ -91,14 +136,6 @@ cargo test test_commonmark_spec -- --nocapture
 cargo fmt -- --check
 cargo clippy
 ```
-
-## 代码规范
-
-- 使用 `cargo fmt` 格式化代码。
-- 使用 `cargo clippy` 检查潜在问题。
-- 优先使用标准库和项目中已引入的 crate。
-- 保持代码简洁，注重性能。
-- 所有公共 API 必须包含文档注释（英文）。
 
 ## 开发者文档规范
 
