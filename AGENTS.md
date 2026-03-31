@@ -15,11 +15,15 @@
 
 - 100% CommonMark 和 GFM 规范兼容
 - 100% 安全 Rust 代码（无 `unsafe` 代码）
-- 支持多种渲染格式：HTML、CommonMark、XML、Typst 等
-- 插件系统，支持自定义渲染
-- 丰富的扩展功能：表格、脚注、删除线、任务列表、自动链接等
+- 支持多种渲染格式：HTML、CommonMark、XML、Typst、PDF、LaTeX、Man 等
+- 插件系统，支持自定义渲染和 syntect 语法高亮
+- 丰富的扩展功能：表格、脚注、删除线、任务列表、自动链接、缩写、属性、YAML 前页、短代码、标签过滤等
 - 内存高效的 AST 实现，基于 Arena 内存分配
 - 提供便捷的 API 和迭代器用于 AST 遍历和操作
+- 支持 HTML 到 Markdown 的转换
+- 内置 Markdown 格式化工具
+- 配置文件支持
+- Unicode 显示宽度计算
 
 ### 设计理念
 
@@ -36,8 +40,9 @@
 src/
 ├── lib.rs          # 公共 API 和选项定义
 ├── arena.rs        # 内存分配器
+├── config.rs       # 配置文件支持
 ├── error.rs        # 错误处理
-├── from.rs         # 从其他格式转换
+├── from.rs         # 从其他格式转换的公共 API
 ├── html_utils.rs   # HTML 工具函数
 ├── iterator.rs     # AST 遍历器
 ├── nodes.rs        # AST 节点定义和操作
@@ -47,13 +52,15 @@ src/
 ├── scanners.rs     # 扫描器工具
 ├── sequence.rs     # 序列处理
 ├── strings.rs      # 字符串处理
+├── unicode_width.rs # Unicode 显示宽度计算
 ├── adapters.rs     # 适配器
 ├── blocks/         # 块级元素解析（包含解析器、块检测、延续、终处理等）
-├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表等）
+├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表、YAML 前页、短代码、标签过滤等）
+├── formatter/      # Markdown 格式化工具
 ├── from/           # 从其他格式转换（HTML）
 ├── inlines/        # 内联元素解析（强调、链接、实体、HTML标签、文本处理等）
 ├── parser/         # 解析器核心
-├── plugins/        # 插件系统
+├── plugins/        # 插件系统（包含 syntect 语法高亮支持）
 ├── render/         # 渲染器（HTML、XML、CommonMark、LaTeX、Man、PDF、Typst等）
 ├── test_utils/     # 测试工具
 └── tests/          # 测试用例
@@ -92,27 +99,6 @@ cargo clippy
 - 优先使用标准库和项目中已引入的 crate。
 - 保持代码简洁，注重性能。
 - 所有公共 API 必须包含文档注释（英文）。
-
-## 核心算法参考
-
-在实现或修复以下功能时，优先参考对应源码：
-
-| 功能 | cmark (C) | commonmark.js (JS) | 本项目实现 |
-|------|-----------|-------------------|-----------|
-| 块级解析 | `blocks.c` | `blocks.js` | `src/blocks/parser.rs` |
-| 块级元素起始检测 | `blocks.c` | `blocks.js` | `src/blocks/block_starts.rs` |
-| 块级元素延续 | `blocks.c` | `blocks.js` | `src/blocks/continuation.rs` |
-| 块级元素终处理 | `blocks.c` | `blocks.js` | `src/blocks/finalization.rs` |
-| 内联解析 | `inlines.c` | `inlines.js` | `src/inlines/mod.rs` |
-| 强调处理 | `inlines.c` 中 `process_emphasis` | `inlines.js` 中 `processEmphasis` | `src/inlines/emphasis.rs` |
-| 链接处理 | `inlines.c` 中 `parse_link` | `inlines.js` 中 `parseLink` | `src/inlines/links.rs` |
-| 自动链接 | `inlines.c` 中 `match_url_autolink` | `inlines.js` 中 `matchURLAutolink` | `src/inlines/autolinks.rs` |
-| 实体解析 | `inlines.c` 中 `parse_entity` | `inlines.js` 中 `parseEntity` | `src/inlines/entities.rs` |
-| HTML 标签解析 | `inlines.c` 中 `match_html_tag` | `inlines.js` 中 `matchHTMLTag` | `src/inlines/html_tags.rs` |
-| 文本处理 | `inlines.c` 中 `parse_string` | `inlines.js` 中 `parseString` | `src/inlines/text.rs` |
-| HTML 渲染 | `html.c` | `render/html.js` | `src/render/html.rs` |
-| CommonMark 渲染 | - | `render/commonmark.js` | `src/render/commonmark.rs` |
-| XML 渲染 | - | `render/xml.js` | `src/render/xml.rs` |
 
 ## 开发者文档规范
 
