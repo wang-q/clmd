@@ -271,6 +271,36 @@ pub mod puncttable;
 /// ```
 pub mod prelude;
 
+/// Document readers for various input formats.
+///
+/// This module provides a unified interface for reading documents from different
+/// formats, inspired by Pandoc's Reader system.
+pub mod readers;
+
+/// Document writers for various output formats.
+///
+/// This module provides a unified interface for writing documents to different
+/// formats, inspired by Pandoc's Writer system.
+pub mod writers;
+
+/// Markdown extensions management using bitflags.
+///
+/// This module provides a unified way to manage Markdown extensions,
+/// inspired by Pandoc's extension system.
+pub mod extensions;
+
+/// Document conversion pipeline.
+///
+/// This module provides a flexible pipeline system for document conversion,
+/// inspired by Pandoc's conversion architecture.
+pub mod pipeline;
+
+/// Format detection and management.
+///
+/// This module provides automatic format detection based on file extensions
+/// and content analysis.
+pub mod formats;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================
@@ -349,7 +379,10 @@ pub use parser::options::URLRewriter;
 // Error Type Exports
 // =============================================================================
 
-pub use error::{ParseError, ParseResult, ParserLimits};
+pub use error::{
+    ClmdError, ClmdResult, LimitKind, ParseError, ParseResult, ParserLimits, Position,
+    Range,
+};
 
 // =============================================================================
 // Node Value Exports

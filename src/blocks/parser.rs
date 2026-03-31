@@ -149,13 +149,7 @@ impl<'a> BlockParser<'a> {
         options: u32,
     ) -> NodeId {
         // Use relaxed limits for backward compatibility
-        let limits = ParserLimits {
-            max_input_size: RELAXED_MAX_INPUT_SIZE,
-            max_nesting_depth: RELAXED_MAX_NESTING_DEPTH,
-            max_line_length: RELAXED_MAX_LINE_LENGTH,
-            max_list_items: RELAXED_MAX_LIST_ITEMS,
-            max_links: RELAXED_MAX_LINKS,
-        };
+        let limits = ParserLimits::new();
         // For backward compatibility, unwrap the result
         // In new code, use parse_with_limits which returns ParseResult
         match Self::parse_with_limits(arena, input, options, limits) {
@@ -200,9 +194,9 @@ impl<'a> BlockParser<'a> {
         options: u32,
         limits: ParserLimits,
     ) -> ParseResult<(NodeId, RefMap)> {
-        // Validate input size
+        // Validate input size (0 means unlimited)
         let input_size = input.len();
-        if input_size > limits.max_input_size {
+        if limits.max_input_size > 0 && input_size > limits.max_input_size {
             return Err(ParseError::InputTooLarge {
                 size: input_size,
                 max_size: limits.max_input_size,
@@ -215,9 +209,11 @@ impl<'a> BlockParser<'a> {
         // Handle CRLF line endings by splitting on '\n' and removing '\r' if present
         for line in input.split('\n') {
             // Check line length limit
-            if line.len() > parser.limits.max_line_length {
+            if parser.limits.max_line_length > 0
+                && line.len() > parser.limits.max_line_length
+            {
                 return Err(ParseError::ParseError {
-                    position: crate::error::Position::new(parser.line_number + 1, 1, 0),
+                    position: crate::error::Position::new(parser.line_number + 1, 1),
                     message: format!(
                         "Line exceeds maximum length ({} > {})",
                         line.len(),
