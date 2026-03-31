@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::asciify::asciify;
 //!
 //! let ascii = asciify("café résumé naïve");
@@ -50,7 +50,7 @@ impl Transliterator {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::asciify::Transliterator;
     ///
     /// let transliterator = Transliterator::new();

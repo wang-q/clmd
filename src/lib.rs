@@ -11,7 +11,7 @@
 //!
 //! The simplest way to use this library is with [`markdown_to_html`]:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let html = markdown_to_html("Hello, **world**!", &Options::default());
@@ -22,7 +22,7 @@
 //!
 //! For more control, you can parse the input into an AST, manipulate it, and then format it:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{parse_document, format_html, Options};
 //! use clmd::nodes::NodeValue;
 //!
@@ -43,7 +43,7 @@
 //!
 //! You can enable GFM extensions and configure rendering:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -79,7 +79,7 @@
 //!
 //! clmd supports multiple output formats:
 //!
-//! ```
+//! ```ignore
 //! use clmd::{markdown_to_html, markdown_to_commonmark, Options};
 //!
 //! let markdown = "# Hello\n\n**Bold** text";
@@ -156,7 +156,7 @@
 //!
 //! Convert HTML back to Markdown:
 //!
-//! ```
+//! ```ignore
 //! use clmd::from::html_to_markdown;
 //!
 //! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";

@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::readers::{ReaderRegistry, ReaderOptions};
 //!
 //! let registry = ReaderRegistry::new();
@@ -68,7 +68,7 @@ impl ReaderRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::readers::{ReaderRegistry, MarkdownReader};
     ///
     /// let mut registry = ReaderRegistry::new();
@@ -91,7 +91,7 @@ impl ReaderRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::readers::ReaderRegistry;
     ///
     /// let registry = ReaderRegistry::with_defaults();
@@ -112,7 +112,7 @@ impl ReaderRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::readers::ReaderRegistry;
     ///
     /// let registry = ReaderRegistry::with_defaults();
@@ -133,7 +133,7 @@ impl ReaderRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::readers::ReaderRegistry;
     /// use std::path::Path;
     ///

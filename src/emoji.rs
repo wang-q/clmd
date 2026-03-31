@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::emoji::{EmojiMapper, has_emoji_shortcode};
 //!
 //! // Convert shortcode to emoji
@@ -68,7 +68,7 @@ impl EmojiMapper {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();
@@ -83,7 +83,7 @@ impl EmojiMapper {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();

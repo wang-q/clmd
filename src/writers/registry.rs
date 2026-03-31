@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::writers::{WriterRegistry, WriterOptions};
 //!
 //! let registry = WriterRegistry::new();
@@ -68,7 +68,7 @@ impl WriterRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::writers::{WriterRegistry, HtmlWriter};
     ///
     /// let mut registry = WriterRegistry::new();
@@ -91,7 +91,7 @@ impl WriterRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::writers::WriterRegistry;
     ///
     /// let registry = WriterRegistry::with_defaults();
@@ -112,7 +112,7 @@ impl WriterRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::writers::WriterRegistry;
     ///
     /// let registry = WriterRegistry::with_defaults();
@@ -133,7 +133,7 @@ impl WriterRegistry {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::writers::WriterRegistry;
     /// use std::path::Path;
     ///

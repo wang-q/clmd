@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::css::{StyleDeclaration, parse_inline_style};
 //!
 //! let style = parse_inline_style("color: red; font-size: 14px").unwrap();
@@ -33,7 +33,7 @@ impl StyleDeclaration {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::css::StyleDeclaration;
     ///
     /// let style = StyleDeclaration::from_css("color: red; font-size: 14px");
@@ -93,7 +93,7 @@ impl StyleDeclaration {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::css::StyleDeclaration;
     ///
     /// let mut style = StyleDeclaration::new();

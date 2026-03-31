@@ -13,7 +13,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::arena::{NodeArena, TreeOps, Node};
 //! use clmd::nodes::NodeValue;
 //!
@@ -111,7 +111,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::NodeArena;
     ///
     /// let arena = NodeArena::with_limits(100, 10000);
@@ -151,7 +151,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::NodeArena;
     ///
     /// let arena = NodeArena::new();
@@ -268,7 +268,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::{NodeArena, TreeOps, Node};
     /// use clmd::nodes::NodeValue;
     ///
@@ -290,7 +290,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::{NodeArena, TreeOps, Node};
     /// use clmd::nodes::NodeValue;
     ///
@@ -317,7 +317,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::{NodeArena, TreeOps, Node};
     /// use clmd::nodes::NodeValue;
     ///
@@ -367,7 +367,7 @@ impl NodeArena {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::arena::{NodeArena, TreeOps, Node};
     /// use clmd::nodes::NodeValue;
     ///

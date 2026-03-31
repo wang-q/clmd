@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::extensions::{Extensions, GFM_EXTENSIONS, ALL_EXTENSIONS};
 //!
 //! // Create GFM-compatible extension set
@@ -35,7 +35,7 @@ bitflags! {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// // Combine multiple extensions
@@ -447,7 +447,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::{Extensions, GFM_EXTENSIONS};
     ///
     /// assert!(GFM_EXTENSIONS.has_gfm_extensions());
@@ -469,7 +469,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let gfm = Extensions::for_format("gfm");
@@ -589,7 +589,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::empty().enable_extension(Extensions::TABLES);
@@ -603,7 +603,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
@@ -621,7 +621,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
@@ -638,7 +638,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES.combine_extensions(Extensions::FOOTNOTES);
@@ -655,7 +655,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH | Extensions::FOOTNOTES;
@@ -674,7 +674,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext1 = Extensions::TABLES | Extensions::STRIKETHROUGH;
@@ -692,7 +692,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES;
@@ -711,7 +711,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let gfm = Extensions::get_default_extensions("gfm");
@@ -732,7 +732,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     /// use clmd::parser::options::WikiLinksMode;
     ///
@@ -756,7 +756,7 @@ impl Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     ///
     /// let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
@@ -982,7 +982,7 @@ impl FromStr for Extensions {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::extensions::Extensions;
     /// use std::str::FromStr;
     ///

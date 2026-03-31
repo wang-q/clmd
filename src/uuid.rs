@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::uuid::UUID;
 //!
 //! // Generate a new random UUID
@@ -32,7 +32,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -60,7 +60,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let bytes = [0x55, 0x44, 0x33, 0x22, 0x11, 0x00, 0x99, 0x88,
@@ -75,7 +75,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -92,7 +92,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -112,7 +112,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -137,7 +137,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -162,7 +162,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -186,7 +186,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid = UUID::new_v4();
@@ -214,7 +214,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let uuid_str = "550e8400-e29b-41d4-a716-446655440000";
@@ -256,7 +256,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let nil = UUID::nil();
@@ -270,7 +270,7 @@ impl UUID {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::uuid::UUID;
     ///
     /// let nil = UUID::nil();

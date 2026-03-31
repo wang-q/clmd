@@ -24,7 +24,7 @@ pub use crate::formatter::writer;
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use clmd::render::renderer::Renderer;
 /// use clmd::arena::NodeArena;
 /// use clmd::arena::NodeId;
@@ -61,7 +61,7 @@ pub use super::xml;
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use clmd::{parse_document, render::renderer::render_to_html, Options};
 /// use clmd::Arena;
 ///

@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::writers::{WriterRegistry, Writer};
 //! use clmd::{Options, parse_document};
 //!

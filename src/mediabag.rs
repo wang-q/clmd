@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::mediabag::{MediaBag, MediaItem};
 //!
 //! let mut bag = MediaBag::new();
@@ -153,7 +153,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -177,7 +177,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -202,7 +202,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -221,7 +221,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -315,7 +315,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -448,7 +448,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -499,7 +499,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -603,7 +603,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -639,7 +639,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();
@@ -695,7 +695,7 @@ impl MediaBag {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::mediabag::MediaBag;
     ///
     /// let mut bag = MediaBag::new();

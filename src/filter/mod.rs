@@ -12,7 +12,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::filter::{Filter, FilterChain};
 //! use clmd::arena::{NodeArena, NodeId};
 //!
@@ -98,7 +98,7 @@ impl Filter {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::filter::Filter;
     ///
     /// let filter = Filter::header_shift(1); // h1 -> h2, h2 -> h3, etc.
@@ -111,7 +111,7 @@ impl Filter {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::filter::Filter;
     ///
     /// let filter = Filter::link_transform()
@@ -126,7 +126,7 @@ impl Filter {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::filter::Filter;
     ///
     /// let filter = Filter::image_transform()

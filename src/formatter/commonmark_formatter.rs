@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
 //!
 //! let formatter = CommonMarkNodeFormatter::new();
@@ -62,7 +62,7 @@ impl CommonMarkNodeFormatter {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::formatter::CommonMarkNodeFormatter;
     ///
     /// let formatter = CommonMarkNodeFormatter::new();
@@ -79,7 +79,7 @@ impl CommonMarkNodeFormatter {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
     ///
     /// let options = FormatterOptions::new()

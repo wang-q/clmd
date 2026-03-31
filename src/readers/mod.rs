@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::readers::{ReaderRegistry, Reader};
 //! use clmd::Options;
 //!

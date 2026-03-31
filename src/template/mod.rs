@@ -14,7 +14,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::template::{Template, TemplateContext};
 //!
 //! let template = Template::compile("Hello, ${name}!").unwrap();

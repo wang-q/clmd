@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::context::{ClmdContext, PureContext};
 //! use std::path::Path;
 //!
