@@ -431,6 +431,13 @@ pub mod data;
 /// and common parsing patterns.
 pub mod parsing;
 
+/// Unified options system for clmd operations.
+///
+/// This module provides a comprehensive options structure that combines
+/// parsing and rendering configuration in a single place, inspired by
+/// Pandoc's ReaderOptions and WriterOptions.
+pub mod clmd_options;
+
 // =============================================================================
 // Core Type Exports
 // =============================================================================

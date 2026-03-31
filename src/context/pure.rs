@@ -1,13 +1,13 @@
 //! Pure Context implementation for testing.
 //!
 //! This module provides the [`PureContext`] struct, which implements
-//! the [`Context`] trait using in-memory storage. This is useful for
+//! the [`ClmdContext`] trait using in-memory storage. This is useful for
 //! testing and pure functional code.
 //!
 //! # Example
 //!
 //! ```
-//! use clmd::context::{Context, PureContext};
+//! use clmd::context::{ClmdContext, PureContext};
 //! use std::path::Path;
 //!
 //! let mut ctx = PureContext::new();
@@ -19,13 +19,12 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
-use crate::context::{common, LogLevel, LogMessage};
-use crate::error::{ClmdError, ClmdResult};
-use crate::mediabag::{MediaBag, MediaItem};
-
-use super::Context;
+use crate::context::{common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
+use crate::error::ClmdError;
+use crate::mediabag::MediaItem;
 
 /// Pure Context for testing and pure functional code.
 ///
@@ -36,7 +35,7 @@ use super::Context;
 /// # Example
 ///
 /// ```
-/// use clmd::context::{Context, PureContext};
+/// use clmd::context::{ClmdContext, PureContext};
 ///
 /// let mut ctx = PureContext::new();
 /// ctx.add_file("input.md", b"# Test");
@@ -46,38 +45,47 @@ use super::Context;
 /// ```
 #[derive(Debug, Clone)]
 pub struct PureContext {
+    /// The common state for this context.
+    state: CommonState,
     /// In-memory file storage.
     files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
-    /// The media bag for storing binary resources.
-    media_bag: Arc<Mutex<MediaBag>>,
-    /// Log messages.
-    logs: Arc<Mutex<Vec<LogMessage>>>,
-    /// User data directory (simulated).
-    user_data_dir: Option<PathBuf>,
-    /// Verbosity level (0 = quiet, 1 = normal, 2 = verbose).
-    verbosity: Arc<RwLock<u8>>,
+    /// Simulated current time for testing.
+    current_time: Arc<Mutex<SystemTime>>,
+    /// Simulated random bytes for testing.
+    random_bytes: Arc<Mutex<Vec<u8>>>,
 }
 
 impl PureContext {
     /// Create a new pure context with default settings.
     pub fn new() -> Self {
         Self {
+            state: CommonState::default(),
             files: Arc::new(Mutex::new(HashMap::new())),
-            media_bag: Arc::new(Mutex::new(MediaBag::new())),
-            logs: Arc::new(Mutex::new(Vec::new())),
-            user_data_dir: None,
-            verbosity: Arc::new(RwLock::new(1)),
+            current_time: Arc::new(Mutex::new(SystemTime::UNIX_EPOCH)),
+            random_bytes: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
     /// Create a new pure context with a specific user data directory.
     pub fn with_user_data_dir(user_data_dir: PathBuf) -> Self {
         Self {
+            state: CommonState {
+                user_data_dir: Some(user_data_dir),
+                ..Default::default()
+            },
             files: Arc::new(Mutex::new(HashMap::new())),
-            media_bag: Arc::new(Mutex::new(MediaBag::new())),
-            logs: Arc::new(Mutex::new(Vec::new())),
-            user_data_dir: Some(user_data_dir),
-            verbosity: Arc::new(RwLock::new(1)),
+            current_time: Arc::new(Mutex::new(SystemTime::UNIX_EPOCH)),
+            random_bytes: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Create a new pure context with the given common state.
+    pub fn with_state(state: CommonState) -> Self {
+        Self {
+            state,
+            files: Arc::new(Mutex::new(HashMap::new())),
+            current_time: Arc::new(Mutex::new(SystemTime::UNIX_EPOCH)),
+            random_bytes: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -167,36 +175,32 @@ impl PureContext {
 
     /// Get all log messages without clearing them.
     pub fn peek_logs(&self) -> Vec<LogMessage> {
-        self.logs.lock().unwrap().clone()
+        self.state.get_logs()
     }
 
     /// Clear all log messages.
     pub fn clear_logs(&mut self) {
-        let mut logs = self.logs.lock().unwrap();
-        logs.clear();
+        self.state.clear_logs();
     }
 
     /// Get the number of log messages.
     pub fn log_count(&self) -> usize {
-        let logs = self.logs.lock().unwrap();
-        logs.len()
+        self.state.get_logs().len()
     }
 
     /// Check if any errors were logged.
     pub fn has_errors(&self) -> bool {
-        let logs = self.logs.lock().unwrap();
-        logs.iter().any(|log| log.level == LogLevel::Error)
+        self.state.has_errors()
     }
 
     /// Check if any warnings were logged.
     pub fn has_warnings(&self) -> bool {
-        let logs = self.logs.lock().unwrap();
-        logs.iter().any(|log| log.level == LogLevel::Warning)
+        self.state.has_warnings()
     }
 
     /// Get all error messages.
     pub fn get_errors(&self) -> Vec<LogMessage> {
-        let logs = self.logs.lock().unwrap();
+        let logs = self.state.get_logs();
         logs.iter()
             .filter(|log| log.level == LogLevel::Error)
             .cloned()
@@ -205,11 +209,23 @@ impl PureContext {
 
     /// Get all warning messages.
     pub fn get_warnings(&self) -> Vec<LogMessage> {
-        let logs = self.logs.lock().unwrap();
+        let logs = self.state.get_logs();
         logs.iter()
             .filter(|log| log.level == LogLevel::Warning)
             .cloned()
             .collect()
+    }
+
+    /// Set the simulated current time for testing.
+    pub fn set_current_time(&self, time: SystemTime) {
+        let mut current_time = self.current_time.lock().unwrap();
+        *current_time = time;
+    }
+
+    /// Set the simulated random bytes for testing.
+    pub fn set_random_bytes(&self, bytes: Vec<u8>) {
+        let mut random_bytes = self.random_bytes.lock().unwrap();
+        *random_bytes = bytes;
     }
 }
 
@@ -219,8 +235,10 @@ impl Default for PureContext {
     }
 }
 
-impl Context for PureContext {
-    fn read_file(&self, path: &Path) -> ClmdResult<Vec<u8>> {
+impl ClmdContext for PureContext {
+    type Error = ClmdError;
+
+    fn read_file(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
         let canonical = common::canonicalize_path(path);
         let files = self.files.lock().unwrap();
         files.get(&canonical).cloned().ok_or_else(|| {
@@ -228,7 +246,7 @@ impl Context for PureContext {
         })
     }
 
-    fn write_file(&self, path: &Path, content: &[u8]) -> ClmdResult<()> {
+    fn write_file(&self, path: &Path, content: &[u8]) -> Result<(), Self::Error> {
         let canonical = common::canonicalize_path(path);
         let mut files = self.files.lock().unwrap();
         files.insert(canonical, content.to_vec());
@@ -241,28 +259,45 @@ impl Context for PureContext {
         files.contains_key(&canonical)
     }
 
-    fn log(&self, level: LogLevel, message: &str) {
-        // Only log if verbosity level permits
-        let verbosity = *self.verbosity.read().unwrap();
-        let should_log = match level {
-            LogLevel::Error => true,
-            LogLevel::Warning => verbosity >= 1,
-            LogLevel::Info => verbosity >= 1,
-            LogLevel::Debug => verbosity >= 2,
-        };
-
-        if should_log {
-            let mut logs = self.logs.lock().unwrap();
-            logs.push(LogMessage::new(level, message.to_string()));
+    fn get_modification_time(&self, path: &Path) -> Result<SystemTime, Self::Error> {
+        // In pure context, return the simulated current time for any existing file
+        if self.file_exists(path) {
+            let time = *self.current_time.lock().unwrap();
+            Ok(time)
+        } else {
+            Err(ClmdError::io_error(format!(
+                "File not found: {}",
+                path.display()
+            )))
         }
     }
 
-    fn get_logs(&self) -> Vec<LogMessage> {
-        self.logs.lock().unwrap().clone()
+    fn find_file(&self, filename: &str) -> Option<PathBuf> {
+        self.state.find_file(filename)
     }
 
-    fn get_media_bag(&self) -> Arc<Mutex<MediaBag>> {
-        Arc::clone(&self.media_bag)
+    fn report(&self, level: LogLevel, message: impl Into<String>) {
+        self.state.log(level, message);
+    }
+
+    fn get_logs(&self) -> Vec<LogMessage> {
+        self.state.get_logs()
+    }
+
+    fn get_verbosity(&self) -> Verbosity {
+        self.state.verbosity
+    }
+
+    fn set_verbosity(&mut self, verbosity: Verbosity) {
+        self.state.verbosity = verbosity;
+    }
+
+    fn get_state(&self) -> &CommonState {
+        &self.state
+    }
+
+    fn get_state_mut(&mut self) -> &mut CommonState {
+        &mut self.state
     }
 
     fn insert_media(
@@ -270,8 +305,8 @@ impl Context for PureContext {
         path: &Path,
         mime_type: Option<&str>,
         data: Vec<u8>,
-    ) -> ClmdResult<String> {
-        let mut bag = self.media_bag.lock().unwrap();
+    ) -> Result<String, Self::Error> {
+        let mut bag = self.state.media_bag.lock().unwrap();
 
         // Handle data URIs specially
         let path_str = path.to_string_lossy();
@@ -294,20 +329,27 @@ impl Context for PureContext {
     }
 
     fn lookup_media(&self, path: &Path) -> Option<MediaItem> {
-        let bag = self.media_bag.lock().unwrap();
+        let bag = self.state.media_bag.lock().unwrap();
         bag.lookup(path).cloned()
     }
 
-    fn get_user_data_dir(&self) -> Option<PathBuf> {
-        self.user_data_dir.clone()
+    fn get_current_time(&self) -> SystemTime {
+        *self.current_time.lock().unwrap()
     }
 
-    fn get_verbosity(&self) -> u8 {
-        *self.verbosity.read().unwrap()
+    fn get_random_bytes(&self, len: usize) -> Vec<u8> {
+        let random_bytes = self.random_bytes.lock().unwrap();
+        if random_bytes.is_empty() {
+            // Return deterministic bytes if not set
+            (0..len).map(|i| (i % 256) as u8).collect()
+        } else {
+            // Cycle through the provided bytes
+            (0..len).map(|i| random_bytes[i % random_bytes.len()]).collect()
+        }
     }
 
-    fn set_verbosity(&self, level: u8) {
-        *self.verbosity.write().unwrap() = level;
+    fn invalid_utf8_error(path: &Path) -> Self::Error {
+        ClmdError::io_error(format!("Invalid UTF-8 in file {}", path.display()))
     }
 }
 
@@ -318,7 +360,7 @@ mod tests {
     #[test]
     fn test_pure_context_new() {
         let ctx = PureContext::new();
-        assert_eq!(ctx.get_verbosity(), 1);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Normal);
         assert_eq!(ctx.file_count(), 0);
     }
 
@@ -423,20 +465,20 @@ mod tests {
 
     #[test]
     fn test_verbosity() {
-        let ctx = PureContext::new();
-        assert_eq!(ctx.get_verbosity(), 1);
+        let mut ctx = PureContext::new();
+        assert_eq!(ctx.get_verbosity(), Verbosity::Normal);
 
-        ctx.set_verbosity(2);
-        assert_eq!(ctx.get_verbosity(), 2);
+        ctx.set_verbosity(Verbosity::Verbose);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Verbose);
 
-        ctx.set_verbosity(0);
-        assert_eq!(ctx.get_verbosity(), 0);
+        ctx.set_verbosity(Verbosity::Quiet);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Quiet);
     }
 
     #[test]
     fn test_log_messages() {
         let ctx = PureContext::new();
-        ctx.log(LogLevel::Info, "Test message");
+        ctx.info("Test message");
 
         let logs = ctx.get_logs();
         assert_eq!(logs.len(), 1);
@@ -446,13 +488,13 @@ mod tests {
 
     #[test]
     fn test_log_verbosity_filtering() {
-        let ctx = PureContext::new();
-        ctx.set_verbosity(0); // Quiet mode
+        let mut ctx = PureContext::new();
+        ctx.set_verbosity(Verbosity::Quiet);
 
-        ctx.log(LogLevel::Debug, "Debug message");
-        ctx.log(LogLevel::Info, "Info message");
-        ctx.log(LogLevel::Warning, "Warning message");
-        ctx.log(LogLevel::Error, "Error message");
+        ctx.debug("Debug message");
+        ctx.info("Info message");
+        ctx.warn("Warning message");
+        ctx.error("Error message");
 
         let logs = ctx.get_logs();
         // Only errors should be logged in quiet mode
@@ -465,8 +507,8 @@ mod tests {
         let ctx = PureContext::new();
         assert_eq!(ctx.log_count(), 0);
 
-        ctx.log(LogLevel::Info, "Message 1");
-        ctx.log(LogLevel::Info, "Message 2");
+        ctx.info("Message 1");
+        ctx.info("Message 2");
 
         assert_eq!(ctx.log_count(), 2);
     }
@@ -474,7 +516,7 @@ mod tests {
     #[test]
     fn test_clear_logs() {
         let mut ctx = PureContext::new();
-        ctx.log(LogLevel::Info, "Message");
+        ctx.info("Message");
         assert_eq!(ctx.log_count(), 1);
 
         ctx.clear_logs();
@@ -486,10 +528,10 @@ mod tests {
         let ctx = PureContext::new();
         assert!(!ctx.has_errors());
 
-        ctx.log(LogLevel::Warning, "Warning");
+        ctx.warn("Warning");
         assert!(!ctx.has_errors());
 
-        ctx.log(LogLevel::Error, "Error");
+        ctx.error("Error");
         assert!(ctx.has_errors());
     }
 
@@ -498,19 +540,19 @@ mod tests {
         let ctx = PureContext::new();
         assert!(!ctx.has_warnings());
 
-        ctx.log(LogLevel::Info, "Info");
+        ctx.info("Info");
         assert!(!ctx.has_warnings());
 
-        ctx.log(LogLevel::Warning, "Warning");
+        ctx.warn("Warning");
         assert!(ctx.has_warnings());
     }
 
     #[test]
     fn test_get_errors() {
         let ctx = PureContext::new();
-        ctx.log(LogLevel::Error, "Error 1");
-        ctx.log(LogLevel::Info, "Info");
-        ctx.log(LogLevel::Error, "Error 2");
+        ctx.error("Error 1");
+        ctx.info("Info");
+        ctx.error("Error 2");
 
         let errors = ctx.get_errors();
         assert_eq!(errors.len(), 2);
@@ -520,9 +562,9 @@ mod tests {
     #[test]
     fn test_get_warnings() {
         let ctx = PureContext::new();
-        ctx.log(LogLevel::Warning, "Warning 1");
-        ctx.log(LogLevel::Info, "Info");
-        ctx.log(LogLevel::Warning, "Warning 2");
+        ctx.warn("Warning 1");
+        ctx.info("Info");
+        ctx.warn("Warning 2");
 
         let warnings = ctx.get_warnings();
         assert_eq!(warnings.len(), 2);
@@ -554,7 +596,7 @@ mod tests {
         let ctx_with_dir = PureContext::with_user_data_dir(PathBuf::from("/data"));
         assert_eq!(
             ctx_with_dir.get_user_data_dir(),
-            Some(PathBuf::from("/data"))
+            Some(&PathBuf::from("/data"))
         );
     }
 
@@ -571,5 +613,44 @@ mod tests {
         let content1 = ctx.read_file(Path::new("path/to/file.md")).unwrap();
         let content2 = ctx.read_file(Path::new("path\\to\\file.md")).unwrap();
         assert_eq!(content1, content2);
+    }
+
+    #[test]
+    fn test_simulated_time() {
+        let mut ctx = PureContext::new();
+        
+        // Default is UNIX_EPOCH
+        assert_eq!(ctx.get_current_time(), SystemTime::UNIX_EPOCH);
+        
+        // Set a specific time
+        let test_time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1000);
+        ctx.set_current_time(test_time);
+        assert_eq!(ctx.get_current_time(), test_time);
+        
+        // Modification time should return the simulated time
+        ctx.add_file("test.md", b"content");
+        let mtime = ctx.get_modification_time(Path::new("test.md")).unwrap();
+        assert_eq!(mtime, test_time);
+    }
+
+    #[test]
+    fn test_simulated_random_bytes() {
+        let ctx = PureContext::new();
+        
+        // Default returns deterministic bytes
+        let bytes = ctx.get_random_bytes(5);
+        assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
+        
+        // Set specific random bytes
+        ctx.set_random_bytes(vec![0xAB, 0xCD]);
+        let bytes = ctx.get_random_bytes(6);
+        assert_eq!(bytes, vec![0xAB, 0xCD, 0xAB, 0xCD, 0xAB, 0xCD]);
+    }
+
+    #[test]
+    fn test_get_modification_time_nonexistent() {
+        let ctx = PureContext::new();
+        let result = ctx.get_modification_time(Path::new("nonexistent.md"));
+        assert!(result.is_err());
     }
 }

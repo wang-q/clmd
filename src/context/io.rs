@@ -1,17 +1,15 @@
 //! IO Context implementation for real file operations.
 //!
 //! This module provides the [`IoContext`] struct, which implements
-//! the [`Context`] trait for real file system operations.
+//! the [`ClmdContext`] trait for real file system operations.
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::time::SystemTime;
 
-use crate::context::{common, LogLevel, LogMessage};
-use crate::error::{ClmdError, ClmdResult};
-use crate::mediabag::{MediaBag, MediaItem};
-
-use super::Context;
+use crate::context::{common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
+use crate::error::ClmdError;
+use crate::mediabag::MediaItem;
 
 /// IO Context for real file operations.
 ///
@@ -21,89 +19,41 @@ use super::Context;
 /// # Example
 ///
 /// ```
-/// use clmd::context::{Context, IoContext};
+/// use clmd::context::{ClmdContext, IoContext, LogLevel};
 ///
-/// let ctx = IoContext::new();
-/// // Use ctx for file operations
+/// let mut ctx = IoContext::new();
+/// ctx.info("Processing started");
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IoContext {
-    /// The media bag for storing binary resources.
-    media_bag: Arc<Mutex<MediaBag>>,
-    /// Log messages.
-    logs: Arc<Mutex<Vec<LogMessage>>>,
-    /// User data directory.
-    user_data_dir: Option<PathBuf>,
-    /// Verbosity level (0 = quiet, 1 = normal, 2 = verbose).
-    verbosity: RwLock<u8>,
+    /// The common state for this context.
+    state: CommonState,
 }
 
 impl IoContext {
     /// Create a new IO context with default settings.
     pub fn new() -> Self {
         Self {
-            media_bag: Arc::new(Mutex::new(MediaBag::new())),
-            logs: Arc::new(Mutex::new(Vec::new())),
-            user_data_dir: Self::default_user_data_dir(),
-            verbosity: RwLock::new(1),
+            state: CommonState {
+                user_data_dir: common::default_user_data_dir(),
+                ..Default::default()
+            },
         }
     }
 
     /// Create a new IO context with a specific user data directory.
     pub fn with_user_data_dir(user_data_dir: PathBuf) -> Self {
         Self {
-            media_bag: Arc::new(Mutex::new(MediaBag::new())),
-            logs: Arc::new(Mutex::new(Vec::new())),
-            user_data_dir: Some(user_data_dir),
-            verbosity: RwLock::new(1),
+            state: CommonState {
+                user_data_dir: Some(user_data_dir),
+                ..Default::default()
+            },
         }
     }
 
-    /// Get the default user data directory.
-    fn default_user_data_dir() -> Option<PathBuf> {
-        // Try XDG_DATA_HOME first
-        if let Ok(xdg_data_home) = std::env::var("XDG_DATA_HOME") {
-            let dir = PathBuf::from(xdg_data_home).join("clmd");
-            if dir.exists() {
-                return Some(dir);
-            }
-        }
-
-        // Try platform-specific directories
-        #[cfg(target_os = "macos")]
-        {
-            if let Ok(home) = std::env::var("HOME") {
-                let dir = PathBuf::from(home).join("Library/Application Support/clmd");
-                if dir.exists() {
-                    return Some(dir);
-                }
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            if let Ok(app_data) = std::env::var("APPDATA") {
-                let dir = PathBuf::from(app_data).join("clmd");
-                if dir.exists() {
-                    return Some(dir);
-                }
-            }
-        }
-
-        // Try ~/.local/share/clmd (XDG default)
-        if let Ok(home) = std::env::var("HOME") {
-            let dir = PathBuf::from(&home).join(".local/share/clmd");
-            if dir.exists() {
-                return Some(dir);
-            }
-            // Legacy: ~/.clmd
-            let legacy_dir = PathBuf::from(&home).join(".clmd");
-            if legacy_dir.exists() {
-                return Some(legacy_dir);
-            }
-        }
-
-        None
+    /// Create a new IO context with the given common state.
+    pub fn with_state(state: CommonState) -> Self {
+        Self { state }
     }
 }
 
@@ -113,14 +63,16 @@ impl Default for IoContext {
     }
 }
 
-impl Context for IoContext {
-    fn read_file(&self, path: &Path) -> ClmdResult<Vec<u8>> {
+impl ClmdContext for IoContext {
+    type Error = ClmdError;
+
+    fn read_file(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
         fs::read(path).map_err(|e| {
             ClmdError::io_error(format!("Failed to read {}: {}", path.display(), e))
         })
     }
 
-    fn write_file(&self, path: &Path, content: &[u8]) -> ClmdResult<()> {
+    fn write_file(&self, path: &Path, content: &[u8]) -> Result<(), Self::Error> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
@@ -141,21 +93,35 @@ impl Context for IoContext {
         path.exists()
     }
 
-    fn log(&self, level: LogLevel, message: &str) {
-        // Only log if verbosity level permits
-        let verbosity = *self.verbosity.read().unwrap();
-        let should_log = match level {
-            LogLevel::Error => true,
-            LogLevel::Warning => verbosity >= 1,
-            LogLevel::Info => verbosity >= 1,
-            LogLevel::Debug => verbosity >= 2,
-        };
+    fn get_modification_time(&self, path: &Path) -> Result<SystemTime, Self::Error> {
+        fs::metadata(path)
+            .map_err(|e| {
+                ClmdError::io_error(format!(
+                    "Failed to get metadata for {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?
+            .modified()
+            .map_err(|e| {
+                ClmdError::io_error(format!(
+                    "Failed to get modification time for {}: {}",
+                    path.display(),
+                    e
+                ))
+            })
+    }
 
-        if should_log {
-            let mut logs = self.logs.lock().unwrap();
-            logs.push(LogMessage::new(level, message.to_string()));
+    fn find_file(&self, filename: &str) -> Option<PathBuf> {
+        self.state.find_file(filename)
+    }
 
-            // Also print to stderr for errors and warnings
+    fn report(&self, level: LogLevel, message: impl Into<String>) {
+        let message = message.into();
+        self.state.log(level, message.clone());
+
+        // Also print to stderr/stdout based on level
+        if level.should_log(self.state.verbosity.as_u8()) {
             match level {
                 LogLevel::Error => eprintln!("[ERROR] {}", message),
                 LogLevel::Warning => eprintln!("[WARNING] {}", message),
@@ -166,11 +132,23 @@ impl Context for IoContext {
     }
 
     fn get_logs(&self) -> Vec<LogMessage> {
-        self.logs.lock().unwrap().clone()
+        self.state.get_logs()
     }
 
-    fn get_media_bag(&self) -> Arc<Mutex<MediaBag>> {
-        Arc::clone(&self.media_bag)
+    fn get_verbosity(&self) -> Verbosity {
+        self.state.verbosity
+    }
+
+    fn set_verbosity(&mut self, verbosity: Verbosity) {
+        self.state.verbosity = verbosity;
+    }
+
+    fn get_state(&self) -> &CommonState {
+        &self.state
+    }
+
+    fn get_state_mut(&mut self) -> &mut CommonState {
+        &mut self.state
     }
 
     fn insert_media(
@@ -178,8 +156,8 @@ impl Context for IoContext {
         path: &Path,
         mime_type: Option<&str>,
         data: Vec<u8>,
-    ) -> ClmdResult<String> {
-        let mut bag = self.media_bag.lock().unwrap();
+    ) -> Result<String, Self::Error> {
+        let mut bag = self.state.media_bag.lock().unwrap();
 
         // Handle data URIs specially
         let path_str = path.to_string_lossy();
@@ -202,20 +180,23 @@ impl Context for IoContext {
     }
 
     fn lookup_media(&self, path: &Path) -> Option<MediaItem> {
-        let bag = self.media_bag.lock().unwrap();
+        let bag = self.state.media_bag.lock().unwrap();
         bag.lookup(path).cloned()
     }
 
-    fn get_user_data_dir(&self) -> Option<PathBuf> {
-        self.user_data_dir.clone()
+    fn get_current_time(&self) -> SystemTime {
+        SystemTime::now()
     }
 
-    fn get_verbosity(&self) -> u8 {
-        *self.verbosity.read().unwrap()
+    fn get_random_bytes(&self, len: usize) -> Vec<u8> {
+        use rand::RngCore;
+        let mut bytes = vec![0u8; len];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        bytes
     }
 
-    fn set_verbosity(&self, level: u8) {
-        *self.verbosity.write().unwrap() = level;
+    fn invalid_utf8_error(path: &Path) -> Self::Error {
+        ClmdError::io_error(format!("Invalid UTF-8 in file {}", path.display()))
     }
 }
 
@@ -228,14 +209,14 @@ mod tests {
     #[test]
     fn test_io_context_new() {
         let ctx = IoContext::new();
-        assert_eq!(ctx.get_verbosity(), 1);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Normal);
     }
 
     #[test]
     fn test_io_context_verbosity() {
-        let ctx = IoContext::new();
-        ctx.set_verbosity(2);
-        assert_eq!(ctx.get_verbosity(), 2);
+        let mut ctx = IoContext::new();
+        ctx.set_verbosity(Verbosity::Verbose);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Verbose);
     }
 
     #[test]
@@ -264,7 +245,7 @@ mod tests {
     #[test]
     fn test_log_messages() {
         let ctx = IoContext::new();
-        ctx.log(LogLevel::Info, "Test message");
+        ctx.info("Test message");
 
         let logs = ctx.get_logs();
         assert_eq!(logs.len(), 1);
@@ -274,13 +255,13 @@ mod tests {
 
     #[test]
     fn test_log_verbosity_filtering() {
-        let ctx = IoContext::new();
-        ctx.set_verbosity(0); // Quiet mode
+        let mut ctx = IoContext::new();
+        ctx.set_verbosity(Verbosity::Quiet);
 
-        ctx.log(LogLevel::Debug, "Debug message");
-        ctx.log(LogLevel::Info, "Info message");
-        ctx.log(LogLevel::Warning, "Warning message");
-        ctx.log(LogLevel::Error, "Error message");
+        ctx.debug("Debug message");
+        ctx.info("Info message");
+        ctx.warn("Warning message");
+        ctx.error("Error message");
 
         let logs = ctx.get_logs();
         // Only errors should be logged in quiet mode
@@ -303,5 +284,39 @@ mod tests {
         assert!(item.is_some());
         let item = item.unwrap();
         assert_eq!(item.contents(), data.as_slice());
+    }
+
+    #[test]
+    fn test_clone_context() {
+        let ctx = IoContext::new();
+        let ctx2 = ctx.clone();
+        
+        // Both should have independent state
+        assert_eq!(ctx.get_verbosity(), ctx2.get_verbosity());
+    }
+
+    #[test]
+    fn test_get_modification_time() {
+        let ctx = IoContext::new();
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+
+        let mtime = ctx.get_modification_time(temp_file.path());
+        assert!(mtime.is_ok());
+    }
+
+    #[test]
+    fn test_find_file() {
+        let mut ctx = IoContext::new();
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(b"test").unwrap();
+        
+        let path = temp_file.path();
+        let parent = path.parent().unwrap();
+        ctx.add_resource_path(parent.to_path_buf());
+        
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        let found = ctx.find_file(filename);
+        assert!(found.is_some());
     }
 }
