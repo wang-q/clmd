@@ -363,6 +363,20 @@ pub mod char;
 /// generating Unix manual pages. Inspired by Pandoc's RoffChar module.
 pub mod roff_char;
 
+/// Slide show processing utilities.
+///
+/// This module provides functionality for converting Markdown documents into
+/// slide shows, inspired by Pandoc's Slides module. Supports multiple output
+/// formats including reveal.js and beamer.
+pub mod slides;
+
+/// TeX token types and utilities.
+///
+/// This module provides TeX/LaTeX token types and parsing utilities,
+/// inspired by Pandoc's TeX module. Useful for LaTeX parsing and math
+/// formula handling.
+pub mod tex;
+
 /// Template system for document rendering.
 ///
 /// This module provides a flexible template system for document rendering,
