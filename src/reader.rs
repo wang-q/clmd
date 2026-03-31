@@ -128,9 +128,9 @@ impl Reader for MarkdownReader {
             input.len()
         ));
 
-        // Convert to legacy options for now
-        let legacy_options = options.to_options();
-        Ok(crate::parser::parse_document(input, &legacy_options))
+        // Convert to parser options for now
+        let parser_options = options.to_parser_options();
+        Ok(crate::parser::parse_document(input, &parser_options))
     }
 
     fn format(&self) -> InputFormat {
@@ -168,9 +168,9 @@ impl Reader for CommonMarkReader {
         ));
 
         // Use strict CommonMark options
-        let mut legacy_options = options.to_options();
-        legacy_options.extension = crate::options::Extension::default();
-        Ok(crate::parser::parse_document(input, &legacy_options))
+        let mut parser_options = options.to_parser_options();
+        parser_options.extension = crate::parser::options::Extension::default();
+        Ok(crate::parser::parse_document(input, &parser_options))
     }
 
     fn format(&self) -> InputFormat {
@@ -205,15 +205,15 @@ impl Reader for GfmReader {
         ctx.info(&format!("Reading GFM document ({} bytes)", input.len()));
 
         // Use GFM options
-        let mut legacy_options = options.to_options();
-        legacy_options.extension = crate::options::Extension::default();
-        legacy_options.extension.table = true;
-        legacy_options.extension.strikethrough = true;
-        legacy_options.extension.tasklist = true;
-        legacy_options.extension.autolink = true;
-        legacy_options.extension.tagfilter = true;
+        let mut parser_options = options.to_parser_options();
+        parser_options.extension = crate::parser::options::Extension::default();
+        parser_options.extension.table = true;
+        parser_options.extension.strikethrough = true;
+        parser_options.extension.tasklist = true;
+        parser_options.extension.autolink = true;
+        parser_options.extension.tagfilter = true;
 
-        Ok(crate::parser::parse_document(input, &legacy_options))
+        Ok(crate::parser::parse_document(input, &parser_options))
     }
 
     fn format(&self) -> InputFormat {
@@ -251,8 +251,8 @@ impl Reader for HtmlReader {
         // For now, use the existing HTML to Markdown conversion
         // In the future, this should have its own proper HTML parser
         let markdown = crate::from::html_to_markdown(input);
-        let legacy_options = crate::options::Options::default();
-        Ok(crate::parser::parse_document(&markdown, &legacy_options))
+        let parser_options = crate::parser::options::Options::default();
+        Ok(crate::parser::parse_document(&markdown, &parser_options))
     }
 
     fn format(&self) -> InputFormat {

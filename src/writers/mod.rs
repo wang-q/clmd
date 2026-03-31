@@ -8,21 +8,25 @@
 //!
 //! ```ignore
 //! use clmd::writers::{WriterRegistry, Writer};
-//! use clmd::{Options, parse_document};
+//! use clmd::options::{WriterOptions, OutputFormat};
+//! use clmd::{parse_document, Options};
 //!
 //! let registry = WriterRegistry::new();
-//! let writer = registry.get("html").unwrap();
+//! let writer = registry.get_by_name("html").unwrap();
 //!
 //! let options = Options::default();
 //! let (arena, root) = parse_document("# Hello World", &options);
-//! let output = writer.write(&arena, root, &options).unwrap();
+//! let writer_options = WriterOptions::default();
+//! let output = writer.write(&arena, root, &writer_options).unwrap();
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
 use crate::error::{ClmdError, ClmdResult};
-use crate::options::Options;
+use crate::options::{WriterOptions, OutputFormat};
+use crate::context::ClmdContext;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::path::Path;
 
 /// A document writer that can render AST to a specific format.
 ///
@@ -33,12 +37,13 @@ use std::fmt::Debug;
 ///
 /// ```ignore
 /// use clmd::writers::Writer;
-/// use clmd::{Options, parse_document};
+/// use clmd::options::WriterOptions;
+/// use clmd::context::PureContext;
 ///
-/// fn use_writer<W: Writer>(writer: &W, input: &str) {
-///     let options = Options::default();
-///     let (arena, root) = parse_document(input, &options);
-///     let output = writer.write(&arena, root, &options).unwrap();
+/// fn use_writer<W: Writer>(writer: &W, arena: &NodeArena, root: NodeId) {
+///     let ctx = PureContext::new();
+///     let options = WriterOptions::default();
+///     let output = writer.write(arena, root, &ctx, &options).unwrap();
 ///     println!("{}", output);
 /// }
 /// ```ignore
@@ -49,6 +54,7 @@ pub trait Writer: Send + Sync + Debug {
     ///
     /// * `arena` - The arena containing the AST nodes
     /// * `root` - The root node ID
+    /// * `ctx` - The context for IO operations
     /// * `options` - Rendering options
     ///
     /// # Returns
@@ -58,11 +64,12 @@ pub trait Writer: Send + Sync + Debug {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &Options,
+        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        options: &WriterOptions,
     ) -> ClmdResult<String>;
 
     /// Get the format name this writer supports.
-    fn format(&self) -> &'static str;
+    fn format(&self) -> OutputFormat;
 
     /// Get the file extensions this writer can handle.
     fn extensions(&self) -> &[&'static str];
@@ -74,6 +81,22 @@ pub trait Writer: Send + Sync + Debug {
 
     /// Get the MIME type for this format.
     fn mime_type(&self) -> &'static str;
+
+    /// Write the AST to a file.
+    ///
+    /// This is a convenience method that renders the document and writes it to a file.
+    fn write_to_file(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        path: &Path,
+        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<()> {
+        let content = self.write(arena, root, ctx, options)?;
+        ctx.write_file(path, content.as_bytes())?;
+        Ok(())
+    }
 }
 
 /// A registry of available document writers.
@@ -89,7 +112,7 @@ pub trait Writer: Send + Sync + Debug {
 /// let mut registry = WriterRegistry::new();
 ///
 /// // Get a writer by format name
-/// if let Some(writer) = registry.get("html") {
+/// if let Some(writer) = registry.get_by_name("html") {
 ///     println!("Found writer for HTML");
 /// }
 ///
@@ -100,8 +123,7 @@ pub trait Writer: Send + Sync + Debug {
 /// ```ignore
 #[derive(Debug, Default)]
 pub struct WriterRegistry {
-    writers: HashMap<&'static str, Box<dyn Writer>>,
-    extension_map: HashMap<&'static str, &'static str>,
+    writers: Vec<Box<dyn Writer>>,
 }
 
 impl WriterRegistry {
@@ -115,8 +137,7 @@ impl WriterRegistry {
     /// Create an empty registry.
     pub fn empty() -> Self {
         Self {
-            writers: HashMap::new(),
-            extension_map: HashMap::new(),
+            writers: Vec::new(),
         }
     }
 
@@ -135,28 +156,29 @@ impl WriterRegistry {
     /// registry.register(Box::new(HtmlWriter));
     /// ```
     pub fn register(&mut self, writer: Box<dyn Writer>) {
-        let format = writer.format();
+        self.writers.push(writer);
+    }
 
-        // Register extensions
-        for ext in writer.extensions() {
-            self.extension_map.insert(ext, format);
-        }
-
-        // Register the writer
-        self.writers.insert(format, writer);
+    /// Get a writer by format.
+    pub fn get(&self, format: OutputFormat) -> Option<&dyn Writer> {
+        self.writers
+            .iter()
+            .find(|w| w.format() == format)
+            .map(|w| w.as_ref())
     }
 
     /// Get a writer by format name.
     ///
     /// # Arguments
     ///
-    /// * `format` - The format name (e.g., "html", "commonmark")
+    /// * `name` - The format name (e.g., "html", "commonmark")
     ///
     /// # Returns
     ///
     /// Some(writer) if found, None otherwise.
-    pub fn get(&self, format: &str) -> Option<&dyn Writer> {
-        self.writers.get(format).map(|w| w.as_ref())
+    pub fn get_by_name(&self, name: &str) -> Option<&dyn Writer> {
+        let format = name.parse::<OutputFormat>().ok()?;
+        self.get(format)
     }
 
     /// Get a writer by file extension.
@@ -170,9 +192,10 @@ impl WriterRegistry {
     /// Some(writer) if found, None otherwise.
     pub fn get_by_extension(&self, extension: &str) -> Option<&dyn Writer> {
         let ext = extension.to_lowercase();
-        self.extension_map
-            .get(ext.as_str())
-            .and_then(|format| self.get(format))
+        self.writers
+            .iter()
+            .find(|w| w.supports_extension(&ext))
+            .map(|w| w.as_ref())
     }
 
     /// Detect the format from a file path.
@@ -183,32 +206,45 @@ impl WriterRegistry {
     ///
     /// # Returns
     ///
-    /// Some(format_name) if detected, None otherwise.
-    pub fn detect_format(&self, path: &std::path::Path) -> Option<&'static str> {
+    /// Some(format) if detected, None otherwise.
+    pub fn detect_format(&self, path: &Path) -> Option<OutputFormat> {
         path.extension()
             .and_then(|e| e.to_str())
-            .and_then(|ext| self.extension_map.get(ext).copied())
+            .and_then(|ext| {
+                self.writers
+                    .iter()
+                    .find(|w| w.supports_extension(ext))
+                    .map(|w| w.format())
+            })
     }
 
     /// Get all registered format names.
     pub fn formats(&self) -> Vec<&'static str> {
-        self.writers.keys().copied().collect()
+        self.writers
+            .iter()
+            .map(|w| w.format().as_str())
+            .collect()
     }
 
     /// Get all registered file extensions.
     pub fn extensions(&self) -> Vec<&'static str> {
-        self.extension_map.keys().copied().collect()
+        self.writers
+            .iter()
+            .flat_map(|w| w.extensions().iter().copied())
+            .collect()
     }
 
     /// Check if a format is supported.
     pub fn supports_format(&self, format: &str) -> bool {
-        self.writers.contains_key(format)
+        format.parse::<OutputFormat>()
+            .ok()
+            .and_then(|f| self.get(f))
+            .is_some()
     }
 
     /// Check if an extension is supported.
     pub fn supports_extension(&self, extension: &str) -> bool {
-        let ext = extension.to_lowercase();
-        self.extension_map.contains_key(ext.as_str())
+        self.get_by_extension(extension).is_some()
     }
 
     /// Register default writers.
@@ -238,16 +274,21 @@ impl Writer for HtmlWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &Options,
+        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
-        let mut output = String::new();
-        crate::format_html(arena, root, options, &mut output)
-            .map_err(|e| ClmdError::io_error(format!("HTML formatting error: {}", e)))?;
-        Ok(output)
+        let mut html_options: u32 = 0;
+        if options.output_sourcepos {
+            html_options |= crate::parser::OPT_SOURCEPOS;
+        }
+        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
+            html_options |= crate::parser::OPT_TAGFILTER;
+        }
+        Ok(crate::render::html::render(arena, root, html_options))
     }
 
-    fn format(&self) -> &'static str {
-        "html"
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Html
     }
 
     fn extensions(&self) -> &[&'static str] {
@@ -270,17 +311,19 @@ impl Writer for CommonMarkWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &Options,
+        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
-        let mut output = String::new();
-        crate::format_commonmark(arena, root, options, &mut output).map_err(|e| {
-            ClmdError::io_error(format!("CommonMark formatting error: {}", e))
-        })?;
-        Ok(output)
+        let width = if options.wrap == crate::options::WrapOption::Auto {
+            options.columns
+        } else {
+            0
+        };
+        Ok(crate::render::commonmark::render(arena, root, 0, width))
     }
 
-    fn format(&self) -> &'static str {
-        "commonmark"
+    fn format(&self) -> OutputFormat {
+        OutputFormat::CommonMark
     }
 
     fn extensions(&self) -> &[&'static str] {
@@ -303,16 +346,14 @@ impl Writer for XmlWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &Options,
+        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        _options: &WriterOptions,
     ) -> ClmdResult<String> {
-        let mut output = String::new();
-        crate::format_xml(arena, root, options, &mut output)
-            .map_err(|e| ClmdError::io_error(format!("XML formatting error: {}", e)))?;
-        Ok(output)
+        Ok(crate::render::renderer::render_to_xml(arena, root, 0))
     }
 
-    fn format(&self) -> &'static str {
-        "xml"
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Xml
     }
 
     fn extensions(&self) -> &[&'static str] {
@@ -330,7 +371,7 @@ impl Writer for XmlWriter {
 ///
 /// * `arena` - The arena containing the AST nodes
 /// * `root` - The root node ID
-/// * `format` - The output format
+/// * `format` - The output format name
 /// * `options` - Rendering options
 ///
 /// # Returns
@@ -341,26 +382,28 @@ impl Writer for XmlWriter {
 ///
 /// ```ignore
 /// use clmd::writers::write_document;
-/// use clmd::{Options, parse_document};
+/// use clmd::options::WriterOptions;
+/// use clmd::context::PureContext;
 ///
-/// let options = Options::default();
-/// let (arena, root) = parse_document("# Hello", &options);
-/// let output = write_document(&arena, root, "html", &options).unwrap();
-/// assert!(output.contains("<h1>"));
+/// let ctx = PureContext::new();
+/// let options = WriterOptions::default();
+/// // let (arena, root) = parse_document("# Hello", &options);
+/// // let output = write_document(&arena, root, "html", &ctx, &options).unwrap();
 /// ```ignore
 pub fn write_document(
     arena: &NodeArena,
     root: NodeId,
     format: &str,
-    options: &Options,
+    ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+    options: &WriterOptions,
 ) -> ClmdResult<String> {
     let registry = WriterRegistry::new();
 
     let writer = registry
-        .get(format)
+        .get_by_name(format)
         .ok_or_else(|| ClmdError::unknown_writer(format))?;
 
-    writer.write(arena, root, options)
+    writer.write(arena, root, ctx, options)
 }
 
 /// Write a document to a file.
@@ -371,6 +414,7 @@ pub fn write_document(
 /// * `root` - The root node ID
 /// * `path` - The output file path
 /// * `format` - Optional format override (if None, detects from extension)
+/// * `ctx` - The context for IO operations
 /// * `options` - Rendering options
 ///
 /// # Returns
@@ -381,71 +425,93 @@ pub fn write_document(
 ///
 /// ```ignore
 /// use clmd::writers::write_file;
-/// use clmd::{Options, parse_document};
+/// use clmd::options::WriterOptions;
+/// use clmd::context::PureContext;
 ///
-/// let options = Options::default();
-/// let (arena, root) = parse_document("# Hello", &options);
-/// write_file(&arena, root, "output.html", None, &options).unwrap();
+/// let ctx = PureContext::new();
+/// let options = WriterOptions::default();
+/// // let (arena, root) = parse_document("# Hello", &options);
+/// // write_file(&arena, root, "output.html", None, &ctx, &options).unwrap();
 /// ```ignore
 pub fn write_file(
     arena: &NodeArena,
     root: NodeId,
-    path: &std::path::Path,
+    path: &Path,
     format: Option<&str>,
-    options: &Options,
+    ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+    options: &WriterOptions,
 ) -> ClmdResult<()> {
-    use std::fs;
-
-    // Detect format from extension if not specified
-    let format = match format {
-        Some(f) => f,
-        None => {
-            let registry = WriterRegistry::new();
-            registry
-                .detect_format(path)
-                .ok_or_else(|| ClmdError::unknown_writer("unknown"))?
-        }
+    // Create the appropriate writer based on format or file extension
+    let content = if let Some(format_name) = format {
+        write_document(arena, root, format_name, ctx, options)?
+    } else {
+        let ext = path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("html");
+        let registry = WriterRegistry::new();
+        let writer = registry
+            .get_by_extension(ext)
+            .ok_or_else(|| ClmdError::unknown_writer("unknown"))?;
+        writer.write(arena, root, ctx, options)?
     };
 
-    let content = write_document(arena, root, format, options)?;
-
-    fs::write(path, content)
-        .map_err(|e| ClmdError::io_error(format!("Failed to write file: {}", e)))?;
-
-    Ok(())
+    ctx.write_file(path, content.as_bytes())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::PureContext;
+
+    fn create_test_document() -> (NodeArena, NodeId) {
+        use crate::arena::{Node, TreeOps};
+        use crate::nodes::{NodeHeading, NodeValue};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, heading);
+        TreeOps::append_child(&mut arena, heading, text);
+
+        (arena, root)
+    }
 
     #[test]
     fn test_html_writer() {
+        let ctx = PureContext::new();
         let writer = HtmlWriter;
-        let options = Options::default();
-        let (arena, root) = crate::parse_document("# Hello", &options);
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
 
-        let output = writer.write(&arena, root, &options).unwrap();
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("<h1>"));
     }
 
     #[test]
     fn test_commonmark_writer() {
+        let ctx = PureContext::new();
         let writer = CommonMarkWriter;
-        let options = Options::default();
-        let (arena, root) = crate::parse_document("# Hello", &options);
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
 
-        let output = writer.write(&arena, root, &options).unwrap();
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("# Hello"));
     }
 
     #[test]
     fn test_xml_writer() {
+        let ctx = PureContext::new();
         let writer = XmlWriter;
-        let options = Options::default();
-        let (arena, root) = crate::parse_document("# Hello", &options);
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
 
-        let output = writer.write(&arena, root, &options).unwrap();
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("<?xml"));
     }
 
@@ -467,11 +533,11 @@ mod tests {
     fn test_registry_get() {
         let registry = WriterRegistry::new();
 
-        let writer = registry.get("html");
+        let writer = registry.get_by_name("html");
         assert!(writer.is_some());
-        assert_eq!(writer.unwrap().format(), "html");
+        assert_eq!(writer.unwrap().format(), OutputFormat::Html);
 
-        let writer = registry.get("unknown");
+        let writer = registry.get_by_name("unknown");
         assert!(writer.is_none());
     }
 
@@ -490,31 +556,33 @@ mod tests {
     fn test_detect_format() {
         let registry = WriterRegistry::new();
 
-        let path = std::path::Path::new("test.html");
-        assert_eq!(registry.detect_format(path), Some("html"));
+        let path = Path::new("test.html");
+        assert_eq!(registry.detect_format(path), Some(OutputFormat::Html));
 
-        let path = std::path::Path::new("test.md");
-        assert_eq!(registry.detect_format(path), Some("commonmark"));
+        let path = Path::new("test.md");
+        assert_eq!(registry.detect_format(path), Some(OutputFormat::CommonMark));
 
-        let path = std::path::Path::new("test");
+        let path = Path::new("test");
         assert_eq!(registry.detect_format(path), None);
     }
 
     #[test]
     fn test_write_document() {
-        let options = Options::default();
-        let (arena, root) = crate::parse_document("# Test", &options);
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
 
-        let output = write_document(&arena, root, "html", &options).unwrap();
+        let output = write_document(&arena, root, "html", &ctx, &options).unwrap();
         assert!(output.contains("<h1>"));
     }
 
     #[test]
     fn test_write_document_unknown_format() {
-        let options = Options::default();
-        let (arena, root) = crate::parse_document("# Test", &options);
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
 
-        let result = write_document(&arena, root, "unknown", &options);
+        let result = write_document(&arena, root, "unknown", &ctx, &options);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unknown writer"));
     }

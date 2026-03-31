@@ -8,18 +8,18 @@
 //!
 //! ```ignore
 //! use clmd::readers::{ReaderRegistry, Reader};
-//! use clmd::Options;
+//! use clmd::options::{ReaderOptions, InputFormat};
 //!
 //! let registry = ReaderRegistry::new();
 //! let reader = registry.get("markdown").unwrap();
 //!
-//! let options = Options::default();
+//! let options = ReaderOptions::default();
 //! let (arena, root) = reader.read("# Hello World", &options).unwrap();
 //! ```
 
 use crate::arena::NodeArena;
 use crate::error::{ClmdError, ClmdResult};
-use crate::options::Options;
+use crate::options::{ReaderOptions, InputFormat};
 use crate::parser;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -33,10 +33,10 @@ use std::fmt::Debug;
 ///
 /// ```ignore
 /// use clmd::readers::Reader;
-/// use clmd::Options;
+/// use clmd::options::ReaderOptions;
 ///
 /// fn use_reader<R: Reader>(reader: &R, input: &str) {
-///     let options = Options::default();
+///     let options = ReaderOptions::default();
 ///     let (arena, root) = reader.read(input, &options).unwrap();
 ///     // Process the AST...
 /// }
@@ -55,7 +55,7 @@ pub trait Reader: Send + Sync + Debug {
     fn read(
         &self,
         input: &str,
-        options: &Options,
+        options: &ReaderOptions,
     ) -> ClmdResult<(NodeArena, crate::arena::NodeId)>;
 
     /// Get the format name this reader supports.
@@ -68,6 +68,9 @@ pub trait Reader: Send + Sync + Debug {
     fn supports_extension(&self, ext: &str) -> bool {
         self.extensions().contains(&ext.to_lowercase().as_str())
     }
+
+    /// Get the input format this reader handles.
+    fn input_format(&self) -> InputFormat;
 }
 
 /// A registry of available document readers.
@@ -230,9 +233,11 @@ impl Reader for MarkdownReader {
     fn read(
         &self,
         input: &str,
-        options: &Options,
+        options: &ReaderOptions,
     ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
-        Ok(parser::parse_document(input, options))
+        // Convert ReaderOptions to parser Options
+        let parser_options = options.to_parser_options();
+        Ok(parser::parse_document(input, &parser_options))
     }
 
     fn format(&self) -> &'static str {
@@ -241,6 +246,10 @@ impl Reader for MarkdownReader {
 
     fn extensions(&self) -> &[&'static str] {
         &["md", "markdown", "mkd", "mdown"]
+    }
+
+    fn input_format(&self) -> InputFormat {
+        InputFormat::Markdown
     }
 }
 
@@ -254,11 +263,12 @@ impl Reader for HtmlReader {
     fn read(
         &self,
         input: &str,
-        _options: &Options,
+        _options: &ReaderOptions,
     ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
         // Convert HTML to Markdown, then parse
         let markdown = crate::from::html_to_markdown(input);
-        Ok(parser::parse_document(&markdown, &Options::default()))
+        let parser_options = crate::parser::options::Options::default();
+        Ok(parser::parse_document(&markdown, &parser_options))
     }
 
     fn format(&self) -> &'static str {
@@ -267,6 +277,10 @@ impl Reader for HtmlReader {
 
     fn extensions(&self) -> &[&'static str] {
         &["html", "htm"]
+    }
+
+    fn input_format(&self) -> InputFormat {
+        InputFormat::Html
     }
 }
 
@@ -286,15 +300,15 @@ impl Reader for HtmlReader {
 ///
 /// ```ignore
 /// use clmd::readers::read_document;
-/// use clmd::Options;
+/// use clmd::options::ReaderOptions;
 ///
-/// let options = Options::default();
+/// let options = ReaderOptions::default();
 /// let (arena, root) = read_document("# Hello", Some("markdown"), &options).unwrap();
 /// ```ignore
 pub fn read_document(
     input: &str,
     format: Option<&str>,
-    options: &Options,
+    options: &ReaderOptions,
 ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
     let registry = ReaderRegistry::new();
 
@@ -323,15 +337,15 @@ pub fn read_document(
 ///
 /// ```ignore
 /// use clmd::readers::read_file;
-/// use clmd::Options;
+/// use clmd::options::ReaderOptions;
 ///
-/// let options = Options::default();
+/// let options = ReaderOptions::default();
 /// let (arena, root) = read_file("document.md", None, &options).unwrap();
 /// ```ignore
 pub fn read_file(
     path: &std::path::Path,
     format: Option<&str>,
-    options: &Options,
+    options: &ReaderOptions,
 ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
     use std::fs;
 
@@ -358,7 +372,7 @@ mod tests {
     #[test]
     fn test_markdown_reader() {
         let reader = MarkdownReader;
-        let options = Options::default();
+        let options = ReaderOptions::default();
 
         let (arena, root) = reader.read("# Hello", &options).unwrap();
         let node = arena.get(root);
@@ -368,7 +382,7 @@ mod tests {
     #[test]
     fn test_html_reader() {
         let reader = HtmlReader;
-        let options = Options::default();
+        let options = ReaderOptions::default();
 
         let (arena, root) = reader.read("<h1>Hello</h1>", &options).unwrap();
         let node = arena.get(root);
@@ -427,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_read_document() {
-        let options = Options::default();
+        let options = ReaderOptions::default();
         let (arena, root) = read_document("# Test", Some("markdown"), &options).unwrap();
 
         let node = arena.get(root);
@@ -436,10 +450,19 @@ mod tests {
 
     #[test]
     fn test_read_document_unknown_format() {
-        let options = Options::default();
+        let options = ReaderOptions::default();
         let result = read_document("# Test", Some("unknown"), &options);
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unknown reader"));
+    }
+
+    #[test]
+    fn test_reader_input_format() {
+        let markdown_reader = MarkdownReader;
+        assert_eq!(markdown_reader.input_format(), InputFormat::Markdown);
+
+        let html_reader = HtmlReader;
+        assert_eq!(html_reader.input_format(), InputFormat::Html);
     }
 }

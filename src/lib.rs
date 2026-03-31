@@ -229,6 +229,13 @@ pub mod nodes;
 /// Options for the Markdown parser and renderer.
 pub mod options;
 
+/// Format abstraction layer for document formats.
+///
+/// This module provides a unified interface for document formats, inspired by
+/// Pandoc's format system. It supports both text and binary formats, and provides
+/// format detection, MIME type mapping, and format-specific configuration.
+pub mod formats;
+
 /// Parser module for Markdown documents.
 pub mod parser;
 
@@ -294,12 +301,6 @@ pub mod extensions;
 /// This module provides a flexible pipeline system for document conversion,
 /// inspired by Pandoc's conversion architecture.
 pub mod pipeline;
-
-/// Format detection and management.
-///
-/// This module provides automatic format detection based on file extensions
-/// and content analysis.
-pub mod formats;
 
 /// Resource management system.
 ///
@@ -478,6 +479,22 @@ pub mod parsing;
 /// parsing and rendering configuration in a single place, inspired by
 /// Pandoc's ReaderOptions and WriterOptions.
 pub mod clmd_options;
+
+/// Pandoc-style options system with separate ReaderOptions and WriterOptions.
+///
+/// This module provides a more structured approach to configuration,
+/// separating parsing options from rendering options.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::options::{Options, ReaderOptions, WriterOptions, InputFormat, OutputFormat};
+///
+/// let options = Options::new(
+///     ReaderOptions::gfm(),
+///     WriterOptions::default().with_output_format(OutputFormat::Html)
+/// );
+/// ```ignore
 
 /// Document reader trait and implementations.
 ///

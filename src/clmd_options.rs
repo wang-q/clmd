@@ -564,9 +564,9 @@ impl ClmdOptions {
     // Conversion methods
     // =========================================================================
 
-    /// Convert to legacy Options for compatibility.
-    pub fn to_options(&self) -> crate::options::Options<'_> {
-        crate::options::Options {
+    /// Convert to parser Options for compatibility.
+    pub fn to_parser_options(&self) -> crate::parser::options::Options<'_> {
+        crate::parser::options::Options {
             extension: self.to_extension(),
             parse: self.to_parse(),
             render: self.to_render(),

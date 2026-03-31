@@ -6,21 +6,21 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::writer::{Writer, HtmlWriter};
-//! use clmd::clmd_options::{ClmdOptions, OutputFormat};
-//! use clmd::context::IoContext;
+//! use clmd::options::{WriterOptions, OutputFormat};
+//! use clmd::context::{ClmdContext, PureContext};
 //! use clmd::arena::{NodeArena, NodeId};
 //!
 //! fn write_document(writer: &dyn Writer, arena: &NodeArena, root: NodeId) -> String {
-//!     let ctx = IoContext::new();
-//!     let options = ClmdOptions::default();
+//!     let ctx = PureContext::new();
+//!     let options = WriterOptions::default();
 //!     writer.write(arena, root, &ctx, &options).unwrap()
 //! }
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::clmd_options::{ClmdOptions, OutputFormat};
+use crate::options::{WriterOptions, OutputFormat};
 use crate::context::ClmdContext;
 use crate::error::ClmdResult;
 use std::fmt::Debug;
@@ -36,12 +36,12 @@ use std::path::Path;
 ///
 /// ```ignore
 /// use clmd::writer::{Writer, HtmlWriter};
-/// use clmd::clmd_options::ClmdOptions;
+/// use clmd::options::WriterOptions;
 /// use clmd::context::IoContext;
 ///
 /// fn use_writer(writer: &dyn Writer, arena: &clmd::arena::NodeArena, root: clmd::arena::NodeId) {
 ///     let ctx = IoContext::new();
-///     let options = ClmdOptions::default();
+///     let options = WriterOptions::default();
 ///     let output = writer.write(arena, root, &ctx, &options).unwrap();
 ///     // Use the output...
 /// }
@@ -64,7 +64,7 @@ pub trait Writer: Send + Sync + Debug {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &ClmdOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<String>;
 
     /// Write the AST to a file.
@@ -88,7 +88,7 @@ pub trait Writer: Send + Sync + Debug {
         root: NodeId,
         path: &Path,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &ClmdOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<()> {
         let content = self.write(arena, root, ctx, options)?;
         ctx.write_file(path, content.as_bytes())?;
@@ -136,19 +136,16 @@ impl Writer for HtmlWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &ClmdOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to HTML");
 
         // Build HTML render options
         let mut html_options: u32 = 0;
-        if options.sourcepos {
+        if options.output_sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options
-            .extensions
-            .contains(crate::extensions::Extensions::TAGFILTER)
-        {
+        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
 
@@ -183,19 +180,16 @@ impl Writer for XhtmlWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &ClmdOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to XHTML");
 
         // For now, use HTML renderer with XHTML doctype
         let mut html_options: u32 = 0;
-        if options.sourcepos {
+        if options.output_sourcepos {
             html_options |= crate::parser::OPT_SOURCEPOS;
         }
-        if options
-            .extensions
-            .contains(crate::extensions::Extensions::TAGFILTER)
-        {
+        if options.extensions.contains(crate::extensions::Extensions::TAGFILTER) {
             html_options |= crate::parser::OPT_TAGFILTER;
         }
         let mut html = crate::render::html::render(arena, root, html_options);
@@ -240,11 +234,11 @@ impl Writer for CommonMarkWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &ClmdOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to CommonMark");
 
-        let width = if options.wrap == crate::clmd_options::WrapOption::Auto {
+        let width = if options.wrap == crate::options::WrapOption::Auto {
             options.columns
         } else {
             0
@@ -256,9 +250,7 @@ impl Writer for CommonMarkWriter {
             cm_options |= 1; // Placeholder for hardbreaks option
         }
 
-        Ok(crate::render::commonmark::render(
-            arena, root, cm_options, width,
-        ))
+        Ok(crate::render::commonmark::render(arena, root, cm_options, width))
     }
 
     fn format(&self) -> OutputFormat {
@@ -289,7 +281,7 @@ impl Writer for XmlWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        _options: &ClmdOptions,
+        _options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to XML");
 
@@ -324,7 +316,7 @@ impl Writer for LatexWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        _options: &ClmdOptions,
+        _options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to LaTeX");
 
@@ -361,7 +353,7 @@ impl Writer for ManWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        _options: &ClmdOptions,
+        _options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to Man page");
 
@@ -398,7 +390,7 @@ impl Writer for PlainWriter {
         arena: &NodeArena,
         root: NodeId,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        _options: &ClmdOptions,
+        _options: &WriterOptions,
     ) -> ClmdResult<String> {
         ctx.info("Rendering to plain text");
 
@@ -511,7 +503,7 @@ pub fn write_document(
     arena: &NodeArena,
     root: NodeId,
     ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-    options: &ClmdOptions,
+    options: &WriterOptions,
 ) -> ClmdResult<String> {
     let registry = WriterRegistry::new();
 
@@ -543,7 +535,7 @@ pub fn write_document_to_file(
     root: NodeId,
     path: &Path,
     ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-    options: &ClmdOptions,
+    options: &WriterOptions,
 ) -> ClmdResult<()> {
     // Try to detect format from file extension
     let registry = WriterRegistry::new();
@@ -571,7 +563,6 @@ pub fn write_document_to_file(
 mod tests {
     use super::*;
     use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::clmd_options::ClmdOptions;
     use crate::context::PureContext;
     use crate::nodes::NodeValue;
 
@@ -590,7 +581,7 @@ mod tests {
     #[test]
     fn test_html_writer() {
         let ctx = PureContext::new();
-        let options = ClmdOptions::default();
+        let options = WriterOptions::default();
         let writer = HtmlWriter::new();
         let (arena, root) = create_test_document();
 
@@ -604,7 +595,7 @@ mod tests {
     #[test]
     fn test_commonmark_writer() {
         let ctx = PureContext::new();
-        let options = ClmdOptions::default();
+        let options = WriterOptions::default();
         let writer = CommonMarkWriter::new();
         let (arena, root) = create_test_document();
 
@@ -616,7 +607,7 @@ mod tests {
     #[test]
     fn test_xml_writer() {
         let ctx = PureContext::new();
-        let options = ClmdOptions::default();
+        let options = WriterOptions::default();
         let writer = XmlWriter::new();
         let (arena, root) = create_test_document();
 
@@ -687,7 +678,7 @@ mod tests {
     #[test]
     fn test_write_document() {
         let ctx = PureContext::new();
-        let options = ClmdOptions::default();
+        let options = WriterOptions::default();
         let (arena, root) = create_test_document();
 
         let output = write_document(&arena, root, &ctx, &options).unwrap();
@@ -698,7 +689,7 @@ mod tests {
     #[test]
     fn test_write_document_to_file() {
         let ctx = PureContext::new();
-        let options = ClmdOptions::default();
+        let options = WriterOptions::default();
         let (arena, root) = create_test_document();
 
         write_document_to_file(&arena, root, Path::new("output.html"), &ctx, &options)

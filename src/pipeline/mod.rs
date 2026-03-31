@@ -7,7 +7,7 @@
 //!
 //! ```
 //! use clmd::pipeline::{Pipeline, PipelineBuilder};
-//! use clmd::Options;
+//! use clmd::options::{Options, ReaderOptions, WriterOptions};
 //!
 //! let pipeline = PipelineBuilder::new()
 //!     .from("markdown")
@@ -15,13 +15,15 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! let output = pipeline.convert("# Hello World", &Options::default()).unwrap();
+//! let options = Options::default();
+//! let output = pipeline.convert("# Hello World", &options).unwrap();
 //! assert!(output.contains("<h1>"));
 //! ```
 
+use crate::context::{ClmdContext, PureContext};
 use crate::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
-use crate::options::Options;
+use crate::options::{Options, ReaderOptions, WriterOptions};
 use crate::readers::{Reader, ReaderRegistry};
 use crate::writers::{Writer, WriterRegistry};
 
@@ -90,14 +92,35 @@ impl Pipeline {
     /// # Arguments
     ///
     /// * `input` - The input text to convert
-    /// * `options` - Conversion options
+    /// * `options` - Conversion options (contains both reader and writer options)
     ///
     /// # Returns
     ///
     /// The converted output string, or an error if conversion fails.
     pub fn convert(&self, input: &str, options: &Options) -> ClmdResult<String> {
+        let ctx = PureContext::new();
+        self.convert_with_context(input, &ctx, options)
+    }
+
+    /// Convert input to output with a custom context.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The input text to convert
+    /// * `ctx` - The context for IO operations
+    /// * `options` - Conversion options (contains both reader and writer options)
+    ///
+    /// # Returns
+    ///
+    /// The converted output string, or an error if conversion fails.
+    pub fn convert_with_context(
+        &self,
+        input: &str,
+        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        options: &Options,
+    ) -> ClmdResult<String> {
         // Step 1: Read the input
-        let (mut arena, root) = self.reader.read(input, options).map_err(|e| {
+        let (mut arena, root) = self.reader.read(input, &options.reader).map_err(|e| {
             ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
         })?;
 
@@ -110,7 +133,7 @@ impl Pipeline {
 
         // Step 3: Write the output
         self.writer
-            .write(&arena, root, options)
+            .write(&arena, root, ctx, &options.writer)
             .map_err(|e| ClmdError::io_error(format!("Write error: {}", e)))
     }
 
@@ -214,7 +237,7 @@ impl PipelineBuilder {
 
         let _writer = self
             .writer_registry
-            .get(&output_format)
+            .get_by_name(&output_format)
             .ok_or_else(|| ClmdError::unknown_writer(&output_format))?;
 
         // Create boxed versions
@@ -324,8 +347,7 @@ mod tests {
 
     #[test]
     fn test_convert_function() {
-        let output =
-            convert("# Hello", "markdown", "html", &Options::default()).unwrap();
+        let output = convert("# Hello", "markdown", "html", &Options::default()).unwrap();
         assert!(output.contains("<h1>"));
     }
 }

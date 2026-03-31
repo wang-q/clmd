@@ -8,11 +8,12 @@
 //! - MediaBag for resource management
 
 use clmd::arena::{Node, NodeArena, TreeOps};
-use clmd::core::monad::{ClmdIO, ClmdMonad, ClmdPure, Verbosity};
+use clmd::context::{ClmdContext, PureContext};
 use clmd::error::ClmdResult;
 use clmd::filter::{Filter, FilterChain};
 use clmd::mediabag::MediaBag;
 use clmd::mime::get_mime_type;
+use clmd::options::{Options, ReaderOptions, WriterOptions};
 use clmd::pipeline::PipelineBuilder;
 use clmd::readers::ReaderRegistry;
 use clmd::template::{TemplateContext, TemplateEngine};
@@ -22,17 +23,11 @@ use clmd::writers::WriterRegistry;
 fn main() -> ClmdResult<()> {
     println!("=== Pandoc-style Workflow Example ===\n");
 
-    // 1. Using ClmdMonad for testable IO
-    println!("1. ClmdMonad Example:");
-    let monad = ClmdIO::with_verbosity(Verbosity::Info);
-    println!(
-        "   Created ClmdIO with verbosity: {:?}",
-        monad.get_verbosity()
-    );
-
-    // For testing, you can use ClmdPure instead:
-    let _test_monad = ClmdPure::default();
-    println!("   ClmdPure is available for testing without IO\n");
+    // 1. Using ClmdContext for testable IO
+    println!("1. ClmdContext Example:");
+    let ctx = PureContext::new();
+    ctx.info("Created PureContext for testing");
+    println!("   Created PureContext for testing without IO\n");
 
     // 2. Reader/Writer Registry
     println!("2. Reader/Writer Registry:");
@@ -57,7 +52,8 @@ fn main() -> ClmdResult<()> {
     let pipeline = PipelineBuilder::new().from("markdown").to("html").build()?;
 
     let markdown_input = "# Hello World\n\nThis is a **test** document.";
-    let html_output = pipeline.convert(markdown_input, &clmd::Options::default())?;
+    let options = Options::default();
+    let html_output = pipeline.convert(markdown_input, &options)?;
     println!(
         "   Input (Markdown): {}",
         markdown_input.lines().next().unwrap()

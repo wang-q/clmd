@@ -116,6 +116,10 @@ pub enum ClmdError {
         message: String,
     },
 
+    /// Unknown format.
+    #[error("Unknown format: {0}")]
+    UnknownFormat(String),
+
     /// Unknown reader format.
     #[error("Unknown reader format: {0}")]
     UnknownReader(String),
@@ -247,6 +251,11 @@ impl ClmdError {
     /// Create a generic error.
     pub fn other<S: Into<String>>(message: S) -> Self {
         Self::Other(message.into())
+    }
+
+    /// Create an unknown format error.
+    pub fn unknown_format<S: Into<String>>(format: S) -> Self {
+        Self::UnknownFormat(format.into())
     }
 
     /// Create an unknown reader error.
@@ -464,6 +473,7 @@ impl ClmdError {
         match self {
             Self::Io(_) => 1,
             Self::Parse { .. } => 64,
+            Self::UnknownFormat(_) => 20,
             Self::UnknownReader(_) => 21,
             Self::UnknownWriter(_) => 22,
             Self::UnsupportedExtension { .. } => 23,
