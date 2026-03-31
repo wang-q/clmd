@@ -236,7 +236,7 @@ impl Writer for HtmlWriter {
         &["html", "htm", "xhtml"]
     }
 
-    fn write<'c>(
+    fn write_text<'c>(
         &self,
         arena: &NodeArena,
         root: NodeId,
@@ -272,7 +272,7 @@ impl Writer for CommonMarkWriter {
         &["md", "markdown", "commonmark", "cm"]
     }
 
-    fn write<'c>(
+    fn write_text<'c>(
         &self,
         arena: &NodeArena,
         root: NodeId,
@@ -308,7 +308,7 @@ impl Writer for XmlWriter {
         &["xml"]
     }
 
-    fn write<'c>(
+    fn write_text<'c>(
         &self,
         arena: &NodeArena,
         root: NodeId,
@@ -344,7 +344,7 @@ impl Writer for LatexWriter {
         &["tex", "latex"]
     }
 
-    fn write<'c>(
+    fn write_text<'c>(
         &self,
         arena: &NodeArena,
         root: NodeId,
@@ -380,7 +380,7 @@ impl Writer for ManWriter {
         &["man", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
     }
 
-    fn write<'c>(
+    fn write_text<'c>(
         &self,
         arena: &NodeArena,
         root: NodeId,

@@ -234,7 +234,7 @@ impl Reader for MarkdownReader {
         &["md", "markdown", "mdown", "mkd", "mkdn"]
     }
 
-    fn read<'c>(
+    fn read_text<'c>(
         &self,
         input: &str,
         options: &ReaderOptions<'c>,
@@ -269,7 +269,7 @@ impl Reader for HtmlReader {
         &["html", "htm", "xhtml"]
     }
 
-    fn read<'c>(
+    fn read_text<'c>(
         &self,
         input: &str,
         options: &ReaderOptions<'c>,
@@ -304,7 +304,7 @@ impl Reader for CommonMarkReader {
         &["commonmark", "cm"]
     }
 
-    fn read<'c>(
+    fn read_text<'c>(
         &self,
         input: &str,
         options: &ReaderOptions<'c>,

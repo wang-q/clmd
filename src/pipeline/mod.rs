@@ -21,8 +21,9 @@
 
 use crate::arena::NodeArena;
 use crate::error::{ClmdError, ClmdResult, Position};
+use crate::filter::{Filter, FilterChain, FilterError};
 use crate::options::Options;
-use crate::readers::{Reader, ReaderOptions, ReaderRegistry};
+use crate::readers::{Reader, ReaderInput, ReaderOptions, ReaderRegistry};
 use crate::writers::{Writer, WriterOptions, WriterRegistry};
 
 /// A document conversion pipeline.
@@ -38,6 +39,8 @@ pub struct Pipeline {
     reader: Box<dyn Reader>,
     /// Writer for the output format.
     writer: Box<dyn Writer>,
+    /// Filter chain for document transformation.
+    filter_chain: FilterChain,
 }
 
 impl std::fmt::Debug for Pipeline {
@@ -62,6 +65,24 @@ impl Pipeline {
             output_format: output_format.into(),
             reader,
             writer,
+            filter_chain: FilterChain::new(),
+        }
+    }
+
+    /// Create a new pipeline with a filter chain.
+    pub fn with_filters(
+        input_format: impl Into<String>,
+        output_format: impl Into<String>,
+        reader: Box<dyn Reader>,
+        writer: Box<dyn Writer>,
+        filter_chain: FilterChain,
+    ) -> Self {
+        Self {
+            input_format: input_format.into(),
+            output_format: output_format.into(),
+            reader,
+            writer,
+            filter_chain,
         }
     }
 
@@ -78,15 +99,37 @@ impl Pipeline {
     pub fn convert(&self, input: &str, _options: &Options) -> ClmdResult<String> {
         // Step 1: Read the input
         let reader_options = ReaderOptions::default();
-        let (arena, root) = self.reader.read(input, &reader_options).map_err(|e| {
-            ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
-        })?;
+        let reader_input = ReaderInput::text(input);
+        let (mut arena, root) = self
+            .reader
+            .read(&reader_input, &reader_options)
+            .map_err(|e| {
+                ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
+            })?;
 
-        // Step 2: Write the output
+        // Step 2: Apply filters
+        if !self.filter_chain.is_empty() {
+            self.filter_chain
+                .apply(&mut arena, root)
+                .map_err(|e| ClmdError::filter_error(format!("Filter error: {}", e)))?;
+        }
+
+        // Step 3: Write the output
         let writer_options = WriterOptions::default();
         self.writer
-            .write(&arena, root, &writer_options)
+            .write_text(&arena, root, &writer_options)
             .map_err(|e| ClmdError::io_error(format!("Write error: {}", e)))
+    }
+
+    /// Get the filter chain.
+    pub fn filter_chain(&self) -> &FilterChain {
+        &self.filter_chain
+    }
+
+    /// Add a filter to the pipeline.
+    pub fn add_filter(&mut self, filter: Filter) -> &mut Self {
+        self.filter_chain.add(filter);
+        self
     }
 
     /// Get the input format.
@@ -106,6 +149,7 @@ pub struct PipelineBuilder {
     output_format: Option<String>,
     reader_registry: ReaderRegistry,
     writer_registry: WriterRegistry,
+    filter_chain: FilterChain,
 }
 
 impl std::fmt::Debug for PipelineBuilder {
@@ -125,6 +169,7 @@ impl PipelineBuilder {
             output_format: None,
             reader_registry: ReaderRegistry::with_defaults(),
             writer_registry: WriterRegistry::with_defaults(),
+            filter_chain: FilterChain::new(),
         }
     }
 
@@ -137,6 +182,24 @@ impl PipelineBuilder {
     /// Set the output format.
     pub fn to(mut self, format: impl Into<String>) -> Self {
         self.output_format = Some(format.into());
+        self
+    }
+
+    /// Add a filter to the pipeline.
+    pub fn with_filter(mut self, filter: Filter) -> Self {
+        self.filter_chain.add(filter);
+        self
+    }
+
+    /// Add multiple filters to the pipeline.
+    pub fn with_filters(mut self, filters: impl IntoIterator<Item = Filter>) -> Self {
+        self.filter_chain.extend(filters);
+        self
+    }
+
+    /// Set the filter chain.
+    pub fn with_filter_chain(mut self, filter_chain: FilterChain) -> Self {
+        self.filter_chain = filter_chain;
         self
     }
 
@@ -170,6 +233,7 @@ impl PipelineBuilder {
             output_format,
             reader: boxed_reader,
             writer: boxed_writer,
+            filter_chain: self.filter_chain,
         })
     }
 }

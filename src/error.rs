@@ -195,6 +195,29 @@ impl ClmdError {
         }
     }
 
+    /// Get the exit code for this error.
+    ///
+    /// These exit codes are compatible with Pandoc's exit codes where applicable.
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            Self::Io(_) => 1,
+            Self::Parse { .. } => 64,
+            Self::UnknownReader(_) => 21,
+            Self::UnknownWriter(_) => 22,
+            Self::UnsupportedExtension { .. } => 23,
+            Self::Transform(_) => 83,
+            Self::Validation(_) => 97,
+            Self::ResourceNotFound(_) => 99,
+            Self::Template(_) => 5,
+            Self::Filter(_) => 83,
+            Self::Config(_) => 6,
+            Self::Encoding(_) => 92,
+            Self::FeatureNotEnabled(_) => 89,
+            Self::LimitExceeded { .. } => 93,
+            Self::Other(_) => 1,
+        }
+    }
+
     /// Create an IO error.
     pub fn io_error<S: Into<String>>(message: S) -> Self {
         Self::Io(message.into())

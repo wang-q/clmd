@@ -187,6 +187,14 @@ impl MediaBag {
         self.items.get(&canonical)
     }
 
+    /// Get a media item by path (alias for lookup).
+    ///
+    /// This is a convenience method that provides the same functionality
+    /// as `lookup` with a more idiomatic name.
+    pub fn get<P: AsRef<Path>>(&self, path: P) -> Option<&MediaItem> {
+        self.lookup(path)
+    }
+
     /// Look up a media item mutably by path.
     pub fn lookup_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut MediaItem> {
         let canonical = canonicalize_path(path.as_ref());

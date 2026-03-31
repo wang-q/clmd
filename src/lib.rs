@@ -336,6 +336,13 @@ pub mod uri;
 /// the AST between parsing and rendering.
 pub mod filter;
 
+/// Document transformation system.
+///
+/// This module provides a set of document transformations inspired by
+/// Pandoc's transform system. Transforms can modify the AST between
+/// parsing and rendering.
+pub mod transforms;
+
 /// Template system for document rendering.
 ///
 /// This module provides a flexible template system for document rendering,
