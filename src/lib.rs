@@ -183,6 +183,13 @@
     cyclomatic_complexity
 )]
 
+/// Unified AST definition inspired by Pandoc.
+///
+/// This module provides a format-agnostic AST type system that can represent
+/// documents from any input format. It is designed to be extensible and
+/// serializable.
+pub mod ast;
+
 /// Adapter traits for plugins.
 ///
 /// Provides traits for customizing syntax highlighting, heading rendering,
@@ -495,7 +502,7 @@ pub mod clmd_options;
 ///     WriterOptions::default().with_output_format(OutputFormat::Html)
 /// );
 /// ```ignore
-
+///
 /// Document reader trait and implementations.
 ///
 /// This module provides a unified interface for reading documents from different

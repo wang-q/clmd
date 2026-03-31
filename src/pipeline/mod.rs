@@ -23,7 +23,7 @@
 use crate::context::{ClmdContext, PureContext};
 use crate::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
-use crate::options::{Options, ReaderOptions, WriterOptions};
+use crate::options::Options;
 use crate::readers::{Reader, ReaderRegistry};
 use crate::writers::{Writer, WriterRegistry};
 

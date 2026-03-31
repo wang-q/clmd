@@ -24,7 +24,6 @@ use crate::arena::{NodeArena, NodeId};
 use crate::error::{ClmdError, ClmdResult};
 use crate::options::{WriterOptions, OutputFormat};
 use crate::context::ClmdContext;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::Path;
 
