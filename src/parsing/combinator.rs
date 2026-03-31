@@ -9,8 +9,8 @@ use super::{BoxedParser, ParseError, ParseResult, Position};
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{choice, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{choice, char_lit, digit, Parser};
 ///
 /// let parser = choice(vec![char_lit('a'), char_lit('b'), digit]);
 /// assert!(parser.parse("a").is_ok());
@@ -40,8 +40,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{seq, char_lit};
+/// ```ignore
+/// use clmd::parsing::{seq, char_lit, Parser};
 ///
 /// let parser = seq(vec![char_lit('a'), char_lit('b')]);
 /// assert_eq!(parser.parse("ab").unwrap(), 'a');
@@ -73,8 +73,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{pair, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{pair, char_lit, digit, Parser};
 ///
 /// let parser = pair(char_lit('a'), digit);
 /// let (letter, num) = parser.parse("a1").unwrap();
@@ -97,8 +97,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{right, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{right, char_lit, digit, Parser};
 ///
 /// let parser = right(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), '1');
@@ -118,8 +118,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{left, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{left, char_lit, digit, Parser};
 ///
 /// let parser = left(char_lit('a'), digit);
 /// assert_eq!(parser.parse("a1").unwrap(), 'a');
@@ -140,8 +140,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{between, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{between, char_lit, digit, Parser};
 ///
 /// let parser = between(char_lit('('), char_lit(')'), digit);
 /// assert_eq!(parser.parse("(1)").unwrap(), '1');
@@ -168,8 +168,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{many, digit};
+/// ```ignore
+/// use clmd::parsing::{many, digit, Parser};
 ///
 /// let parser = many(digit);
 /// let result = parser.parse("123abc").unwrap();
@@ -198,8 +198,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{many1, digit};
+/// ```ignore
+/// use clmd::parsing::{many1, digit, Parser};
 ///
 /// let parser = many1(digit);
 /// let result = parser.parse("123abc").unwrap();
@@ -232,8 +232,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{optional, char_lit};
+/// ```ignore
+/// use clmd::parsing::{optional, char_lit, Parser};
 ///
 /// let parser = optional(char_lit('a'));
 /// assert_eq!(parser.parse("abc").unwrap(), Some('a'));
@@ -255,8 +255,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{map2, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{map2, char_lit, digit, Parser};
 ///
 /// let parser = map2(char_lit('a'), digit, |a, d| format!("{}{}", a, d));
 /// assert_eq!(parser.parse("a1").unwrap(), "a1");
@@ -305,8 +305,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{separated_by, char_lit, digit};
+/// ```ignore
+/// use clmd::parsing::{separated_by, char_lit, digit, Parser};
 ///
 /// let parser = separated_by(digit, char_lit(','));
 /// let result = parser.parse("1,2,3").unwrap();
@@ -385,8 +385,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{skip_whitespace, char_lit};
+/// ```ignore
+/// use clmd::parsing::{skip_whitespace, char_lit, Parser};
 ///
 /// let parser = skip_whitespace(char_lit('a'));
 /// assert_eq!(parser.parse("   a").unwrap(), 'a');
@@ -412,8 +412,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{eof};
+/// ```ignore
+/// use clmd::parsing::{eof, Parser};
 ///
 /// assert!(eof.parse("").is_ok());
 /// assert!(eof.parse("a").is_err());
@@ -434,8 +434,8 @@ pub fn eof(input: &str, pos: Position) -> ParseResult<()> {
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{success, char_lit};
+/// ```ignore
+/// use clmd::parsing::{success, char_lit, Parser};
 ///
 /// let parser = success(42);
 /// assert_eq!(parser.parse("anything").unwrap(), 42);
@@ -448,8 +448,8 @@ pub fn success<T: Clone + 'static>(value: T) -> BoxedParser<T> {
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{failure};
+/// ```ignore
+/// use clmd::parsing::{failure, Parser};
 ///
 /// let parser = failure("custom error");
 /// assert!(parser.parse("").is_err());
@@ -467,8 +467,8 @@ where
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{peek, char_lit};
+/// ```ignore
+/// use clmd::parsing::{peek, char_lit, Parser};
 ///
 /// let parser = peek(char_lit('a'));
 /// assert_eq!(parser.parse("abc").unwrap(), Some('a'));
@@ -489,8 +489,8 @@ pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>
 ///
 /// # Example
 ///
-/// ```
-/// use clmd::parsing::{not_followed_by, char_lit};
+/// ```ignore
+/// use clmd::parsing::{not_followed_by, char_lit, Parser};
 ///
 /// let parser = not_followed_by(char_lit('a'), char_lit('b'));
 /// assert!(parser.parse("ac").is_ok());

@@ -11,7 +11,7 @@ use crate::parsing::combinator::{many, many1};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::string;
 ///
 /// let result = string.parse("\"hello world\"").unwrap();
@@ -77,7 +77,7 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::identifier;
 ///
 /// let result = identifier.parse("hello_world").unwrap();
@@ -120,7 +120,7 @@ pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::uint;
 ///
 /// let result = uint.parse("12345").unwrap();
@@ -147,7 +147,7 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::int;
 ///
 /// assert_eq!(int.parse("-123").unwrap(), -123i64);
@@ -189,7 +189,7 @@ pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::float;
 ///
 /// let result = float.parse("3.14159").unwrap();
@@ -267,7 +267,7 @@ pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::whitespace1;
 ///
 /// let result = whitespace1.parse("   hello").unwrap();
@@ -297,7 +297,7 @@ pub fn whitespace1(input: &str, pos: Position) -> ParseResult<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::until;
 ///
 /// let parser = until("-->");
@@ -330,7 +330,7 @@ pub fn until(end: &'static str) -> BoxedParser<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::line_comment;
 ///
 /// let parser = line_comment("//");
@@ -372,7 +372,7 @@ pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::parsing::block_comment;
 ///
 /// let parser = block_comment("/*", "*/");

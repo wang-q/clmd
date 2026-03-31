@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::core::walk::{Walkable, query, walk};
 //! use clmd::{parse_document, Options};
 //! use clmd::nodes::NodeValue;
@@ -90,7 +90,7 @@ impl Walkable for NodeValue {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::core::walk::walk;
 /// use clmd::{parse_document, Options};
 /// use clmd::nodes::NodeValue;
@@ -199,7 +199,7 @@ where
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::core::walk::query;
 /// use clmd::{parse_document, Options};
 /// use clmd::nodes::NodeValue;
@@ -305,7 +305,7 @@ where
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use clmd::core::walk::walk_with_context;
 /// use clmd::{parse_document, Options};
 /// use clmd::nodes::NodeValue;

@@ -221,6 +221,10 @@ pub enum ClmdError {
     /// Warning (non-fatal error).
     #[error("Warning: {0}")]
     Warning(String),
+
+    /// Sandbox security error.
+    #[error("Sandbox error: {0}")]
+    Sandbox(String),
 }
 
 impl ClmdError {
@@ -370,6 +374,11 @@ impl ClmdError {
         Self::Warning(message.into())
     }
 
+    /// Create a sandbox error.
+    pub fn sandbox_error<S: Into<String>>(message: S) -> Self {
+        Self::Sandbox(message.into())
+    }
+
     /// Get the position of the error, if available.
     pub fn position(&self) -> Option<Position> {
         match self {
@@ -477,6 +486,7 @@ impl ClmdError {
             Self::NotSupported(_) => 85,
             Self::Deprecated(_) => 2,
             Self::Warning(_) => 0, // Warnings don't cause non-zero exit
+            Self::Sandbox(_) => 77, // Permission denied
             Self::Other(_) => 1,
         }
     }

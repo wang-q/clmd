@@ -9,12 +9,12 @@ use super::{BoxedParser, ParseError, ParseResult, Position};
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::char;
+/// use clmd::parsing::{char, Parser};
 ///
 /// let parser = char(|c| c.is_digit(10));
-/// let result = parser.parse("123");
+/// let result = parser.parse_partial("123");
 /// assert!(result.is_ok());
-/// assert_eq!(result.unwrap(), '1');
+/// assert_eq!(result.unwrap().0, '1');
 /// ```
 pub fn char<F>(predicate: F) -> BoxedParser<char>
 where
@@ -41,10 +41,10 @@ where
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::any_char;
+/// use clmd::parsing::{any_char, Parser};
 ///
-/// let result = any_char.parse("abc");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = any_char.parse_partial("abc");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn any_char(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -65,12 +65,12 @@ pub fn any_char(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::char_lit;
+/// use clmd::parsing::{char_lit, Parser};
 ///
 /// let parser = char_lit('a');
-/// let result = parser.parse("abc");
+/// let result = parser.parse_partial("abc");
 /// assert!(result.is_ok());
-/// assert_eq!(result.unwrap(), 'a');
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn char_lit(expected: char) -> BoxedParser<char> {
     Box::new(move |input: &str, pos: Position| {
@@ -94,10 +94,10 @@ pub fn char_lit(expected: char) -> BoxedParser<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::digit;
+/// use clmd::parsing::{digit, Parser};
 ///
-/// let result = digit.parse("123");
-/// assert_eq!(result.unwrap(), '1');
+/// let result = digit.parse_partial("123");
+/// assert_eq!(result.unwrap().0, '1');
 /// ```
 pub fn digit(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -115,10 +115,10 @@ pub fn digit(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::alpha;
+/// use clmd::parsing::{alpha, Parser};
 ///
-/// let result = alpha.parse("abc");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = alpha.parse_partial("abc");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn alpha(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -136,10 +136,10 @@ pub fn alpha(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::alphanumeric;
+/// use clmd::parsing::{alphanumeric, Parser};
 ///
-/// let result = alphanumeric.parse("abc123");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = alphanumeric.parse_partial("abc123");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -161,10 +161,10 @@ pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::whitespace;
+/// use clmd::parsing::{whitespace, Parser};
 ///
-/// let result = whitespace.parse("  hello");
-/// assert_eq!(result.unwrap(), ' ');
+/// let result = whitespace.parse_partial("  hello");
+/// assert_eq!(result.unwrap().0, ' ');
 /// ```
 pub fn whitespace(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -182,9 +182,9 @@ pub fn whitespace(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::newline;
+/// use clmd::parsing::{newline, Parser};
 ///
-/// let result = newline.parse("\nhello");
+/// let result = newline.parse_partial("\nhello");
 /// assert!(result.is_ok());
 /// ```
 pub fn newline(input: &str, pos: Position) -> ParseResult<char> {
@@ -208,11 +208,11 @@ pub fn newline(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::not_char;
+/// use clmd::parsing::{not_char, Parser};
 ///
 /// let parser = not_char('x');
-/// let result = parser.parse("abc");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = parser.parse_partial("abc");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn not_char(forbidden: char) -> BoxedParser<char> {
     Box::new(move |input: &str, pos: Position| {
@@ -236,11 +236,11 @@ pub fn not_char(forbidden: char) -> BoxedParser<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::none_of;
+/// use clmd::parsing::{none_of, Parser};
 ///
 /// let parser = none_of(&['x', 'y', 'z']);
-/// let result = parser.parse("abc");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = parser.parse_partial("abc");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn none_of(forbidden: &'static [char]) -> BoxedParser<char> {
     Box::new(move |input: &str, pos: Position| {
@@ -264,11 +264,11 @@ pub fn none_of(forbidden: &'static [char]) -> BoxedParser<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::one_of;
+/// use clmd::parsing::{one_of, Parser};
 ///
 /// let parser = one_of(&['a', 'b', 'c']);
-/// let result = parser.parse("b");
-/// assert_eq!(result.unwrap(), 'b');
+/// let result = parser.parse_partial("b");
+/// assert_eq!(result.unwrap().0, 'b');
 /// ```
 pub fn one_of(allowed: &'static [char]) -> BoxedParser<char> {
     Box::new(move |input: &str, pos: Position| {
@@ -292,11 +292,11 @@ pub fn one_of(allowed: &'static [char]) -> BoxedParser<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::char_range;
+/// use clmd::parsing::{char_range, Parser};
 ///
 /// let parser = char_range('a', 'z');
-/// let result = parser.parse("hello");
-/// assert_eq!(result.unwrap(), 'h');
+/// let result = parser.parse_partial("hello");
+/// assert_eq!(result.unwrap().0, 'h');
 /// ```
 pub fn char_range(start: char, end: char) -> BoxedParser<char> {
     Box::new(move |input: &str, pos: Position| {
@@ -320,10 +320,10 @@ pub fn char_range(start: char, end: char) -> BoxedParser<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::upper;
+/// use clmd::parsing::{upper, Parser};
 ///
-/// let result = upper.parse("Hello");
-/// assert_eq!(result.unwrap(), 'H');
+/// let result = upper.parse_partial("Hello");
+/// assert_eq!(result.unwrap().0, 'H');
 /// ```
 pub fn upper(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -345,10 +345,10 @@ pub fn upper(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::lower;
+/// use clmd::parsing::{lower, Parser};
 ///
-/// let result = lower.parse("hello");
-/// assert_eq!(result.unwrap(), 'h');
+/// let result = lower.parse_partial("hello");
+/// assert_eq!(result.unwrap().0, 'h');
 /// ```
 pub fn lower(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -370,10 +370,10 @@ pub fn lower(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::hex_digit;
+/// use clmd::parsing::{hex_digit, Parser};
 ///
-/// let result = hex_digit.parse("abc");
-/// assert_eq!(result.unwrap(), 'a');
+/// let result = hex_digit.parse_partial("abc");
+/// assert_eq!(result.unwrap().0, 'a');
 /// ```
 pub fn hex_digit(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -395,10 +395,10 @@ pub fn hex_digit(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::oct_digit;
+/// use clmd::parsing::{oct_digit, Parser};
 ///
-/// let result = oct_digit.parse("777");
-/// assert_eq!(result.unwrap(), '7');
+/// let result = oct_digit.parse_partial("777");
+/// assert_eq!(result.unwrap().0, '7');
 /// ```
 pub fn oct_digit(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(ch) = input[pos.offset..].chars().next() {
@@ -416,10 +416,10 @@ pub fn oct_digit(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::tab;
+/// use clmd::parsing::{tab, Parser};
 ///
-/// let result = tab.parse("\thello");
-/// assert_eq!(result.unwrap(), '\t');
+/// let result = tab.parse_partial("\thello");
+/// assert_eq!(result.unwrap().0, '\t');
 /// ```
 pub fn tab(input: &str, pos: Position) -> ParseResult<char> {
     if let Some('\t') = input[pos.offset..].chars().next() {
@@ -436,10 +436,10 @@ pub fn tab(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::space;
+/// use clmd::parsing::{space, Parser};
 ///
-/// let result = space.parse(" hello");
-/// assert_eq!(result.unwrap(), ' ');
+/// let result = space.parse_partial(" hello");
+/// assert_eq!(result.unwrap().0, ' ');
 /// ```
 pub fn space(input: &str, pos: Position) -> ParseResult<char> {
     if let Some(' ') = input[pos.offset..].chars().next() {
@@ -456,11 +456,11 @@ pub fn space(input: &str, pos: Position) -> ParseResult<char> {
 /// # Example
 ///
 /// ```
-/// use clmd::parsing::satisfy;
+/// use clmd::parsing::{satisfy, Parser};
 ///
 /// let parser = satisfy(|c| c.is_ascii_punctuation());
-/// let result = parser.parse("!hello");
-/// assert_eq!(result.unwrap(), '!');
+/// let result = parser.parse_partial("!hello");
+/// assert_eq!(result.unwrap().0, '!');
 /// ```
 pub fn satisfy<F>(predicate: F) -> BoxedParser<char>
 where
@@ -499,14 +499,14 @@ mod tests {
     fn test_digit() {
         let result = digit.parse_partial("123").unwrap();
         assert_eq!(result.0, '1');
-        assert!(digit.parse("abc").is_err());
+        assert!(digit.parse_partial("abc").is_err());
     }
 
     #[test]
     fn test_alpha() {
         let result = alpha.parse_partial("abc").unwrap();
         assert_eq!(result.0, 'a');
-        assert!(alpha.parse("123").is_err());
+        assert!(alpha.parse_partial("123").is_err());
     }
 
     #[test]
@@ -515,14 +515,14 @@ mod tests {
         assert_eq!(result.0, ' ');
         let result = whitespace.parse_partial("\thello").unwrap();
         assert_eq!(result.0, '\t');
-        assert!(whitespace.parse("hello").is_err());
+        assert!(whitespace.parse_partial("hello").is_err());
     }
 
     #[test]
     fn test_newline() {
         assert_eq!(newline.parse("\n").unwrap(), '\n');
         assert_eq!(newline.parse("\r\n").unwrap(), '\n');
-        assert!(newline.parse("hello").is_err());
+        assert!(newline.parse_partial("hello").is_err());
     }
 
     #[test]
@@ -555,8 +555,8 @@ mod tests {
         assert_eq!(result.0, 'H');
         let result = lower.parse_partial("hello").unwrap();
         assert_eq!(result.0, 'h');
-        assert!(upper.parse("hello").is_err());
-        assert!(lower.parse("Hello").is_err());
+        assert!(upper.parse_partial("hello").is_err());
+        assert!(lower.parse_partial("Hello").is_err());
     }
 
     #[test]
@@ -575,6 +575,6 @@ mod tests {
         let parser = satisfy(|c| c == '@');
         let result = parser.parse_partial("@hello").unwrap();
         assert_eq!(result.0, '@');
-        assert!(parser.parse("hello").is_err());
+        assert!(parser.parse_partial("hello").is_err());
     }
 }

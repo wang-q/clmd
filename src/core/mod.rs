@@ -26,6 +26,7 @@
 
 pub mod monad;
 pub mod options;
+pub mod sandbox;
 pub mod state;
 pub mod walk;
 
@@ -38,6 +39,7 @@ pub use options::{
     EmailObfuscation, ExtensionConfig, LineEnding, MarkdownFlavor, ReaderOptions,
     ReferenceLocation, UnifiedOptions, WrapOption, WriterOptions,
 };
+pub use sandbox::{SandboxMode, SandboxPolicy, SandboxedMonad};
 pub use state::{
     CommonState, ExtensionData, LogLevel, LogMessage, TrackChanges, Translations,
 };

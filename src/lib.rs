@@ -399,6 +399,31 @@ pub mod csv;
 /// inspired by Pandoc's Shared module.
 pub mod shared;
 
+/// Version information for clmd.
+///
+/// This module provides compile-time version information for the crate,
+/// inspired by Pandoc's version module.
+pub mod version;
+
+/// UUID generation utilities.
+///
+/// This module provides RFC 4122 UUID v4 generation for document identification,
+/// inspired by Pandoc's UUID module.
+pub mod uuid;
+
+/// Process management utilities.
+///
+/// This module provides safe wrappers for external process execution,
+/// inspired by Pandoc's Process module. Useful for PDF generation and
+/// other external tool integration.
+pub mod process;
+
+/// Data file access utilities.
+///
+/// This module provides access to default data files (templates, reference documents)
+/// and user data directories, inspired by Pandoc's Data module.
+pub mod data;
+
 /// General parsing utilities and combinators.
 ///
 /// This module provides general-purpose parsing utilities inspired by Pandoc's
