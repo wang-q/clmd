@@ -28,48 +28,6 @@ pub mod commonmark;
 pub mod format;
 pub mod renderer;
 
-/// Deprecated: Use `format::html` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::html` instead")]
-pub mod html {
-    pub use crate::render::format::html::*;
-}
-
-/// Deprecated: Use `format::xml` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::xml` instead")]
-pub mod xml {
-    pub use crate::render::format::xml::*;
-}
-
-/// Deprecated: Use `format::latex` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::latex` instead")]
-pub mod latex {
-    pub use crate::render::format::latex::*;
-}
-
-/// Deprecated: Use `format::man` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::man` instead")]
-pub mod man {
-    pub use crate::render::format::man::*;
-}
-
-/// Deprecated: Use `format::typst` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::typst` instead")]
-pub mod typst {
-    pub use crate::render::format::typst::*;
-}
-
-/// Deprecated: Use `format::docx` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::docx` instead")]
-pub mod docx {
-    pub use crate::render::format::docx::*;
-}
-
-/// Deprecated: Use `format::pdf` instead.
-#[deprecated(since = "0.2.0", note = "Use `format::pdf` instead")]
-pub mod pdf {
-    pub use crate::render::format::pdf::*;
-}
-
 // Re-export renderer types
 pub use renderer::{
     render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,

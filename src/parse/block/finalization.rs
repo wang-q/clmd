@@ -151,9 +151,9 @@ impl<'a> BlockParser<'a> {
                 // For tables, parse the data row and add it to the table
                 self.advance_next_nonspace();
                 let line = &self.current_line[self.next_nonspace..];
-                if crate::ext::tables::is_table_row(line) {
+                if crate::ext::gfm::table::is_table_row(line) {
                     // Parse the row and add cells to the table
-                    if let Some(row_node) = crate::ext::tables::parse_table_row(
+                    if let Some(row_node) = crate::ext::gfm::table::parse_table_row(
                         self.arena,
                         line,
                         self.line_number,

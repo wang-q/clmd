@@ -37,11 +37,3 @@ pub use error::{
 pub use iterator::{ArenaNodeIterator, EventType};
 pub use nodes::NodeValue;
 pub use shared::stringify;
-
-/// Deprecated: adapters module renamed to adapter.
-///
-/// Use `adapter` instead.
-#[deprecated(since = "0.2.0", note = "Use `adapter` instead of `adapters`")]
-pub mod adapters {
-    pub use crate::core::adapter::*;
-}

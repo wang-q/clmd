@@ -14,7 +14,7 @@ fn md_to_html(input: &str) -> String {
 
 /// Helper function to convert HTML to Markdown
 fn html_to_md(html: &str) -> String {
-    clmd::io::from::html_to_markdown(html)
+    clmd::io::convert::html_to_markdown(html)
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set

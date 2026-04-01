@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
                 .short('e')
                 .long("extension")
                 .action(ArgAction::Append)
-                .help("Enable extensions (table, strikethrough, tasklist, footnotes, tagfilter)"),
+                .help("Enable extensions (table, strikethrough, tasklist, footnotes, tagfilter, superscript, subscript, underline, highlight, math, wikilink, spoiler, alerts)"),
         )
         .arg(
             Arg::new("safe")
@@ -35,14 +35,18 @@ fn main() -> anyhow::Result<()> {
         .subcommand(cmd::stats::make_subcommand())
         .subcommand(cmd::toc::make_subcommand())
         .subcommand(cmd::fmt::make_subcommand())
+        .subcommand(cmd::validate::make_subcommand())
+        .subcommand(cmd::transform::make_subcommand())
+        .subcommand(cmd::complete::make_subcommand())
         .after_help(
             r###"Subcommand groups:
 
-* Conversion: convert (to-html, to-xml, from-html)
+* Conversion: convert (to, from)
 * Formatting: fmt
-* Extraction: extract (links, headings, code)
-* Analysis: stats
-* Utilities: toc
+* Extraction: extract (links, images, headings, code, tables, footnotes, yaml-front-matter, task-items)
+* Analysis: stats, validate
+* Transformation: transform (shift-headings, normalize-links, strip)
+* Utilities: toc, complete
 
 Configuration:
   clmd looks for a configuration file at:
@@ -50,11 +54,17 @@ Configuration:
     - ~/.config/clmd/config.toml
 
 Examples:
-  clmd convert to-html README.md
+  clmd convert to html README.md
+  clmd convert to latex input.md -o output.tex
+  clmd extract links input.md
+  clmd extract tables input.md --format csv
+  clmd stats input.md --readability
+  clmd validate input.md --strict
+  clmd transform shift-headings input.md -s -1
+  clmd complete bash > /etc/bash_completion.d/clmd
   clmd fmt input.md
-  clmd stats input.md
   clmd toc input.md
-  clmd -c /path/to/config.toml convert to-html input.md
+  clmd -c /path/to/config.toml convert to html input.md
 "###,
         );
 
@@ -113,6 +123,11 @@ Examples:
         Some(("stats", sub_matches)) => cmd::stats::execute(sub_matches, &options),
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),
         Some(("fmt", sub_matches)) => cmd::fmt::execute(sub_matches, &options),
+        Some(("validate", sub_matches)) => cmd::validate::execute(sub_matches, &options),
+        Some(("transform", sub_matches)) => {
+            cmd::transform::execute(sub_matches, &options)
+        }
+        Some(("complete", sub_matches)) => cmd::complete::execute(sub_matches, &options),
         _ => unreachable!(),
     }
 }

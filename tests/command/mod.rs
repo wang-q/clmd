@@ -57,8 +57,10 @@ pub struct CommandTest {
     /// Expected stdout output
     pub expected_stdout: String,
     /// Expected stderr output (optional)
+    #[allow(dead_code)]
     pub expected_stderr: Option<String>,
     /// Expected exit code (default: 0)
+    #[allow(dead_code)]
     pub expected_exit_code: i32,
     /// Source file for debugging
     pub source_file: String,
@@ -88,9 +90,13 @@ pub fn parse_command_test_file(content: &str, filename: &str) -> Vec<CommandTest
             if i + 1 < lines.len() && lines[i + 1].trim_start().starts_with('%') {
                 test_number += 1;
 
-                if let Some(test) =
-                    parse_command_test(&lines[i + 1..], filename, i + 1, test_number, fence)
-                {
+                if let Some(test) = parse_command_test(
+                    &lines[i + 1..],
+                    filename,
+                    i + 1,
+                    test_number,
+                    fence,
+                ) {
                     tests.push(test);
                 }
 
@@ -239,7 +245,8 @@ pub fn load_command_tests<P: AsRef<Path>>(dir: P) -> Vec<CommandTest> {
             let path = entry.path();
             if path.extension().map_or(false, |ext| ext == "md") {
                 if let Ok(content) = fs::read_to_string(&path) {
-                    let filename = path.file_stem().unwrap_or_default().to_string_lossy();
+                    let filename =
+                        path.file_stem().unwrap_or_default().to_string_lossy();
                     let tests = parse_command_test_file(&content, &filename);
                     all_tests.extend(tests);
                 }
@@ -253,7 +260,7 @@ pub fn load_command_tests<P: AsRef<Path>>(dir: P) -> Vec<CommandTest> {
 /// Run a command test and return the result
 #[cfg(test)]
 pub fn run_command_test(test: &CommandTest) -> CommandTestResult {
-    use clmd::{markdown_to_html, markdown_to_commonmark, Options};
+    use clmd::{markdown_to_commonmark, markdown_to_html, Options};
 
     let mut options = Options::default();
 

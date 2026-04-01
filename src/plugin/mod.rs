@@ -30,7 +30,7 @@
 pub use crate::parse::options::{Plugins, RenderPlugins};
 
 // Re-export adapter traits for convenience
-pub use crate::core::adapters::{
+pub use crate::core::adapter::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
 

@@ -3,7 +3,7 @@
 //! This module implements shortcode parsing for emoji (e.g., `:thumbsup:` -> 👍).
 //! Based on GitHub's gemoji: https://github.com/github/gemoji
 
-use crate::ext::shortcodes_data::lookup_shortcode;
+use crate::ext::shortcode::data::lookup_shortcode;
 
 /// Parse a potential shortcode at the given position.
 /// Returns `Some((emoji, consumed_len))` if a valid shortcode is found.

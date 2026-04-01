@@ -1168,8 +1168,8 @@ mod tests {
     // Shortcode tests
     use crate::core::arena::{Node, NodeArena, TreeOps};
     use crate::core::nodes::{NodeShortCode, NodeValue};
-    use crate::ext::shortcodes::parse_shortcode;
-    use crate::ext::shortcodes_data::lookup_shortcode;
+    use crate::ext::shortcode::data::lookup_shortcode;
+    use crate::ext::shortcode::parser::parse_shortcode;
     use crate::render;
 
     #[test]

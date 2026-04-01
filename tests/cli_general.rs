@@ -52,22 +52,20 @@ fn test_cli_convert_help() {
 
     assert!(output.status.success());
     let help = String::from_utf8(output.stdout).unwrap();
-    assert!(help.contains("to-html"));
-    assert!(help.contains("to-xml"));
-    assert!(help.contains("from-html"));
+    assert!(help.contains("to"));
+    assert!(help.contains("from"));
 }
 
 #[test]
 fn test_cli_convert_to_html_help() {
     let output = clmd_bin()
-        .args(["convert", "to-html", "--help"])
+        .args(["convert", "to", "--help"])
         .output()
         .expect("Failed to execute command");
 
     assert!(output.status.success());
     let help = String::from_utf8(output.stdout).unwrap();
-    assert!(help.contains("--full"));
-    assert!(help.contains("--hardbreaks"));
+    assert!(help.contains("html"));
     assert!(help.contains("--output"));
 }
 
@@ -88,7 +86,7 @@ fn test_cli_extract_help() {
 #[test]
 fn test_cli_extension_flag() {
     let mut child = clmd_bin()
-        .args(["-e", "table", "convert", "to-html"])
+        .args(["-e", "table", "convert", "to", "html"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -108,7 +106,15 @@ fn test_cli_extension_flag() {
 #[test]
 fn test_cli_multiple_extensions() {
     let mut child = clmd_bin()
-        .args(["-e", "table", "-e", "strikethrough", "convert", "to-html"])
+        .args([
+            "-e",
+            "table",
+            "-e",
+            "strikethrough",
+            "convert",
+            "to",
+            "html",
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -127,7 +133,7 @@ fn test_cli_multiple_extensions() {
 fn test_cli_safe_mode() {
     // Test that --safe flag is accepted (actual safe mode functionality depends on library implementation)
     let mut child = clmd_bin()
-        .args(["--safe", "convert", "to-html"])
+        .args(["--safe", "convert", "to", "html"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -147,7 +153,7 @@ fn test_cli_safe_mode() {
 #[test]
 fn test_cli_unknown_extension_warning() {
     let mut child = clmd_bin()
-        .args(["-e", "unknown_extension", "convert", "to-html"])
+        .args(["-e", "unknown_extension", "convert", "to", "html"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

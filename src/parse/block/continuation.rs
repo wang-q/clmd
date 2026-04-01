@@ -82,7 +82,7 @@ impl<'a> BlockParser<'a> {
                     1 // Blank line ends table
                 } else {
                     let line = &self.current_line[self.next_nonspace..];
-                    if crate::ext::tables::is_table_row(line) {
+                    if crate::ext::gfm::table::is_table_row(line) {
                         0 // Continue table
                     } else {
                         1 // Not a table row, end table

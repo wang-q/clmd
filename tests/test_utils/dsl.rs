@@ -108,7 +108,12 @@ fn generate_diff(expected: &str, actual: &str) -> String {
 }
 
 /// Run a single test case and return the result
-pub fn run_test(name: &str, input: &str, expected: &str, options: &Options) -> TestResult {
+pub fn run_test(
+    name: &str,
+    input: &str,
+    expected: &str,
+    options: &Options,
+) -> TestResult {
     let actual = markdown_to_html(input, options);
     // Normalize trailing newlines for comparison
     let actual = actual.trim_end_matches('\n').to_string();
@@ -118,6 +123,7 @@ pub fn run_test(name: &str, input: &str, expected: &str, options: &Options) -> T
 }
 
 /// Run a test case with custom options
+#[allow(dead_code)]
 pub fn run_test_with_options<F>(
     name: &str,
     input: &str,
@@ -134,6 +140,7 @@ where
 
 /// A group of related test cases
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct TestGroup {
     /// Name of the test group
     pub name: String,
@@ -143,6 +150,7 @@ pub struct TestGroup {
 
 impl TestGroup {
     /// Create a new test group
+    #[allow(dead_code)]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -151,21 +159,25 @@ impl TestGroup {
     }
 
     /// Add a test result to the group
+    #[allow(dead_code)]
     pub fn add(&mut self, result: TestResult) {
         self.results.push(result);
     }
 
     /// Check if all tests in the group passed
+    #[allow(dead_code)]
     pub fn all_passed(&self) -> bool {
         self.results.iter().all(|r| r.passed)
     }
 
     /// Get the number of passed tests
+    #[allow(dead_code)]
     pub fn passed_count(&self) -> usize {
         self.results.iter().filter(|r| r.passed).count()
     }
 
     /// Get the number of failed tests
+    #[allow(dead_code)]
     pub fn failed_count(&self) -> usize {
         self.results.iter().filter(|r| !r.passed).count()
     }
@@ -196,7 +208,12 @@ impl fmt::Display for TestGroup {
 #[macro_export]
 macro_rules! test_case {
     ($name:expr, $input:expr, $expected:expr) => {
-        crate::test_utils::dsl::run_test($name, $input, $expected, &clmd::Options::default())
+        crate::test_utils::dsl::run_test(
+            $name,
+            $input,
+            $expected,
+            &clmd::Options::default(),
+        )
     };
     ($name:expr, $input:expr, $expected:expr, $options:expr) => {
         crate::test_utils::dsl::run_test($name, $input, $expected, $options)
@@ -221,7 +238,12 @@ macro_rules! test {
         input: $input:expr,
         expected: $expected:expr
     ) => {
-        crate::test_utils::dsl::run_test($name, $input, $expected, &clmd::Options::default())
+        crate::test_utils::dsl::run_test(
+            $name,
+            $input,
+            $expected,
+            &clmd::Options::default(),
+        )
     };
     (
         name: $name:expr,
@@ -288,6 +310,7 @@ pub fn normalize_html(html: &str) -> String {
 }
 
 /// Compare HTML outputs with normalization
+#[allow(dead_code)]
 pub fn html_equals(expected: &str, actual: &str) -> bool {
     normalize_html(expected) == normalize_html(actual)
 }
@@ -314,7 +337,8 @@ mod tests {
 
     #[test]
     fn test_run_test_pass() {
-        let result = run_test("simple", "# Hello", "<h1>Hello</h1>", &Options::default());
+        let result =
+            run_test("simple", "# Hello", "<h1>Hello</h1>", &Options::default());
         assert!(result.passed);
     }
 

@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::core::adapters::{
+use crate::core::adapter::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
 use crate::parse::options::{Plugins, RenderPlugins};
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_heading_adapter() {
-        use crate::core::adapters::HeadingAdapter;
+        use crate::core::adapter::HeadingAdapter;
 
         struct TestHeadingAdapter;
         impl HeadingAdapter for TestHeadingAdapter {

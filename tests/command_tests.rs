@@ -111,9 +111,5 @@ fn run_tests_from_file(path: &str) {
 
     println!("\nResults: {}/{} passed", passed, tests.len());
 
-    assert_eq!(
-        failed, 0,
-        "{} test(s) failed in {}",
-        failed, filename
-    );
+    assert_eq!(failed, 0, "{} test(s) failed in {}", failed, filename);
 }

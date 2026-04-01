@@ -41,7 +41,7 @@ mod utils;
 
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::core::nodes::{NodeCode, NodeLink, NodeShortCode, NodeValue};
-use crate::ext::shortcodes::parse_shortcode;
+use crate::ext::shortcode::parser::parse_shortcode;
 use autolinks::{match_email_autolink, match_url_autolink};
 use emphasis::{
     process_emphasis, remove_delimiters_inside_link, scan_delims, Delimiter,

@@ -1,7 +1,7 @@
 //! Tests for block parsing
 
 use crate::core::arena::NodeArena;
-use crate::core::nodes::{NodeHeading, NodeValue};
+use crate::core::nodes::NodeValue;
 use crate::parse::block::BlockParser;
 use crate::parse::options::Options;
 

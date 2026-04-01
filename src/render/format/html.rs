@@ -1,9 +1,9 @@
 //! HTML renderer
 
-use crate::core::adapters::SyntaxHighlighterAdapter;
+use crate::core::adapter::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
-use crate::ext::tagfilter::filter_html;
+use crate::ext::gfm::tagfilter::filter_html;
 use crate::parse::options::Options;
 use crate::text::html_utils::{escape_html, is_safe_url};
 use std::borrow::Cow;
