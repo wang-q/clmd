@@ -17,7 +17,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::core::error::ClmdError;
+use crate::core::error::{ClmdError, LogLevel, LogMessage};
 
 /// Verbosity level for logging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -33,54 +33,6 @@ pub enum Verbosity {
     Info,
     /// Debug - detailed debug information.
     Debug,
-}
-
-/// A log message for reporting progress and issues.
-#[derive(Debug, Clone)]
-pub struct LogMessage {
-    /// The verbosity level of this message.
-    pub level: Verbosity,
-    /// The message content.
-    pub message: String,
-    /// Optional source position.
-    pub position: Option<(usize, usize)>,
-}
-
-impl LogMessage {
-    /// Create a new log message.
-    pub fn new<S: Into<String>>(level: Verbosity, message: S) -> Self {
-        Self {
-            level,
-            message: message.into(),
-            position: None,
-        }
-    }
-
-    /// Create an error message.
-    pub fn error<S: Into<String>>(message: S) -> Self {
-        Self::new(Verbosity::Error, message)
-    }
-
-    /// Create a warning message.
-    pub fn warning<S: Into<String>>(message: S) -> Self {
-        Self::new(Verbosity::Warning, message)
-    }
-
-    /// Create an info message.
-    pub fn info<S: Into<String>>(message: S) -> Self {
-        Self::new(Verbosity::Info, message)
-    }
-
-    /// Create a debug message.
-    pub fn debug<S: Into<String>>(message: S) -> Self {
-        Self::new(Verbosity::Debug, message)
-    }
-
-    /// Add position information.
-    pub fn with_position(mut self, line: usize, column: usize) -> Self {
-        self.position = Some((line, column));
-        self
-    }
 }
 
 /// The core monad trait for clmd operations.
@@ -317,7 +269,7 @@ impl ClmdMonad for ClmdIO {
         if let Some(ref sandbox) = self.sandbox {
             if !sandbox.are_writes_allowed() {
                 return Err(ClmdError::sandbox_error(
-                    "File writes are not allowed by sandbox policy"
+                    "File writes are not allowed by sandbox policy",
                 ));
             }
             if !sandbox.is_path_allowed(path, &self.resource_paths) {
@@ -347,7 +299,7 @@ impl ClmdMonad for ClmdIO {
         if let Some(ref sandbox) = self.sandbox {
             if !sandbox.are_writes_allowed() {
                 return Err(ClmdError::sandbox_error(
-                    "File writes are not allowed by sandbox policy"
+                    "File writes are not allowed by sandbox policy",
                 ));
             }
             if !sandbox.is_path_allowed(path, &self.resource_paths) {
@@ -407,20 +359,29 @@ impl ClmdMonad for ClmdIO {
     }
 
     fn report(&self, msg: LogMessage) {
-        if self.verbosity >= msg.level {
-            let prefix = match msg.level {
-                Verbosity::Error => "ERROR",
-                Verbosity::Warning => "WARNING",
-                Verbosity::Info => "INFO",
-                Verbosity::Debug => "DEBUG",
-                _ => "",
-            };
+        // Convert LogLevel to Verbosity for comparison
+        let msg_verbosity: Verbosity = match msg.level {
+            LogLevel::Debug => Verbosity::Debug,
+            LogLevel::Info => Verbosity::Info,
+            LogLevel::Warning => Verbosity::Warning,
+            LogLevel::Error => Verbosity::Error,
+            LogLevel::Silent => Verbosity::Silent,
+        };
 
-            if msg.level == Verbosity::Silent {
+        if self.verbosity >= msg_verbosity {
+            if msg.level == LogLevel::Silent {
                 return;
             }
 
-            if let Some((line, col)) = msg.position {
+            let prefix = match msg.level {
+                LogLevel::Error => "ERROR",
+                LogLevel::Warning => "WARNING",
+                LogLevel::Info => "INFO",
+                LogLevel::Debug => "DEBUG",
+                _ => "",
+            };
+
+            if let (Some(line), Some(col)) = (msg.line, msg.column) {
                 eprintln!("[{}] {} (at {}:{})", prefix, msg.message, line, col);
             } else {
                 eprintln!("[{}] {}", prefix, msg.message);
@@ -457,7 +418,8 @@ pub struct ClmdPure {
     files: std::collections::HashMap<PathBuf, String>,
     binary_files: std::collections::HashMap<PathBuf, Vec<u8>>,
     written_files: std::cell::RefCell<std::collections::HashMap<PathBuf, String>>,
-    written_binary_files: std::cell::RefCell<std::collections::HashMap<PathBuf, Vec<u8>>>,
+    written_binary_files:
+        std::cell::RefCell<std::collections::HashMap<PathBuf, Vec<u8>>>,
     resource_paths: Vec<PathBuf>,
     logs: std::cell::RefCell<Vec<LogMessage>>,
     timestamp: SystemTime,
@@ -472,7 +434,9 @@ impl Default for ClmdPure {
             files: std::collections::HashMap::new(),
             binary_files: std::collections::HashMap::new(),
             written_files: std::cell::RefCell::new(std::collections::HashMap::new()),
-            written_binary_files: std::cell::RefCell::new(std::collections::HashMap::new()),
+            written_binary_files: std::cell::RefCell::new(
+                std::collections::HashMap::new(),
+            ),
             resource_paths: vec![PathBuf::from(".")],
             logs: std::cell::RefCell::new(Vec::new()),
             timestamp: SystemTime::UNIX_EPOCH,
@@ -490,7 +454,9 @@ impl ClmdPure {
             files: std::collections::HashMap::new(),
             binary_files: std::collections::HashMap::new(),
             written_files: std::cell::RefCell::new(std::collections::HashMap::new()),
-            written_binary_files: std::cell::RefCell::new(std::collections::HashMap::new()),
+            written_binary_files: std::cell::RefCell::new(
+                std::collections::HashMap::new(),
+            ),
             resource_paths: vec![PathBuf::from(".")],
             logs: std::cell::RefCell::new(Vec::new()),
             timestamp: SystemTime::UNIX_EPOCH,
@@ -547,10 +513,17 @@ impl ClmdPure {
 
     /// Check if a message was logged.
     pub fn has_logged(&self, level: Verbosity, message: &str) -> bool {
+        let target_level: LogLevel = match level {
+            Verbosity::Debug => LogLevel::Debug,
+            Verbosity::Info => LogLevel::Info,
+            Verbosity::Warning => LogLevel::Warning,
+            Verbosity::Error => LogLevel::Error,
+            Verbosity::Silent => LogLevel::Silent,
+        };
         self.logs
             .borrow()
             .iter()
-            .any(|log| log.level == level && log.message.contains(message))
+            .any(|log| log.level == target_level && log.message.contains(message))
     }
 
     /// Get a written file's content.
@@ -622,17 +595,26 @@ impl ClmdMonad for ClmdPure {
         // Store the log message for later verification
         self.logs.borrow_mut().push(msg.clone());
 
+        // Convert LogLevel to Verbosity for comparison
+        let msg_verbosity: Verbosity = match msg.level {
+            LogLevel::Debug => Verbosity::Debug,
+            LogLevel::Info => Verbosity::Info,
+            LogLevel::Warning => Verbosity::Warning,
+            LogLevel::Error => Verbosity::Error,
+            LogLevel::Silent => Verbosity::Silent,
+        };
+
         // Also print if verbosity level allows
-        if self.verbosity >= msg.level {
+        if self.verbosity >= msg_verbosity {
             let prefix = match msg.level {
-                Verbosity::Error => "ERROR",
-                Verbosity::Warning => "WARNING",
-                Verbosity::Info => "INFO",
-                Verbosity::Debug => "DEBUG",
+                LogLevel::Error => "ERROR",
+                LogLevel::Warning => "WARNING",
+                LogLevel::Info => "INFO",
+                LogLevel::Debug => "DEBUG",
                 _ => "",
             };
 
-            if msg.level != Verbosity::Silent {
+            if msg.level != LogLevel::Silent {
                 println!("[PURE {}] {}", prefix, msg.message);
             }
         }
@@ -681,12 +663,14 @@ mod tests {
     #[test]
     fn test_log_message() {
         let msg = LogMessage::info("Test message");
-        assert_eq!(msg.level, Verbosity::Info);
+        assert_eq!(msg.level, LogLevel::Info);
         assert_eq!(msg.message, "Test message");
-        assert!(msg.position.is_none());
+        assert!(msg.line.is_none());
+        assert!(msg.column.is_none());
 
         let msg = LogMessage::error("Error").with_position(10, 5);
-        assert_eq!(msg.position, Some((10, 5)));
+        assert_eq!(msg.line, Some(10));
+        assert_eq!(msg.column, Some(5));
     }
 
     #[test]

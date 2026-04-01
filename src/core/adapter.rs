@@ -4,6 +4,10 @@
 //! Markdown rendering, such as syntax highlighting, code fence rendering,
 //! heading rendering, and URL rewriting.
 
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt::Write;
+
 /// Adapter trait for syntax highlighting.
 ///
 /// This trait allows customization of how code blocks are highlighted
@@ -22,7 +26,7 @@ pub trait SyntaxHighlighterAdapter {
     /// The result of the write operation
     fn write_highlighted(
         &self,
-        output: &mut dyn std::fmt::Write,
+        output: &mut dyn Write,
         lang: Option<&str>,
         code: &str,
     ) -> std::fmt::Result;
@@ -39,8 +43,8 @@ pub trait SyntaxHighlighterAdapter {
     /// The result of the write operation
     fn write_pre_tag<'s>(
         &self,
-        output: &mut dyn std::fmt::Write,
-        attributes: std::collections::HashMap<&str, std::borrow::Cow<'s, str>>,
+        output: &mut dyn Write,
+        attributes: HashMap<&str, Cow<'s, str>>,
     ) -> std::fmt::Result;
 
     /// Write the opening `<code>` tag.
@@ -55,8 +59,8 @@ pub trait SyntaxHighlighterAdapter {
     /// The result of the write operation
     fn write_code_tag<'s>(
         &self,
-        output: &mut dyn std::fmt::Write,
-        attributes: std::collections::HashMap<&str, std::borrow::Cow<'s, str>>,
+        output: &mut dyn Write,
+        attributes: HashMap<&str, Cow<'s, str>>,
     ) -> std::fmt::Result;
 }
 

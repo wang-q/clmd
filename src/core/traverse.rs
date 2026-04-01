@@ -21,10 +21,83 @@
 //! ```
 
 use crate::core::arena::{NodeArena, NodeId, INVALID_NODE_ID};
+use crate::core::error::ClmdError;
 use crate::core::nodes::NodeValue;
+use std::collections::HashSet;
 
 /// Maximum recursion depth for tree traversal to prevent stack overflow.
 const MAX_TRAVERSE_DEPTH: usize = 1000;
+
+/// Context for tree traversal with cycle detection and depth tracking.
+#[derive(Debug)]
+pub struct TraverseContext {
+    /// Set of currently visited node IDs (for cycle detection).
+    visited: HashSet<NodeId>,
+    /// Current traversal depth.
+    depth: usize,
+    /// Maximum allowed depth.
+    max_depth: usize,
+}
+
+impl TraverseContext {
+    /// Create a new traverse context with the specified maximum depth.
+    pub fn new(max_depth: usize) -> Self {
+        Self {
+            visited: HashSet::new(),
+            depth: 0,
+            max_depth,
+        }
+    }
+
+    /// Create a new traverse context with default maximum depth.
+    pub fn with_default_depth() -> Self {
+        Self::new(MAX_TRAVERSE_DEPTH)
+    }
+
+    /// Attempt to enter a node, checking for cycles and depth limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The node has already been visited (circular reference)
+    /// - The maximum depth has been exceeded
+    pub fn enter_node(&mut self, node_id: NodeId) -> Result<(), ClmdError> {
+        if self.visited.contains(&node_id) {
+            return Err(ClmdError::circular_reference(format!(
+                "Node {} has already been visited (circular reference detected)",
+                node_id
+            )));
+        }
+
+        self.depth += 1;
+        if self.depth > self.max_depth {
+            return Err(ClmdError::limit_exceeded(
+                crate::core::error::LimitKind::NestingDepth,
+                self.max_depth,
+                self.depth,
+            ));
+        }
+
+        self.visited.insert(node_id);
+        Ok(())
+    }
+
+    /// Exit a node, removing it from the visited set.
+    pub fn exit_node(&mut self, node_id: NodeId) {
+        self.visited.remove(&node_id);
+        self.depth -= 1;
+    }
+
+    /// Get the current traversal depth.
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
+    /// Check if the given node has been visited.
+    pub fn is_visited(&self, node_id: NodeId) -> bool {
+        self.visited.contains(&node_id)
+    }
+}
 
 /// Event types for tree traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,41 +168,51 @@ impl Traverse for NodeArena {
     where
         F: FnMut(&NodeValue),
     {
-        self.traverse_pre_order_recursive(root, 0, &mut f);
+        let mut visited = HashSet::new();
+        self.traverse_pre_order_recursive(root, 0, &mut visited, &mut f);
     }
 
     fn traverse_post_order<F>(&self, root: NodeId, mut f: F)
     where
         F: FnMut(&NodeValue),
     {
-        self.traverse_post_order_recursive(root, 0, &mut f);
+        let mut visited = HashSet::new();
+        self.traverse_post_order_recursive(root, 0, &mut visited, &mut f);
     }
 
     fn traverse_with_events<F>(&self, root: NodeId, mut f: F)
     where
         F: FnMut(&NodeValue, EventType),
     {
-        self.traverse_with_events_recursive(root, 0, &mut f);
+        let mut visited = HashSet::new();
+        self.traverse_with_events_recursive(root, 0, &mut visited, &mut f);
     }
 
     fn traverse_pre_order_mut<F>(&mut self, root: NodeId, mut f: F)
     where
         F: FnMut(&mut NodeValue),
     {
-        self.traverse_pre_order_mut_recursive(root, 0, &mut f);
+        let mut visited = HashSet::new();
+        self.traverse_pre_order_mut_recursive(root, 0, &mut visited, &mut f);
     }
 
     fn traverse_post_order_mut<F>(&mut self, root: NodeId, mut f: F)
     where
         F: FnMut(&mut NodeValue),
     {
-        self.traverse_post_order_mut_recursive(root, 0, &mut f);
+        let mut visited = HashSet::new();
+        self.traverse_post_order_mut_recursive(root, 0, &mut visited, &mut f);
     }
 }
 
 impl NodeArena {
-    fn traverse_pre_order_recursive<F>(&self, node_id: NodeId, depth: usize, f: &mut F)
-    where
+    fn traverse_pre_order_recursive<F>(
+        &self,
+        node_id: NodeId,
+        depth: usize,
+        visited: &mut HashSet<NodeId>,
+        f: &mut F,
+    ) where
         F: FnMut(&NodeValue),
     {
         if depth > MAX_TRAVERSE_DEPTH {
@@ -143,20 +226,36 @@ impl NodeArena {
             return;
         }
 
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            panic!(
+                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+                node_id
+            );
+        }
+
         if let Some(node) = self.try_get(node_id) {
+            visited.insert(node_id);
             f(&node.value);
 
             // Traverse children using the linked list structure
             let mut child_id = node.first_child;
             while let Some(child) = child_id {
-                self.traverse_pre_order_recursive(child, depth + 1, f);
+                self.traverse_pre_order_recursive(child, depth + 1, visited, f);
                 child_id = self.try_get(child).and_then(|n| n.next);
             }
+
+            visited.remove(&node_id);
         }
     }
 
-    fn traverse_post_order_recursive<F>(&self, node_id: NodeId, depth: usize, f: &mut F)
-    where
+    fn traverse_post_order_recursive<F>(
+        &self,
+        node_id: NodeId,
+        depth: usize,
+        visited: &mut HashSet<NodeId>,
+        f: &mut F,
+    ) where
         F: FnMut(&NodeValue),
     {
         if depth > MAX_TRAVERSE_DEPTH {
@@ -170,20 +269,36 @@ impl NodeArena {
             return;
         }
 
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            panic!(
+                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+                node_id
+            );
+        }
+
         if let Some(node) = self.try_get(node_id) {
+            visited.insert(node_id);
+
             // Traverse children using the linked list structure
             let mut child_id = node.first_child;
             while let Some(child) = child_id {
-                self.traverse_post_order_recursive(child, depth + 1, f);
+                self.traverse_post_order_recursive(child, depth + 1, visited, f);
                 child_id = self.try_get(child).and_then(|n| n.next);
             }
 
             f(&node.value);
+            visited.remove(&node_id);
         }
     }
 
-    fn traverse_with_events_recursive<F>(&self, node_id: NodeId, depth: usize, f: &mut F)
-    where
+    fn traverse_with_events_recursive<F>(
+        &self,
+        node_id: NodeId,
+        depth: usize,
+        visited: &mut HashSet<NodeId>,
+        f: &mut F,
+    ) where
         F: FnMut(&NodeValue, EventType),
     {
         if depth > MAX_TRAVERSE_DEPTH {
@@ -197,17 +312,27 @@ impl NodeArena {
             return;
         }
 
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            panic!(
+                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+                node_id
+            );
+        }
+
         if let Some(node) = self.try_get(node_id) {
+            visited.insert(node_id);
             f(&node.value, EventType::Enter);
 
             // Traverse children using the linked list structure
             let mut child_id = node.first_child;
             while let Some(child) = child_id {
-                self.traverse_with_events_recursive(child, depth + 1, f);
+                self.traverse_with_events_recursive(child, depth + 1, visited, f);
                 child_id = self.try_get(child).and_then(|n| n.next);
             }
 
             f(&node.value, EventType::Exit);
+            visited.remove(&node_id);
         }
     }
 
@@ -215,6 +340,7 @@ impl NodeArena {
         &mut self,
         node_id: NodeId,
         depth: usize,
+        visited: &mut HashSet<NodeId>,
         f: &mut F,
     ) where
         F: FnMut(&mut NodeValue),
@@ -228,6 +354,14 @@ impl NodeArena {
 
         if node_id == INVALID_NODE_ID {
             return;
+        }
+
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            panic!(
+                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+                node_id
+            );
         }
 
         // Collect child IDs first to avoid borrow issues
@@ -244,20 +378,23 @@ impl NodeArena {
         };
 
         // Apply function to current node
+        visited.insert(node_id);
         if let Some(node) = self.try_get_mut(node_id) {
             f(&mut node.value);
         }
 
         // Now recurse into children
         for child_id in child_ids {
-            self.traverse_pre_order_mut_recursive(child_id, depth + 1, f);
+            self.traverse_pre_order_mut_recursive(child_id, depth + 1, visited, f);
         }
+        visited.remove(&node_id);
     }
 
     fn traverse_post_order_mut_recursive<F>(
         &mut self,
         node_id: NodeId,
         depth: usize,
+        visited: &mut HashSet<NodeId>,
         f: &mut F,
     ) where
         F: FnMut(&mut NodeValue),
@@ -273,6 +410,14 @@ impl NodeArena {
             return;
         }
 
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            panic!(
+                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+                node_id
+            );
+        }
+
         // Collect child IDs first to avoid borrow issues
         let child_ids: Vec<NodeId> = if let Some(node) = self.try_get(node_id) {
             let mut ids = Vec::new();
@@ -286,15 +431,19 @@ impl NodeArena {
             return;
         };
 
+        visited.insert(node_id);
+
         // First recurse into children
         for child_id in child_ids {
-            self.traverse_post_order_mut_recursive(child_id, depth + 1, f);
+            self.traverse_post_order_mut_recursive(child_id, depth + 1, visited, f);
         }
 
         // Then apply function to current node
         if let Some(node) = self.try_get_mut(node_id) {
             f(&mut node.value);
         }
+
+        visited.remove(&node_id);
     }
 }
 
@@ -1143,6 +1292,32 @@ pub trait Queryable {
 
     /// Check if the document contains any inline elements
     fn has_inlines(&self, root: NodeId) -> bool;
+
+    // Unified naming aliases (preferred over the above methods)
+
+    /// Check if any node matches the predicate (unified naming)
+    fn query_any<F>(&self, root: NodeId, f: &mut F) -> bool
+    where
+        F: FnMut(NodeId, &NodeValue) -> bool,
+    {
+        self.any(root, f)
+    }
+
+    /// Check if all nodes match the predicate (unified naming)
+    fn query_all<F>(&self, root: NodeId, f: &mut F) -> bool
+    where
+        F: FnMut(NodeId, &NodeValue) -> bool,
+    {
+        self.all(root, f)
+    }
+
+    /// Count nodes matching the predicate (unified naming)
+    fn query_count<F>(&self, root: NodeId, f: &mut F) -> usize
+    where
+        F: FnMut(NodeId, &NodeValue) -> bool,
+    {
+        self.count(root, f)
+    }
 }
 
 impl Queryable for NodeArena {

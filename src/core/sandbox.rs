@@ -53,7 +53,7 @@ pub struct SandboxPolicy {
 impl Default for SandboxPolicy {
     fn default() -> Self {
         Self {
-            mode: SandboxMode::Disabled,
+            mode: SandboxMode::default(), // Use Relaxed as default
             allowed_paths: HashSet::new(),
             blocked_paths: HashSet::new(),
             allow_network: true,

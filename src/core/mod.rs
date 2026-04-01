@@ -13,6 +13,15 @@ pub mod traverse;
 // Error handling
 pub mod error;
 
+// Monad abstraction for IO operations
+pub mod monad;
+
+// Sandbox mode for security
+pub mod sandbox;
+
+// State management
+pub mod state;
+
 // Shared utilities
 pub mod shared;
 
@@ -34,5 +43,18 @@ pub use shared::stringify;
 pub use traverse::{
     AncestorIter, ArenaIteratorItem, ArenaNodeWalker, ArenaWalkerEvent, ChildIter,
     DescendantIter, EventIterator, IteratorEventType, NodeType, Query, Queryable,
-    SiblingIter, Traverse, TraverseEvent, TraverseExt, WalkDirection, Walkable,
+    SiblingIter, Traverse, TraverseContext, TraverseEvent, TraverseExt, WalkDirection,
+    Walkable,
 };
+
+// Re-export monad types
+pub use monad::{share_monad, ClmdIO, ClmdMonad, ClmdPure, SharedMonad, Verbosity};
+
+// Re-export sandbox types
+pub use sandbox::{SandboxMode, SandboxPolicy, SandboxedMonad};
+
+// Re-export state types
+pub use state::{CommonState, ExtensionData, TrackChanges, Translations};
+
+// LogMessage and LogLevel are re-exported from error module
+pub use crate::core::error::{LogLevel, LogMessage};

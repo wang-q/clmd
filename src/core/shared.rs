@@ -54,7 +54,15 @@ pub fn stringify(input: &str) -> String {
                 // Skip the URL part if present
                 if chars.peek() == Some(&'(') {
                     chars.next(); // consume '('
-                    while chars.next() != Some(')') {}
+                                  // Safely skip until we find ')' or reach the end
+                    while let Some(c) = chars.next() {
+                        if c == ')' {
+                            break;
+                        }
+                    }
+                    // If we didn't find the closing ')', the link syntax is incomplete
+                    // We don't need to do anything special here as we've already consumed '['
+                    // and the link text was already added to result
                 }
             }
             '*' | '_' => {

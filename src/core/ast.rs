@@ -166,11 +166,18 @@ impl Format {
 
 impl From<&str> for Format {
     fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "html" | "html4" | "html5" => Format::Html,
-            "latex" | "tex" => Format::Latex,
-            "markdown" | "md" => Format::Markdown,
-            _ => Format::Other(s.to_string()),
+        // Use eq_ignore_ascii_case to avoid allocation
+        if s.eq_ignore_ascii_case("html")
+            || s.eq_ignore_ascii_case("html4")
+            || s.eq_ignore_ascii_case("html5")
+        {
+            Format::Html
+        } else if s.eq_ignore_ascii_case("latex") || s.eq_ignore_ascii_case("tex") {
+            Format::Latex
+        } else if s.eq_ignore_ascii_case("markdown") || s.eq_ignore_ascii_case("md") {
+            Format::Markdown
+        } else {
+            Format::Other(s.to_string())
         }
     }
 }

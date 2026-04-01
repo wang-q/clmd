@@ -56,9 +56,12 @@ impl Position {
     }
 
     /// Create a position from a byte offset in the source.
+    ///
+    /// This method efficiently calculates line and column numbers by iterating
+    /// through the source string up to the given offset.
     pub fn from_offset(source: &str, offset: usize) -> Self {
         let mut line = 1;
-        let mut column = 1;
+        let mut last_newline = 0;
 
         for (i, c) in source.char_indices() {
             if i >= offset {
@@ -66,11 +69,16 @@ impl Position {
             }
             if c == '\n' {
                 line += 1;
-                column = 1;
-            } else {
-                column += 1;
+                last_newline = i + 1;
             }
         }
+
+        // Calculate column based on the position of the last newline
+        let column = if offset > last_newline {
+            offset - last_newline + 1
+        } else {
+            1
+        };
 
         Self {
             line,
@@ -587,6 +595,83 @@ impl fmt::Display for LimitKind {
 /// Result type for clmd operations.
 pub type ClmdResult<T> = Result<T, ClmdError>;
 
+/// Log level for messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum LogLevel {
+    /// Debug - detailed debug information.
+    Debug,
+    /// Info - normal informational output.
+    Info,
+    /// Warning - errors and warnings.
+    #[default]
+    Warning,
+    /// Error - only errors.
+    Error,
+    /// Silent - no output.
+    Silent,
+}
+
+/// A log message with metadata.
+#[derive(Debug, Clone)]
+pub struct LogMessage {
+    /// The severity level of this message.
+    pub level: LogLevel,
+    /// The message content.
+    pub message: String,
+    /// Source file (if applicable).
+    pub source: Option<String>,
+    /// Line number (if applicable).
+    pub line: Option<usize>,
+    /// Column number (if applicable).
+    pub column: Option<usize>,
+}
+
+impl LogMessage {
+    /// Create a new log message.
+    pub fn new<S: Into<String>>(level: LogLevel, message: S) -> Self {
+        Self {
+            level,
+            message: message.into(),
+            source: None,
+            line: None,
+            column: None,
+        }
+    }
+
+    /// Create an error message.
+    pub fn error<S: Into<String>>(message: S) -> Self {
+        Self::new(LogLevel::Error, message)
+    }
+
+    /// Create a warning message.
+    pub fn warning<S: Into<String>>(message: S) -> Self {
+        Self::new(LogLevel::Warning, message)
+    }
+
+    /// Create an info message.
+    pub fn info<S: Into<String>>(message: S) -> Self {
+        Self::new(LogLevel::Info, message)
+    }
+
+    /// Create a debug message.
+    pub fn debug<S: Into<String>>(message: S) -> Self {
+        Self::new(LogLevel::Debug, message)
+    }
+
+    /// Set the source file.
+    pub fn with_source(mut self, source: impl Into<String>) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+
+    /// Set the position.
+    pub fn with_position(mut self, line: usize, column: usize) -> Self {
+        self.line = Some(line);
+        self.column = Some(column);
+        self
+    }
+}
+
 /// Legacy error type for backward compatibility.
 #[derive(Error, Debug, Clone)]
 pub enum ParseError {
@@ -811,9 +896,11 @@ pub struct ErrorRenderer {
 
 impl ErrorRenderer {
     /// Create a new error renderer.
+    ///
+    /// Automatically detects color support based on the environment.
     pub fn new() -> Self {
         Self {
-            use_colors: true,
+            use_colors: Self::should_use_colors(),
             context_lines: 2,
         }
     }
@@ -823,6 +910,61 @@ impl ErrorRenderer {
         Self {
             use_colors: false,
             context_lines: 2,
+        }
+    }
+
+    /// Detect whether colors should be used based on the environment.
+    ///
+    /// This method checks for:
+    /// - NO_COLOR environment variable
+    /// - TERM environment variable (for *nix systems)
+    /// - WT_SESSION environment variable (for Windows Terminal)
+    /// - Windows console color support
+    fn should_use_colors() -> bool {
+        // Check NO_COLOR environment variable (https://no-color.org/)
+        if std::env::var("NO_COLOR").is_ok() {
+            return false;
+        }
+
+        // Check CLICOLOR_FORCE environment variable
+        if std::env::var("CLICOLOR_FORCE")
+            .map(|v| v == "1")
+            .unwrap_or(false)
+        {
+            return true;
+        }
+
+        // Check CLICOLOR environment variable
+        if std::env::var("CLICOLOR").map(|v| v == "0").unwrap_or(false) {
+            return false;
+        }
+
+        // On Windows, check for Windows Terminal or modern console
+        #[cfg(windows)]
+        {
+            use std::env;
+            // Windows Terminal sets WT_SESSION
+            if env::var("WT_SESSION").is_ok() {
+                return true;
+            }
+            // Check for modern Windows Terminal
+            if env::var("TERM_PROGRAM")
+                .map(|v| v == "vscode")
+                .unwrap_or(false)
+            {
+                return true;
+            }
+            // Otherwise, assume no color support on Windows
+            // (could be improved with Windows API calls)
+            false
+        }
+
+        // On non-Windows, check TERM environment variable
+        #[cfg(not(windows))]
+        {
+            std::env::var("TERM")
+                .map(|term| !term.is_empty() && term != "dumb")
+                .unwrap_or(false)
         }
     }
 

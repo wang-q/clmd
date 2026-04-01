@@ -23,6 +23,7 @@
 //! TreeOps::append_child(&mut arena, root, paragraph);
 //! ```
 
+use crate::core::error::{ClmdError, LimitKind};
 use crate::core::nodes::{NodeValue, SourcePos};
 
 /// Node ID type - index into the arena
@@ -128,29 +129,43 @@ impl NodeArena {
     ///
     /// # Panics
     ///
-    /// Panics if the maximum node limit is reached (when configured).
+    /// Panics if the maximum node limit is reached (when configured)
+    /// or if the node ID would overflow.
     pub fn alloc(&mut self, node: Node) -> NodeId {
+        self.try_alloc(node).unwrap_or_else(|e| {
+            panic!("Arena allocation failed: {}", e);
+        })
+    }
+
+    /// Try to allocate a new node and return its ID
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the maximum node limit is reached (when configured)
+    /// or if the node ID would overflow.
+    pub fn try_alloc(&mut self, node: Node) -> Result<NodeId, ClmdError> {
         // Check for integer overflow (NodeId is u32)
         if self.nodes.len() >= u32::MAX as usize {
-            panic!(
-                "Arena node limit exceeded: cannot allocate more than {} nodes",
-                u32::MAX
-            );
+            return Err(ClmdError::limit_exceeded(
+                LimitKind::NestingDepth,
+                u32::MAX as usize,
+                self.nodes.len(),
+            ));
         }
 
         // Check memory limit
         if self.max_nodes > 0 && self.nodes.len() >= self.max_nodes {
-            panic!(
-                "Arena node limit exceeded: {} nodes (max: {})",
+            return Err(ClmdError::limit_exceeded(
+                LimitKind::NestingDepth,
+                self.max_nodes,
                 self.nodes.len(),
-                self.max_nodes
-            );
+            ));
         }
 
         let id = self.nodes.len() as NodeId;
         self.nodes.push(node);
         self.total_allocations += 1;
-        id
+        Ok(id)
     }
 
     /// Get memory usage statistics

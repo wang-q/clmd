@@ -90,33 +90,8 @@ pub struct CommonState {
     pub extensions_data: HashMap<String, ExtensionData>,
 }
 
-/// A log message with metadata.
-#[derive(Debug, Clone)]
-pub struct LogMessage {
-    /// The severity level.
-    pub level: LogLevel,
-    /// The message content.
-    pub message: String,
-    /// Source file (if applicable).
-    pub source: Option<String>,
-    /// Line number (if applicable).
-    pub line: Option<usize>,
-    /// Column number (if applicable).
-    pub column: Option<usize>,
-}
-
-/// Log severity levels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LogLevel {
-    /// Debug information.
-    Debug,
-    /// Informational message.
-    Info,
-    /// Warning.
-    Warning,
-    /// Error.
-    Error,
-}
+// Re-export LogMessage and LogLevel from error module for backward compatibility
+pub use crate::core::error::{LogLevel, LogMessage};
 
 /// Track changes mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -221,13 +196,7 @@ impl CommonState {
 
     /// Log a message.
     pub fn log(&mut self, level: LogLevel, message: impl Into<String>) {
-        let msg = LogMessage {
-            level,
-            message: message.into(),
-            source: None,
-            line: None,
-            column: None,
-        };
+        let msg = LogMessage::new(level, message);
         self.log_messages.push(msg);
     }
 
@@ -336,32 +305,6 @@ impl CommonState {
 impl Default for CommonState {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl LogMessage {
-    /// Create a new log message.
-    pub fn new(level: LogLevel, message: impl Into<String>) -> Self {
-        Self {
-            level,
-            message: message.into(),
-            source: None,
-            line: None,
-            column: None,
-        }
-    }
-
-    /// Set the source file.
-    pub fn with_source(mut self, source: impl Into<String>) -> Self {
-        self.source = Some(source.into());
-        self
-    }
-
-    /// Set the position.
-    pub fn with_position(mut self, line: usize, column: usize) -> Self {
-        self.line = Some(line);
-        self.column = Some(column);
-        self
     }
 }
 
