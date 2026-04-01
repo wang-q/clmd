@@ -879,7 +879,10 @@ mod tests {
         let filter = Filter::json("/path/to/filter.py");
         match filter {
             Filter::JSON(json_filter) => {
-                assert_eq!(json_filter.path, std::path::PathBuf::from("/path/to/filter.py"));
+                assert_eq!(
+                    json_filter.path,
+                    std::path::PathBuf::from("/path/to/filter.py")
+                );
                 assert!(json_filter.args.is_empty());
             }
             _ => panic!("Expected JSON filter"),
@@ -891,7 +894,10 @@ mod tests {
         let filter = Filter::lua("/path/to/filter.lua");
         match filter {
             Filter::Lua(lua_filter) => {
-                assert_eq!(lua_filter.path, std::path::PathBuf::from("/path/to/filter.lua"));
+                assert_eq!(
+                    lua_filter.path,
+                    std::path::PathBuf::from("/path/to/filter.lua")
+                );
                 assert!(lua_filter.args.is_empty());
             }
             _ => panic!("Expected Lua filter"),
@@ -900,7 +906,10 @@ mod tests {
 
     #[test]
     fn test_native_filter() {
-        fn dummy_filter(_arena: &mut NodeArena, _root: NodeId) -> Result<(), FilterError> {
+        fn dummy_filter(
+            _arena: &mut NodeArena,
+            _root: NodeId,
+        ) -> Result<(), FilterError> {
             Ok(())
         }
 
@@ -1000,7 +1009,10 @@ mod tests {
 
     #[test]
     fn test_native_filter_debug() {
-        fn dummy_filter(_arena: &mut NodeArena, _root: NodeId) -> Result<(), FilterError> {
+        fn dummy_filter(
+            _arena: &mut NodeArena,
+            _root: NodeId,
+        ) -> Result<(), FilterError> {
             Ok(())
         }
 

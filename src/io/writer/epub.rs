@@ -508,7 +508,9 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeHeading, NodeValue};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
+    };
     use crate::options::WriterOptions;
 
     fn create_test_document() -> (NodeArena, NodeId) {
@@ -521,17 +523,13 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            "Hello".to_string().into_boxed_str(),
-        )));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".into())));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, root, heading);
 
         // Add a paragraph
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
-            "World".to_string().into_boxed_str(),
-        )));
+        let para_text = arena.alloc(Node::with_value(NodeValue::Text("World".into())));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, root, para);
 
@@ -556,6 +554,7 @@ mod tests {
         let writer = EpubWriter;
         assert_eq!(writer.format(), OutputFormat::Epub);
         assert!(writer.extensions().contains(&"epub"));
+        assert_eq!(writer.mime_type(), "application/epub+zip");
     }
 
     #[test]
@@ -570,5 +569,329 @@ mod tests {
         // Should contain mimetype file
         let content = String::from_utf8_lossy(&bytes);
         assert!(content.contains("mimetype"));
+        assert!(content.contains("META-INF/container.xml"));
+        assert!(content.contains("OEBPS/content.opf"));
+        assert!(content.contains("OEBPS/toc.ncx"));
+        assert!(content.contains("OEBPS/chapter1.xhtml"));
+        assert!(content.contains("OEBPS/stylesheet.css"));
+    }
+
+    #[test]
+    fn test_epub_empty_document() {
+        let writer = EpubWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+
+        // Verify it's valid base64
+        let decoded = BASE64.decode(&output).unwrap();
+        assert_eq!(&decoded[0..2], b"PK");
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_heading() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Section".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<h2>Section</h2>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_emphasis() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("italic".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<em>italic</em>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_strong() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold".into())));
+        TreeOps::append_child(&mut arena, strong, text);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<strong>bold</strong>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_strikethrough() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strike = arena.alloc(Node::with_value(NodeValue::Strikethrough));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("deleted".into())));
+        TreeOps::append_child(&mut arena, strike, text);
+        TreeOps::append_child(&mut arena, para, strike);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<del>deleted</del>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_underline() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let underline = arena.alloc(Node::with_value(NodeValue::Underline));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("underlined".into())));
+        TreeOps::append_child(&mut arena, underline, text);
+        TreeOps::append_child(&mut arena, para, underline);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<u>underlined</u>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_code() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let code = NodeValue::Code(Box::new(NodeCode {
+            literal: "code".into(),
+            num_backticks: 1,
+        }));
+        let code_node = arena.alloc(Node::with_value(code));
+        TreeOps::append_child(&mut arena, para, code_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<code>code</code>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_code_block() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let code_block = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "fn main() {}".into(),
+            info: "rust".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code_block));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<pre><code>"));
+        assert!(xhtml.contains("fn main() {}"));
+        assert!(xhtml.contains("</code></pre>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_code_block_escape() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let code_block = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "<div> & \"test\"".into(),
+            info: "".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code_block));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("&lt;div&gt;"));
+        assert!(xhtml.contains("&amp;"));
+        assert!(xhtml.contains("&quot;test&quot;"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_link() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".into(),
+            title: "Example".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("click".into())));
+        TreeOps::append_child(&mut arena, link_node, text);
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains(r#"<a href="https://example.com">click</a>"#));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_blockquote() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let quote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quoted".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, quote, para);
+        TreeOps::append_child(&mut arena, root, quote);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<blockquote>"));
+        assert!(xhtml.contains("<p>Quoted</p>"));
+        assert!(xhtml.contains("</blockquote>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_thematic_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        TreeOps::append_child(&mut arena, root, hr);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<hr/>"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_soft_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line1".into())));
+        let soft_break = arena.alloc(Node::with_value(NodeValue::SoftBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, soft_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("Line1 Line2")); // Soft break becomes space
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_hard_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line1".into())));
+        let hard_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, hard_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("Line1<br/>Line2"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_text_escape() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("<>&\"".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("&lt;"));
+        assert!(xhtml.contains("&gt;"));
+        assert!(xhtml.contains("&amp;"));
+        assert!(xhtml.contains("&quot;"));
+    }
+
+    #[test]
+    fn test_epub_generate_chapter_xhtml_nested_inline() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold italic".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, strong, emph);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<strong><em>bold italic</em></strong>"));
+    }
+
+    #[test]
+    fn test_epub_all_heading_levels() {
+        for level in 1..=6 {
+            let mut arena = NodeArena::new();
+            let root = arena.alloc(Node::with_value(NodeValue::Document));
+            let heading =
+                arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+                    level,
+                    setext: false,
+                    closed: false,
+                })));
+            let text = arena.alloc(Node::with_value(NodeValue::Text(
+                format!("Heading {}", level).into(),
+            )));
+            TreeOps::append_child(&mut arena, heading, text);
+            TreeOps::append_child(&mut arena, root, heading);
+
+            let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+            assert!(xhtml.contains(&format!("<h{}>Heading {}", level, level)));
+            assert!(xhtml.contains(&format!("</h{}>", level)));
+        }
+    }
+
+    #[test]
+    fn test_escape_html() {
+        let mut output = String::new();
+        escape_html("<>&\"'", &mut output);
+        assert_eq!(output, "&lt;&gt;&amp;&quot;'");
+    }
+
+    #[test]
+    fn test_generate_chapter_xhtml() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Test".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xhtml = generate_chapter_xhtml(&arena, root).unwrap();
+        assert!(xhtml.contains("<?xml version="));
+        assert!(xhtml.contains("<!DOCTYPE html"));
+        assert!(xhtml.contains("<html"));
+        assert!(xhtml.contains("<head>"));
+        assert!(xhtml.contains("<title>Document</title>"));
+        assert!(xhtml.contains("<body>"));
+        assert!(xhtml.contains("<p>Test</p>"));
+        assert!(xhtml.contains("</body>"));
+        assert!(xhtml.contains("</html>"));
     }
 }

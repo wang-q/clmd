@@ -906,32 +906,65 @@ mod tests {
     fn test_output_format_from_str() {
         use std::str::FromStr;
 
-        assert_eq!(OutputFormat::from_str("markdown").unwrap(), OutputFormat::Markdown);
-        assert_eq!(OutputFormat::from_str("md").unwrap(), OutputFormat::Markdown);
-        assert_eq!(OutputFormat::from_str("commonmark").unwrap(), OutputFormat::Markdown);
+        assert_eq!(
+            OutputFormat::from_str("markdown").unwrap(),
+            OutputFormat::Markdown
+        );
+        assert_eq!(
+            OutputFormat::from_str("md").unwrap(),
+            OutputFormat::Markdown
+        );
+        assert_eq!(
+            OutputFormat::from_str("commonmark").unwrap(),
+            OutputFormat::Markdown
+        );
         assert_eq!(OutputFormat::from_str("gfm").unwrap(), OutputFormat::Gfm);
         assert_eq!(OutputFormat::from_str("html").unwrap(), OutputFormat::Html);
-        assert_eq!(OutputFormat::from_str("xhtml").unwrap(), OutputFormat::Xhtml);
+        assert_eq!(
+            OutputFormat::from_str("xhtml").unwrap(),
+            OutputFormat::Xhtml
+        );
         assert_eq!(OutputFormat::from_str("xml").unwrap(), OutputFormat::Xml);
-        assert_eq!(OutputFormat::from_str("latex").unwrap(), OutputFormat::Latex);
+        assert_eq!(
+            OutputFormat::from_str("latex").unwrap(),
+            OutputFormat::Latex
+        );
         assert_eq!(OutputFormat::from_str("tex").unwrap(), OutputFormat::Latex);
         assert_eq!(OutputFormat::from_str("man").unwrap(), OutputFormat::Man);
-        assert_eq!(OutputFormat::from_str("plain").unwrap(), OutputFormat::Plain);
+        assert_eq!(
+            OutputFormat::from_str("plain").unwrap(),
+            OutputFormat::Plain
+        );
         assert_eq!(OutputFormat::from_str("text").unwrap(), OutputFormat::Plain);
         assert_eq!(OutputFormat::from_str("pdf").unwrap(), OutputFormat::Pdf);
         assert_eq!(OutputFormat::from_str("docx").unwrap(), OutputFormat::Docx);
         assert_eq!(OutputFormat::from_str("odt").unwrap(), OutputFormat::Odt);
         assert_eq!(OutputFormat::from_str("rtf").unwrap(), OutputFormat::Rtf);
         assert_eq!(OutputFormat::from_str("epub").unwrap(), OutputFormat::Epub);
-        assert_eq!(OutputFormat::from_str("typst").unwrap(), OutputFormat::Typst);
-        assert_eq!(OutputFormat::from_str("beamer").unwrap(), OutputFormat::Beamer);
-        assert_eq!(OutputFormat::from_str("revealjs").unwrap(), OutputFormat::RevealJs);
-        assert_eq!(OutputFormat::from_str("bibtex").unwrap(), OutputFormat::Bibtex);
+        assert_eq!(
+            OutputFormat::from_str("typst").unwrap(),
+            OutputFormat::Typst
+        );
+        assert_eq!(
+            OutputFormat::from_str("beamer").unwrap(),
+            OutputFormat::Beamer
+        );
+        assert_eq!(
+            OutputFormat::from_str("revealjs").unwrap(),
+            OutputFormat::RevealJs
+        );
+        assert_eq!(
+            OutputFormat::from_str("bibtex").unwrap(),
+            OutputFormat::Bibtex
+        );
         assert_eq!(OutputFormat::from_str("bib").unwrap(), OutputFormat::Bibtex);
 
         // Test case insensitivity
         assert_eq!(OutputFormat::from_str("HTML").unwrap(), OutputFormat::Html);
-        assert_eq!(OutputFormat::from_str("Latex").unwrap(), OutputFormat::Latex);
+        assert_eq!(
+            OutputFormat::from_str("Latex").unwrap(),
+            OutputFormat::Latex
+        );
 
         // Test unknown format
         assert!(OutputFormat::from_str("unknown").is_err());
@@ -1068,19 +1101,21 @@ mod tests {
     // URLRewriter tests
     #[test]
     fn test_url_rewriter_function() {
-        let rewriter: Box<dyn URLRewriter> = Box::new(|url: &str| format!("prefix:{}", url));
+        let rewriter: Box<dyn URLRewriter> =
+            Box::new(|url: &str| format!("prefix:{}", url));
         assert_eq!(rewriter.rewrite("test"), "prefix:test");
     }
 
     // BrokenLinkCallback tests
     #[test]
     fn test_broken_link_callback_function() {
-        let callback: Box<dyn BrokenLinkCallback> = Box::new(|_ref: BrokenLinkReference| {
-            Some(ResolvedReference {
-                url: "https://example.com".to_string(),
-                title: "Example".to_string(),
-            })
-        });
+        let callback: Box<dyn BrokenLinkCallback> =
+            Box::new(|_ref: BrokenLinkReference| {
+                Some(ResolvedReference {
+                    url: "https://example.com".to_string(),
+                    title: "Example".to_string(),
+                })
+            });
 
         let broken_ref = BrokenLinkReference {
             normalized: "test",

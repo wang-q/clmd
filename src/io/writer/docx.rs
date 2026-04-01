@@ -539,7 +539,9 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
+    };
     use crate::options::WriterOptions;
 
     fn create_test_document() -> (NodeArena, NodeId) {
@@ -583,7 +585,10 @@ mod tests {
         let writer = DocxWriter;
         assert_eq!(writer.format(), OutputFormat::Docx);
         assert!(writer.extensions().contains(&"docx"));
-        assert_eq!(writer.mime_type(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        assert_eq!(
+            writer.mime_type(),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
     }
 
     #[test]
@@ -617,12 +622,15 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
         for level in 1..=6 {
-            let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-                level,
-                setext: false,
-                closed: false,
-            })));
-            let text = arena.alloc(Node::with_value(NodeValue::Text(format!("Heading {}", level).into())));
+            let heading =
+                arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+                    level,
+                    setext: false,
+                    closed: false,
+                })));
+            let text = arena.alloc(Node::with_value(NodeValue::Text(
+                format!("Heading {}", level).into(),
+            )));
             TreeOps::append_child(&mut arena, heading, text);
             TreeOps::append_child(&mut arena, root, heading);
         }

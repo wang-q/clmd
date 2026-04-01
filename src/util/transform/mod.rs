@@ -1144,7 +1144,9 @@ mod tests {
     fn test_normalize_transform() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let text_node = arena.alloc(Node::with_value(NodeValue::Text("  multiple   spaces  ".into())));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text(
+            "  multiple   spaces  ".into(),
+        )));
         TreeOps::append_child(&mut arena, root, text_node);
 
         let transform = Transform::normalize();
@@ -1212,18 +1214,20 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
-        let footnote_def = NodeValue::FootnoteDefinition(Box::new(NodeFootnoteDefinition {
-            name: "note1".into(),
-            total_references: 1,
-        }));
+        let footnote_def =
+            NodeValue::FootnoteDefinition(Box::new(NodeFootnoteDefinition {
+                name: "note1".into(),
+                total_references: 1,
+            }));
         let def_node = arena.alloc(Node::with_value(footnote_def));
         TreeOps::append_child(&mut arena, root, def_node);
 
-        let footnote_ref = NodeValue::FootnoteReference(Box::new(NodeFootnoteReference {
-            name: "note1".into(),
-            ref_num: 1,
-            ix: 0,
-        }));
+        let footnote_ref =
+            NodeValue::FootnoteReference(Box::new(NodeFootnoteReference {
+                name: "note1".into(),
+                ref_num: 1,
+                ix: 0,
+            }));
         let ref_node = arena.alloc(Node::with_value(footnote_ref));
         TreeOps::append_child(&mut arena, root, ref_node);
 
@@ -1375,7 +1379,8 @@ mod tests {
 
         // Document with no headings
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("No headings here".into())));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("No headings here".into())));
         TreeOps::append_child(&mut arena, para, text);
         TreeOps::append_child(&mut arena, root, para);
 
@@ -1407,5 +1412,4 @@ mod tests {
         let root_node = arena.get(root);
         assert!(root_node.first_child.is_some());
     }
-
 }

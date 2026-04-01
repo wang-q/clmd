@@ -303,11 +303,535 @@ fn escape_xml(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
+        NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeShortCode, NodeTable,
+        NodeValue,
+    };
+    use crate::parse::options::Options;
 
     #[test]
     fn test_escape_xml() {
         assert_eq!(escape_xml("<div>"), "&lt;div&gt;");
         assert_eq!(escape_xml("&"), "&amp;");
         assert_eq!(escape_xml("'test'"), "&apos;test&apos;");
+        assert_eq!(escape_xml("\"quoted\""), "&quot;quoted&quot;");
+        assert_eq!(escape_xml("normal text"), "normal text");
+        assert_eq!(escape_xml(""), "");
+    }
+
+    #[test]
+    fn test_render_empty_document() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<?xml version="));
+        assert!(output.contains("<!DOCTYPE document"));
+        assert!(output.contains("<document>"));
+        assert!(output.contains("</document>"));
+    }
+
+    #[test]
+    fn test_render_paragraph() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello world".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<paragraph>"));
+        assert!(output.contains("<text>Hello world</text>"));
+        assert!(output.contains("</paragraph>"));
+    }
+
+    #[test]
+    fn test_render_heading() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("Section Title".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<heading level=\"2\">"));
+        assert!(output.contains("<text>Section Title</text>"));
+        assert!(output.contains("</heading>"));
+    }
+
+    #[test]
+    fn test_render_all_heading_levels() {
+        for level in 1..=6 {
+            let mut arena = NodeArena::new();
+            let root = arena.alloc(Node::with_value(NodeValue::Document));
+            let heading =
+                arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+                    level,
+                    setext: false,
+                    closed: false,
+                })));
+            let text = arena.alloc(Node::with_value(NodeValue::Text(
+                format!("H{}", level).into(),
+            )));
+            TreeOps::append_child(&mut arena, heading, text);
+            TreeOps::append_child(&mut arena, root, heading);
+
+            let output = render(&arena, root, 0);
+            assert!(output.contains(&format!("level=\"{}\"", level)));
+        }
+    }
+
+    #[test]
+    fn test_render_emphasis() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("emphasized".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<emph>"));
+        assert!(output.contains("<text>emphasized</text>"));
+        assert!(output.contains("</emph>"));
+    }
+
+    #[test]
+    fn test_render_strong() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold".into())));
+        TreeOps::append_child(&mut arena, strong, text);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<strong>"));
+        assert!(output.contains("<text>bold</text>"));
+        assert!(output.contains("</strong>"));
+    }
+
+    #[test]
+    fn test_render_code() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let code = NodeValue::Code(Box::new(NodeCode {
+            literal: "code snippet".into(),
+            num_backticks: 1,
+        }));
+        let code_node = arena.alloc(Node::with_value(code));
+        TreeOps::append_child(&mut arena, para, code_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        // Use format_document for full attribute support
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<code>"));
+        assert!(output.contains("code snippet"));
+        assert!(output.contains("</code>"));
+    }
+
+    #[test]
+    fn test_render_code_block() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let code_block = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "fn main() {}".into(),
+            info: "rust".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code_block));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<code_block"));
+        assert!(output.contains("info=\"rust\""));
+        assert!(output.contains("fn main() {}"));
+        assert!(output.contains("</code_block>"));
+    }
+
+    #[test]
+    fn test_render_code_block_empty() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let code_block = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "".into(),
+            info: "".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code_block));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<code_block"));
+        assert!(output.contains(" />"));
+    }
+
+    #[test]
+    fn test_render_link() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".into(),
+            title: "Example".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("click here".into())));
+        TreeOps::append_child(&mut arena, link_node, text);
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<link"));
+        assert!(output.contains("destination=\"https://example.com\""));
+        assert!(output.contains("title=\"Example\""));
+        assert!(output.contains("<text>click here</text>"));
+        assert!(output.contains("</link>"));
+    }
+
+    #[test]
+    fn test_render_image() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let image = NodeValue::Image(Box::new(NodeLink {
+            url: "image.png".into(),
+            title: "Alt text".into(),
+        }));
+        let image_node = arena.alloc(Node::with_value(image));
+        TreeOps::append_child(&mut arena, para, image_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<image"));
+        assert!(output.contains("destination=\"image.png\""));
+        assert!(output.contains("title=\"Alt text\""));
+    }
+
+    #[test]
+    fn test_render_bullet_list() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let list = NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let list_node = arena.alloc(Node::with_value(list));
+
+        let item = NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let item_node = arena.alloc(Node::with_value(item));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Item 1".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, item_node, para);
+        TreeOps::append_child(&mut arena, list_node, item_node);
+        TreeOps::append_child(&mut arena, root, list_node);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<list type=\"bullet\""));
+        assert!(output.contains("tight=\"true\""));
+        assert!(output.contains("<item>"));
+        assert!(output.contains("<text>Item 1</text>"));
+    }
+
+    #[test]
+    fn test_render_ordered_list() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let list = NodeValue::List(NodeList {
+            list_type: ListType::Ordered,
+            marker_offset: 0,
+            padding: 2,
+            start: 5,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'.',
+            tight: false,
+            is_task_list: false,
+        });
+        let list_node = arena.alloc(Node::with_value(list));
+        TreeOps::append_child(&mut arena, root, list_node);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<list type=\"ordered\""));
+        assert!(output.contains("start=\"5\""));
+        assert!(output.contains("delim=\"period\""));
+    }
+
+    #[test]
+    fn test_render_blockquote() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let quote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quoted text".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, quote, para);
+        TreeOps::append_child(&mut arena, root, quote);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<block_quote>"));
+        assert!(output.contains("<text>Quoted text</text>"));
+        assert!(output.contains("</block_quote>"));
+    }
+
+    #[test]
+    fn test_render_thematic_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        TreeOps::append_child(&mut arena, root, hr);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<thematic_break />"));
+    }
+
+    #[test]
+    fn test_render_soft_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line 1".into())));
+        let soft_break = arena.alloc(Node::with_value(NodeValue::SoftBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line 2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, soft_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<softbreak />"));
+    }
+
+    #[test]
+    fn test_render_hard_break() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line 1".into())));
+        let hard_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line 2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, hard_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<linebreak />"));
+    }
+
+    #[test]
+    fn test_render_strikethrough() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strike = arena.alloc(Node::with_value(NodeValue::Strikethrough));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("deleted".into())));
+        TreeOps::append_child(&mut arena, strike, text);
+        TreeOps::append_child(&mut arena, para, strike);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<strikethrough>"));
+        assert!(output.contains("<text>deleted</text>"));
+        assert!(output.contains("</strikethrough>"));
+    }
+
+    #[test]
+    fn test_render_footnote() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let footnote_def =
+            NodeValue::FootnoteDefinition(Box::new(NodeFootnoteDefinition {
+                name: "note1".into(),
+                total_references: 1,
+            }));
+        let def_node = arena.alloc(Node::with_value(footnote_def));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("Footnote content".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, def_node, para);
+        TreeOps::append_child(&mut arena, root, def_node);
+
+        let footnote_ref =
+            NodeValue::FootnoteReference(Box::new(NodeFootnoteReference {
+                name: "note1".into(),
+                ref_num: 1,
+                ix: 0,
+            }));
+        let ref_node = arena.alloc(Node::with_value(footnote_ref));
+        TreeOps::append_child(&mut arena, root, ref_node);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<footnote_definition"));
+        assert!(output.contains("<footnote_reference"));
+    }
+
+    #[test]
+    fn test_render_empty_text() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<text />"));
+    }
+
+    #[test]
+    fn test_format_document_with_options() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Test".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+
+        assert!(output.contains("<?xml version="));
+        assert!(output.contains("<document>"));
+        assert!(output.contains("<text>Test</text>"));
+    }
+
+    #[test]
+    fn test_render_nested_structure() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create nested structure: Document > List > Item > Para > Emph > Text
+        let list = NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let list_node = arena.alloc(Node::with_value(list));
+
+        let item = NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let item_node = arena.alloc(Node::with_value(item));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("nested".into())));
+
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, item_node, para);
+        TreeOps::append_child(&mut arena, list_node, item_node);
+        TreeOps::append_child(&mut arena, root, list_node);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<list"));
+        assert!(output.contains("<item>"));
+        assert!(output.contains("<emph>"));
+        assert!(output.contains("<text>nested</text>"));
+    }
+
+    #[test]
+    fn test_render_html_block() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let html_block = NodeValue::HtmlBlock(Box::new(NodeHtmlBlock {
+            literal: "<div>content</div>".into(),
+            block_type: 6,
+        }));
+        let html_node = arena.alloc(Node::with_value(html_block));
+        TreeOps::append_child(&mut arena, root, html_node);
+
+        let options = Options::default();
+        let mut output = String::new();
+        format_document(&arena, root, &options, &mut output).unwrap();
+        assert!(output.contains("<html_block>"));
+        assert!(output.contains("&lt;div&gt;content&lt;/div&gt;"));
+        assert!(output.contains("</html_block>"));
+    }
+
+    #[test]
+    fn test_render_table() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let table = NodeValue::Table(Box::new(NodeTable {
+            alignments: vec![],
+            num_columns: 2,
+            num_rows: 1,
+            num_nonempty_cells: 2,
+        }));
+        let table_node = arena.alloc(Node::with_value(table));
+        TreeOps::append_child(&mut arena, root, table_node);
+
+        let output = render(&arena, root, 0);
+        assert!(output.contains("<table>"));
+        assert!(output.contains("</table>"));
     }
 }
