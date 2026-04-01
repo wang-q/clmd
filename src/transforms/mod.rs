@@ -31,6 +31,9 @@ use crate::nodes::{
 use std::collections::HashMap;
 use std::fmt;
 
+// Re-export filter types for unified API
+pub use crate::filter::{Filter, FilterChain, FilterError, FilterResult};
+
 /// A document transformation.
 #[derive(Debug, Clone)]
 pub enum Transform {

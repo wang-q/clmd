@@ -8,15 +8,15 @@
 //! - MediaBag for resource management
 
 use clmd::arena::{Node, NodeArena, TreeOps};
-use clmd::context::{ClmdContext, PureContext};
+use clmd::context::PureContext;
 use clmd::error::ClmdResult;
-use clmd::filter::{Filter, FilterChain};
 use clmd::formats::mime::get_mime_type;
 use clmd::mediabag::MediaBag;
-use clmd::options::{Options, ReaderOptions, WriterOptions};
+use clmd::options::Options;
 use clmd::pipeline::PipelineBuilder;
 use clmd::readers::ReaderRegistry;
 use clmd::template::{TemplateContext, TemplateEngine};
+use clmd::transforms::{Filter, FilterChain};
 use clmd::uri::is_uri;
 use clmd::writers::WriterRegistry;
 

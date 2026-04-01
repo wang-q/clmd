@@ -375,7 +375,12 @@ pub mod writers;
 ///
 /// This module provides a unified way to manage Markdown extensions,
 /// inspired by Pandoc's extension system.
-pub mod extensions;
+///
+/// This is a re-export of [`ext`](crate::ext) for backward compatibility.
+/// New code should use `ext` directly.
+pub mod extensions {
+    pub use crate::ext::flags::*;
+}
 
 /// Re-export extension types for convenience.
 pub use crate::ext::flags::{ExtensionFlags, ExtensionKind};
@@ -418,13 +423,17 @@ pub mod uri {
 /// This module provides a flexible filter system for transforming documents,
 /// inspired by Pandoc's filter architecture. Filters can be used to modify
 /// the AST between parsing and rendering.
-pub mod filter;
+///
+/// This is now a private module. Use [`transforms`](crate::transforms) instead.
+pub(crate) mod filter;
 
 /// Document transformation system.
 ///
 /// This module provides a set of document transformations inspired by
 /// Pandoc's transform system. Transforms can modify the AST between
 /// parsing and rendering.
+///
+/// This module also re-exports types from the filter system for a unified API.
 pub mod transforms;
 
 /// Slide show processing utilities.

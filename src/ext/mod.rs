@@ -9,6 +9,9 @@
 /// for managing Markdown extensions.
 pub mod flags;
 
+// Re-export commonly used extension types for convenience
+pub use flags::{ExtensionFlags, ExtensionKind};
+
 /// Abbreviation extension
 ///
 /// Allows defining abbreviations that will be wrapped in HTML `abbr` tags.

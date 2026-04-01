@@ -31,4 +31,4 @@ pub use crate::parser::options::{
 };
 
 // Re-export extension types
-pub use crate::extensions::{ExtensionFlags, ExtensionKind};
+pub use crate::ext::{ExtensionFlags, ExtensionKind};
