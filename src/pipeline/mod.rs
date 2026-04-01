@@ -117,7 +117,7 @@ impl Pipeline {
         &self,
         input: &str,
         ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
-        options: &Options,
+        _options: &Options,
     ) -> ClmdResult<String> {
         // Step 1: Read the input
         let reader_options = crate::parser::options::ReaderOptions::default();

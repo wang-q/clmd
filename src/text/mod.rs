@@ -21,4 +21,4 @@ pub mod uri;
 pub use html_utils::{escape_html, HtmlBuilder};
 pub use sequence::BasedSequence;
 pub use strings::decode_entities;
-pub use uri::{url_encode, url_decode};
+pub use uri::{url_decode, url_encode};

@@ -158,7 +158,7 @@ pub struct ReaderOptions {
 
 impl ReaderOptions {
     /// Convert to parser Options.
-    pub fn to_parser_options(&self) -> Options {
+    pub fn to_parser_options(&self) -> Options<'_> {
         Options::default()
     }
 }
@@ -180,7 +180,7 @@ pub struct WriterOptions {
 
 impl WriterOptions {
     /// Convert to render Options.
-    pub fn to_render_options(&self) -> Options {
+    pub fn to_render_options(&self) -> Options<'_> {
         Options::default()
     }
 }

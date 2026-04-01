@@ -7,10 +7,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use crate::context::mediabag::MediaItem;
 use crate::context::{
     common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
 };
-use crate::context::mediabag::MediaItem;
 use crate::core::error::ClmdError;
 
 /// IO Context for real file operations.

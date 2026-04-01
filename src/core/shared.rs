@@ -12,8 +12,6 @@
 //! assert_eq!(text, "Hello world!");
 //! ```ignore
 
-use std::fmt::Write;
-
 /// Convert a string to a plain text representation.
 ///
 /// This function removes Markdown formatting and returns plain text.
@@ -156,8 +154,7 @@ pub fn trim_blank_lines(input: &str) -> &str {
 
     // Calculate byte positions
     let start_pos = lines[..start].iter().map(|l| l.len() + 1).sum::<usize>();
-    let end_pos = input.len()
-        - lines[end..].iter().map(|l| l.len() + 1).sum::<usize>();
+    let end_pos = input.len() - lines[end..].iter().map(|l| l.len() + 1).sum::<usize>();
 
     &input[start_pos..end_pos]
 }
@@ -181,7 +178,10 @@ pub fn split_lines(input: &str) -> Vec<(&str, &str)> {
             let mut ending = &remaining[pos..pos + 1];
 
             // Check for \r\n
-            if ending == "\r" && remaining.len() > pos + 1 && remaining.as_bytes()[pos + 1] == b'\n' {
+            if ending == "\r"
+                && remaining.len() > pos + 1
+                && remaining.as_bytes()[pos + 1] == b'\n'
+            {
                 ending = &remaining[pos..pos + 2];
             }
 
@@ -216,7 +216,8 @@ pub fn split_lines(input: &str) -> Vec<(&str, &str)> {
 /// assert_eq!(text, "  line1\n  line2");
 /// ```ignore
 pub fn indent(input: &str, indent: &str) -> String {
-    let mut result = String::with_capacity(input.len() + indent.len() * input.lines().count());
+    let mut result =
+        String::with_capacity(input.len() + indent.len() * input.lines().count());
 
     for (i, line) in input.lines().enumerate() {
         if i > 0 {
@@ -242,8 +243,8 @@ pub fn escape_regex(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
     for c in input.chars() {
         match c {
-            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^'
-            | '$' | '#' | '&' | '-' => {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}'
+            | '^' | '$' | '#' | '&' | '-' => {
                 result.push('\\');
                 result.push(c);
             }

@@ -18,8 +18,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::formats::mime::MimeType;
 use crate::context::mediabag::MediaBag;
+use crate::formats::mime::MimeType;
 
 use super::monad::Verbosity;
 

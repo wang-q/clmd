@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use crate::context::mediabag::MediaBag;
-use crate::core::error::ClmdError;
 
 /// The ClmdContext trait defines the interface for context operations.
 ///

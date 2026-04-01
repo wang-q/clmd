@@ -23,13 +23,11 @@ pub mod uuid;
 pub mod version;
 
 // Re-export commonly used types
-pub use common::{
-    ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
-};
+pub use common::{ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
 pub use config::{Config, ConfigLoader};
 pub use data::{read_data_file, DataFileManager};
 pub use io::IoContext;
-pub use logging::{Logger, LogLevel as LoggingLogLevel};
+pub use logging::{LogLevel as LoggingLogLevel, Logger};
 pub use mediabag::MediaBag;
 pub use process::{pipe_process, ProcessOptions};
 pub use pure::PureContext;

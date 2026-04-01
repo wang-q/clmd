@@ -3,9 +3,9 @@
 //! This module provides parsers for common patterns like strings, numbers,
 //! identifiers, and more.
 
-use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
 use crate::parsing::char::digit;
 use crate::parsing::combinator::{many, many1};
+use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse a string literal (double-quoted).
 ///
@@ -428,17 +428,32 @@ mod tests {
     #[test]
     fn test_string() {
         assert_eq!(string("\"hello\"", Position::start()).unwrap().0, "hello");
-        assert_eq!(string("\"hello world\"", Position::start()).unwrap().0, "hello world");
-        assert_eq!(string("\"hello\\nworld\"", Position::start()).unwrap().0, "hello\nworld");
+        assert_eq!(
+            string("\"hello world\"", Position::start()).unwrap().0,
+            "hello world"
+        );
+        assert_eq!(
+            string("\"hello\\nworld\"", Position::start()).unwrap().0,
+            "hello\nworld"
+        );
         assert!(string("\"unclosed", Position::start()).is_err());
     }
 
     #[test]
     fn test_identifier() {
         assert_eq!(identifier("hello", Position::start()).unwrap().0, "hello");
-        assert_eq!(identifier("hello_world", Position::start()).unwrap().0, "hello_world");
-        assert_eq!(identifier("_private", Position::start()).unwrap().0, "_private");
-        assert_eq!(identifier("test123", Position::start()).unwrap().0, "test123");
+        assert_eq!(
+            identifier("hello_world", Position::start()).unwrap().0,
+            "hello_world"
+        );
+        assert_eq!(
+            identifier("_private", Position::start()).unwrap().0,
+            "_private"
+        );
+        assert_eq!(
+            identifier("test123", Position::start()).unwrap().0,
+            "test123"
+        );
         assert!(identifier("123test", Position::start()).is_err());
     }
 
@@ -487,14 +502,23 @@ mod tests {
     #[test]
     fn test_line_comment() {
         let parser = line_comment("//");
-        assert_eq!(parser("// comment\n", Position::start()).unwrap().0, " comment");
-        assert_eq!(parser("// comment", Position::start()).unwrap().0, " comment");
+        assert_eq!(
+            parser("// comment\n", Position::start()).unwrap().0,
+            " comment"
+        );
+        assert_eq!(
+            parser("// comment", Position::start()).unwrap().0,
+            " comment"
+        );
     }
 
     #[test]
     fn test_block_comment() {
         let parser = block_comment("/*", "*/");
-        assert_eq!(parser("/* comment */", Position::start()).unwrap().0, " comment ");
+        assert_eq!(
+            parser("/* comment */", Position::start()).unwrap().0,
+            " comment "
+        );
         assert!(parser("/* unclosed", Position::start()).is_err());
     }
 }

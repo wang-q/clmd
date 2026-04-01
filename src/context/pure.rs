@@ -22,10 +22,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
+use crate::context::mediabag::MediaItem;
 use crate::context::{
     common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
 };
-use crate::context::mediabag::MediaItem;
 use crate::core::error::ClmdError;
 
 /// Pure Context for testing and pure functional code.

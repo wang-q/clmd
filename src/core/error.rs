@@ -30,17 +30,29 @@ pub struct Position {
 impl Position {
     /// Create a new position.
     pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column, offset: 0 }
+        Self {
+            line,
+            column,
+            offset: 0,
+        }
     }
 
     /// Create a new position with offset.
     pub fn with_offset(line: usize, column: usize, offset: usize) -> Self {
-        Self { line, column, offset }
+        Self {
+            line,
+            column,
+            offset,
+        }
     }
 
     /// Create a position at the start of the document.
     pub fn start() -> Self {
-        Self { line: 1, column: 1, offset: 0 }
+        Self {
+            line: 1,
+            column: 1,
+            offset: 0,
+        }
     }
 
     /// Create a position from a byte offset in the source.
@@ -60,7 +72,11 @@ impl Position {
             }
         }
 
-        Self { line, column, offset }
+        Self {
+            line,
+            column,
+            offset,
+        }
     }
 
     /// Advance the position by a character.

@@ -202,7 +202,9 @@ impl Extension {
             "autolink" | "autolinks" => Some(Extension::Autolink),
             "tagfilter" => Some(Extension::Tagfilter),
             "footnote" | "footnotes" => Some(Extension::Footnotes),
-            "description_list" | "description_lists" => Some(Extension::DescriptionLists),
+            "description_list" | "description_lists" => {
+                Some(Extension::DescriptionLists)
+            }
             "smart" => Some(Extension::Smart),
             "math_dollars" => Some(Extension::MathDollars),
             "math_tex" => Some(Extension::MathTex),

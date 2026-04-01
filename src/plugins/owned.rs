@@ -222,7 +222,12 @@ mod tests {
 
         struct TestHeadingAdapter;
         impl HeadingAdapter for TestHeadingAdapter {
-            fn render_heading(&self, level: u8, content: &str, id: Option<&str>) -> Option<String> {
+            fn render_heading(
+                &self,
+                level: u8,
+                content: &str,
+                id: Option<&str>,
+            ) -> Option<String> {
                 Some(format!("<h{} id={:?}>{}</h{}>", level, id, content, level))
             }
         }

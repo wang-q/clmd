@@ -24,7 +24,10 @@ pub mod state;
 pub mod shared;
 
 // Re-export commonly used types
-pub use adapters::{from_pandoc_ast, to_pandoc_ast, SyntaxHighlighterAdapter, HeadingAdapter, CodefenceRendererAdapter, UrlRewriter};
+pub use adapters::{
+    from_pandoc_ast, to_pandoc_ast, CodefenceRendererAdapter, HeadingAdapter,
+    SyntaxHighlighterAdapter, UrlRewriter,
+};
 pub use arena::{NodeArena, NodeId};
 pub use ast::{Block, Document, Inline, Walkable};
 pub use error::{ClmdError, ClmdResult, ParseError, ParseResult, Position, Range};

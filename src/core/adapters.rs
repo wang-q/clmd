@@ -21,7 +21,7 @@
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::ast as pandoc;
-use crate::core::nodes::{NodeCodeBlock, NodeHeading, NodeList, NodeValue};
+use crate::core::nodes::NodeValue;
 
 /// Adapter trait for syntax highlighting.
 ///
@@ -123,7 +123,12 @@ pub trait HeadingAdapter {
     /// # Returns
     ///
     /// The rendered HTML string, or `None` to use default rendering
-    fn render_heading(&self, level: u8, content: &str, id: Option<&str>) -> Option<String>;
+    fn render_heading(
+        &self,
+        level: u8,
+        content: &str,
+        id: Option<&str>,
+    ) -> Option<String>;
 }
 
 /// Adapter trait for URL rewriting.
@@ -184,7 +189,8 @@ mod tests {
     fn test_to_pandoc_ast_basic() {
         // TODO: Add proper test once conversion is implemented
         let mut arena = NodeArena::new();
-        let root = arena.alloc(crate::core::arena::Node::with_value(NodeValue::Document));
+        let root =
+            arena.alloc(crate::core::arena::Node::with_value(NodeValue::Document));
         let doc = to_pandoc_ast(&arena, root);
         assert!(doc.blocks.is_empty());
     }
