@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::formats::mime::{get_mime_type, get_mime_type_def, extension_from_mime_type};
+//! use clmd::io::format::mime::{get_mime_type, get_mime_type_def, extension_from_mime_type};
 //! use std::path::Path;
 //!
 //! // Get MIME type from file path

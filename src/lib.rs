@@ -240,10 +240,7 @@ pub mod options {
 /// formats and writing to various output formats.
 pub mod io;
 
-// IO modules - these are used internally so we keep the re-exports
-pub use io::format as formats;
-pub use io::read as readers;
-pub use io::write as writers;
+// IO submodules are accessed through `io::reader`, `io::writer`, `io::format`
 
 
 

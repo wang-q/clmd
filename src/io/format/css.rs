@@ -246,7 +246,7 @@ pub mod units {
     /// # Example
     ///
     /// ```
-    /// use clmd::formats::css::units::extract_number;
+    /// use clmd::io::format::css::units::extract_number;
     ///
     /// assert_eq!(extract_number("14px"), Some(14.0));
     /// assert_eq!(extract_number("1.5em"), Some(1.5));

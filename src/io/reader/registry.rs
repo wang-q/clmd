@@ -25,7 +25,7 @@ use std::collections::HashMap;
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdError;
-use crate::readers::{BoxedReader, Reader, ReaderOptions};
+use crate::io::reader::{BoxedReader, Reader, ReaderOptions};
 
 /// A registry of document readers.
 ///
@@ -239,7 +239,7 @@ impl Reader for MarkdownReader {
         input: &str,
         options: &ReaderOptions<'c>,
     ) -> Result<(NodeArena, NodeId), ClmdError> {
-        crate::readers::read_markdown(input, options)
+        crate::io::reader::read_markdown(input, options)
     }
 }
 
@@ -274,7 +274,7 @@ impl Reader for HtmlReader {
         input: &str,
         options: &ReaderOptions<'c>,
     ) -> Result<(NodeArena, NodeId), ClmdError> {
-        crate::readers::read_html(input, options)
+        crate::io::reader::read_html(input, options)
     }
 }
 
@@ -309,7 +309,7 @@ impl Reader for CommonMarkReader {
         input: &str,
         options: &ReaderOptions<'c>,
     ) -> Result<(NodeArena, NodeId), ClmdError> {
-        crate::readers::read_commonmark(input, options)
+        crate::io::reader::read_commonmark(input, options)
     }
 }
 

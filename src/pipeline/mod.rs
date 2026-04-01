@@ -24,8 +24,8 @@ use crate::context::{ClmdContext, PureContext};
 use crate::core::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
 use crate::options::Options;
-use crate::readers::{Reader, ReaderRegistry};
-use crate::writers::{Writer, WriterRegistry};
+use crate::io::reader::{Reader, ReaderRegistry};
+use crate::io::writer::{Writer, WriterRegistry};
 
 /// A document conversion pipeline.
 ///
@@ -265,7 +265,7 @@ impl Default for PipelineBuilder {
 
 /// Create a boxed reader by format name.
 fn create_reader(format: &str) -> ClmdResult<Box<dyn Reader>> {
-    use crate::readers::{HtmlReader, MarkdownReader};
+    use crate::io::reader::{HtmlReader, MarkdownReader};
 
     match format.to_lowercase().as_str() {
         "markdown" => Ok(Box::new(MarkdownReader)),
@@ -277,7 +277,7 @@ fn create_reader(format: &str) -> ClmdResult<Box<dyn Reader>> {
 
 /// Create a boxed writer by format name.
 fn create_writer(format: &str) -> ClmdResult<Box<dyn Writer>> {
-    use crate::writers::{CommonMarkWriter, HtmlWriter, XmlWriter};
+    use crate::io::writer::{CommonMarkWriter, HtmlWriter, XmlWriter};
 
     match format.to_lowercase().as_str() {
         "html" => Ok(Box::new(HtmlWriter)),

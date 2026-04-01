@@ -126,7 +126,7 @@ impl ReaderRegistry {
     /// # Example
     ///
     /// ```
-    /// use clmd::readers::{ReaderRegistry, MarkdownReader};
+    /// use clmd::io::reader::{ReaderRegistry, MarkdownReader};
     ///
     /// let mut registry = ReaderRegistry::empty();
     /// registry.register(Box::new(MarkdownReader));

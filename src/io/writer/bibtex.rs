@@ -19,7 +19,7 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
 use crate::options::{OutputFormat, WriterOptions};
-use crate::writers::Writer;
+use crate::io::writer::Writer;
 
 /// BibTeX document writer.
 #[derive(Debug, Clone, Copy)]

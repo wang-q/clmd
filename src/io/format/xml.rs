@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::formats::xml::{escape_xml, XmlBuilder};
+//! use clmd::io::format::xml::{escape_xml, XmlBuilder};
 //!
 //! // Escape XML special characters
 //! let escaped = escape_xml("<tag>");

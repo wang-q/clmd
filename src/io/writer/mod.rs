@@ -150,7 +150,7 @@ impl WriterRegistry {
     /// # Example
     ///
     /// ```
-    /// use clmd::writers::{WriterRegistry, HtmlWriter};
+    /// use clmd::io::writer::{WriterRegistry, HtmlWriter};
     ///
     /// let mut registry = WriterRegistry::empty();
     /// registry.register(Box::new(HtmlWriter));

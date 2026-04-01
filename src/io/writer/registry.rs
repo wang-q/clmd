@@ -25,7 +25,7 @@ use std::collections::HashMap;
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdError;
-use crate::writers::{BoxedWriter, Writer, WriterOptions};
+use crate::io::writer::{BoxedWriter, Writer, WriterOptions};
 
 /// A registry of document writers.
 ///
@@ -242,7 +242,7 @@ impl Writer for HtmlWriter {
         root: NodeId,
         options: &WriterOptions<'c>,
     ) -> Result<String, ClmdError> {
-        crate::writers::write_html(arena, root, options)
+        crate::io::writer::write_html(arena, root, options)
     }
 }
 
@@ -278,7 +278,7 @@ impl Writer for CommonMarkWriter {
         root: NodeId,
         options: &WriterOptions<'c>,
     ) -> Result<String, ClmdError> {
-        crate::writers::write_commonmark(arena, root, options)
+        crate::io::writer::write_commonmark(arena, root, options)
     }
 }
 
@@ -314,7 +314,7 @@ impl Writer for XmlWriter {
         root: NodeId,
         options: &WriterOptions<'c>,
     ) -> Result<String, ClmdError> {
-        crate::writers::write_xml(arena, root, options)
+        crate::io::writer::write_xml(arena, root, options)
     }
 }
 
@@ -350,7 +350,7 @@ impl Writer for LatexWriter {
         root: NodeId,
         options: &WriterOptions<'c>,
     ) -> Result<String, ClmdError> {
-        crate::writers::write_latex(arena, root, options)
+        crate::io::writer::write_latex(arena, root, options)
     }
 }
 
@@ -386,7 +386,7 @@ impl Writer for ManWriter {
         root: NodeId,
         options: &WriterOptions<'c>,
     ) -> Result<String, ClmdError> {
-        crate::writers::write_man(arena, root, options)
+        crate::io::writer::write_man(arena, root, options)
     }
 }
 
