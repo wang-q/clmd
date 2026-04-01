@@ -920,7 +920,7 @@ pub fn format_typst_with_plugins(
     output: &mut dyn std::fmt::Write,
     plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    render::typst::format_document_with_plugins(arena, root, _options, output, plugins)
+    render::format::typst::format_document_with_plugins(arena, root, _options, output, plugins)
 }
 
 /// Return the version of the crate.
@@ -1226,7 +1226,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let html = render::html::render(&arena, root, &crate::parse::options::Options::default());
+        let html = render::format::html::render(&arena, root, &crate::parse::options::Options::default());
         assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
         assert!(
             !html.contains(":thumbsup:"),
@@ -1277,7 +1277,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, shortcode);
 
-        let xml = render::xml::render(&arena, root, 0);
+        let xml = render::format::xml::render(&arena, root, 0);
         assert!(
             xml.contains("<shortcode"),
             "XML should contain shortcode tag: {}",
@@ -1314,7 +1314,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode1);
         TreeOps::append_child(&mut arena, para, shortcode2);
 
-        let html = render::html::render(&arena, root, &crate::parse::options::Options::default());
+        let html = render::format::html::render(&arena, root, &crate::parse::options::Options::default());
         assert!(
             html.contains("😄"),
             "HTML should contain first emoji: {}",
