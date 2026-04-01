@@ -1,8 +1,8 @@
 //! Tests for block parsing
 
-use crate::arena::NodeArena;
 use crate::blocks::BlockParser;
-use crate::nodes::NodeValue;
+use crate::core::arena::NodeArena;
+use crate::core::nodes::NodeValue;
 
 #[test]
 fn test_parser_creation() {

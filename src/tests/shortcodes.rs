@@ -1,9 +1,9 @@
 //! Tests for shortcodes extension
 
-use crate::arena::{Node, NodeArena, TreeOps};
+use crate::core::arena::{Node, NodeArena, TreeOps};
+use crate::core::nodes::{NodeShortCode, NodeValue};
 use crate::ext::shortcodes::parse_shortcode;
 use crate::ext::shortcodes_data::lookup_shortcode;
-use crate::nodes::{NodeShortCode, NodeValue};
 use crate::render;
 
 #[test]

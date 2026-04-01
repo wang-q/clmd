@@ -22,8 +22,8 @@
 //! assert_eq!(slides.len(), 2);
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 
 /// Default slide level (h1 headings start new slides).
 pub const DEFAULT_SLIDE_LEVEL: u8 = 1;

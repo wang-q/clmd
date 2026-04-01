@@ -20,7 +20,7 @@
 //! let output = writer.write(&arena, root, &writer_options).unwrap();
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use crate::context::ClmdContext;
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{OutputFormat, WriterOptions};

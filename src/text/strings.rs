@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 
 // Re-export escape_html from html_utils to avoid duplication
-pub use crate::html_utils::escape_html;
+pub use crate::text::html_utils::escape_html;
 
 /// Case sensitivity for label normalization
 #[non_exhaustive]

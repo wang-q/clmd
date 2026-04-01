@@ -6,7 +6,7 @@
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::formatter::writer::MarkdownWriter;
-use crate::nodes::{NodeCodeBlock, NodeList};
+use crate::core::nodes::{NodeCodeBlock, NodeList};
 
 /// Render a list
 pub fn render_list(

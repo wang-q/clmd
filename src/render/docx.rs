@@ -4,8 +4,8 @@
 //! Note: This is a placeholder implementation. Full DOCX support would require
 //! the docx-rs crate for proper ZIP packaging and XML relationships.
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 use std::io::Write;
 
 /// DOCX export options

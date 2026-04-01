@@ -3,8 +3,8 @@
 //! This module provides a common interface for all renderers in the clmd crate.
 //! All renderers use the `NodeValue` enum from `node_value` module for AST representation.
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 
 // Re-export formatter module and its submodules from crate root
 pub use crate::formatter;

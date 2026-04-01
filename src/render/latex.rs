@@ -1,7 +1,7 @@
 //! LaTeX renderer
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 
 /// Render a node tree as LaTeX
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {

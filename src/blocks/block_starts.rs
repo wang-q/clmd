@@ -2,16 +2,16 @@
 //!
 //! This module handles detecting and opening new block-level elements.
 
-use crate::arena::NodeId;
 use crate::blocks::BlockParser;
-use crate::ext::tables;
-use crate::inlines::unescape_string;
-use crate::nodes::{
+use crate::core::arena::NodeId;
+use crate::core::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };
+use crate::ext::tables;
+use crate::inlines::unescape_string;
 use crate::parser::OPT_TABLE;
-use crate::scanners;
+use crate::parsing::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.

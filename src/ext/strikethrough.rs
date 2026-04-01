@@ -8,8 +8,8 @@
 //! This is ~~deleted~~ text.
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeValue, SourcePos};
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeValue, SourcePos};
 
 /// The tilde character used for strikethrough
 pub const STRIKETHROUGH_DELIM: char = '~';

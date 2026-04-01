@@ -15,8 +15,8 @@
 //! assert!(typst.contains("= Hello"));
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListType, NodeList, NodeValue};
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{ListType, NodeList, NodeValue};
 use crate::parser::options::{Options, Plugins};
 use std::fmt;
 

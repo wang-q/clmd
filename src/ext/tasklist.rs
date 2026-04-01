@@ -10,8 +10,8 @@
 //! - [X] Also checked task
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeTaskItem, NodeValue, SourcePos};
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeTaskItem, NodeValue, SourcePos};
 
 /// Check if a string is a task list item marker
 /// Returns Some(checked) if it's a task item, None otherwise

@@ -18,8 +18,8 @@
 //! [^note1]: This is the footnote text.
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{
     NodeFootnoteDefinition, NodeFootnoteReference, NodeValue, SourcePos,
 };
 

@@ -3,7 +3,7 @@
 //! This module defines the trait for node formatters that support
 //! multi-phase rendering, inspired by flexmark-java's PhasedNodeFormatter.
 
-use crate::arena::NodeId;
+use crate::core::arena::NodeId;
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
 use crate::formatter::phase::FormattingPhase;

@@ -27,8 +27,8 @@
 //! });
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 
 /// A trait for types that can be walked (traversed).
 ///

@@ -2,10 +2,10 @@
 //!
 //! This module provides the main BlockParser struct and its core parsing logic.
 
-use crate::arena::{Node, NodeArena, NodeId};
+use crate::core::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
 use crate::core::error::{ParseError, ParseResult, ParserLimits};
-use crate::nodes::NodeValue;
+use crate::core::nodes::NodeValue;
 use crate::parser::OPT_VALIDATE_UTF8;
 use rustc_hash::FxHashMap;
 

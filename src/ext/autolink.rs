@@ -16,8 +16,8 @@
 //! Contact us at <a href="mailto:support@example.com">support@example.com</a></p>
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeLink, NodeValue, SourcePos};
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeLink, NodeValue, SourcePos};
 use once_cell::sync::Lazy;
 use regex::Regex;
 

@@ -12,8 +12,8 @@
 //! <!-- TOC -->
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{NodeHeading, NodeValue};
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{NodeHeading, NodeValue};
 use std::collections::HashSet;
 
 /// A TOC entry representing a heading

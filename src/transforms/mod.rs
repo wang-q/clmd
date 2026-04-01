@@ -23,9 +23,9 @@
 //! chain.add(Transform::normalize());
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
-use crate::nodes::{
+use crate::core::nodes::{
     ListDelimType, ListType, NodeHeading, NodeLink, NodeList, NodeValue,
 };
 use std::collections::HashMap;

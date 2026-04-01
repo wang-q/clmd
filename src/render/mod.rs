@@ -41,7 +41,7 @@ pub use renderer::{
 };
 
 // Re-export escape_html from html_utils for backward compatibility
-pub use crate::html_utils::escape_html;
+pub use crate::text::html_utils::escape_html;
 
 #[cfg(test)]
 mod tests {

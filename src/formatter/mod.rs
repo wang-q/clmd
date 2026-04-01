@@ -50,7 +50,7 @@ pub use phased::{
 pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
 pub use writer::MarkdownWriter;
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use std::collections::HashMap;
 
 /// Main Markdown formatter

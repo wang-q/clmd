@@ -17,7 +17,7 @@
 //! let (arena, root) = reader.read("# Hello World", &options).unwrap();
 //! ```
 
-use crate::arena::NodeArena;
+use crate::core::arena::NodeArena;
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{InputFormat, ReaderOptions};
 use crate::parser;

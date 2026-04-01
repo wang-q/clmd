@@ -23,7 +23,7 @@
 
 use std::collections::HashMap;
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdError;
 use crate::writers::{BoxedWriter, Writer, WriterOptions};
 

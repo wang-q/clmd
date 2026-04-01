@@ -12,8 +12,8 @@
 //! : Another definition
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeValue, SourcePos};
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeValue, SourcePos};
 
 /// A definition list entry
 #[derive(Debug, Clone)]

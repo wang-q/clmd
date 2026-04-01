@@ -11,7 +11,7 @@
 //! When tagfilter is enabled, these tags are escaped rather than rendered
 //! as raw HTML, preventing potential XSS attacks.
 
-use crate::html_utils::escape_html;
+use crate::text::html_utils::escape_html;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 

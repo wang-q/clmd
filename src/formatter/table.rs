@@ -48,7 +48,7 @@
 //! assert_eq!(formatted, "| A   | B   |\n| --- | --- |\n| C   | D   |");
 //! ```
 
-use crate::nodes::TableAlignment;
+use crate::core::nodes::TableAlignment;
 use crate::text::unicode_width::width as unicode_width;
 
 /// Represents a table cell with its content and visual display width.

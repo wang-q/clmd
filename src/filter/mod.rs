@@ -23,7 +23,7 @@
 //! // let (arena, root) = chain.apply(arena, root).unwrap();
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use std::fmt;
 use std::path::PathBuf;
 

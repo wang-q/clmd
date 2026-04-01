@@ -1,7 +1,7 @@
 //! Man page renderer
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
 
 /// Render a node tree as a Man page (groff format)
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {

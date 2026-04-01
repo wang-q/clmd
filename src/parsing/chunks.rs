@@ -13,8 +13,8 @@
 //! let chunker = Chunker::new(config);
 //! ```
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 
 /// Configuration for document chunking.
 #[derive(Debug, Clone)]

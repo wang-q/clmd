@@ -3,8 +3,8 @@
 //! This module provides XML output generation for documents parsed using the Arena-based parser.
 //! Useful for debugging and AST inspection.
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::{ListDelimType, ListType, NodeValue};
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{ListDelimType, ListType, NodeValue};
 use crate::parser::options::{Options, Plugins};
 use std::fmt;
 

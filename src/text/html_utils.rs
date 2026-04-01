@@ -6,7 +6,7 @@
 //! Inspired by flexmark-java's flexmark-util-html.
 
 // Re-export decode_entities from strings module for unified API
-pub use crate::strings::decode_entities;
+pub use crate::text::strings::decode_entities;
 
 /// Escape special HTML characters
 ///

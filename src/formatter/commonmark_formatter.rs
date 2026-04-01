@@ -13,14 +13,14 @@
 //! let formatter = CommonMarkNodeFormatter::with_options(options);
 //! ```
 
-use crate::arena::NodeId;
+use crate::core::arena::NodeId;
+use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
 use crate::formatter::options::FormatterOptions;
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::phased::PhasedNodeFormatter;
 use crate::formatter::writer::MarkdownWriter;
-use crate::nodes::NodeValue;
 
 /// CommonMark node formatter
 ///

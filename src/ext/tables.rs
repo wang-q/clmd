@@ -11,8 +11,8 @@
 //! | Cell 3   | Cell 4   |
 //! ```
 
-use crate::arena::{Node, NodeArena, NodeId, TreeOps};
-use crate::nodes::{NodeTable, NodeValue, SourcePos, TableAlignment};
+use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeTable, NodeValue, SourcePos, TableAlignment};
 
 /// Check if a line looks like a table row (contains |)
 pub fn is_table_row(line: &str) -> bool {

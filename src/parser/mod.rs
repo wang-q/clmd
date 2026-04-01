@@ -17,7 +17,7 @@
 
 pub mod options;
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
 use crate::core::error::{ParseResult, ParserLimits};
 use options::Options;
@@ -71,7 +71,7 @@ pub fn parse_document_with_limits(
     Ok((node_arena, doc_id))
 }
 
-// Legacy option flags (for backward compatibility)
+// Option flags for backward compatibility
 pub(crate) const OPT_SOURCEPOS: u32 = 1 << 0;
 pub(crate) const OPT_HARDBREAKS: u32 = 1 << 1;
 pub(crate) const OPT_NOBREAKS: u32 = 1 << 2;
@@ -82,9 +82,10 @@ pub(crate) const OPT_TABLE: u32 = 1 << 6;
 pub(crate) const OPT_TAGFILTER: u32 = 1 << 7;
 pub(crate) const OPT_MATH_DOLLARS: u32 = 1 << 8;
 
-/// Convert Options to legacy u32 flags.
+/// Convert Options to u32 flags.
 ///
-/// This is a temporary bridge until all components use the new Options system.
+/// This is a bridge function to maintain compatibility with existing code.
+/// New code should use Options directly.
 pub fn options_to_flags(options: &Options) -> u32 {
     let mut flags = 0u32;
 
