@@ -235,7 +235,7 @@ fn execute_from(matches: &ArgMatches, _options: &clmd::Options) -> anyhow::Resul
     let output = match format {
         "html" | "htm" => {
             let input = utils::read_input(input_path)?;
-            clmd::io::convert::html_to_markdown(&input)
+            clmd::io::reader::html::html_to_markdown(&input)
         }
         _ => {
             // Try to use the reader registry

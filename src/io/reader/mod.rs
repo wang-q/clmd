@@ -223,6 +223,9 @@ pub use bibtex::BibTeXReader;
 pub mod latex;
 pub use latex::LaTeXReader;
 
+pub mod html;
+pub use html::HtmlReader;
+
 impl Clone for ReaderRegistry {
     fn clone(&self) -> Self {
         // Create a new registry with default readers
@@ -258,37 +261,6 @@ impl Reader for MarkdownReader {
 
     fn input_format(&self) -> InputFormat {
         InputFormat::Markdown
-    }
-}
-
-/// HTML document reader.
-///
-/// Reads HTML and converts it to Markdown AST.
-#[derive(Debug, Clone, Copy)]
-pub struct HtmlReader;
-
-impl Reader for HtmlReader {
-    fn read(
-        &self,
-        input: &str,
-        _options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
-        // Convert HTML to Markdown, then parse
-        let markdown = crate::io::from_impl::html_to_markdown(input);
-        let parser_options = crate::parse::options::Options::default();
-        Ok(parse::parse_document(&markdown, &parser_options))
-    }
-
-    fn format(&self) -> &'static str {
-        "html"
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["html", "htm"]
-    }
-
-    fn input_format(&self) -> InputFormat {
-        InputFormat::Html
     }
 }
 

@@ -17,8 +17,8 @@
 //! }
 //! ```ignore
 
-// Format conversion
-pub use crate::io::convert;
+// HTML conversion from reader module
+pub use crate::io::reader::html;
 
 use crate::core::error::ClmdError;
 use std::collections::HashMap;

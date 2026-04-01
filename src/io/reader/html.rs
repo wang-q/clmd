@@ -1,21 +1,23 @@
-//! Format converters for importing content to Markdown
+//! HTML document reader.
 //!
-//! This module provides conversion from various formats back to Markdown.
-//! These are reverse operations of the `render` module.
-//!
-//! Supported formats:
-//! - **HTML**: Convert HTML content to Markdown
+//! Reads HTML and converts it to Markdown AST.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use clmd::io::from::html_to_markdown;
+//! use clmd::io::reader::{HtmlReader, Reader};
+//! use clmd::options::ReaderOptions;
 //!
-//! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
-//! let markdown = html_to_markdown(html);
-//! assert!(markdown.contains("# Title"));
-//! assert!(markdown.contains("**bold**"));
+//! let reader = HtmlReader;
+//! let options = ReaderOptions::default();
+//! let (arena, root) = reader.read("<h1>Hello</h1>", &options).unwrap();
 //! ```ignore
+
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
+use crate::io::reader::Reader;
+use crate::options::{InputFormat, ReaderOptions};
+use crate::parse;
 
 /// HTML element conversion rules
 #[derive(Debug, Clone, Copy, Default)]
@@ -36,6 +38,50 @@ pub fn html_to_markdown(html: &str) -> String {
 pub fn html_to_markdown_with_rules(html: &str, rules: &ConversionRules) -> String {
     let mut converter = HtmlToMarkdown::new(*rules);
     converter.convert(html)
+}
+
+/// HTML document reader.
+///
+/// Reads HTML and converts it to Markdown AST.
+#[derive(Debug, Clone, Copy)]
+pub struct HtmlReader;
+
+impl HtmlReader {
+    /// Create a new HTML reader.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for HtmlReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Reader for HtmlReader {
+    fn read(
+        &self,
+        input: &str,
+        _options: &ReaderOptions,
+    ) -> ClmdResult<(NodeArena, NodeId)> {
+        // Convert HTML to Markdown, then parse
+        let markdown = html_to_markdown(input);
+        let parser_options = crate::parse::options::Options::default();
+        Ok(parse::parse_document(&markdown, &parser_options))
+    }
+
+    fn format(&self) -> &'static str {
+        "html"
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["html", "htm"]
+    }
+
+    fn input_format(&self) -> InputFormat {
+        InputFormat::Html
+    }
 }
 
 /// HTML to Markdown converter state
@@ -365,6 +411,27 @@ pub fn is_html(content: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_html_reader_basic() {
+        let reader = HtmlReader::new();
+        let options = ReaderOptions::default();
+
+        let (arena, root) = reader.read("<h1>Hello</h1>", &options).unwrap();
+        let node = arena.get(root);
+        assert!(matches!(
+            node.value,
+            crate::core::nodes::NodeValue::Document
+        ));
+    }
+
+    #[test]
+    fn test_html_reader_format() {
+        let reader = HtmlReader::new();
+        assert_eq!(reader.format(), "html");
+        assert!(reader.extensions().contains(&"html"));
+        assert!(reader.extensions().contains(&"htm"));
+    }
 
     #[test]
     fn test_convert_heading() {

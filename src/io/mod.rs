@@ -12,9 +12,5 @@ pub mod writer;
 /// Format abstraction layer for document formats.
 pub mod format;
 
-/// Format conversion from other formats to Markdown.
-pub mod convert;
-
 // Internal implementations
 pub(crate) mod format_impl;
-pub(crate) mod from_impl;

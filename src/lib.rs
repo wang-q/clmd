@@ -201,7 +201,7 @@ pub mod parse;
 
 /// Format converters for importing content to Markdown.
 pub mod from {
-    pub use crate::io::convert::*;
+    pub use crate::io::reader::html::*;
 }
 
 /// Markdown extensions (GFM and others).
