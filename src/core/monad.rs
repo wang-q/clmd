@@ -189,6 +189,7 @@ pub struct ClmdIO {
     verbosity: Verbosity,
     resource_paths: Vec<PathBuf>,
     user_data_dir: Option<PathBuf>,
+    sandbox: Option<crate::core::sandbox::SandboxPolicy>,
 }
 
 impl ClmdIO {
@@ -198,6 +199,7 @@ impl ClmdIO {
             verbosity: Verbosity::default(),
             resource_paths: vec![PathBuf::from(".")],
             user_data_dir: dirs::data_dir().map(|d| d.join("clmd")),
+            sandbox: None,
         }
     }
 
@@ -207,6 +209,7 @@ impl ClmdIO {
             verbosity,
             resource_paths: vec![PathBuf::from(".")],
             user_data_dir: dirs::data_dir().map(|d| d.join("clmd")),
+            sandbox: None,
         }
     }
 
@@ -220,6 +223,17 @@ impl ClmdIO {
     pub fn with_user_data_dir(mut self, dir: PathBuf) -> Self {
         self.user_data_dir = Some(dir);
         self
+    }
+
+    /// Set the sandbox policy.
+    pub fn with_sandbox(mut self, policy: crate::core::sandbox::SandboxPolicy) -> Self {
+        self.sandbox = Some(policy);
+        self
+    }
+
+    /// Get the sandbox policy if set.
+    pub fn sandbox(&self) -> Option<&crate::core::sandbox::SandboxPolicy> {
+        self.sandbox.as_ref()
     }
 
     /// Get the default resource paths.
@@ -259,6 +273,16 @@ impl ClmdMonad for ClmdIO {
     type Error = ClmdError;
 
     fn read_file(&self, path: &Path) -> Result<String, Self::Error> {
+        // Check sandbox policy if set
+        if let Some(ref sandbox) = self.sandbox {
+            if !sandbox.is_path_allowed(path, &self.resource_paths) {
+                return Err(ClmdError::sandbox_error(format!(
+                    "Access to path '{}' is not allowed by sandbox policy",
+                    path.display()
+                )));
+            }
+        }
+
         std::fs::read_to_string(path).map_err(|e| {
             ClmdError::io_error(format!(
                 "Failed to read file '{}': {}",
@@ -269,6 +293,16 @@ impl ClmdMonad for ClmdIO {
     }
 
     fn read_file_bytes(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
+        // Check sandbox policy if set
+        if let Some(ref sandbox) = self.sandbox {
+            if !sandbox.is_path_allowed(path, &self.resource_paths) {
+                return Err(ClmdError::sandbox_error(format!(
+                    "Access to path '{}' is not allowed by sandbox policy",
+                    path.display()
+                )));
+            }
+        }
+
         std::fs::read(path).map_err(|e| {
             ClmdError::io_error(format!(
                 "Failed to read file '{}': {}",
@@ -279,6 +313,21 @@ impl ClmdMonad for ClmdIO {
     }
 
     fn write_file(&self, path: &Path, content: &str) -> Result<(), Self::Error> {
+        // Check sandbox policy if set
+        if let Some(ref sandbox) = self.sandbox {
+            if !sandbox.are_writes_allowed() {
+                return Err(ClmdError::sandbox_error(
+                    "File writes are not allowed by sandbox policy"
+                ));
+            }
+            if !sandbox.is_path_allowed(path, &self.resource_paths) {
+                return Err(ClmdError::sandbox_error(format!(
+                    "Access to path '{}' is not allowed by sandbox policy",
+                    path.display()
+                )));
+            }
+        }
+
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -294,6 +343,21 @@ impl ClmdMonad for ClmdIO {
     }
 
     fn write_file_bytes(&self, path: &Path, content: &[u8]) -> Result<(), Self::Error> {
+        // Check sandbox policy if set
+        if let Some(ref sandbox) = self.sandbox {
+            if !sandbox.are_writes_allowed() {
+                return Err(ClmdError::sandbox_error(
+                    "File writes are not allowed by sandbox policy"
+                ));
+            }
+            if !sandbox.is_path_allowed(path, &self.resource_paths) {
+                return Err(ClmdError::sandbox_error(format!(
+                    "Access to path '{}' is not allowed by sandbox policy",
+                    path.display()
+                )));
+            }
+        }
+
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -392,8 +456,10 @@ pub struct ClmdPure {
     verbosity: Verbosity,
     files: std::collections::HashMap<PathBuf, String>,
     binary_files: std::collections::HashMap<PathBuf, Vec<u8>>,
+    written_files: std::cell::RefCell<std::collections::HashMap<PathBuf, String>>,
+    written_binary_files: std::cell::RefCell<std::collections::HashMap<PathBuf, Vec<u8>>>,
     resource_paths: Vec<PathBuf>,
-    logs: Vec<LogMessage>,
+    logs: std::cell::RefCell<Vec<LogMessage>>,
     timestamp: SystemTime,
     current_dir: PathBuf,
     user_data_dir: Option<PathBuf>,
@@ -405,8 +471,10 @@ impl Default for ClmdPure {
             verbosity: Verbosity::default(),
             files: std::collections::HashMap::new(),
             binary_files: std::collections::HashMap::new(),
+            written_files: std::cell::RefCell::new(std::collections::HashMap::new()),
+            written_binary_files: std::cell::RefCell::new(std::collections::HashMap::new()),
             resource_paths: vec![PathBuf::from(".")],
-            logs: Vec::new(),
+            logs: std::cell::RefCell::new(Vec::new()),
             timestamp: SystemTime::UNIX_EPOCH,
             current_dir: PathBuf::from("/test"),
             user_data_dir: Some(PathBuf::from("/test/.local/share/clmd")),
@@ -421,8 +489,10 @@ impl ClmdPure {
             verbosity: Verbosity::default(),
             files: std::collections::HashMap::new(),
             binary_files: std::collections::HashMap::new(),
+            written_files: std::cell::RefCell::new(std::collections::HashMap::new()),
+            written_binary_files: std::cell::RefCell::new(std::collections::HashMap::new()),
             resource_paths: vec![PathBuf::from(".")],
-            logs: Vec::new(),
+            logs: std::cell::RefCell::new(Vec::new()),
             timestamp: SystemTime::UNIX_EPOCH,
             current_dir: PathBuf::from("/test"),
             user_data_dir: Some(PathBuf::from("/test/.local/share/clmd")),
@@ -466,20 +536,36 @@ impl ClmdPure {
     }
 
     /// Get all logged messages.
-    pub fn get_logs(&self) -> &[LogMessage] {
-        &self.logs
+    pub fn get_logs(&self) -> Vec<LogMessage> {
+        self.logs.borrow().clone()
     }
 
     /// Clear all logged messages.
-    pub fn clear_logs(&mut self) {
-        self.logs.clear();
+    pub fn clear_logs(&self) {
+        self.logs.borrow_mut().clear();
     }
 
     /// Check if a message was logged.
     pub fn has_logged(&self, level: Verbosity, message: &str) -> bool {
         self.logs
+            .borrow()
             .iter()
             .any(|log| log.level == level && log.message.contains(message))
+    }
+
+    /// Get a written file's content.
+    pub fn get_written_file(&self, path: &Path) -> Option<String> {
+        self.written_files.borrow().get(path).cloned()
+    }
+
+    /// Get a written binary file's content.
+    pub fn get_written_binary_file(&self, path: &Path) -> Option<Vec<u8>> {
+        self.written_binary_files.borrow().get(path).cloned()
+    }
+
+    /// Get all written file paths.
+    pub fn get_written_file_paths(&self) -> Vec<PathBuf> {
+        self.written_files.borrow().keys().cloned().collect()
     }
 }
 
@@ -502,17 +588,19 @@ impl ClmdMonad for ClmdPure {
             })
     }
 
-    fn write_file(&self, _path: &Path, _content: &str) -> Result<(), Self::Error> {
-        // In pure mode, we don't actually write files
-        // This could be extended to track writes if needed
+    fn write_file(&self, path: &Path, content: &str) -> Result<(), Self::Error> {
+        // Store the written file for later verification
+        self.written_files
+            .borrow_mut()
+            .insert(path.to_path_buf(), content.to_string());
         Ok(())
     }
 
-    fn write_file_bytes(
-        &self,
-        _path: &Path,
-        _content: &[u8],
-    ) -> Result<(), Self::Error> {
+    fn write_file_bytes(&self, path: &Path, content: &[u8]) -> Result<(), Self::Error> {
+        // Store the written binary file for later verification
+        self.written_binary_files
+            .borrow_mut()
+            .insert(path.to_path_buf(), content.to_vec());
         Ok(())
     }
 
@@ -531,9 +619,10 @@ impl ClmdMonad for ClmdPure {
     }
 
     fn report(&self, msg: LogMessage) {
-        // Store the log message
-        // Note: This requires interior mutability in practice
-        // For simplicity, we just print in the pure implementation
+        // Store the log message for later verification
+        self.logs.borrow_mut().push(msg.clone());
+
+        // Also print if verbosity level allows
         if self.verbosity >= msg.level {
             let prefix = match msg.level {
                 Verbosity::Error => "ERROR",

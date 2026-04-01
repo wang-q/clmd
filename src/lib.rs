@@ -100,21 +100,23 @@
 //!
 //! ```ignore
 //! use clmd::{parse_document, Options};
-//! use clmd::core::iterator::ArenaNodeIterator;
+//! use clmd::core::traverse::{Traverse, Query};
 //! use clmd::core::nodes::NodeValue;
 //!
 //! let options = Options::default();
 //! let (arena, root) = parse_document("# Title\n\nParagraph", &options);
 //!
-//! // Iterate all nodes
-//! for node_id in ArenaNodeIterator::new(&arena, root) {
-//!     let node = arena.get(node_id);
-//!     match &node.value {
+//! // Traverse all nodes in pre-order
+//! arena.traverse_pre_order(root, |value| {
+//!     match value {
 //!         NodeValue::Heading(h) => println!("Heading level {}", h.level),
 //!         NodeValue::Paragraph => println!("Paragraph"),
 //!         _ => {}
 //!     }
-//! }
+//! });
+//!
+//! // Or query for specific node types
+//! let headings: Vec<_> = arena.find_all(root, |v| matches!(v, NodeValue::Heading(_)));
 //! ```
 //!
 //! # GFM Extensions

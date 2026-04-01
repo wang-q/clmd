@@ -10,7 +10,7 @@
 //!
 //! let text = stringify("Hello **world**!");
 //! assert_eq!(text, "Hello world!");
-//! ```ignore
+//! ```
 
 /// Convert a string to a plain text representation.
 ///

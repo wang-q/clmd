@@ -130,6 +130,14 @@ impl NodeArena {
     ///
     /// Panics if the maximum node limit is reached (when configured).
     pub fn alloc(&mut self, node: Node) -> NodeId {
+        // Check for integer overflow (NodeId is u32)
+        if self.nodes.len() >= u32::MAX as usize {
+            panic!(
+                "Arena node limit exceeded: cannot allocate more than {} nodes",
+                u32::MAX
+            );
+        }
+
         // Check memory limit
         if self.max_nodes > 0 && self.nodes.len() >= self.max_nodes {
             panic!(

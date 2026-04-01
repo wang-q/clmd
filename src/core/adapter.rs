@@ -1,27 +1,8 @@
-//! AST adapters for converting between different AST representations.
+//! AST adapters for rendering customization.
 //!
-//! This module provides adapters for converting between the Comrak-compatible AST
-//! and the Pandoc-style AST defined in the `ast` module.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use clmd::adapters::{to_pandoc_ast, from_pandoc_ast};
-//! use clmd::{parse_document, Options};
-//!
-//! let options = Options::default();
-//! let (arena, root) = parse_document("# Hello World", &options);
-//!
-//! // Convert to Pandoc-style AST
-//! let doc = to_pandoc_ast(&arena, root);
-//!
-//! // Convert back to Comrak AST
-//! let (new_arena, new_root) = from_pandoc_ast(&doc);
-//! ```
-
-use crate::core::arena::{NodeArena, NodeId};
-use crate::core::ast as pandoc;
-use crate::core::nodes::NodeValue;
+//! This module provides adapter traits for customizing various aspects of
+//! Markdown rendering, such as syntax highlighting, code fence rendering,
+//! heading rendering, and URL rewriting.
 
 /// Adapter trait for syntax highlighting.
 ///
@@ -145,63 +126,4 @@ pub trait UrlRewriter {
     ///
     /// The rewritten URL
     fn rewrite_url(&self, url: &str) -> String;
-}
-
-/// Convert a Comrak AST to a Pandoc-style AST.
-///
-/// # Arguments
-///
-/// * `arena` - The arena containing the Comrak AST nodes
-/// * `root` - The root node of the Comrak AST
-///
-/// # Returns
-///
-/// A Pandoc-style Document.
-pub fn to_pandoc_ast(_arena: &NodeArena, _root: NodeId) -> pandoc::Document {
-    // TODO: Implement proper conversion
-    pandoc::Document {
-        meta: pandoc::MetaData::new(),
-        blocks: Vec::new(),
-    }
-}
-
-/// Convert a Pandoc-style AST back to a Comrak AST.
-///
-/// # Arguments
-///
-/// * `doc` - The Pandoc-style Document
-///
-/// # Returns
-///
-/// A tuple of (arena, root_node_id) for the Comrak AST.
-pub fn from_pandoc_ast(_doc: &pandoc::Document) -> (NodeArena, NodeId) {
-    // TODO: Implement proper conversion
-    let mut arena = NodeArena::new();
-    let root = arena.alloc(crate::core::arena::Node::with_value(NodeValue::Document));
-    (arena, root)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_to_pandoc_ast_basic() {
-        // TODO: Add proper test once conversion is implemented
-        let mut arena = NodeArena::new();
-        let root =
-            arena.alloc(crate::core::arena::Node::with_value(NodeValue::Document));
-        let doc = to_pandoc_ast(&arena, root);
-        assert!(doc.blocks.is_empty());
-    }
-
-    #[test]
-    fn test_from_pandoc_ast() {
-        // TODO: Add proper test once conversion is implemented
-        let doc = pandoc::Document {
-            meta: pandoc::MetaData::new(),
-            blocks: Vec::new(),
-        };
-        let (_arena, _root) = from_pandoc_ast(&doc);
-    }
 }

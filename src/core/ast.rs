@@ -77,7 +77,7 @@ impl MetaData {
 }
 
 /// A metadata value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum MetaValue {
     /// A string value
     MetaString(String),
@@ -88,6 +88,7 @@ pub enum MetaValue {
     /// A boolean value
     MetaBool(bool),
     /// No value (null)
+    #[default]
     MetaNull,
 }
 
