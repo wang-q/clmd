@@ -59,7 +59,7 @@
 //! For security and resource control, you can set parser limits:
 //!
 //! ```ignore
-//! use clmd::parser::parse_document_with_limits;
+//! use clmd::parse::parse_document_with_limits;
 //! use clmd::{Options, ParserLimits};
 //!
 //! let options = Options::default();
@@ -194,12 +194,12 @@ pub mod core;
 
 // Core types are exported directly through `core` module and type aliases below
 
-/// Block-level parsing for CommonMark documents.
-mod blocks;
+/// Markdown parsing module (blocks and inlines).
+pub mod parse;
 
 /// Format converters for importing content to Markdown.
 pub mod from {
-    pub use crate::io::from::*;
+    pub use crate::io::convert::*;
 }
 
 /// Markdown extensions (GFM and others).
@@ -212,9 +212,6 @@ pub use render::html;
 pub mod html_utils {
     pub use crate::text::html_utils::*;
 }
-
-/// Inline parsing for CommonMark documents.
-pub(crate) mod inlines;
 
 // AST iteration and node types are exported through `core` module
 
@@ -234,7 +231,7 @@ pub(crate) mod inlines;
 /// options.parse.smart = true;
 /// ```
 pub mod options {
-    pub use crate::parser::options::*;
+    pub use crate::parse::options::*;
 }
 
 /// IO module for document reading and writing.
@@ -248,8 +245,7 @@ pub use io::format as formats;
 pub use io::read as readers;
 pub use io::write as writers;
 
-/// Parser module for Markdown documents.
-pub mod parser;
+
 
 /// Plugin system for extending Markdown rendering.
 pub mod plugin;
@@ -313,7 +309,7 @@ pub mod template;
 /// Parsing utilities.
 /// 
 /// This module provides low-level parsing primitives and combinators.
-pub use parser::util as parsing;
+pub use parse::util as parsing;
 
 // Reader and writer modules are accessed through `io::read` and `io::write` directly
 
@@ -346,14 +342,14 @@ pub use core::arena::INVALID_NODE_ID;
 /// ```ignore
 #[inline]
 pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
-    parser::parse_document(md, options)
+    parse::parse_document(md, options)
 }
 
 // =============================================================================
 // Options Exports (comrak-style)
 // =============================================================================
 
-/// Re-export Options from parser::options for convenient access.
+/// Re-export Options from parse::options for convenient access.
 ///
 /// # Example
 ///
@@ -364,28 +360,28 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 /// options.extension.table = true;
 /// options.render.hardbreaks = true;
 /// ```ignore
-pub use parser::options::Options;
+pub use parse::options::Options;
 
 /// Re-export Plugins for customizing rendering.
-pub use parser::options::Plugins;
+pub use parse::options::Plugins;
 
 /// Re-export Extension options.
-pub use parser::options::Extension;
+pub use parse::options::Extension;
 
 /// Re-export Parse options.
-pub use parser::options::Parse;
+pub use parse::options::Parse;
 
 /// Re-export Render options.
-pub use parser::options::Render;
+pub use parse::options::Render;
 
 /// Re-export ResolvedReference.
-pub use parser::options::ResolvedReference;
+pub use parse::options::ResolvedReference;
 
 /// Re-export BrokenLinkCallback.
-pub use parser::options::BrokenLinkCallback;
+pub use parse::options::BrokenLinkCallback;
 
 /// Re-export URLRewriter trait.
-pub use parser::options::URLRewriter;
+pub use parse::options::URLRewriter;
 
 // Error types are now exported through `core` module
 
@@ -395,7 +391,7 @@ pub use parser::options::URLRewriter;
 // String Utilities Exports
 // =============================================================================
 
-pub use inlines::unescape_string;
+pub use parse::inline::unescape_string;
 
 // =============================================================================
 // CommonMark Constants
@@ -474,7 +470,7 @@ pub fn markdown_to_html_with_plugins(
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
-    let (arena, root) = parser::parse_document(md, options);
+    let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_html_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
     out
@@ -501,7 +497,7 @@ pub fn markdown_to_html_with_plugins(
 /// assert!(cm.contains("Hello"));
 /// ```ignore
 pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
-    let (arena, root) = parser::parse_document(md, options);
+    let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_commonmark(&arena, root, options, &mut out).unwrap();
     out
@@ -534,7 +530,7 @@ pub fn markdown_to_commonmark_with_plugins(
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
-    let (arena, root) = parser::parse_document(md, options);
+    let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_commonmark_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
     out
@@ -595,7 +591,7 @@ pub fn markdown_to_commonmark_xml_with_plugins(
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
-    let (arena, root) = parser::parse_document(md, options);
+    let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_xml_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
     out
@@ -995,7 +991,7 @@ pub fn markdown_to_typst_with_plugins(
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
-    let (arena, root) = parser::parse_document(md, options);
+    let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_typst_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
     out
@@ -1230,7 +1226,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let html = render::html::render(&arena, root, &crate::parser::options::Options::default());
+        let html = render::html::render(&arena, root, &crate::parse::options::Options::default());
         assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
         assert!(
             !html.contains(":thumbsup:"),
@@ -1318,7 +1314,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode1);
         TreeOps::append_child(&mut arena, para, shortcode2);
 
-        let html = render::html::render(&arena, root, &crate::parser::options::Options::default());
+        let html = render::html::render(&arena, root, &crate::parse::options::Options::default());
         assert!(
             html.contains("😄"),
             "HTML should contain first emoji: {}",

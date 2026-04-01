@@ -9,7 +9,7 @@ use std::fmt;
 use crate::core::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
-use crate::parser::options::{Plugins, RenderPlugins};
+use crate::parse::options::{Plugins, RenderPlugins};
 
 /// A collection of plugins for customizing rendering behavior (owned version).
 ///

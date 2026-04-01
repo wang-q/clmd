@@ -4,7 +4,7 @@
 //! It includes AST representations, error handling, memory management, and shared utilities.
 
 // Core AST and node types
-pub mod adapters;
+pub mod adapter;
 pub mod arena;
 pub mod ast;
 pub mod nodes;
@@ -21,7 +21,7 @@ pub mod iterator;
 pub mod shared;
 
 // Re-export commonly used types
-pub use adapters::{
+pub use adapter::{
     from_pandoc_ast, to_pandoc_ast, CodefenceRendererAdapter, HeadingAdapter,
     SyntaxHighlighterAdapter, UrlRewriter,
 };
@@ -37,3 +37,11 @@ pub use error::{
 pub use iterator::{ArenaNodeIterator, EventType};
 pub use nodes::NodeValue;
 pub use shared::stringify;
+
+/// Deprecated: adapters module renamed to adapter.
+///
+/// Use `adapter` instead.
+#[deprecated(since = "0.2.0", note = "Use `adapter` instead of `adapters`")]
+pub mod adapters {
+    pub use crate::core::adapter::*;
+}

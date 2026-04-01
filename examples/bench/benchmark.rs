@@ -22,7 +22,7 @@
 //!   ./target/release/examples/benchmark --mode flamegraph -i 10000
 
 use clmd::markdown_to_html as clmd_to_html;
-use clmd::parser::options::Options as ClmdOptions;
+use clmd::parse::options::Options as ClmdOptions;
 use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
 use pulldown_cmark::{html, Parser};
 use std::env;

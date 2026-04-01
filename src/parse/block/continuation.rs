@@ -3,7 +3,7 @@
 //! This module handles checking whether open containers can continue
 //! on the current line.
 
-use crate::blocks::BlockParser;
+use crate::parse::block::BlockParser;
 use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
 use crate::{is_space_or_tab, CODE_INDENT};

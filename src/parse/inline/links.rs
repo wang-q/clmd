@@ -47,8 +47,8 @@
 
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::core::nodes::{NodeLink, NodeValue};
-use crate::inlines::entities::unescape_string;
-use crate::inlines::utils::{
+use crate::parse::inline::entities::unescape_string;
+use crate::parse::inline::utils::{
     is_escapable, is_punctuation, normalize_reference, normalize_uri,
 };
 use rustc_hash::FxHashMap;

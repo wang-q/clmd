@@ -3,10 +3,10 @@
 //! This module handles finalizing blocks, adding text content,
 //! and post-processing after parsing is complete.
 
-use crate::blocks::BlockParser;
+use crate::parse::block::BlockParser;
 use crate::core::arena::{NodeId, TreeOps};
 use crate::core::nodes::NodeValue;
-use crate::inlines::parse_reference;
+use crate::parse::inline::parse_reference;
 use crate::TAB_STOP;
 
 impl<'a> BlockParser<'a> {
@@ -329,7 +329,7 @@ impl<'a> BlockParser<'a> {
         TreeOps::append_child(self.arena, tip, new_block_id);
 
         // Initialize block info
-        self.set_block_info(new_block_id, crate::blocks::BlockInfo::new());
+        self.set_block_info(new_block_id, crate::parse::block::BlockInfo::new());
 
         self.tip = new_block_id;
         new_block_id

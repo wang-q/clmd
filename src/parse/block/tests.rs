@@ -1,6 +1,6 @@
 //! Tests for block parsing
 
-use crate::blocks::BlockParser;
+use crate::parse::block::BlockParser;
 use crate::core::arena::NodeArena;
 use crate::core::nodes::NodeValue;
 

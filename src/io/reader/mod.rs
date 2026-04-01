@@ -20,7 +20,7 @@
 use crate::core::arena::NodeArena;
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{InputFormat, ReaderOptions};
-use crate::parser;
+use crate::parse;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -245,7 +245,7 @@ impl Reader for MarkdownReader {
     ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
         // Convert ReaderOptions to parser Options
         let parser_options = options.to_parser_options();
-        Ok(parser::parse_document(input, &parser_options))
+        Ok(parse::parse_document(input, &parser_options))
     }
 
     fn format(&self) -> &'static str {
@@ -274,9 +274,9 @@ impl Reader for HtmlReader {
         _options: &ReaderOptions,
     ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
         // Convert HTML to Markdown, then parse
-        let markdown = crate::from::html_to_markdown(input);
-        let parser_options = crate::parser::options::Options::default();
-        Ok(parser::parse_document(&markdown, &parser_options))
+        let markdown = crate::io::from_impl::html_to_markdown(input);
+        let parser_options = crate::parse::options::Options::default();
+        Ok(parse::parse_document(&markdown, &parser_options))
     }
 
     fn format(&self) -> &'static str {

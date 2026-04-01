@@ -2,15 +2,15 @@
 //!
 //! This module handles detecting and opening new block-level elements.
 
-use crate::blocks::BlockParser;
+use crate::parse::block::BlockParser;
 use crate::core::arena::NodeId;
 use crate::core::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };
 use crate::ext::tables;
-use crate::inlines::unescape_string;
-use crate::parser::util::scanners;
+use crate::parse::inline::unescape_string;
+use crate::parse::util::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.
@@ -443,7 +443,7 @@ impl<'a> BlockParser<'a> {
             }
 
             let consumed =
-                crate::inlines::parse_reference(&processed_content, &mut self.refmap);
+                crate::parse::inline::parse_reference(&processed_content, &mut self.refmap);
             if consumed == 0 {
                 break;
             }
@@ -1234,7 +1234,7 @@ impl<'a> BlockParser<'a> {
             }
 
             // Set block info for the table node (mark as open)
-            self.set_block_info(table_node, crate::blocks::BlockInfo::new());
+            self.set_block_info(table_node, crate::parse::block::BlockInfo::new());
 
             // Advance past the delimiter line - consume entire current line
             self.offset = self.current_line.len();

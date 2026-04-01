@@ -2,11 +2,11 @@
 //!
 //! This module provides the main BlockParser struct and its core parsing logic.
 
-use crate::blocks::BlockInfo;
+use crate::parse::block::BlockInfo;
 use crate::core::arena::{Node, NodeArena, NodeId};
 use crate::core::error::{ParseError, ParseResult, ParserLimits};
 use crate::core::nodes::NodeValue;
-use crate::parser::options::Options;
+use crate::parse::options::Options;
 use rustc_hash::FxHashMap;
 
 /// Maximum input size: 100MB
@@ -356,7 +356,7 @@ impl<'a> BlockParser<'a> {
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {
             // Pass refmap by reference to avoid cloning
-            crate::inlines::parse_inlines_with_options(
+            crate::parse::inline::parse_inlines_with_options(
                 self.arena,
                 node_id,
                 &content,

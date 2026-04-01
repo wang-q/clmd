@@ -8,7 +8,7 @@
 //!
 //! ```ignore
 //! use clmd::plugins::{Plugins, SyntaxHighlighterAdapter};
-//! use clmd::parser::options::Options;
+//! use clmd::parse::options::Options;
 //!
 //! // Create a custom syntax highlighter
 //! struct MyHighlighter;
@@ -26,8 +26,8 @@
 //! plugins.render.set_syntax_highlighter(&MyHighlighter);
 //! ```
 
-// Re-export from parser::options for unified API
-pub use crate::parser::options::{Plugins, RenderPlugins};
+// Re-export from parse::options for unified API
+pub use crate::parse::options::{Plugins, RenderPlugins};
 
 // Re-export adapter traits for convenience
 pub use crate::core::adapters::{

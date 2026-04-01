@@ -4,7 +4,7 @@ use crate::core::adapters::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 use crate::ext::tagfilter::filter_html;
-use crate::parser::options::Options;
+use crate::parse::options::Options;
 use crate::text::html_utils::{escape_html, is_safe_url};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -729,7 +729,7 @@ mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena, TreeOps};
     use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeLink};
-    use crate::parser::options::Options;
+    use crate::parse::options::Options;
 
     #[test]
     fn test_escape_html() {

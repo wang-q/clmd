@@ -17,7 +17,7 @@
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::{ListType, NodeList, NodeValue};
-use crate::parser::options::{Options, Plugins};
+use crate::parse::options::{Options, Plugins};
 use std::fmt;
 
 /// Render an AST as Typst.

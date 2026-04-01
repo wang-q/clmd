@@ -17,6 +17,12 @@
 
 pub mod options;
 
+/// Block-level parsing module.
+pub mod block;
+
+/// Inline parsing module.
+pub mod inline;
+
 // Parsing utilities (moved from parsing/)
 /// Parsing utilities and combinators.
 pub mod util {
@@ -95,7 +101,7 @@ pub mod util {
     }
 }
 
-use crate::blocks::BlockParser;
+use crate::parse::block::BlockParser;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ParseResult, ParserLimits};
 use options::Options;
@@ -108,7 +114,7 @@ use options::Options;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, parser::options::Options};
+/// use clmd::{parse_document, parse::options::Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
@@ -126,7 +132,7 @@ pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document_with_limits, parser::options::Options};
+/// use clmd::{parse_document_with_limits, parse::options::Options};
 /// use clmd::core::error::ParserLimits;
 ///
 /// let options = Options::default();

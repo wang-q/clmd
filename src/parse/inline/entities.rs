@@ -1,6 +1,6 @@
 //! HTML entity parsing for inline elements
 
-use crate::inlines::utils::{get_html5_entity, is_escapable};
+use crate::parse::inline::utils::{get_html5_entity, is_escapable};
 
 /// Parse an HTML entity at the start of a string
 /// Returns (decoded_char, chars_consumed) or None

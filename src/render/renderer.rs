@@ -5,7 +5,7 @@
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
-use crate::parser::options::Options;
+use crate::parse::options::Options;
 
 // Re-export formatter module and its submodules from crate root
 pub use crate::formatter;
@@ -250,7 +250,7 @@ pub enum OutputFormat {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, render, OutputFormat, parser::options::Options, Arena};
+/// use clmd::{parse_document, render, OutputFormat, parse::options::Options, Arena};
 ///
 /// let mut arena = Arena::new();
 /// let options = Options::default();

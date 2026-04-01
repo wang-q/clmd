@@ -17,15 +17,15 @@
 //! }
 //! ```ignore
 
-pub use crate::io::format_css as css;
-pub use crate::io::format_csv as csv;
-pub use crate::io::format_mime as mime;
-pub use crate::io::format_tex as tex;
-pub use crate::io::format_xml as xml;
+pub use crate::io::format::css;
+pub use crate::io::format::csv;
+pub use crate::io::format::mime;
+pub use crate::io::format::tex;
+pub use crate::io::format::xml;
 
 // Format conversion
-pub use crate::io::from;
-pub use crate::io::format_slides as slides;
+pub use crate::io::convert;
+pub use crate::io::format::slides;
 
 use crate::core::error::{ClmdError, ClmdResult};
 use std::collections::HashMap;

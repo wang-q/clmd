@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{markdown_to_html, parser::options::Options};
+//! use clmd::{markdown_to_html, parse::options::Options};
 //!
 //! let options = Options::default();
 //! let html = markdown_to_html("# Hello\n\nWorld", &options);

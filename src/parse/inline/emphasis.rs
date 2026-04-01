@@ -40,7 +40,7 @@
 
 use crate::core::arena::{NodeArena, NodeId, TreeOps};
 use crate::core::nodes::NodeValue;
-use crate::inlines::utils::{is_punctuation, DelimScanResult};
+use crate::parse::inline::utils::{is_punctuation, DelimScanResult};
 use smallvec::SmallVec;
 
 /// Delimiter struct for tracking emphasis markers

@@ -2,7 +2,7 @@
 //!
 //! This module provides parsers for individual characters and character classes.
 
-use crate::parser::util::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse a single character matching a predicate.
 ///

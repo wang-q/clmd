@@ -3,9 +3,9 @@
 //! This module provides parsers for common patterns like strings, numbers,
 //! identifiers, and more.
 
-use crate::parser::util::char::digit;
-use crate::parser::util::combinator::{many, many1};
-use crate::parser::util::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parse::util::char::digit;
+use crate::parse::util::combinator::{many, many1};
+use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse a string literal (double-quoted).
 ///
