@@ -18,8 +18,9 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::core::nodes::NodeValue;
-use crate::options::{OutputFormat, WriterOptions};
 use crate::io::writer::Writer;
+use crate::options::{OutputFormat, WriterOptions};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::io::Write;
 
 /// DOCX document writer.
@@ -36,7 +37,7 @@ impl Writer for DocxWriter {
     ) -> ClmdResult<String> {
         // DOCX is a binary format, so we return base64-encoded content
         let docx_bytes = write_docx_binary(arena, root)?;
-        Ok(base64::encode(docx_bytes))
+        Ok(BASE64.encode(docx_bytes))
     }
 
     fn format(&self) -> OutputFormat {
@@ -58,7 +59,7 @@ impl Writer for DocxWriter {
         root: NodeId,
         path: &std::path::Path,
         ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
-        options: &WriterOptions,
+        _options: &WriterOptions,
     ) -> ClmdResult<()> {
         let docx_bytes = write_docx_binary(arena, root)?;
         ctx.write_file(path, &docx_bytes)?;

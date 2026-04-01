@@ -11,12 +11,12 @@ use clmd::context::mediabag::MediaBag;
 use clmd::context::PureContext;
 use clmd::core::arena::{Node, NodeArena, TreeOps};
 use clmd::core::error::ClmdResult;
-use clmd::options::Options;
 use clmd::io::read::ReaderRegistry;
+use clmd::io::write::WriterRegistry;
+use clmd::options::Options;
 use clmd::template::{TemplateContext, TemplateEngine};
 use clmd::text::uri::is_uri;
 use clmd::util::transform::{Filter, FilterChain};
-use clmd::io::write::WriterRegistry;
 
 fn main() -> ClmdResult<()> {
     println!("=== Pandoc-style Workflow Example ===\n");
@@ -29,12 +29,12 @@ fn main() -> ClmdResult<()> {
 
     // 2. Reader Registry
     println!("2. Reader Registry:");
-    let readers = ReaderRegistry::new();
+    let _readers = ReaderRegistry::new();
     println!("   Reader registry created successfully");
 
     // 3. Writer Registry
     println!("\n3. Writer Registry:");
-    let writers = WriterRegistry::new();
+    let _writers = WriterRegistry::new();
     println!("   Writer registry created successfully");
 
     // 4. Options and Pipeline

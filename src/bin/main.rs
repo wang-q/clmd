@@ -30,8 +30,7 @@ fn main() -> anyhow::Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Enable safe mode (filter dangerous HTML)"),
         )
-        .subcommand(cmd::to::make_subcommand())
-        .subcommand(cmd::from::make_subcommand())
+        .subcommand(cmd::convert::make_subcommand())
         .subcommand(cmd::extract::make_subcommand())
         .subcommand(cmd::stats::make_subcommand())
         .subcommand(cmd::toc::make_subcommand())
@@ -39,7 +38,7 @@ fn main() -> anyhow::Result<()> {
         .after_help(
             r###"Subcommand groups:
 
-* Conversion: to (html, xml), from (html)
+* Conversion: convert (to-html, to-xml, from-html)
 * Formatting: fmt
 * Extraction: extract (links, headings, code)
 * Analysis: stats
@@ -51,11 +50,11 @@ Configuration:
     - ~/.config/clmd/config.toml
 
 Examples:
-  clmd to html README.md
+  clmd convert to-html README.md
   clmd fmt input.md
   clmd stats input.md
   clmd toc input.md
-  clmd -c /path/to/config.toml to html input.md
+  clmd -c /path/to/config.toml convert to-html input.md
 "###,
         );
 
@@ -109,8 +108,7 @@ Examples:
     }
 
     match matches.subcommand() {
-        Some(("to", sub_matches)) => cmd::to::execute(sub_matches, &options),
-        Some(("from", sub_matches)) => cmd::from::execute(sub_matches, &options),
+        Some(("convert", sub_matches)) => cmd::convert::execute(sub_matches, &options),
         Some(("extract", sub_matches)) => cmd::extract::execute(sub_matches, &options),
         Some(("stats", sub_matches)) => cmd::stats::execute(sub_matches, &options),
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),

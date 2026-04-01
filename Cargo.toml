@@ -99,5 +99,5 @@ path = "examples/bench/benchmark.rs"
 # Binary
 [[bin]]
 name = "clmd"
-path = "src/bin/clmd.rs"
+path = "src/bin/main.rs"
 

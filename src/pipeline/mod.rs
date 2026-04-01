@@ -23,9 +23,9 @@
 use crate::context::{ClmdContext, PureContext};
 use crate::core::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
-use crate::options::Options;
 use crate::io::reader::{Reader, ReaderRegistry};
 use crate::io::writer::{Writer, WriterRegistry};
+use crate::options::Options;
 
 /// A document conversion pipeline.
 ///

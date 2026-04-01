@@ -20,8 +20,8 @@
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{NodeCodeBlock, NodeHeading, NodeValue};
-use crate::options::{InputFormat, ReaderOptions};
 use crate::io::reader::Reader;
+use crate::options::{InputFormat, ReaderOptions};
 
 /// LaTeX document reader.
 #[derive(Debug, Clone, Copy)]
@@ -74,9 +74,11 @@ fn parse_latex(input: &str, arena: &mut NodeArena) -> ClmdResult<NodeId> {
 
 /// LaTeX parser state.
 struct LatexParser<'a, 'b> {
+    #[allow(dead_code)]
     input: &'a str,
     chars: std::iter::Peekable<std::str::Chars<'a>>,
     arena: &'b mut NodeArena,
+    #[allow(dead_code)]
     root: NodeId,
     current_container: NodeId,
 }
@@ -416,7 +418,6 @@ impl<'a, 'b> LatexParser<'a, 'b> {
         // Read verbatim content until \end{verbatim}
         loop {
             if self.chars.peek() == Some(&'\\') {
-                let checkpoint = self.chars.clone();
                 self.chars.next();
                 let cmd = self.parse_command_name();
                 if cmd == "end" {

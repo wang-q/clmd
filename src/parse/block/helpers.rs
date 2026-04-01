@@ -3,9 +3,9 @@
 //! This module provides utility functions for position tracking,
 //! character peeking, and block relationship checking.
 
-use crate::parse::block::BlockParser;
 use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
+use crate::parse::block::BlockParser;
 use crate::TAB_STOP;
 
 impl<'a> BlockParser<'a> {

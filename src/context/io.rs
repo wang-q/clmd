@@ -333,7 +333,7 @@ mod tests {
         let path = temp_file.path();
         let filename = path.file_name().unwrap().to_str().unwrap();
         // The file should be found by its absolute path
-        let found = ctx.find_file(filename);
+        let _found = ctx.find_file(filename);
         // Note: This test may fail depending on the temp directory location
         // as find_file searches in the resource paths
         // For now, we just check the method doesn't panic

@@ -3,8 +3,8 @@
 //! This module provides methods to access and modify BlockInfo data
 //! associated with parser nodes.
 
-use crate::parse::block::{BlockInfo, BlockParser};
 use crate::core::arena::NodeId;
+use crate::parse::block::{BlockInfo, BlockParser};
 
 impl<'a> BlockParser<'a> {
     pub(crate) fn get_block_info(&self, node_id: NodeId) -> Option<&BlockInfo> {

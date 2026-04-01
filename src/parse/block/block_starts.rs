@@ -2,13 +2,13 @@
 //!
 //! This module handles detecting and opening new block-level elements.
 
-use crate::parse::block::BlockParser;
 use crate::core::arena::NodeId;
 use crate::core::nodes::{
     ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
     NodeValue,
 };
-use crate::ext::tables;
+use crate::ext::gfm::table;
+use crate::parse::block::BlockParser;
 use crate::parse::inline::unescape_string;
 use crate::parse::util::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
@@ -442,8 +442,10 @@ impl<'a> BlockParser<'a> {
                 break;
             }
 
-            let consumed =
-                crate::parse::inline::parse_reference(&processed_content, &mut self.refmap);
+            let consumed = crate::parse::inline::parse_reference(
+                &processed_content,
+                &mut self.refmap,
+            );
             if consumed == 0 {
                 break;
             }
@@ -1179,7 +1181,7 @@ impl<'a> BlockParser<'a> {
         let para_content = self.get_string_content(container);
 
         // Check if paragraph content looks like a table header
-        if !tables::is_table_row(&para_content) {
+        if !table::is_table_row(&para_content) {
             return BlockStartResult::None;
         }
 
@@ -1187,7 +1189,7 @@ impl<'a> BlockParser<'a> {
         let line = &self.current_line[self.next_nonspace..];
 
         // Check if current line is a delimiter row
-        if !tables::is_delimiter_row(line) {
+        if !table::is_delimiter_row(line) {
             return BlockStartResult::None;
         }
 
@@ -1198,7 +1200,7 @@ impl<'a> BlockParser<'a> {
         // Data rows will be added in subsequent processing
         let lines = vec![&para_content[..], line];
         if let Some((table_node, _)) =
-            tables::try_parse_table(self.arena, &lines, start_line)
+            table::try_parse_table(self.arena, &lines, start_line)
         {
             // Replace paragraph with table
             self.close_unmatched_blocks();

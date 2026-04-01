@@ -18,8 +18,9 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::core::nodes::NodeValue;
-use crate::options::{OutputFormat, WriterOptions};
 use crate::io::writer::Writer;
+use crate::options::{OutputFormat, WriterOptions};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::io::Write;
 
 /// EPUB document writer.
@@ -36,7 +37,7 @@ impl Writer for EpubWriter {
     ) -> ClmdResult<String> {
         // EPUB is a binary format, so we return base64-encoded content
         let epub_bytes = write_epub_binary(arena, root)?;
-        Ok(base64::encode(epub_bytes))
+        Ok(BASE64.encode(epub_bytes))
     }
 
     fn format(&self) -> OutputFormat {

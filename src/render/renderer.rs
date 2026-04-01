@@ -51,10 +51,10 @@ pub trait Renderer {
 
 pub use super::commonmark;
 /// Re-export all renderers
-pub use super::html;
-pub use super::latex;
-pub use super::man;
-pub use super::xml;
+pub use super::format::html;
+pub use super::format::latex;
+pub use super::format::man;
+pub use super::format::xml;
 
 /// Render to HTML format
 ///

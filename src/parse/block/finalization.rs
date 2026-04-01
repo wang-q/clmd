@@ -3,9 +3,9 @@
 //! This module handles finalizing blocks, adding text content,
 //! and post-processing after parsing is complete.
 
-use crate::parse::block::BlockParser;
 use crate::core::arena::{NodeId, TreeOps};
 use crate::core::nodes::NodeValue;
+use crate::parse::block::BlockParser;
 use crate::parse::inline::parse_reference;
 use crate::TAB_STOP;
 

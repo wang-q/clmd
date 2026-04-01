@@ -18,8 +18,8 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
-use crate::options::{OutputFormat, WriterOptions};
 use crate::io::writer::Writer;
+use crate::options::{OutputFormat, WriterOptions};
 
 /// BibTeX document writer.
 #[derive(Debug, Clone, Copy)]

@@ -497,7 +497,7 @@ impl NodeArena {
 mod tests {
     use super::*;
     use crate::core::arena::{Node, TreeOps};
-    use crate::core::nodes::{NodeHeading, NodeLink};
+    use crate::core::nodes::NodeHeading;
 
     #[test]
     fn test_walkable_bottom_up() {

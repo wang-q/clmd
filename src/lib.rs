@@ -205,8 +205,8 @@ pub mod from {
 /// Markdown extensions (GFM and others).
 pub mod ext;
 
-// HTML rendering for the CommonMark AST is now in render::html
-pub use render::html;
+// HTML rendering for the CommonMark AST is now in render::format::html
+pub use render::format::html;
 
 /// HTML utilities (escaping, entity decoding).
 pub mod html_utils {
@@ -241,8 +241,6 @@ pub mod options {
 pub mod io;
 
 // IO submodules are accessed through `io::reader`, `io::writer`, `io::format`
-
-
 
 /// Plugin system for extending Markdown rendering.
 pub mod plugin;
@@ -304,7 +302,7 @@ pub mod filter {
 pub mod template;
 
 /// Parsing utilities.
-/// 
+///
 /// This module provides low-level parsing primitives and combinators.
 pub use parse::util as parsing;
 
@@ -917,7 +915,9 @@ pub fn format_typst_with_plugins(
     output: &mut dyn std::fmt::Write,
     plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    render::format::typst::format_document_with_plugins(arena, root, _options, output, plugins)
+    render::format::typst::format_document_with_plugins(
+        arena, root, _options, output, plugins,
+    )
 }
 
 /// Return the version of the crate.
@@ -1223,7 +1223,11 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let html = render::format::html::render(&arena, root, &crate::parse::options::Options::default());
+        let html = render::format::html::render(
+            &arena,
+            root,
+            &crate::parse::options::Options::default(),
+        );
         assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
         assert!(
             !html.contains(":thumbsup:"),
@@ -1311,7 +1315,11 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode1);
         TreeOps::append_child(&mut arena, para, shortcode2);
 
-        let html = render::format::html::render(&arena, root, &crate::parse::options::Options::default());
+        let html = render::format::html::render(
+            &arena,
+            root,
+            &crate::parse::options::Options::default(),
+        );
         assert!(
             html.contains("😄"),
             "HTML should contain first emoji: {}",
