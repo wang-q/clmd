@@ -4,12 +4,12 @@
 //! inspired by flexmark-java's NodeFormatterContext interface.
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 use crate::formatter::node::NodeValueType;
 use crate::formatter::options::FormatterOptions;
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::purpose::RenderPurpose;
 use crate::formatter::writer::MarkdownWriter;
-use crate::core::nodes::NodeValue;
 
 /// Context for node formatting operations
 ///
@@ -83,7 +83,10 @@ pub trait NodeFormatterContext {
     /// Start collecting table data
     ///
     /// Called when entering a table node to begin collecting row and cell data.
-    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>);
+    fn start_table_collection(
+        &mut self,
+        alignments: Vec<crate::core::nodes::TableAlignment>,
+    );
 
     /// Add a table row
     ///
@@ -353,7 +356,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     // Table data collection methods - delegate to parent
 
-    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>) {
+    fn start_table_collection(
+        &mut self,
+        alignments: Vec<crate::core::nodes::TableAlignment>,
+    ) {
         self.parent.start_table_collection(alignments);
     }
 
@@ -460,9 +466,9 @@ impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
 mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena};
+    use crate::core::nodes::NodeValue;
     use crate::formatter::options::FormatterOptions;
     use crate::formatter::purpose::RenderPurpose;
-    use crate::core::nodes::NodeValue;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
@@ -625,7 +631,8 @@ mod tests {
 
         fn take_table_data(
             &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
             self.table_data.take()
         }
 

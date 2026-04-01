@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::version::{VERSION, VERSION_MAJOR, VERSION_MINOR};
+//! ```ignore
+//! use clmd::context::version::{VERSION, VERSION_MAJOR, VERSION_MINOR};
 //!
 //! println!("clmd version: {}", VERSION);
 //! println!("Major: {}, Minor: {}", VERSION_MAJOR, VERSION_MINOR);

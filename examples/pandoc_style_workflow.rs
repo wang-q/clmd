@@ -7,8 +7,8 @@
 //! - Template system for rendering
 //! - MediaBag for resource management
 
-use clmd::context::PureContext;
 use clmd::context::mediabag::MediaBag;
+use clmd::context::PureContext;
 use clmd::core::arena::{Node, NodeArena, TreeOps};
 use clmd::core::error::ClmdResult;
 use clmd::options::Options;
@@ -51,9 +51,9 @@ fn main() -> ClmdResult<()> {
     chain.add(Filter::header_shift(1)); // Increase header levels
 
     println!("   Applying header shift filter...");
-    chain
-        .apply(&mut arena, root)
-        .map_err(|e| clmd::core::error::ClmdError::Other(format!("Filter error: {}", e)))?;
+    chain.apply(&mut arena, root).map_err(|e| {
+        clmd::core::error::ClmdError::Other(format!("Filter error: {}", e))
+    })?;
     println!("   Filter applied successfully!\n");
 
     // 6. Template System

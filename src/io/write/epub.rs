@@ -77,39 +77,48 @@ fn write_epub_binary(arena: &NodeArena, root: NodeId) -> ClmdResult<Vec<u8>> {
         // mimetype (must be first and uncompressed)
         let mimetype_options = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Stored);
-        zip.start_file("mimetype", mimetype_options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("mimetype", mimetype_options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(b"application/epub+zip")
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // META-INF/container.xml
         zip.start_file("META-INF/container.xml", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+            .map_err(|e| {
+                ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+            })?;
         zip.write_all(CONTAINER_XML.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // content.opf
-        zip.start_file("OEBPS/content.opf", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("OEBPS/content.opf", options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(CONTENT_OPF.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // toc.ncx
-        zip.start_file("OEBPS/toc.ncx", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("OEBPS/toc.ncx", options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(TOC_NCX.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // chapter1.xhtml
         let chapter = generate_chapter_xhtml(arena, root)?;
         zip.start_file("OEBPS/chapter1.xhtml", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+            .map_err(|e| {
+                ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+            })?;
         zip.write_all(chapter.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // stylesheet.css
         zip.start_file("OEBPS/stylesheet.css", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+            .map_err(|e| {
+                ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+            })?;
         zip.write_all(STYLESHEET_CSS.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
@@ -142,7 +151,11 @@ fn generate_chapter_xhtml(arena: &NodeArena, root: NodeId) -> ClmdResult<String>
 }
 
 /// Render a node and its children to XHTML.
-fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_node(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -253,7 +266,11 @@ fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdR
 }
 
 /// Render inline content.
-fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {

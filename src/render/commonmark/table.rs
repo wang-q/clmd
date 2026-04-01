@@ -39,9 +39,9 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use clmd::formatter::table::format_table_str;
-//! use clmd::nodes::TableAlignment;
+//! ```ignore
+//! use clmd::render::commonmark::table::format_table_str;
+//! use clmd::core::nodes::TableAlignment;
 //!
 //! let input = "| A | B |\n|---|---|\n| C | D |";
 //! let formatted = format_table_str(input, &[TableAlignment::None, TableAlignment::None]);

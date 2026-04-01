@@ -987,7 +987,8 @@ mod tests {
         fn add_table_cell(&mut self, _content: String) {}
         fn take_table_data(
             &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
             None
         }
         fn is_collecting_table(&self) -> bool {

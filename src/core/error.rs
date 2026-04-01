@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use clmd::error::{ClmdError, Position};
+//! use clmd::core::error::{ClmdError, Position};
 //!
 //! let error = ClmdError::parse_error(Position::new(1, 10), "Unexpected token");
 //! println!("Error: {}", error);

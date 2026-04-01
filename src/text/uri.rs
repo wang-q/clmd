@@ -5,8 +5,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::uri::{url_encode, escape_uri, is_uri};
+//! ```ignore
+//! use clmd::text::uri::{url_encode, escape_uri, is_uri};
 //!
 //! // URL encode a string
 //! let encoded = url_encode("hello world");

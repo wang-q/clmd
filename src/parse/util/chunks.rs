@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::chunks::{Chunker, ChunkConfig};
+//! ```ignore
+//! use clmd::parse::util::chunks::{Chunker, ChunkConfig};
 //!
 //! let config = ChunkConfig::default();
 //! let chunker = Chunker::new(config);

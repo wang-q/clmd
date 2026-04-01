@@ -1,7 +1,7 @@
-//! Markdown formatter
+//! CommonMark rendering and formatting
 //!
-//! This module provides the main Markdown formatter implementation,
-//! inspired by flexmark-java's Formatter class.
+//! This module provides CommonMark output generation and the main Markdown formatter
+//! implementation, inspired by flexmark-java's Formatter class.
 //!
 //! # Submodules
 //!
@@ -598,7 +598,10 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     // Table data collection methods
 
-    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>) {
+    fn start_table_collection(
+        &mut self,
+        alignments: Vec<crate::core::nodes::TableAlignment>,
+    ) {
         self.table_rows = Vec::new();
         self.table_alignments = alignments;
         self.collecting_table = true;
@@ -738,6 +741,35 @@ pub fn format_document_with_options(
     options: options::FormatterOptions,
 ) -> String {
     let formatter = Formatter::with_options(options);
+    formatter.render(arena, root)
+}
+
+/// Render a node tree as CommonMark
+///
+/// This function uses the CommonMarkNodeFormatter via the Formatter framework,
+/// which provides a flexible, node-based approach to rendering CommonMark output.
+///
+/// # Arguments
+///
+/// * `arena` - The NodeArena containing the AST
+/// * `root` - The root node ID
+/// * `_options` - Rendering options (currently unused, kept for API compatibility)
+/// * `wrap_width` - Maximum line width for wrapping (0 = no wrapping)
+///
+/// # Returns
+///
+/// The CommonMark output as a String
+pub fn render(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: u32,
+    wrap_width: usize,
+) -> String {
+    let opts = options::FormatterOptions::new().with_right_margin(wrap_width);
+    let mut formatter = Formatter::with_options(opts);
+    formatter.add_node_formatter(Box::new(
+        commonmark_formatter::CommonMarkNodeFormatter::new(),
+    ));
     formatter.render(arena, root)
 }
 
@@ -904,8 +936,8 @@ mod tests {
 
     #[test]
     fn test_format_document_with_table() {
-        use crate::formatter::CommonMarkNodeFormatter;
         use crate::core::nodes::{NodeTable, TableAlignment};
+        use crate::formatter::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));

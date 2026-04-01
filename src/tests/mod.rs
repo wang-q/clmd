@@ -128,7 +128,7 @@ fn test_tagfilter_extension() {
 #[test]
 fn test_syntect_syntax_highlighting() {
     use crate::markdown_to_html_with_plugins;
-    use crate::plugins::syntect::SyntectAdapter;
+    use crate::plugin::syntect::SyntectAdapter;
     use crate::Plugins;
 
     let options = Options::default();
@@ -152,7 +152,7 @@ fn test_syntect_syntax_highlighting() {
 #[test]
 fn test_syntect_css_class_mode() {
     use crate::markdown_to_html_with_plugins;
-    use crate::plugins::syntect::SyntectAdapter;
+    use crate::plugin::syntect::SyntectAdapter;
     use crate::Plugins;
 
     let options = Options::default();

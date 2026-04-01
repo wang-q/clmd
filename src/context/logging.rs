@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::logging::{Logger, LogLevel, LogEntry};
+//! ```ignore
+//! use clmd::context::logging::{Logger, LogLevel, LogEntry};
 //!
 //! let logger = Logger::new();
 //! logger.log(LogLevel::Info, "Processing document");

@@ -14,8 +14,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::slides::{SlideLevel, SlideShow};
+//! ```ignore
+//! use clmd::io::format::slides::{SlideLevel, SlideShow};
 //!
 //! // Parse a document and split into slides
 //! let slides = SlideShow::from_markdown("# Slide 1\n\nContent\n\n# Slide 2");

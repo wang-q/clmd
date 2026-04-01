@@ -41,7 +41,11 @@ impl Default for LaTeXReader {
 }
 
 impl Reader for LaTeXReader {
-    fn read(&self, input: &str, _options: &ReaderOptions) -> ClmdResult<(NodeArena, NodeId)> {
+    fn read(
+        &self,
+        input: &str,
+        _options: &ReaderOptions,
+    ) -> ClmdResult<(NodeArena, NodeId)> {
         let mut arena = NodeArena::new();
         let root = parse_latex(input, &mut arena)?;
         Ok((arena, root))
@@ -438,15 +442,16 @@ impl<'a, 'b> LatexParser<'a, 'b> {
             }
         }
 
-        let code_block = Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
-            literal: content,
-            info: "".into(),
-            fence_length: 0,
-            fence_offset: 0,
-            fenced: false,
-            fence_char: 0,
-            closed: true,
-        })));
+        let code_block =
+            Node::with_value(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+                literal: content,
+                info: "".into(),
+                fence_length: 0,
+                fence_offset: 0,
+                fenced: false,
+                fence_char: 0,
+                closed: true,
+            })));
         let code_id = self.arena.alloc(code_block);
 
         TreeOps::append_child(self.arena, self.current_container, code_id);
@@ -546,7 +551,9 @@ impl<'a, 'b> LatexParser<'a, 'b> {
             let para = Node::with_value(NodeValue::Paragraph);
             let para_id = self.arena.alloc(para);
 
-            let text_node = Node::with_value(NodeValue::Text(text.trim().to_string().into_boxed_str()));
+            let text_node = Node::with_value(NodeValue::Text(
+                text.trim().to_string().into_boxed_str(),
+            ));
             let text_id = self.arena.alloc(text_node);
 
             TreeOps::append_child(self.arena, para_id, text_id);
@@ -569,10 +576,12 @@ impl<'a, 'b> LatexParser<'a, 'b> {
             "strong" => Node::with_value(NodeValue::Strong),
             "emph" => Node::with_value(NodeValue::Emph),
             "code" => {
-                let code = Node::with_value(NodeValue::Code(Box::new(crate::core::nodes::NodeCode {
-                    literal: content.clone(),
-                    num_backticks: 1,
-                })));
+                let code = Node::with_value(NodeValue::Code(Box::new(
+                    crate::core::nodes::NodeCode {
+                        literal: content.clone(),
+                        num_backticks: 1,
+                    },
+                )));
                 let code_id = self.arena.alloc(code);
 
                 // Add to current paragraph

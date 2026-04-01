@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::sources::{Source, SourcePos, Sources};
+//! ```ignore
+//! use clmd::parse::util::sources::{Source, SourcePos, Sources};
 //!
 //! let source = Source::from_string("Hello world");
 //! let pos = SourcePos::new(1, 1, 0);

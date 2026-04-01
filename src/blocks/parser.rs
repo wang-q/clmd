@@ -218,7 +218,10 @@ impl<'a> BlockParser<'a> {
                 && line.len() > parser.limits.max_line_length
             {
                 return Err(ParseError::ParseError {
-                    position: crate::core::error::Position::new(parser.line_number + 1, 1),
+                    position: crate::core::error::Position::new(
+                        parser.line_number + 1,
+                        1,
+                    ),
                     message: format!(
                         "Line exceeds maximum length ({} > {})",
                         line.len(),

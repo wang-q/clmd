@@ -76,32 +76,39 @@ fn write_docx_binary(arena: &NodeArena, root: NodeId) -> ClmdResult<Vec<u8>> {
 
         // [Content_Types].xml
         zip.start_file("[Content_Types].xml", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+            .map_err(|e| {
+                ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+            })?;
         zip.write_all(CONTENT_TYPES.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // _rels/.rels
-        zip.start_file("_rels/.rels", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("_rels/.rels", options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(RELS.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // word/_rels/document.xml.rels
         zip.start_file("word/_rels/document.xml.rels", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+            .map_err(|e| {
+                ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+            })?;
         zip.write_all(DOCUMENT_RELS.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // word/document.xml
         let document_xml = generate_document_xml(arena, root)?;
-        zip.start_file("word/document.xml", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("word/document.xml", options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(document_xml.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
         // word/styles.xml
-        zip.start_file("word/styles.xml", options)
-            .map_err(|e| ClmdError::io_error(format!("Failed to create zip entry: {}", e)))?;
+        zip.start_file("word/styles.xml", options).map_err(|e| {
+            ClmdError::io_error(format!("Failed to create zip entry: {}", e))
+        })?;
         zip.write_all(STYLES.as_bytes())
             .map_err(|e| ClmdError::io_error(format!("Failed to write: {}", e)))?;
 
@@ -134,7 +141,11 @@ fn generate_document_xml(arena: &NodeArena, root: NodeId) -> ClmdResult<String> 
 }
 
 /// Render a node and its children to DOCX XML.
-fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_node(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -256,7 +267,11 @@ fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdR
 }
 
 /// Render inline content.
-fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -316,7 +331,9 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
         }
 
         NodeValue::Strikethrough => {
-            output.push_str(r#"<w:r><w:rPr><w:strike/></w:rPr><w:t xml:space="preserve">"#);
+            output.push_str(
+                r#"<w:r><w:rPr><w:strike/></w:rPr><w:t xml:space="preserve">"#,
+            );
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline_text(arena, child_id, output)?;
@@ -327,7 +344,9 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
         }
 
         NodeValue::Underline => {
-            output.push_str(r#"<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">"#);
+            output.push_str(
+                r#"<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">"#,
+            );
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline_text(arena, child_id, output)?;
@@ -351,7 +370,11 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
 }
 
 /// Render inline text only (for nested formatting).
-fn render_inline_text(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline_text(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {

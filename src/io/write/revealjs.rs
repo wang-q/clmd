@@ -1,15 +1,15 @@
-//! Beamer document writer.
+//! RevealJS document writer.
 //!
-//! This module provides a writer for Beamer (LaTeX slides) format.
+//! This module provides a writer for RevealJS (HTML slides) format.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use clmd::writers::BeamerWriter;
+//! use clmd::writers::RevealJsWriter;
 //! use clmd::options::WriterOptions;
 //! use clmd::context::PureContext;
 //!
-//! let writer = BeamerWriter;
+//! let writer = RevealJsWriter;
 //! let ctx = PureContext::new();
 //! let output = writer.write(&arena, root, &ctx, &WriterOptions::default()).unwrap();
 //! ```
@@ -21,11 +21,11 @@ use crate::core::nodes::NodeValue;
 use crate::options::{OutputFormat, WriterOptions};
 use crate::writers::Writer;
 
-/// Beamer document writer.
+/// RevealJS document writer.
 #[derive(Debug, Clone, Copy)]
-pub struct BeamerWriter;
+pub struct RevealJsWriter;
 
-impl Writer for BeamerWriter {
+impl Writer for RevealJsWriter {
     fn write(
         &self,
         arena: &NodeArena,
@@ -35,40 +35,40 @@ impl Writer for BeamerWriter {
     ) -> ClmdResult<String> {
         let mut output = String::new();
 
-        // Beamer preamble
-        output.push_str(BEAMER_PREAMBLE);
+        // HTML preamble
+        output.push_str(REVEALJS_PREAMBLE);
 
-        // Document content
-        output.push_str("\\begin{document}\n\n");
+        // Extract title if available
+        let title =
+            extract_title(arena, root).unwrap_or_else(|| "Presentation".to_string());
+        output.push_str(&format!("<title>{}</title>\n", escape_html(&title)));
 
-        // Generate title slide if there's a level 1 heading
-        if let Some(title) = extract_title(arena, root) {
-            output.push_str("\\title{");
-            output.push_str(&escape_latex(&title));
-            output.push_str("}\n");
-            output.push_str("\\author{}\n");
-            output.push_str("\\date{\\today}\n");
-            output.push_str("\\maketitle\n\n");
-        }
+        output.push_str(REVEALJS_HEAD_END);
 
-        // Render slides
+        // Slides content
+        output.push_str("<div class=\"reveal\">\n");
+        output.push_str("<div class=\"slides\">\n");
+
         render_slides(arena, root, &mut output)?;
 
-        output.push_str("\\end{document}\n");
+        output.push_str("</div>\n");
+        output.push_str("</div>\n");
+
+        output.push_str(REVEALJS_FOOTER);
 
         Ok(output)
     }
 
     fn format(&self) -> OutputFormat {
-        OutputFormat::Beamer
+        OutputFormat::RevealJs
     }
 
     fn extensions(&self) -> &[&'static str] {
-        &["tex", "beamer"]
+        &["html", "revealjs"]
     }
 
     fn mime_type(&self) -> &'static str {
-        "text/x-tex"
+        "text/html"
     }
 }
 
@@ -81,7 +81,6 @@ fn extract_title(arena: &NodeArena, root: NodeId) -> Option<String> {
         let child = arena.get(child_id);
         if let NodeValue::Heading(heading) = &child.value {
             if heading.level == 1 {
-                // Collect text from children
                 let mut title = String::new();
                 let mut text_opt = child.first_child;
                 while let Some(text_id) = text_opt {
@@ -101,7 +100,11 @@ fn extract_title(arena: &NodeArena, root: NodeId) -> Option<String> {
 }
 
 /// Render slides from the AST.
-fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_slides(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -115,8 +118,8 @@ fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
         }
 
         NodeValue::Heading(heading) => {
-            // Level 1 heading starts a new section
             if heading.level == 1 {
+                // Level 1 heading - section divider
                 let mut title = String::new();
                 let mut text_opt = node.first_child;
                 while let Some(text_id) = text_opt {
@@ -127,12 +130,12 @@ fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
                     text_opt = text_node.next;
                 }
 
-                output.push_str("\\section{");
-                output.push_str(&escape_latex(&title));
-                output.push_str("}\n\n");
+                output.push_str("<section>\n");
+                output.push_str(&format!("<h1>{}</h1>\n", escape_html(&title)));
+                output.push_str("</section>\n\n");
             } else {
-                // Level 2+ headings become frame titles
-                output.push_str("\\begin{frame}\n");
+                // Level 2+ headings become slide titles
+                output.push_str("<section>\n");
 
                 let mut title = String::new();
                 let mut text_opt = node.first_child;
@@ -144,9 +147,7 @@ fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
                     text_opt = text_node.next;
                 }
 
-                output.push_str("\\frametitle{");
-                output.push_str(&escape_latex(&title));
-                output.push_str("}\n\n");
+                output.push_str(&format!("<h2>{}</h2>\n", escape_html(&title)));
 
                 // Render any following content until next heading
                 let mut sibling_opt = node.next;
@@ -159,38 +160,34 @@ fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
                     sibling_opt = sibling.next;
                 }
 
-                output.push_str("\\end{frame}\n\n");
+                output.push_str("</section>\n\n");
             }
         }
 
         NodeValue::Paragraph => {
-            // Paragraphs outside frames become their own frames
-            output.push_str("\\begin{frame}\n");
+            output.push_str("<section>\n");
             render_slide_content(arena, node_id, output)?;
-            output.push_str("\\end{frame}\n\n");
+            output.push_str("</section>\n\n");
         }
 
         NodeValue::List(_) => {
-            // Lists outside frames become their own frames
-            output.push_str("\\begin{frame}\n");
+            output.push_str("<section>\n");
             render_slide_content(arena, node_id, output)?;
-            output.push_str("\\end{frame}\n\n");
+            output.push_str("</section>\n\n");
         }
 
         NodeValue::BlockQuote => {
-            // Blockquotes outside frames become their own frames
-            output.push_str("\\begin{frame}\n");
+            output.push_str("<section>\n");
             render_slide_content(arena, node_id, output)?;
-            output.push_str("\\end{frame}\n\n");
+            output.push_str("</section>\n\n");
         }
 
         NodeValue::CodeBlock(code) => {
-            // Code blocks become their own frames
-            output.push_str("\\begin{frame}[fragile]\n");
-            output.push_str("\\begin{verbatim}\n");
-            output.push_str(&code.literal);
-            output.push_str("\n\\end{verbatim}\n");
-            output.push_str("\\end{frame}\n\n");
+            output.push_str("<section>\n");
+            output.push_str("<pre><code>");
+            escape_html_to(&code.literal, output);
+            output.push_str("</code></pre>\n");
+            output.push_str("</section>\n\n");
         }
 
         _ => {
@@ -206,7 +203,7 @@ fn render_slides(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
     Ok(())
 }
 
-/// Render content inside a slide frame.
+/// Render content inside a slide.
 fn render_slide_content(
     arena: &NodeArena,
     node_id: NodeId,
@@ -216,39 +213,40 @@ fn render_slide_content(
 
     match &node.value {
         NodeValue::Paragraph => {
+            output.push_str("<p>");
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push_str("\n\n");
+            output.push_str("</p>\n");
         }
 
         NodeValue::List(_) => {
-            output.push_str("\\begin{itemize}\n");
+            output.push_str("<ul>\n");
 
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 let child = arena.get(child_id);
                 if matches!(child.value, NodeValue::Item(_)) {
-                    output.push_str("\\item ");
+                    output.push_str("<li>");
                     let mut item_child_opt = child.first_child;
                     while let Some(item_child_id) = item_child_opt {
                         render_inline(arena, item_child_id, output)?;
                         let item_child = arena.get(item_child_id);
                         item_child_opt = item_child.next;
                     }
-                    output.push_str("\n");
+                    output.push_str("</li>\n");
                 }
                 child_opt = child.next;
             }
 
-            output.push_str("\\end{itemize}\n\n");
+            output.push_str("</ul>\n");
         }
 
         NodeValue::BlockQuote => {
-            output.push_str("\\begin{quote}\n");
+            output.push_str("<blockquote>\n");
 
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
@@ -257,7 +255,7 @@ fn render_slide_content(
                 child_opt = child.next;
             }
 
-            output.push_str("\\end{quote}\n\n");
+            output.push_str("</blockquote>\n");
         }
 
         _ => {
@@ -274,79 +272,85 @@ fn render_slide_content(
 }
 
 /// Render inline content.
-fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
         NodeValue::Text(text) => {
-            output.push_str(&escape_latex(text));
+            escape_html_to(text, output);
         }
 
-        NodeValue::SoftBreak | NodeValue::HardBreak => {
+        NodeValue::SoftBreak => {
             output.push(' ');
         }
 
+        NodeValue::HardBreak => {
+            output.push_str("<br/>");
+        }
+
         NodeValue::Emph => {
-            output.push_str("\\emph{");
+            output.push_str("<em>");
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push('}');
+            output.push_str("</em>");
         }
 
         NodeValue::Strong => {
-            output.push_str("\\textbf{");
+            output.push_str("<strong>");
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push('}');
+            output.push_str("</strong>");
         }
 
         NodeValue::Code(code) => {
-            output.push_str("\\texttt{");
-            output.push_str(&escape_latex(&code.literal));
-            output.push('}');
+            output.push_str("<code>");
+            escape_html_to(&code.literal, output);
+            output.push_str("</code>");
         }
 
         NodeValue::Link(link) => {
-            output.push_str("\\href{");
-            output.push_str(&escape_latex(&link.url));
-            output.push_str("}{");
+            output.push_str(&format!(r#"<a href="{}">"#, escape_html(&link.url)));
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push('}');
+            output.push_str("</a>");
         }
 
         NodeValue::Strikethrough => {
-            output.push_str("\\sout{");
+            output.push_str("<del>");
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push('}');
+            output.push_str("</del>");
         }
 
         NodeValue::Underline => {
-            output.push_str("\\underline{");
+            output.push_str("<u>");
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            output.push('}');
+            output.push_str("</u>");
         }
 
         _ => {
@@ -362,46 +366,87 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
     Ok(())
 }
 
-/// Escape LaTeX special characters.
-fn escape_latex(text: &str) -> String {
+/// Escape HTML special characters.
+fn escape_html(text: &str) -> String {
     let mut result = String::with_capacity(text.len() * 2);
-
-    for c in text.chars() {
-        match c {
-            '\\' => result.push_str("\\textbackslash{}"),
-            '{' => result.push_str("\\{"),
-            '}' => result.push_str("\\}"),
-            '$' => result.push_str("\\$"),
-            '&' => result.push_str("\\&"),
-            '#' => result.push_str("\\#"),
-            '^' => result.push_str("\\^{}"),
-            '_' => result.push_str("\\_"),
-            '%' => result.push_str("\\%"),
-            '~' => result.push_str("\\textasciitilde{}"),
-            '<' => result.push_str("\\textless{}"),
-            '>' => result.push_str("\\textgreater{}"),
-            '|' => result.push_str("\\textbar{}"),
-            '"' => result.push_str("\\textquotedbl{}"),
-            '\'' => result.push_str("\\textquotesingle{}"),
-            '`' => result.push_str("\\textasciigrave{}"),
-            _ => result.push(c),
-        }
-    }
-
+    escape_html_to(text, &mut result);
     result
 }
 
-/// Beamer document preamble.
-const BEAMER_PREAMBLE: &str = r#"\documentclass[aspectratio=169]{beamer}
+/// Escape HTML special characters to output.
+fn escape_html_to(text: &str, output: &mut String) {
+    for c in text.chars() {
+        match c {
+            '<' => output.push_str("&lt;"),
+            '>' => output.push_str("&gt;"),
+            '&' => output.push_str("&amp;"),
+            '"' => output.push_str("&quot;"),
+            '\'' => output.push_str("&#x27;"),
+            _ => output.push(c),
+        }
+    }
+}
 
-\usetheme{Madrid}
-\usecolortheme{default}
+/// RevealJS HTML preamble.
+const REVEALJS_PREAMBLE: &str = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+"#;
 
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{hyperref}
-\usepackage{ulem}
+const REVEALJS_HEAD_END: &str = r#"    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/white.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 {
+            text-transform: none;
+        }
+        .reveal pre {
+            background: #f5f5f5;
+            padding: 1em;
+            border-radius: 4px;
+        }
+        .reveal code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            background: #f5f5f5;
+            padding: 0.1em 0.3em;
+            border-radius: 3px;
+        }
+        .reveal pre code {
+            background: transparent;
+            padding: 0;
+        }
+        .reveal blockquote {
+            background: #f9f9f9;
+            border-left: 4px solid #ccc;
+            padding: 0.5em 1em;
+            font-style: italic;
+        }
+        .reveal ul {
+            list-style-type: disc;
+        }
+        .reveal li {
+            margin-bottom: 0.5em;
+        }
+    </style>
+</head>
+<body>
+"#;
 
+const REVEALJS_FOOTER: &str = r#"    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide',
+            width: 1200,
+            height: 700,
+            margin: 0.04
+        });
+    </script>
+</body>
+</html>
 "#;
 
 #[cfg(test)]
@@ -452,41 +497,36 @@ mod tests {
     }
 
     #[test]
-    fn test_beamer_writer_basic() {
-        let writer = BeamerWriter;
+    fn test_revealjs_writer_basic() {
+        let writer = RevealJsWriter;
         let ctx = PureContext::new();
         let options = WriterOptions::default();
         let (arena, root) = create_test_presentation();
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
 
-        // Check for Beamer structure
-        assert!(output.contains("\\documentclass"));
-        assert!(output.contains("\\begin{document}"));
-        assert!(output.contains("\\end{document}"));
-        assert!(output.contains("\\begin{frame}"));
-        assert!(output.contains("\\end{frame}"));
+        // Check for RevealJS structure
+        assert!(output.contains("<!DOCTYPE html>"));
+        assert!(output.contains("reveal.js"));
+        assert!(output.contains("<div class=\"reveal\">"));
+        assert!(output.contains("<div class=\"slides\">"));
+        assert!(output.contains("<section>"));
+        assert!(output.contains("My Presentation"));
+        assert!(output.contains("Hello World"));
     }
 
     #[test]
-    fn test_beamer_writer_format() {
-        let writer = BeamerWriter;
-        assert_eq!(writer.format(), OutputFormat::Beamer);
-        assert!(writer.extensions().contains(&"tex"));
+    fn test_revealjs_writer_format() {
+        let writer = RevealJsWriter;
+        assert_eq!(writer.format(), OutputFormat::RevealJs);
+        assert!(writer.extensions().contains(&"html"));
     }
 
     #[test]
-    fn test_beamer_title_extraction() {
-        let (arena, root) = create_test_presentation();
-        let title = extract_title(&arena, root);
-        assert_eq!(title, Some("My Presentation".to_string()));
-    }
-
-    #[test]
-    fn test_latex_escape() {
-        assert_eq!(escape_latex("hello"), "hello");
-        assert_eq!(escape_latex("$100"), "\\$100");
-        assert_eq!(escape_latex("10%"), "10\\%");
-        assert_eq!(escape_latex("a_b"), "a\\_b");
+    fn test_html_escape() {
+        assert_eq!(escape_html("hello"), "hello");
+        assert_eq!(escape_html("<script>"), "&lt;script&gt;");
+        assert_eq!(escape_html("a & b"), "a &amp; b");
+        assert_eq!(escape_html("\"quote\""), "&quot;quote&quot;");
     }
 }

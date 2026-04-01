@@ -37,7 +37,11 @@ impl Default for BibTeXReader {
 }
 
 impl Reader for BibTeXReader {
-    fn read(&self, input: &str, _options: &ReaderOptions) -> ClmdResult<(NodeArena, NodeId)> {
+    fn read(
+        &self,
+        input: &str,
+        _options: &ReaderOptions,
+    ) -> ClmdResult<(NodeArena, NodeId)> {
         let mut arena = NodeArena::new();
         let root = parse_bibtex(input, &mut arena)?;
         Ok((arena, root))

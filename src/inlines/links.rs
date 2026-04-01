@@ -46,11 +46,11 @@
 //! Reference: https://spec.commonmark.org/0.31.2/#links
 
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
+use crate::core::nodes::{NodeLink, NodeValue};
 use crate::inlines::entities::unescape_string;
 use crate::inlines::utils::{
     is_escapable, is_punctuation, normalize_reference, normalize_uri,
 };
-use crate::core::nodes::{NodeLink, NodeValue};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 

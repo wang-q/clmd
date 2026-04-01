@@ -24,7 +24,7 @@
 //!
 //! ```ignore
 //! use clmd::{parse_document, format_html, Options};
-//! use clmd::nodes::NodeValue;
+//! use clmd::core::nodes::NodeValue;
 //!
 //! let options = Options::default();
 //! let (arena, root) = parse_document("Hello, pretty world!", &options);
@@ -100,8 +100,8 @@
 //!
 //! ```ignore
 //! use clmd::{parse_document, Options};
-//! use clmd::iterator::ArenaNodeIterator;
-//! use clmd::nodes::NodeValue;
+//! use clmd::core::iterator::ArenaNodeIterator;
+//! use clmd::core::nodes::NodeValue;
 //!
 //! let options = Options::default();
 //! let (arena, root) = parse_document("# Title\n\nParagraph", &options);
@@ -183,6 +183,9 @@
     cyclomatic_complexity
 )]
 
+// Internal imports for use within this crate
+use core::nodes::NodeValue;
+
 /// Core module for AST, arena, and error types.
 ///
 /// This module provides the foundational types and utilities for clmd,
@@ -196,7 +199,7 @@ mod blocks;
 
 /// Format converters for importing content to Markdown.
 pub mod from {
-    pub use crate::formats::from::*;
+    pub use crate::io::format::from::*;
 }
 
 /// Markdown extensions (GFM and others).
@@ -231,30 +234,45 @@ pub(crate) mod inlines;
 /// options.parse.smart = true;
 /// ```
 pub mod options {
-    pub use crate::parser::options::*;
+    pub use crate::parse::options::*;
 }
 
-/// Format abstraction layer for document formats.
+/// IO module for document reading and writing.
 ///
-/// This module provides a unified interface for document formats, inspired by
-/// Pandoc's format system. It supports both text and binary formats, and provides
-/// format detection, MIME type mapping, and format-specific configuration.
-pub mod formats;
+/// This module provides a unified interface for reading documents from different
+/// formats and writing to various output formats.
+pub mod io;
+
+/// Compatibility re-export for old `formats` module.
+pub use io::format as formats;
+
+/// Compatibility re-export for old `readers` module.
+pub use io::read as readers;
+
+/// Compatibility re-export for old `writers` module.
+pub use io::write as writers;
 
 /// Parser module for Markdown documents.
-pub mod parser;
+pub mod parse;
+
+/// Compatibility re-export for old `parser` module name.
+pub use parse as parser;
 
 /// Plugin system for extending Markdown rendering.
-pub mod plugins;
+pub mod plugin;
 
 /// HTML rendering for Arena-based AST (legacy).
 pub mod render;
 
 /// Markdown formatter for CommonMark output.
-pub mod formatter;
+/// Now located in `render::commonmark`.
+pub use render::commonmark as formatter;
 
-/// Test utilities.
-pub mod test_utils;
+/// Utility modules for internal use.
+pub mod util;
+
+/// Compatibility re-export for old `test_utils` module.
+pub use util::test as test_utils;
 
 // Text and parsing utilities are accessed through their respective modules
 
@@ -276,18 +294,6 @@ pub mod text;
 /// ```ignore
 pub mod prelude;
 
-/// Document readers for various input formats.
-///
-/// This module provides a unified interface for reading documents from different
-/// formats, inspired by Pandoc's Reader system.
-pub mod readers;
-
-/// Document writers for various output formats.
-///
-/// This module provides a unified interface for writing documents to different
-/// formats, inspired by Pandoc's Writer system.
-pub mod writers;
-
 /// Markdown extensions management using bitflags.
 pub mod extensions {
     pub use crate::ext::flags::*;
@@ -302,21 +308,22 @@ pub mod pipeline;
 /// Context system for IO operations and resource management.
 pub mod context;
 
-/// Filter system for document transformation (internal).
-pub(crate) mod filter;
+/// Compatibility re-export for old `transforms` module.
+pub use util::transform as transforms;
 
-/// Document transformation system.
-pub mod transforms;
+/// Compatibility re-export for old `filter` module (internal).
+pub(crate) use util::filter;
 
 /// Template system for document rendering.
 pub mod template;
 
-/// General parsing utilities and combinators.
-pub mod parsing;
+/// Compatibility re-export for old `parsing` module.
+/// Parsing utilities are now in `parse::util`.
+pub use parse::util as parsing;
 
 // Re-export reader/writer modules for convenience
-pub use crate::readers as reader;
-pub use crate::writers as writer;
+pub use crate::io::read as reader;
+pub use crate::io::write as writer;
 
 // =============================================================================
 // Core Type Exports
@@ -331,11 +338,7 @@ pub type NodeId = core::arena::NodeId;
 /// Invalid node ID constant.
 pub use core::arena::INVALID_NODE_ID;
 
-/// Re-export iterator types for tree traversal.
-pub use core::arena::{
-    AncestorIterator, ChildrenIterator, DescendantIterator, FollowingSiblingsIterator,
-    PrecedingSiblingsIterator, SiblingsIterator,
-};
+// Iterator types are now exported through `core` module
 
 /// Parse a Markdown document to an AST.
 ///
@@ -392,20 +395,9 @@ pub use parser::options::BrokenLinkCallback;
 /// Re-export URLRewriter trait.
 pub use parser::options::URLRewriter;
 
-// =============================================================================
-// Error Type Exports
-// =============================================================================
+// Error types are now exported through `core` module
 
-pub use core::error::{
-    ClmdError, ClmdResult, LimitKind, ParseError, ParseResult, ParserLimits, Position,
-    Range,
-};
-
-// =============================================================================
-// Node Value Exports
-// =============================================================================
-
-pub use core::nodes::NodeValue;
+// NodeValue is now exported through `core` module
 
 // =============================================================================
 // String Utilities Exports

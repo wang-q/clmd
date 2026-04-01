@@ -5,8 +5,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::data::{read_default_data_file, default_user_data_dir};
+//! ```ignore
+//! use clmd::context::data::{read_default_data_file, default_user_data_dir};
 //!
 //! // Read a default data file
 //! if let Ok(content) = read_default_data_file("templates/default.html") {

@@ -52,7 +52,11 @@ impl Writer for BibTeXWriter {
 }
 
 /// Render a node and its children to BibTeX.
-fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_node(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -143,7 +147,11 @@ fn render_node(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdR
 }
 
 /// Render inline content.
-fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -204,7 +212,11 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
 }
 
 /// Collect text content from a node and its children.
-fn collect_text(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn collect_text(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {

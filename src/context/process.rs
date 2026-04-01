@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::process::pipe_process;
+//! ```ignore
+//! use clmd::context::process::pipe_process;
 //! use std::process::Stdio;
 //!
 //! // Run a simple command

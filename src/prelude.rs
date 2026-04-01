@@ -10,13 +10,14 @@
 //! let html = markdown_to_html("Hello **world**!", &options);
 //! ```
 
+pub use crate::core::nodes::NodeValue;
 pub use crate::{
     format_commonmark, format_commonmark_with_plugins, format_html,
     format_html_with_plugins, format_xml, format_xml_with_plugins,
     markdown_to_commonmark, markdown_to_commonmark_with_plugins,
     markdown_to_commonmark_xml, markdown_to_commonmark_xml_with_plugins,
     markdown_to_html, markdown_to_html_with_plugins, parse_document, Arena, NodeId,
-    NodeValue, Options, Plugins,
+    Options, Plugins,
 };
 
 // Re-export from options module
@@ -25,8 +26,8 @@ pub use crate::options::{
     RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };
 
-// Re-export new types from parser::options
-pub use crate::parser::options::{
+// Re-export new types from parse::options
+pub use crate::parse::options::{
     InputFormat, OutputFormat, ReaderOptions, WrapOption, WriterOptions,
 };
 

@@ -34,19 +34,19 @@ impl Writer for RtfWriter {
         _options: &WriterOptions,
     ) -> ClmdResult<String> {
         let mut output = String::new();
-        
+
         // RTF header
         output.push_str(r"{\rtf1\ansi\deff0");
         output.push_str(r"{\fonttbl{\f0\fnil\fcharset0 Arial;}}");
         output.push_str(r"{\colortbl ;}");
         output.push_str(r"\viewkind4\uc1");
-        
+
         // Document content
         render_node(arena, root, &mut output, false)?;
-        
+
         // RTF footer
         output.push('}');
-        
+
         Ok(output)
     }
 
@@ -84,7 +84,7 @@ fn render_node(
 
         NodeValue::Heading(heading) => {
             output.push_str("\n\\pard ");
-            
+
             // Set font size based on heading level
             let font_size = match heading.level {
                 1 => "\\fs32\\b ",
@@ -95,14 +95,14 @@ fn render_node(
                 _ => "\\fs18\\b ",
             };
             output.push_str(font_size);
-            
+
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            
+
             output.push_str("\\b0\\par\n");
         }
 
@@ -110,14 +110,14 @@ fn render_node(
             if !in_block {
                 output.push_str("\n\\pard ");
             }
-            
+
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            
+
             if !in_block {
                 output.push_str("\\par\n");
             }
@@ -125,20 +125,20 @@ fn render_node(
 
         NodeValue::BlockQuote => {
             output.push_str("\n\\pard \\li720 ");
-            
+
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_node(arena, child_id, output, true)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            
+
             output.push_str("\\par\n");
         }
 
         NodeValue::CodeBlock(code) => {
             output.push_str("\n\\pard \\f0\\fs20 ");
-            
+
             // Escape RTF special characters in code
             for c in code.literal.chars() {
                 match c {
@@ -149,7 +149,7 @@ fn render_node(
                     _ => output.push(c),
                 }
             }
-            
+
             output.push_str("\\par\n");
         }
 
@@ -164,14 +164,14 @@ fn render_node(
 
         NodeValue::Item(_) => {
             output.push_str("\n\\pard \\li360 \\bullet\\tab ");
-            
+
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_node(arena, child_id, output, true)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            
+
             output.push_str("\\par\n");
         }
 
@@ -194,7 +194,11 @@ fn render_node(
 }
 
 /// Render inline content.
-fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> ClmdResult<()> {
+fn render_inline(
+    arena: &NodeArena,
+    node_id: NodeId,
+    output: &mut String,
+) -> ClmdResult<()> {
     let node = arena.get(node_id);
 
     match &node.value {
@@ -261,14 +265,14 @@ fn render_inline(arena: &NodeArena, node_id: NodeId, output: &mut String) -> Clm
                 }
             }
             output.push_str("\"}}{\\fldrslt ");
-            
+
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
-            
+
             output.push_str("}}");
         }
 
@@ -319,23 +323,27 @@ mod tests {
     fn create_test_document() -> (NodeArena, NodeId) {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        
+
         // Add a heading
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
             level: 1,
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".to_string().into_boxed_str())));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            "Hello".to_string().into_boxed_str(),
+        )));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, root, heading);
-        
+
         // Add a paragraph
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text("World".to_string().into_boxed_str())));
+        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
+            "World".to_string().into_boxed_str(),
+        )));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, root, para);
-        
+
         (arena, root)
     }
 
@@ -347,7 +355,7 @@ mod tests {
         let (arena, root) = create_test_document();
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
-        
+
         // Check for RTF header
         assert!(output.contains(r"{\rtf1"));
         assert!(output.contains("Hello"));
@@ -367,7 +375,7 @@ mod tests {
         let writer = RtfWriter;
         let ctx = PureContext::new();
         let options = WriterOptions::default();
-        
+
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 

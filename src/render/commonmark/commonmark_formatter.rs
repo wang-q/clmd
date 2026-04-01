@@ -1396,8 +1396,8 @@ mod tests {
     #[test]
     fn test_render_document_with_nested_lists() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
 
@@ -1505,8 +1505,8 @@ mod tests {
     #[test]
     fn test_render_code_block_with_backticks() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::{NodeCodeBlock, NodeValue};
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1551,8 +1551,8 @@ mod tests {
     #[test]
     fn test_render_heading_atx() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::{NodeHeading, NodeValue};
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1582,8 +1582,8 @@ mod tests {
     #[test]
     fn test_render_blockquote() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::NodeValue;
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1612,8 +1612,8 @@ mod tests {
     #[test]
     fn test_render_link_and_image() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::{NodeLink, NodeValue};
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1661,8 +1661,8 @@ mod tests {
     #[test]
     fn test_render_emphasis_and_strong() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::NodeValue;
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1808,8 +1808,8 @@ mod tests {
     #[test]
     fn test_render_task_list() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
-        use crate::formatter::{Formatter, FormatterOptions};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::formatter::{Formatter, FormatterOptions};
 
         let mut arena = NodeArena::new();
 

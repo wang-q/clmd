@@ -440,8 +440,9 @@ pub mod transforms {
                 }));
                 let link_node = arena.alloc(crate::core::arena::Node::with_value(link));
 
-                let text_node = arena
-                    .alloc(crate::core::arena::Node::with_value(NodeValue::Text(text.into())));
+                let text_node = arena.alloc(crate::core::arena::Node::with_value(
+                    NodeValue::Text(text.into()),
+                ));
                 TreeOps::append_child(arena, link_node, text_node);
 
                 // Item uses NodeList struct
@@ -487,7 +488,8 @@ pub mod transforms {
                 setext: false,
                 closed: false,
             });
-            let heading_node = arena.alloc(crate::core::arena::Node::with_value(heading));
+            let heading_node =
+                arena.alloc(crate::core::arena::Node::with_value(heading));
 
             let title_text_node = arena.alloc(crate::core::arena::Node::with_value(
                 NodeValue::Text(title_text.into()),
