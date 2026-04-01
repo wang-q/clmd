@@ -57,7 +57,8 @@ fn test_shortcode_html_rendering() {
     TreeOps::append_child(&mut arena, para, shortcode);
     TreeOps::append_child(&mut arena, para, text2);
 
-    let html = render::html::render(&arena, root, 0);
+    let html =
+        render::html::render(&arena, root, &crate::parser::options::Options::default());
     assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
     assert!(
         !html.contains(":thumbsup:"),
@@ -145,7 +146,8 @@ fn test_multiple_shortcodes() {
     TreeOps::append_child(&mut arena, para, shortcode1);
     TreeOps::append_child(&mut arena, para, shortcode2);
 
-    let html = render::html::render(&arena, root, 0);
+    let html =
+        render::html::render(&arena, root, &crate::parser::options::Options::default());
     assert!(
         html.contains("😄"),
         "HTML should contain first emoji: {}",

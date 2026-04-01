@@ -17,8 +17,8 @@
 
 pub mod options;
 
-use crate::core::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
+use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ParseResult, ParserLimits};
 use options::Options;
 
@@ -38,8 +38,7 @@ use options::Options;
 pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
     // Use BlockParser for parsing (which includes proper inline parsing)
     let mut node_arena = NodeArena::new();
-    let options_flags = options_to_flags(options);
-    let doc_id = BlockParser::parse_with_options(&mut node_arena, md, options_flags);
+    let doc_id = BlockParser::parse_with_options(&mut node_arena, md, options.clone());
 
     (node_arena, doc_id)
 }
@@ -63,66 +62,11 @@ pub fn parse_document_with_limits(
 ) -> ParseResult<(NodeArena, NodeId)> {
     // Use BlockParser with limits for full limit checking
     let mut node_arena = NodeArena::new();
-    let options_flags = options_to_flags(options);
 
     let doc_id =
-        BlockParser::parse_with_limits(&mut node_arena, md, options_flags, limits)?;
+        BlockParser::parse_with_limits(&mut node_arena, md, options.clone(), limits)?;
 
     Ok((node_arena, doc_id))
-}
-
-// Option flags for backward compatibility
-pub(crate) const OPT_SOURCEPOS: u32 = 1 << 0;
-pub(crate) const OPT_HARDBREAKS: u32 = 1 << 1;
-pub(crate) const OPT_NOBREAKS: u32 = 1 << 2;
-pub(crate) const OPT_VALIDATE_UTF8: u32 = 1 << 3;
-pub(crate) const OPT_SMART: u32 = 1 << 4;
-pub(crate) const OPT_UNSAFE: u32 = 1 << 5;
-pub(crate) const OPT_TABLE: u32 = 1 << 6;
-pub(crate) const OPT_TAGFILTER: u32 = 1 << 7;
-pub(crate) const OPT_MATH_DOLLARS: u32 = 1 << 8;
-
-/// Convert Options to u32 flags.
-///
-/// This is a bridge function to maintain compatibility with existing code.
-/// New code should use Options directly.
-pub fn options_to_flags(options: &Options) -> u32 {
-    let mut flags = 0u32;
-
-    // Parse options
-    if options.parse.sourcepos {
-        flags |= OPT_SOURCEPOS;
-    }
-    if options.parse.smart {
-        flags |= OPT_SMART;
-    }
-    if options.parse.validate_utf8 {
-        flags |= OPT_VALIDATE_UTF8;
-    }
-
-    // Render options
-    if options.render.hardbreaks {
-        flags |= OPT_HARDBREAKS;
-    }
-    if options.render.nobreaks {
-        flags |= OPT_NOBREAKS;
-    }
-    if options.render.r#unsafe {
-        flags |= OPT_UNSAFE;
-    }
-
-    // Extension options
-    if options.extension.table {
-        flags |= OPT_TABLE;
-    }
-    if options.extension.tagfilter {
-        flags |= OPT_TAGFILTER;
-    }
-    if options.extension.math_dollars {
-        flags |= OPT_MATH_DOLLARS;
-    }
-
-    flags
 }
 
 #[cfg(test)]
@@ -185,7 +129,7 @@ mod tests {
             assert_eq!(link_data.title, "title");
 
             // Also test HTML output
-            let html = crate::html::render(&arena, root, 0);
+            let html = crate::html::render(&arena, root, &Options::default());
             println!("HTML output: {:?}", html);
             assert!(
                 html.contains("title=\"title\""),

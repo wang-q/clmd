@@ -5,9 +5,9 @@
 
 use std::rc::Rc;
 
+use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::writer::MarkdownWriter;
-use crate::core::nodes::NodeValue;
 
 /// A handler for formatting a specific node type
 ///

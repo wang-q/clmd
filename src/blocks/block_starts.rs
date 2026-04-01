@@ -10,7 +10,6 @@ use crate::core::nodes::{
 };
 use crate::ext::tables;
 use crate::inlines::unescape_string;
-use crate::parser::OPT_TABLE;
 use crate::parsing::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
 
@@ -1162,7 +1161,7 @@ impl<'a> BlockParser<'a> {
         _maybe_lazy: bool,
     ) -> BlockStartResult {
         // Check if table extension is enabled
-        if (self.options & OPT_TABLE) == 0 {
+        if !self.options.extension.table {
             return BlockStartResult::None;
         }
 

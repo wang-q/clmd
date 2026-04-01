@@ -886,8 +886,7 @@ pub fn format_html(
     options: &Options,
     output: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    let flags = parser::options_to_flags(options);
-    let html = html::render(arena, root, flags);
+    let html = html::render(arena, root, options);
     write!(output, "{}", html)
 }
 
@@ -923,12 +922,11 @@ pub fn format_html_with_plugins(
     output: &mut dyn std::fmt::Write,
     plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    let flags = parser::options_to_flags(options);
     let highlighter = plugins.render.syntax_highlighter();
     write!(
         output,
         "{}",
-        html::render_with_highlighter(arena, root, flags, highlighter)
+        html::render_with_highlighter(arena, root, options, highlighter)
     )
 }
 

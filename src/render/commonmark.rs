@@ -52,8 +52,10 @@ pub fn render(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
+    };
 
     #[test]
     fn test_render_paragraph() {

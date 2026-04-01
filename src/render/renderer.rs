@@ -5,6 +5,7 @@
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
+use crate::parser::options::Options;
 
 // Re-export formatter module and its submodules from crate root
 pub use crate::formatter;
@@ -70,7 +71,7 @@ pub use super::xml;
 /// let html = render_to_html(&arena, doc, 0);
 /// assert!(html.contains("<h1>"));
 /// ```
-pub fn render_to_html(arena: &NodeArena, root: NodeId, options: u32) -> String {
+pub fn render_to_html(arena: &NodeArena, root: NodeId, options: &Options) -> String {
     html::render(arena, root, options)
 }
 
@@ -261,23 +262,23 @@ pub fn render(
     format: OutputFormat,
     arena: &NodeArena,
     root: NodeId,
-    options: u32,
+    options: &Options,
     width: usize,
 ) -> String {
     match format {
         OutputFormat::Html => render_to_html(arena, root, options),
-        OutputFormat::Xml => render_to_xml(arena, root, options),
-        OutputFormat::CommonMark => render_to_commonmark(arena, root, options, width),
-        OutputFormat::Latex => render_to_latex(arena, root, options),
-        OutputFormat::Man => render_to_man(arena, root, options),
+        OutputFormat::Xml => render_to_xml(arena, root, 0),
+        OutputFormat::CommonMark => render_to_commonmark(arena, root, 0, width),
+        OutputFormat::Latex => render_to_latex(arena, root, 0),
+        OutputFormat::Man => render_to_man(arena, root, 0),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::NodeValue;
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::NodeValue;
 
     #[test]
     fn test_output_format_enum() {
@@ -298,7 +299,8 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render_to_html(&arena, root, 0);
+        let options = Options::default();
+        let html = render_to_html(&arena, root, &options);
         assert!(html.contains("<p>Hello</p>"));
     }
 
@@ -312,11 +314,12 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(OutputFormat::Html, &arena, root, 0, 0);
+        let options = Options::default();
+        let html = render(OutputFormat::Html, &arena, root, &options, 0);
         println!("HTML output: {:?}", html);
         assert!(html.contains("<p>Hello</p>"));
 
-        let xml = render(OutputFormat::Xml, &arena, root, 0, 0);
+        let xml = render(OutputFormat::Xml, &arena, root, &options, 0);
         println!("XML output: {:?}", xml);
         assert!(xml.contains("<paragraph>"));
     }

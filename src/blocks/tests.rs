@@ -10,6 +10,8 @@ fn test_parser_creation() {
     let parser = BlockParser::new(&mut arena);
     let doc = parser.doc;
     let tip = parser.tip;
+    // Drop parser before accessing arena
+    drop(parser);
     assert!(matches!(arena.get(doc).value, NodeValue::Document));
     assert!(matches!(arena.get(tip).value, NodeValue::Document));
 }

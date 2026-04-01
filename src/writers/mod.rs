@@ -20,9 +20,10 @@
 //! let output = writer.write(&arena, root, &writer_options).unwrap();
 //! ```
 
-use crate::core::arena::{NodeArena, NodeId};
 use crate::context::ClmdContext;
+use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
+use crate::ext::flags::ExtensionFlags;
 use crate::options::{OutputFormat, WriterOptions};
 use std::fmt::Debug;
 use std::path::Path;
@@ -272,17 +273,11 @@ impl Writer for HtmlWriter {
         _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<String> {
-        let mut html_options: u32 = 0;
-        if options.output_sourcepos {
-            html_options |= crate::parser::OPT_SOURCEPOS;
-        }
-        if options
-            .extensions
-            .contains(crate::ext::flags::ExtensionFlags::TAGFILTER)
-        {
-            html_options |= crate::parser::OPT_TAGFILTER;
-        }
-        Ok(crate::render::html::render(arena, root, html_options))
+        let mut render_options = crate::parser::options::Options::default();
+        render_options.render.sourcepos = options.output_sourcepos;
+        render_options.extension.tagfilter =
+            options.extensions.contains(ExtensionFlags::TAGFILTER);
+        Ok(crate::render::html::render(arena, root, &render_options))
     }
 
     fn format(&self) -> OutputFormat {

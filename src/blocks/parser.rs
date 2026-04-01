@@ -2,11 +2,11 @@
 //!
 //! This module provides the main BlockParser struct and its core parsing logic.
 
-use crate::core::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
+use crate::core::arena::{Node, NodeArena, NodeId};
 use crate::core::error::{ParseError, ParseResult, ParserLimits};
 use crate::core::nodes::NodeValue;
-use crate::parser::OPT_VALIDATE_UTF8;
+use crate::parser::options::Options;
 use rustc_hash::FxHashMap;
 
 /// Maximum input size: 100MB
@@ -74,7 +74,7 @@ pub struct BlockParser<'a> {
     /// Block info for each node (NodeId -> BlockInfo)
     pub(crate) block_info: FxHashMap<NodeId, BlockInfo>,
     /// Options for parsing
-    pub options: u32,
+    pub options: Options<'a>,
     /// Parser limits for input validation
     pub limits: ParserLimits,
 }
@@ -83,19 +83,19 @@ impl<'a> BlockParser<'a> {
     /// Create a new block parser with the given arena
     #[cfg(test)]
     pub fn new(arena: &'a mut NodeArena) -> Self {
-        Self::new_with_options(arena, 0)
+        Self::new_with_options(arena, Options::default())
     }
 
     /// Create a new block parser with the given arena and options
     #[cfg(test)]
-    pub fn new_with_options(arena: &'a mut NodeArena, options: u32) -> Self {
+    pub fn new_with_options(arena: &'a mut NodeArena, options: Options<'a>) -> Self {
         Self::new_with_limits(arena, options, ParserLimits::default())
     }
 
     /// Create a new block parser with custom limits
     pub fn new_with_limits(
         arena: &'a mut NodeArena,
-        options: u32,
+        options: Options<'a>,
         limits: ParserLimits,
     ) -> Self {
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
@@ -136,7 +136,7 @@ impl<'a> BlockParser<'a> {
     /// Parse a complete document
     #[cfg(test)]
     pub fn parse(arena: &'a mut NodeArena, input: &str) -> NodeId {
-        Self::parse_with_options(arena, input, 0)
+        Self::parse_with_options(arena, input, Options::default())
     }
 
     /// Parse a complete document with options
@@ -151,7 +151,7 @@ impl<'a> BlockParser<'a> {
     pub fn parse_with_options(
         arena: &'a mut NodeArena,
         input: &str,
-        options: u32,
+        options: Options<'a>,
     ) -> NodeId {
         // Use relaxed limits for backward compatibility
         let limits = ParserLimits::new();
@@ -178,7 +178,7 @@ impl<'a> BlockParser<'a> {
     pub fn parse_with_limits(
         arena: &'a mut NodeArena,
         input: &str,
-        options: u32,
+        options: Options<'a>,
         limits: ParserLimits,
     ) -> ParseResult<NodeId> {
         Self::parse_with_limits_and_refmap(arena, input, options, limits)
@@ -196,7 +196,7 @@ impl<'a> BlockParser<'a> {
     pub fn parse_with_limits_and_refmap(
         arena: &'a mut NodeArena,
         input: &str,
-        options: u32,
+        options: Options<'a>,
         limits: ParserLimits,
     ) -> ParseResult<(NodeId, RefMap)> {
         // Validate input size (0 means unlimited)
@@ -249,7 +249,7 @@ impl<'a> BlockParser<'a> {
         self.partially_consumed_tab = false;
 
         // Check if we need to validate UTF-8
-        let validate_utf8 = (self.options & OPT_VALIDATE_UTF8) != 0;
+        let validate_utf8 = self.options.parse.validate_utf8;
 
         // Optimization: avoid String allocation for common case (no NUL characters)
         let has_nul = line.contains('\u{0000}');
@@ -346,9 +346,9 @@ impl<'a> BlockParser<'a> {
         self.collect_leaf_blocks(self.doc, &mut leaf_blocks);
 
         // Check if smart punctuation is enabled
-        let smart = (self.options & crate::parser::OPT_SMART) != 0;
+        let smart = self.options.parse.smart;
         // Check if math dollars is enabled
-        let math_dollars = (self.options & crate::parser::OPT_MATH_DOLLARS) != 0;
+        let math_dollars = self.options.extension.math_dollars;
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {
@@ -412,7 +412,8 @@ mod tests {
     #[test]
     fn test_validate_utf8_replaces_nul() {
         let arena = &mut NodeArena::new();
-        let options = OPT_VALIDATE_UTF8;
+        let mut options = Options::default();
+        options.parse.validate_utf8 = true;
 
         // Test with NUL character (should be replaced with U+FFFD)
         let input = "Hello\x00World";
@@ -445,7 +446,7 @@ mod tests {
         // Note: Currently clmd always replaces NUL, but with validate_utf8 disabled
         // it might preserve them in the future. This test documents current behavior.
         let arena = &mut NodeArena::new();
-        let options = 0; // No VALIDATE_UTF8
+        let options = Options::default(); // No VALIDATE_UTF8
 
         let input = "Hello\x00World";
         let doc = BlockParser::parse_with_options(arena, input, options);
@@ -466,7 +467,8 @@ mod tests {
     #[test]
     fn test_validate_utf8_valid_utf8() {
         let arena = &mut NodeArena::new();
-        let options = OPT_VALIDATE_UTF8;
+        let mut options = Options::default();
+        options.parse.validate_utf8 = true;
 
         // Test with valid UTF-8 (should parse normally)
         let input = "Hello 世界 🌍";

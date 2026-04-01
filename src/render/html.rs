@@ -4,24 +4,24 @@ use crate::core::adapters::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 use crate::ext::tagfilter::filter_html;
-use crate::parser::{OPT_SOURCEPOS, OPT_TAGFILTER};
+use crate::parser::options::Options;
 use crate::text::html_utils::{escape_html, is_safe_url};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
 
 /// Render a node tree as HTML
-pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
+pub fn render(arena: &NodeArena, root: NodeId, options: &Options) -> String {
     let mut renderer = HtmlRenderer::new(arena, options, None);
     renderer.render(root)
 }
 
 /// Render a node tree as HTML with syntax highlighter
-pub fn render_with_highlighter(
-    arena: &NodeArena,
+pub fn render_with_highlighter<'a>(
+    arena: &'a NodeArena,
     root: NodeId,
-    options: u32,
-    highlighter: Option<&dyn SyntaxHighlighterAdapter>,
+    options: &'a Options,
+    highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
 ) -> String {
     let mut renderer = HtmlRenderer::new(arena, options, highlighter);
     renderer.render(root)
@@ -32,7 +32,7 @@ struct HtmlRenderer<'a> {
     arena: &'a NodeArena,
     output: String,
     /// Render options
-    options: u32,
+    options: &'a Options<'a>,
     /// Stack for tracking whether we need to close a tag
     tag_stack: Vec<&'static str>,
     /// Track if we're in a tight list
@@ -56,7 +56,7 @@ struct HtmlRenderer<'a> {
 impl<'a> HtmlRenderer<'a> {
     fn new(
         arena: &'a NodeArena,
-        options: u32,
+        options: &'a Options<'a>,
         highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
     ) -> Self {
         // Optimization: pre-allocate output buffer with estimated capacity
@@ -78,9 +78,9 @@ impl<'a> HtmlRenderer<'a> {
         }
     }
 
-    /// Render data-sourcepos attribute if OPT_SOURCEPOS is enabled
+    /// Render data-sourcepos attribute if sourcepos is enabled
     fn render_sourcepos(&mut self, node_id: NodeId) {
-        if (self.options & OPT_SOURCEPOS) != 0 {
+        if self.options.render.sourcepos {
             let node = self.arena.get(node_id);
             let source_pos = &node.source_pos;
             // Only render if source_pos is not default (0,0-0,0)
@@ -251,7 +251,7 @@ impl<'a> HtmlRenderer<'a> {
                     self.cr();
                 }
                 // HTML blocks are output as raw HTML, but filtered if tagfilter is enabled
-                if (self.options & OPT_TAGFILTER) != 0 {
+                if self.options.extension.tagfilter {
                     self.lit(&filter_html(&html_block.literal));
                 } else {
                     self.lit(&html_block.literal);
@@ -326,7 +326,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                if (self.options & OPT_TAGFILTER) != 0 {
+                if self.options.extension.tagfilter {
                     self.lit(&filter_html(literal.as_ref()));
                 } else {
                     self.lit(literal.as_ref());
@@ -727,8 +727,9 @@ fn escape_href(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeCode, NodeCodeBlock, NodeLink};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeLink};
+    use crate::parser::options::Options;
 
     #[test]
     fn test_escape_html() {
@@ -747,7 +748,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         println!("HTML output: {:?}", html);
         assert!(
             html.contains("<p>Hello world</p>"),
@@ -768,7 +769,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, emph);
         TreeOps::append_child(&mut arena, emph, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<em>emphasized</em>"));
     }
 
@@ -784,7 +785,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, strong);
         TreeOps::append_child(&mut arena, strong, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<strong>strong</strong>"));
     }
 
@@ -801,7 +802,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<code>code</code>"));
     }
 
@@ -819,7 +820,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, heading, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<h2>Title</h2>"));
     }
 
@@ -838,7 +839,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, link);
         TreeOps::append_child(&mut arena, link, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<a href=\"https://example.com\">link</a>"));
     }
 
@@ -854,7 +855,7 @@ mod tests {
         TreeOps::append_child(&mut arena, blockquote, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<blockquote>"));
         assert!(html.contains("<p>Quote</p>"));
         assert!(html.contains("</blockquote>"));
@@ -878,7 +879,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, code_block);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<pre><code class=\"language-rust\">"));
         assert!(html.contains("fn main() {}"));
         assert!(html.contains("</code></pre>"));
@@ -907,7 +908,7 @@ mod tests {
         TreeOps::append_child(&mut arena, item, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<ul>"));
         assert!(html.contains("<li>"));
         assert!(html.contains("Item"));
@@ -923,7 +924,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, hr);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         assert!(html.contains("<hr />"));
     }
 
@@ -999,7 +1000,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, link);
         TreeOps::append_child(&mut arena, link, text);
 
-        let html = render(&arena, root, 0);
+        let html = render(&arena, root, &Options::default());
         // Unsafe URL should be replaced with "#"
         assert!(
             html.contains("href=\"#\""),
@@ -1015,6 +1016,8 @@ mod tests {
     #[test]
     fn test_sourcepos_heading() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut heading = Node::with_value(NodeValue::Heading(NodeHeading {
@@ -1029,7 +1032,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading_id);
         TreeOps::append_child(&mut arena, heading_id, text);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("data-sourcepos=\"1:1-1:7\""));
         assert!(html.contains("<h1 data-sourcepos=\"1:1-1:7\">"));
     }
@@ -1037,6 +1040,8 @@ mod tests {
     #[test]
     fn test_sourcepos_paragraph() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut para = Node::with_value(NodeValue::Paragraph);
@@ -1047,13 +1052,15 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para_id);
         TreeOps::append_child(&mut arena, para_id, text);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("<p data-sourcepos=\"2:1-2:10\">"));
     }
 
     #[test]
     fn test_sourcepos_blockquote() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut blockquote = Node::with_value(NodeValue::BlockQuote);
@@ -1066,13 +1073,15 @@ mod tests {
         TreeOps::append_child(&mut arena, blockquote_id, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("<blockquote data-sourcepos=\"1:1-3:5\">"));
     }
 
     #[test]
     fn test_sourcepos_list() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut list = Node::with_value(NodeValue::List(NodeList {
@@ -1098,7 +1107,7 @@ mod tests {
         TreeOps::append_child(&mut arena, item_id, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("<ul data-sourcepos=\"1:1-3:5\">"));
         assert!(html.contains("<li data-sourcepos=\"1:1-1:5\">"));
     }
@@ -1106,6 +1115,8 @@ mod tests {
     #[test]
     fn test_sourcepos_code_block() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut code_block =
@@ -1123,7 +1134,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, code_block_id);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("data-sourcepos=\"1:1-3:3\""));
         assert!(html.contains("<code data-sourcepos=\"1:1-3:3\""));
     }
@@ -1131,6 +1142,8 @@ mod tests {
     #[test]
     fn test_sourcepos_thematic_break() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut hr = Node::with_value(NodeValue::ThematicBreak);
@@ -1139,13 +1152,15 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, hr_id);
 
-        let html = render(&arena, root, OPT_SOURCEPOS);
+        let html = render(&arena, root, &options);
         assert!(html.contains("<hr data-sourcepos=\"2:1-2:3\" />"));
     }
 
     #[test]
     fn test_sourcepos_disabled() {
         use crate::nodes::SourcePos;
+        let mut options = Options::default();
+        options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut heading = Node::with_value(NodeValue::Heading(NodeHeading {
@@ -1160,8 +1175,8 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading_id);
         TreeOps::append_child(&mut arena, heading_id, text);
 
-        // Render without OPT_SOURCEPOS
-        let html = render(&arena, root, 0);
+        // Render without sourcepos
+        let html = render(&arena, root, &Options::default());
         assert!(!html.contains("data-sourcepos"));
         assert!(html.contains("<h1>"));
     }
