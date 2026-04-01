@@ -3,7 +3,7 @@
 //! This module provides parsers for common patterns like strings, numbers,
 //! identifiers, and more.
 
-use super::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
 use crate::parsing::char::digit;
 use crate::parsing::combinator::{many, many1};
 
@@ -17,7 +17,7 @@ use crate::parsing::combinator::{many, many1};
 /// let result = string.parse("\"hello world\"").unwrap();
 /// assert_eq!(result, "hello world");
 /// ```ignore
-pub fn string(input: &str, pos: Position) -> ParseResult<String> {
+pub fn string(input: &str, pos: Position) -> ParseResult<(String, Position)> {
     let mut current_pos = pos;
 
     // Opening quote
@@ -83,7 +83,7 @@ pub fn string(input: &str, pos: Position) -> ParseResult<String> {
 /// let result = identifier.parse("hello_world").unwrap();
 /// assert_eq!(result, "hello_world");
 /// ```ignore
-pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
+pub fn identifier(input: &str, pos: Position) -> ParseResult<(String, Position)> {
     let mut current_pos = pos;
 
     // First character must be alphabetic
@@ -126,7 +126,7 @@ pub fn identifier(input: &str, pos: Position) -> ParseResult<String> {
 /// let result = uint.parse("12345").unwrap();
 /// assert_eq!(result, 12345u64);
 /// ```ignore
-pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
+pub fn uint(input: &str, pos: Position) -> ParseResult<(u64, Position)> {
     let digits_parser = many1(Box::new(digit));
     let (digits, new_pos) = digits_parser(input, pos)?;
 
@@ -153,7 +153,7 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<u64> {
 /// assert_eq!(int.parse("-123").unwrap(), -123i64);
 /// assert_eq!(int.parse("456").unwrap(), 456i64);
 /// ```ignore
-pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
+pub fn int(input: &str, pos: Position) -> ParseResult<(i64, Position)> {
     let mut current_pos = pos;
 
     // Optional sign
@@ -195,7 +195,7 @@ pub fn int(input: &str, pos: Position) -> ParseResult<i64> {
 /// let result = float.parse("3.14159").unwrap();
 /// assert!((result - 3.14159).abs() < 0.00001);
 /// ```ignore
-pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
+pub fn float(input: &str, pos: Position) -> ParseResult<(f64, Position)> {
     let mut current_pos = pos;
     let mut full_num = String::new();
 
@@ -273,7 +273,7 @@ pub fn float(input: &str, pos: Position) -> ParseResult<f64> {
 /// let result = whitespace1.parse("   hello").unwrap();
 /// assert_eq!(result.len(), 3);
 /// ```ignore
-pub fn whitespace1(input: &str, pos: Position) -> ParseResult<String> {
+pub fn whitespace1(input: &str, pos: Position) -> ParseResult<(String, Position)> {
     let mut current_pos = pos;
     let mut result = String::new();
 
@@ -424,79 +424,77 @@ pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsing::Parser;
 
     #[test]
     fn test_string() {
-        assert_eq!(string.parse("\"hello\"").unwrap(), "hello");
-        assert_eq!(string.parse("\"hello world\"").unwrap(), "hello world");
-        assert_eq!(string.parse("\"hello\\nworld\"").unwrap(), "hello\nworld");
-        assert!(string.parse("\"unclosed").is_err());
+        assert_eq!(string("\"hello\"", Position::start()).unwrap().0, "hello");
+        assert_eq!(string("\"hello world\"", Position::start()).unwrap().0, "hello world");
+        assert_eq!(string("\"hello\\nworld\"", Position::start()).unwrap().0, "hello\nworld");
+        assert!(string("\"unclosed", Position::start()).is_err());
     }
 
     #[test]
     fn test_identifier() {
-        assert_eq!(identifier.parse("hello").unwrap(), "hello");
-        assert_eq!(identifier.parse("hello_world").unwrap(), "hello_world");
-        assert_eq!(identifier.parse("_private").unwrap(), "_private");
-        assert_eq!(identifier.parse("test123").unwrap(), "test123");
-        assert!(identifier.parse("123test").is_err());
+        assert_eq!(identifier("hello", Position::start()).unwrap().0, "hello");
+        assert_eq!(identifier("hello_world", Position::start()).unwrap().0, "hello_world");
+        assert_eq!(identifier("_private", Position::start()).unwrap().0, "_private");
+        assert_eq!(identifier("test123", Position::start()).unwrap().0, "test123");
+        assert!(identifier("123test", Position::start()).is_err());
     }
 
     #[test]
     fn test_uint() {
-        assert_eq!(uint.parse("123").unwrap(), 123u64);
-        assert_eq!(uint.parse("0").unwrap(), 0u64);
-        assert!(uint.parse("-123").is_err());
-        assert!(uint.parse("abc").is_err());
+        assert_eq!(uint("123", Position::start()).unwrap().0, 123u64);
+        assert_eq!(uint("0", Position::start()).unwrap().0, 0u64);
+        assert!(uint("-123", Position::start()).is_err());
+        assert!(uint("abc", Position::start()).is_err());
     }
 
     #[test]
     fn test_int() {
-        assert_eq!(int.parse("123").unwrap(), 123i64);
-        assert_eq!(int.parse("-123").unwrap(), -123i64);
-        assert_eq!(int.parse("+456").unwrap(), 456i64);
-        assert!(int.parse("abc").is_err());
+        assert_eq!(int("123", Position::start()).unwrap().0, 123i64);
+        assert_eq!(int("-123", Position::start()).unwrap().0, -123i64);
+        assert_eq!(int("+456", Position::start()).unwrap().0, 456i64);
+        assert!(int("abc", Position::start()).is_err());
     }
 
     #[test]
     fn test_float() {
-        let (result, _) = float.parse_partial("3.14").unwrap();
+        let (result, _) = float("3.14", Position::start()).unwrap();
         assert!((result - 3.14).abs() < 0.0001);
-        let (result, _) = float.parse_partial("-3.14").unwrap();
+        let (result, _) = float("-3.14", Position::start()).unwrap();
         assert!((result - (-3.14)).abs() < 0.0001);
-        let (result, _) = float.parse_partial("1e10").unwrap();
+        let (result, _) = float("1e10", Position::start()).unwrap();
         assert!((result - 1e10).abs() < 0.0001);
-        let (result, _) = float.parse_partial("1.5e-3").unwrap();
+        let (result, _) = float("1.5e-3", Position::start()).unwrap();
         assert!((result - 0.0015).abs() < 0.0001);
     }
 
     #[test]
     fn test_whitespace1() {
-        let result = whitespace1.parse_partial("   hello").unwrap();
+        let result = whitespace1("   hello", Position::start()).unwrap();
         assert_eq!(result.0.len(), 3);
-        assert!(whitespace1.parse("hello").is_err());
+        assert!(whitespace1("hello", Position::start()).is_err());
     }
 
     #[test]
     fn test_until() {
         let parser = until("-->");
-        let result = parser.parse_partial("Hello world-->").unwrap();
+        let result = parser("Hello world-->", Position::start()).unwrap();
         assert_eq!(result.0, "Hello world");
-        assert!(parser.parse("Hello world-->").is_err()); // parse requires full consumption
     }
 
     #[test]
     fn test_line_comment() {
         let parser = line_comment("//");
-        assert_eq!(parser.parse("// comment\n").unwrap(), " comment");
-        assert_eq!(parser.parse("// comment").unwrap(), " comment");
+        assert_eq!(parser("// comment\n", Position::start()).unwrap().0, " comment");
+        assert_eq!(parser("// comment", Position::start()).unwrap().0, " comment");
     }
 
     #[test]
     fn test_block_comment() {
         let parser = block_comment("/*", "*/");
-        assert_eq!(parser.parse("/* comment */").unwrap(), " comment ");
-        assert!(parser.parse("/* unclosed").is_err());
+        assert_eq!(parser("/* comment */", Position::start()).unwrap().0, " comment ");
+        assert!(parser("/* unclosed", Position::start()).is_err());
     }
 }

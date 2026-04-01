@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::formats::mime::MimeType;
-use crate::mediabag::MediaBag;
+use crate::context::mediabag::MediaBag;
 
 use super::monad::Verbosity;
 

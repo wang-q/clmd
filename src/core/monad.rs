@@ -17,7 +17,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::error::ClmdError;
+use crate::core::error::ClmdError;
 
 /// Verbosity level for logging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]

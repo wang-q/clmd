@@ -57,7 +57,7 @@
 //! shift = 1
 //! ```
 
-use crate::error::{ClmdError, ClmdResult};
+use crate::core::error::{ClmdError, ClmdResult};
 use crate::extensions::Extensions;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

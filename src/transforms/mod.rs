@@ -24,7 +24,7 @@
 //! ```
 
 use crate::arena::{NodeArena, NodeId};
-use crate::error::{ClmdError, ClmdResult};
+use crate::core::error::{ClmdError, ClmdResult};
 use crate::nodes::{
     ListDelimType, ListType, NodeHeading, NodeLink, NodeList, NodeValue,
 };

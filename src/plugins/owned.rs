@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::adapters::{
+use crate::core::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter, UrlRewriter,
 };
 use crate::parser::options::{Plugins, RenderPlugins};
@@ -218,27 +218,12 @@ mod tests {
 
     #[test]
     fn test_heading_adapter() {
-        use crate::adapters::{HeadingAdapter, HeadingMeta};
-        use crate::nodes::SourcePos;
-        use std::fmt::Write;
+        use crate::adapters::HeadingAdapter;
 
         struct TestHeadingAdapter;
         impl HeadingAdapter for TestHeadingAdapter {
-            fn enter(
-                &self,
-                output: &mut dyn Write,
-                heading: &HeadingMeta,
-                _sourcepos: Option<SourcePos>,
-            ) -> fmt::Result {
-                write!(output, "<h{}>", heading.level)
-            }
-
-            fn exit(
-                &self,
-                output: &mut dyn Write,
-                heading: &HeadingMeta,
-            ) -> fmt::Result {
-                write!(output, "</h{}>", heading.level)
+            fn render_heading(&self, level: u8, content: &str, id: Option<&str>) -> Option<String> {
+                Some(format!("<h{} id={:?}>{}</h{}>", level, id, content, level))
             }
         }
 

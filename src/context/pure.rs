@@ -25,8 +25,8 @@ use std::time::SystemTime;
 use crate::context::{
     common, ClmdContext, CommonState, LogLevel, LogMessage, Verbosity,
 };
-use crate::error::ClmdError;
-use crate::mediabag::MediaItem;
+use crate::context::mediabag::MediaItem;
+use crate::core::error::ClmdError;
 
 /// Pure Context for testing and pure functional code.
 ///
@@ -229,6 +229,31 @@ impl PureContext {
         let mut random_bytes = self.random_bytes.lock().unwrap();
         *random_bytes = bytes;
     }
+
+    /// Log an info message.
+    pub fn info(&self, message: &str) {
+        self.report(LogLevel::Info, message.to_string());
+    }
+
+    /// Log a debug message.
+    pub fn debug(&self, message: &str) {
+        self.report(LogLevel::Debug, message.to_string());
+    }
+
+    /// Log a warning message.
+    pub fn warn(&self, message: &str) {
+        self.report(LogLevel::Warning, message.to_string());
+    }
+
+    /// Log an error message.
+    pub fn error(&self, message: &str) {
+        self.report(LogLevel::Error, message.to_string());
+    }
+
+    /// Get the user data directory.
+    pub fn get_user_data_dir(&self) -> Option<&PathBuf> {
+        self.state.user_data_dir.as_ref()
+    }
 }
 
 impl Default for PureContext {
@@ -351,14 +376,6 @@ impl ClmdContext for PureContext {
                 .collect()
         }
     }
-
-    fn invalid_utf8_error(path: &Path) -> Self::Error {
-        ClmdError::io_error(format!("Invalid UTF-8 in file {}", path.display()))
-    }
-
-    fn read_file_to_string_dyn(&self, path: &Path) -> Result<String, Self::Error> {
-        self.read_file_to_string(path)
-    }
 }
 
 #[cfg(test)]
@@ -476,8 +493,8 @@ mod tests {
         let mut ctx = PureContext::new();
         assert_eq!(ctx.get_verbosity(), Verbosity::Normal);
 
-        ctx.set_verbosity(Verbosity::Verbose);
-        assert_eq!(ctx.get_verbosity(), Verbosity::Verbose);
+        ctx.set_verbosity(Verbosity::Debug);
+        assert_eq!(ctx.get_verbosity(), Verbosity::Debug);
 
         ctx.set_verbosity(Verbosity::Quiet);
         assert_eq!(ctx.get_verbosity(), Verbosity::Quiet);

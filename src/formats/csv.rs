@@ -4,7 +4,7 @@
 //! Markdown documents. It supports customizable delimiters, quote characters,
 //! and escape sequences.
 
-use crate::error::{ClmdError, ClmdResult, Position};
+use crate::core::error::{ClmdError, ClmdResult, Position};
 
 /// Options for CSV parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

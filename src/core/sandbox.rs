@@ -17,7 +17,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::error::ClmdError;
+use crate::core::error::ClmdError;
 
 /// Sandbox mode configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -24,7 +24,7 @@
 use std::collections::HashMap;
 
 use crate::arena::{NodeArena, NodeId};
-use crate::error::ClmdError;
+use crate::core::error::ClmdError;
 use crate::readers::{BoxedReader, Reader, ReaderOptions};
 
 /// A registry of document readers.

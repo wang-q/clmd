@@ -27,7 +27,7 @@
 //! plugins.render.set_syntax_highlighter(&adapter);
 //! ```
 
-use crate::adapters::SyntaxHighlighterAdapter;
+use crate::core::adapters::SyntaxHighlighterAdapter;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{self, Write};

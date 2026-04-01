@@ -19,7 +19,7 @@ pub mod options;
 
 use crate::arena::{NodeArena, NodeId};
 use crate::blocks::BlockParser;
-use crate::error::{ParseResult, ParserLimits};
+use crate::core::error::{ParseResult, ParserLimits};
 use options::Options;
 
 /// Parse a Markdown document to an AST.
@@ -127,7 +127,7 @@ pub fn options_to_flags(options: &Options) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::ParserLimits;
+    use crate::core::error::ParserLimits;
     use crate::nodes::NodeValue;
 
     #[test]

@@ -4,7 +4,7 @@
 
 use crate::arena::{Node, NodeArena, NodeId};
 use crate::blocks::BlockInfo;
-use crate::error::{ParseError, ParseResult, ParserLimits};
+use crate::core::error::{ParseError, ParseResult, ParserLimits};
 use crate::nodes::NodeValue;
 use crate::parser::OPT_VALIDATE_UTF8;
 use rustc_hash::FxHashMap;

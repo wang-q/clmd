@@ -22,7 +22,7 @@
 
 use crate::arena::{NodeArena, NodeId};
 use crate::context::ClmdContext;
-use crate::error::{ClmdError, ClmdResult};
+use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{OutputFormat, WriterOptions};
 use std::fmt::Debug;
 use std::path::Path;
@@ -313,7 +313,7 @@ impl Writer for CommonMarkWriter {
         options: &WriterOptions,
     ) -> ClmdResult<String> {
         let width = if options.wrap == crate::options::WrapOption::Auto {
-            options.columns
+            options.width
         } else {
             0
         };
@@ -321,7 +321,7 @@ impl Writer for CommonMarkWriter {
     }
 
     fn format(&self) -> OutputFormat {
-        OutputFormat::CommonMark
+        OutputFormat::Markdown
     }
 
     fn extensions(&self) -> &[&'static str] {
@@ -556,7 +556,7 @@ mod tests {
         assert_eq!(registry.detect_format(path), Some(OutputFormat::Html));
 
         let path = Path::new("test.md");
-        assert_eq!(registry.detect_format(path), Some(OutputFormat::CommonMark));
+        assert_eq!(registry.detect_format(path), Some(OutputFormat::Markdown));
 
         let path = Path::new("test");
         assert_eq!(registry.detect_format(path), None);

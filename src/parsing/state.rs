@@ -104,7 +104,7 @@ impl Default for IndentationState {
 /// Parse content at a specific indentation level.
 pub fn indent_level<T>(
     level: usize,
-) -> impl Fn(&str, Position, &mut IndentationState) -> ParseResult<String> {
+) -> impl Fn(&str, Position, &mut IndentationState) -> ParseResult<(String, Position)> {
     move |input: &str, pos: Position, state: &mut IndentationState| {
         let mut current_pos = pos;
         let mut indent_count = 0;
@@ -249,7 +249,7 @@ impl Default for NestingState {
 pub fn nested_content(
     open: char,
     close: char,
-) -> impl Fn(&str, Position, &mut NestingState) -> ParseResult<String> {
+) -> impl Fn(&str, Position, &mut NestingState) -> ParseResult<(String, Position)> {
     move |input: &str, pos: Position, state: &mut NestingState| {
         let mut current_pos = pos;
 
@@ -366,16 +366,16 @@ mod tests {
     #[test]
     fn test_nested_content() {
         let parser = with_nesting(nested_content('{', '}'));
-        let result = parser.parse("{hello}").unwrap();
+        let result = parser("{hello}", Position::start()).unwrap().0;
         assert_eq!(result, "hello");
 
-        let result = parser.parse("{hello {world}}").unwrap();
+        let result = parser("{hello {world}}", Position::start()).unwrap().0;
         assert_eq!(result, "hello {world}");
     }
 
     #[test]
     fn test_nested_content_unclosed() {
         let parser = with_nesting(nested_content('{', '}'));
-        assert!(parser.parse("{hello").is_err());
+        assert!(parser("{hello", Position::start()).is_err());
     }
 }

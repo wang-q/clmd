@@ -16,24 +16,31 @@ use std::fmt;
 use std::io;
 use thiserror::Error;
 
-/// Position in source text (line, column).
+/// Position in source text (line, column, offset).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
     /// Line number (1-based).
     pub line: usize,
     /// Column number (1-based).
     pub column: usize,
+    /// Byte offset in the source.
+    pub offset: usize,
 }
 
 impl Position {
     /// Create a new position.
     pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column }
+        Self { line, column, offset: 0 }
+    }
+
+    /// Create a new position with offset.
+    pub fn with_offset(line: usize, column: usize, offset: usize) -> Self {
+        Self { line, column, offset }
     }
 
     /// Create a position at the start of the document.
     pub fn start() -> Self {
-        Self { line: 1, column: 1 }
+        Self { line: 1, column: 1, offset: 0 }
     }
 
     /// Create a position from a byte offset in the source.
@@ -53,7 +60,18 @@ impl Position {
             }
         }
 
-        Self { line, column }
+        Self { line, column, offset }
+    }
+
+    /// Advance the position by a character.
+    pub fn advance(&mut self, ch: char) {
+        self.offset += ch.len_utf8();
+        if ch == '\n' {
+            self.line += 1;
+            self.column = 1;
+        } else {
+            self.column += 1;
+        }
     }
 }
 
@@ -595,6 +613,14 @@ impl ParseError {
     pub fn new<S: Into<String>>(position: Position, message: S) -> Self {
         Self::ParseError {
             position,
+            message: message.into(),
+        }
+    }
+
+    /// Create a new parse error at a specific line and column.
+    pub fn at<S: Into<String>>(line: usize, column: usize, message: S) -> Self {
+        Self::ParseError {
+            position: Position::new(line, column),
             message: message.into(),
         }
     }

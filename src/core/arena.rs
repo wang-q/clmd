@@ -14,8 +14,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::arena::{NodeArena, TreeOps, Node};
-//! use clmd::nodes::NodeValue;
+//! use clmd::core::{NodeArena, TreeOps, Node};
+//! use clmd::core::NodeValue;
 //!
 //! let mut arena = NodeArena::new();
 //! let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -23,7 +23,7 @@
 //! TreeOps::append_child(&mut arena, root, paragraph);
 //! ```
 
-use crate::nodes::{NodeValue, SourcePos};
+use crate::core::nodes::{NodeValue, SourcePos};
 
 /// Node ID type - index into the arena
 pub type NodeId = u32;
@@ -112,7 +112,7 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::NodeArena;
+    /// use clmd::core::NodeArena;
     ///
     /// let arena = NodeArena::with_limits(100, 10000);
     /// ```
@@ -152,7 +152,7 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::NodeArena;
+    /// use clmd::core::NodeArena;
     ///
     /// let arena = NodeArena::new();
     /// let (nodes, allocs, memory) = arena.memory_stats();
@@ -269,8 +269,8 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::{NodeArena, TreeOps, Node};
-    /// use clmd::nodes::NodeValue;
+    /// use clmd::core::{NodeArena, TreeOps, Node};
+    /// use clmd::core::NodeValue;
     ///
     /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -291,8 +291,8 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::{NodeArena, TreeOps, Node};
-    /// use clmd::nodes::NodeValue;
+    /// use clmd::core::{NodeArena, TreeOps, Node};
+    /// use clmd::core::NodeValue;
     ///
     /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -318,8 +318,8 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::{NodeArena, TreeOps, Node};
-    /// use clmd::nodes::NodeValue;
+    /// use clmd::core::{NodeArena, TreeOps, Node};
+    /// use clmd::core::NodeValue;
     ///
     /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -368,8 +368,8 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::arena::{NodeArena, TreeOps, Node};
-    /// use clmd::nodes::NodeValue;
+    /// use clmd::core::{NodeArena, TreeOps, Node};
+    /// use clmd::core::NodeValue;
     ///
     /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -422,9 +422,9 @@ impl NodeArena {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::{Arena, Node, NodeValue, TreeOps};
+    /// use clmd::core::{NodeArena, Node, NodeValue, TreeOps};
     ///
-    /// let mut arena = Arena::new();
+    /// let mut arena = NodeArena::new();
     /// let root = arena.alloc(Node::with_value(NodeValue::Document));
     /// let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
     /// TreeOps::append_child(&mut arena, root, para);
@@ -839,6 +839,7 @@ impl<'a> Iterator for PrecedingSiblingsIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::nodes::NodeValue;
 
     #[test]
     fn test_descendants_iterator() {
@@ -852,7 +853,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let grandchild = arena.alloc(Node::with_value(NodeValue::Text("test".into())));
+        let grandchild = arena.alloc(Node::with_value(NodeValue::make_text("test")));
 
         TreeOps::append_child(&mut arena, root, child1);
         TreeOps::append_child(&mut arena, root, child2);
@@ -1023,7 +1024,7 @@ mod tests {
         // Create nodes using new API
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::nodes::NodeHeading {
+            crate::core::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,
@@ -1202,7 +1203,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
         let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let grandchild = arena.alloc(Node::with_value(NodeValue::Text("test".into())));
+        let grandchild = arena.alloc(Node::with_value(NodeValue::make_text("test")));
 
         TreeOps::append_child(&mut arena, root, child1);
         TreeOps::append_child(&mut arena, root, child2);

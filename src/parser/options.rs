@@ -14,7 +14,7 @@
 //! options.render.hardbreaks = true;
 //! ```
 
-use crate::adapters::{
+use crate::core::adapters::{
     CodefenceRendererAdapter, HeadingAdapter, SyntaxHighlighterAdapter,
 };
 use std::collections::HashMap;
@@ -23,6 +23,179 @@ use std::sync::Arc;
 
 use arbitrary::Arbitrary;
 use bon::Builder;
+
+/// Input format for reading documents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
+pub enum InputFormat {
+    /// Markdown (CommonMark)
+    #[default]
+    Markdown,
+    /// GitHub Flavored Markdown
+    Gfm,
+    /// HTML
+    Html,
+    /// ReStructuredText
+    Rst,
+    /// AsciiDoc
+    AsciiDoc,
+    /// Org mode
+    Org,
+    /// Textile
+    Textile,
+    /// MediaWiki
+    MediaWiki,
+    /// DokuWiki
+    DokuWiki,
+}
+
+impl InputFormat {
+    /// Get the format name as a string.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            InputFormat::Markdown => "markdown",
+            InputFormat::Gfm => "gfm",
+            InputFormat::Html => "html",
+            InputFormat::Rst => "rst",
+            InputFormat::AsciiDoc => "asciidoc",
+            InputFormat::Org => "org",
+            InputFormat::Textile => "textile",
+            InputFormat::MediaWiki => "mediawiki",
+            InputFormat::DokuWiki => "dokuwiki",
+        }
+    }
+}
+
+/// Output format for writing documents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
+pub enum OutputFormat {
+    /// Markdown (CommonMark)
+    #[default]
+    Markdown,
+    /// GitHub Flavored Markdown
+    Gfm,
+    /// HTML
+    Html,
+    /// XHTML
+    Xhtml,
+    /// XML (CommonMark AST)
+    Xml,
+    /// LaTeX
+    Latex,
+    /// Man page
+    Man,
+    /// Plain text
+    Plain,
+    /// PDF
+    Pdf,
+    /// Docx
+    Docx,
+    /// ODT
+    Odt,
+    /// RTF
+    Rtf,
+    /// EPUB
+    Epub,
+    /// Typst
+    Typst,
+}
+
+impl OutputFormat {
+    /// Get the format name as a string.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OutputFormat::Markdown => "markdown",
+            OutputFormat::Gfm => "gfm",
+            OutputFormat::Html => "html",
+            OutputFormat::Xhtml => "xhtml",
+            OutputFormat::Xml => "xml",
+            OutputFormat::Latex => "latex",
+            OutputFormat::Man => "man",
+            OutputFormat::Plain => "plain",
+            OutputFormat::Pdf => "pdf",
+            OutputFormat::Docx => "docx",
+            OutputFormat::Odt => "odt",
+            OutputFormat::Rtf => "rtf",
+            OutputFormat::Epub => "epub",
+            OutputFormat::Typst => "typst",
+        }
+    }
+}
+
+impl std::str::FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "markdown" | "md" => Ok(OutputFormat::Markdown),
+            "gfm" => Ok(OutputFormat::Gfm),
+            "html" => Ok(OutputFormat::Html),
+            "xhtml" => Ok(OutputFormat::Xhtml),
+            "xml" => Ok(OutputFormat::Xml),
+            "latex" | "tex" => Ok(OutputFormat::Latex),
+            "man" => Ok(OutputFormat::Man),
+            "plain" | "text" => Ok(OutputFormat::Plain),
+            "pdf" => Ok(OutputFormat::Pdf),
+            "docx" => Ok(OutputFormat::Docx),
+            "odt" => Ok(OutputFormat::Odt),
+            "rtf" => Ok(OutputFormat::Rtf),
+            "epub" => Ok(OutputFormat::Epub),
+            "typst" => Ok(OutputFormat::Typst),
+            _ => Err(format!("Unknown output format: {}", s)),
+        }
+    }
+}
+
+/// Options for document readers.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ReaderOptions {
+    /// The input format.
+    pub format: InputFormat,
+    /// Whether to parse smart punctuation.
+    pub smart: bool,
+    /// Whether to enable extensions.
+    pub extensions: crate::extensions::Extensions,
+}
+
+impl ReaderOptions {
+    /// Convert to parser Options.
+    pub fn to_parser_options(&self) -> Options {
+        Options::default()
+    }
+}
+
+/// Options for document writers.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WriterOptions {
+    /// The output format.
+    pub format: OutputFormat,
+    /// Whether to wrap text.
+    pub wrap: WrapOption,
+    /// The wrap width.
+    pub width: usize,
+    /// Whether to enable extensions.
+    pub extensions: crate::extensions::Extensions,
+    /// Whether to output source positions.
+    pub output_sourcepos: bool,
+}
+
+impl WriterOptions {
+    /// Convert to render Options.
+    pub fn to_render_options(&self) -> Options {
+        Options::default()
+    }
+}
+
+/// Text wrapping option.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
+pub enum WrapOption {
+    /// Auto-wrap text.
+    #[default]
+    Auto,
+    /// No wrapping.
+    None,
+    /// Preserve line breaks.
+    Preserve,
+}
 
 /// Umbrella options struct for the Markdown parser and renderer.
 ///

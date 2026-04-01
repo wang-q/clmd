@@ -21,7 +21,7 @@
 //! ```
 
 use crate::context::{ClmdContext, PureContext};
-use crate::error::{ClmdError, ClmdResult, Position};
+use crate::core::error::{ClmdError, ClmdResult, Position};
 use crate::filter::{Filter, FilterChain};
 use crate::options::Options;
 use crate::readers::{Reader, ReaderRegistry};
@@ -120,8 +120,9 @@ impl Pipeline {
         options: &Options,
     ) -> ClmdResult<String> {
         // Step 1: Read the input
+        let reader_options = crate::parser::options::ReaderOptions::default();
         let (mut arena, root) =
-            self.reader.read(input, &options.reader).map_err(|e| {
+            self.reader.read(input, &reader_options).map_err(|e| {
                 ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
             })?;
 
@@ -133,8 +134,9 @@ impl Pipeline {
         }
 
         // Step 3: Write the output
+        let writer_options = crate::parser::options::WriterOptions::default();
         self.writer
-            .write(&arena, root, ctx, &options.writer)
+            .write(&arena, root, ctx, &writer_options)
             .map_err(|e| ClmdError::io_error(format!("Write error: {}", e)))
     }
 

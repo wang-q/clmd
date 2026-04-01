@@ -3,7 +3,7 @@
 //! This module provides combinators for combining parsers, inspired by
 //! Pandoc's parsing infrastructure and functional parsing libraries.
 
-use super::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse with the first successful parser.
 ///
@@ -418,7 +418,7 @@ where
 /// assert!(eof.parse("").is_ok());
 /// assert!(eof.parse("a").is_err());
 /// ```ignore
-pub fn eof(input: &str, pos: Position) -> ParseResult<()> {
+pub fn eof(input: &str, pos: Position) -> ParseResult<((), Position)> {
     if pos.offset >= input.len() {
         Ok(((), pos))
     } else {
@@ -612,8 +612,8 @@ mod tests {
 
     #[test]
     fn test_eof() {
-        assert!(eof.parse("").is_ok());
-        assert!(eof.parse("a").is_err());
+        assert!(eof("", Position::start()).is_ok());
+        assert!(eof("a", Position::start()).is_err());
     }
 
     #[test]

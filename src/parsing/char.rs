@@ -2,7 +2,7 @@
 //!
 //! This module provides parsers for individual characters and character classes.
 
-use super::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse a single character matching a predicate.
 ///
@@ -46,7 +46,7 @@ where
 /// let result = any_char.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn any_char(input: &str, pos: Position) -> ParseResult<char> {
+pub fn any_char(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance(ch);
@@ -99,7 +99,7 @@ pub fn char_lit(expected: char) -> BoxedParser<char> {
 /// let result = digit.parse_partial("123");
 /// assert_eq!(result.unwrap().0, '1');
 /// ```ignore
-pub fn digit(input: &str, pos: Position) -> ParseResult<char> {
+pub fn digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_ascii_digit() {
             let mut new_pos = pos;
@@ -120,7 +120,7 @@ pub fn digit(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = alpha.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn alpha(input: &str, pos: Position) -> ParseResult<char> {
+pub fn alpha(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_alphabetic() {
             let mut new_pos = pos;
@@ -141,7 +141,7 @@ pub fn alpha(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = alphanumeric.parse_partial("abc123");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<char> {
+pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_alphanumeric() {
             let mut new_pos = pos;
@@ -166,7 +166,7 @@ pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = whitespace.parse_partial("  hello");
 /// assert_eq!(result.unwrap().0, ' ');
 /// ```ignore
-pub fn whitespace(input: &str, pos: Position) -> ParseResult<char> {
+pub fn whitespace(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_whitespace() {
             let mut new_pos = pos;
@@ -187,7 +187,7 @@ pub fn whitespace(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = newline.parse_partial("\nhello");
 /// assert!(result.is_ok());
 /// ```ignore
-pub fn newline(input: &str, pos: Position) -> ParseResult<char> {
+pub fn newline(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     let remaining = &input[pos.offset..];
     if remaining.starts_with("\r\n") {
         let mut new_pos = pos;
@@ -325,7 +325,7 @@ pub fn char_range(start: char, end: char) -> BoxedParser<char> {
 /// let result = upper.parse_partial("Hello");
 /// assert_eq!(result.unwrap().0, 'H');
 /// ```ignore
-pub fn upper(input: &str, pos: Position) -> ParseResult<char> {
+pub fn upper(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_uppercase() {
             let mut new_pos = pos;
@@ -350,7 +350,7 @@ pub fn upper(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = lower.parse_partial("hello");
 /// assert_eq!(result.unwrap().0, 'h');
 /// ```ignore
-pub fn lower(input: &str, pos: Position) -> ParseResult<char> {
+pub fn lower(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_lowercase() {
             let mut new_pos = pos;
@@ -375,7 +375,7 @@ pub fn lower(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = hex_digit.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn hex_digit(input: &str, pos: Position) -> ParseResult<char> {
+pub fn hex_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_ascii_hexdigit() {
             let mut new_pos = pos;
@@ -400,7 +400,7 @@ pub fn hex_digit(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = oct_digit.parse_partial("777");
 /// assert_eq!(result.unwrap().0, '7');
 /// ```ignore
-pub fn oct_digit(input: &str, pos: Position) -> ParseResult<char> {
+pub fn oct_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ('0'..='7').contains(&ch) {
             let mut new_pos = pos;
@@ -421,7 +421,7 @@ pub fn oct_digit(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = tab.parse_partial("\thello");
 /// assert_eq!(result.unwrap().0, '\t');
 /// ```ignore
-pub fn tab(input: &str, pos: Position) -> ParseResult<char> {
+pub fn tab(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some('\t') = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance('\t');
@@ -441,7 +441,7 @@ pub fn tab(input: &str, pos: Position) -> ParseResult<char> {
 /// let result = space.parse_partial(" hello");
 /// assert_eq!(result.unwrap().0, ' ');
 /// ```ignore
-pub fn space(input: &str, pos: Position) -> ParseResult<char> {
+pub fn space(input: &str, pos: Position) -> ParseResult<(char, Position)> {
     if let Some(' ') = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance(' ');
@@ -485,96 +485,95 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsing::Parser;
 
     #[test]
     fn test_char_lit() {
         let parser = char_lit('a');
-        let result = parser.parse_partial("abc").unwrap();
+        let result = parser("abc", Position::start()).unwrap();
         assert_eq!(result.0, 'a');
-        assert!(parser.parse("xyz").is_err());
+        assert!(parser("xyz", Position::start()).is_err());
     }
 
     #[test]
     fn test_digit() {
-        let result = digit.parse_partial("123").unwrap();
+        let result = digit("123", Position::start()).unwrap();
         assert_eq!(result.0, '1');
-        assert!(digit.parse_partial("abc").is_err());
+        assert!(digit("abc", Position::start()).is_err());
     }
 
     #[test]
     fn test_alpha() {
-        let result = alpha.parse_partial("abc").unwrap();
+        let result = alpha("abc", Position::start()).unwrap();
         assert_eq!(result.0, 'a');
-        assert!(alpha.parse_partial("123").is_err());
+        assert!(alpha("123", Position::start()).is_err());
     }
 
     #[test]
     fn test_whitespace() {
-        let result = whitespace.parse_partial("  hello").unwrap();
+        let result = whitespace("  hello", Position::start()).unwrap();
         assert_eq!(result.0, ' ');
-        let result = whitespace.parse_partial("\thello").unwrap();
+        let result = whitespace("\thello", Position::start()).unwrap();
         assert_eq!(result.0, '\t');
-        assert!(whitespace.parse_partial("hello").is_err());
+        assert!(whitespace("hello", Position::start()).is_err());
     }
 
     #[test]
     fn test_newline() {
-        assert_eq!(newline.parse("\n").unwrap(), '\n');
-        assert_eq!(newline.parse("\r\n").unwrap(), '\n');
-        assert!(newline.parse_partial("hello").is_err());
+        assert_eq!(newline("\n", Position::start()).unwrap().0, '\n');
+        assert_eq!(newline("\r\n", Position::start()).unwrap().0, '\n');
+        assert!(newline("hello", Position::start()).is_err());
     }
 
     #[test]
     fn test_one_of() {
         let parser = one_of(&['a', 'b', 'c']);
-        let result = parser.parse_partial("b").unwrap();
+        let result = parser("b", Position::start()).unwrap();
         assert_eq!(result.0, 'b');
-        assert!(parser.parse("x").is_err());
+        assert!(parser("x", Position::start()).is_err());
     }
 
     #[test]
     fn test_none_of() {
         let parser = none_of(&['x', 'y', 'z']);
-        let result = parser.parse_partial("a").unwrap();
+        let result = parser("a", Position::start()).unwrap();
         assert_eq!(result.0, 'a');
-        assert!(parser.parse("x").is_err());
+        assert!(parser("x", Position::start()).is_err());
     }
 
     #[test]
     fn test_char_range() {
         let parser = char_range('a', 'z');
-        let result = parser.parse_partial("m").unwrap();
+        let result = parser("m", Position::start()).unwrap();
         assert_eq!(result.0, 'm');
-        assert!(parser.parse("M").is_err());
+        assert!(parser("M", Position::start()).is_err());
     }
 
     #[test]
     fn test_upper_lower() {
-        let result = upper.parse_partial("Hello").unwrap();
+        let result = upper("Hello", Position::start()).unwrap();
         assert_eq!(result.0, 'H');
-        let result = lower.parse_partial("hello").unwrap();
+        let result = lower("hello", Position::start()).unwrap();
         assert_eq!(result.0, 'h');
-        assert!(upper.parse_partial("hello").is_err());
-        assert!(lower.parse_partial("Hello").is_err());
+        assert!(upper("hello", Position::start()).is_err());
+        assert!(lower("Hello", Position::start()).is_err());
     }
 
     #[test]
     fn test_hex_digit() {
-        let result = hex_digit.parse_partial("a").unwrap();
+        let result = hex_digit("a", Position::start()).unwrap();
         assert_eq!(result.0, 'a');
-        let result = hex_digit.parse_partial("F").unwrap();
+        let result = hex_digit("F", Position::start()).unwrap();
         assert_eq!(result.0, 'F');
-        let result = hex_digit.parse_partial("9").unwrap();
+        let result = hex_digit("9", Position::start()).unwrap();
         assert_eq!(result.0, '9');
-        assert!(hex_digit.parse("g").is_err());
+        assert!(hex_digit("g", Position::start()).is_err());
     }
 
     #[test]
     fn test_satisfy() {
         let parser = satisfy(|c| c == '@');
-        let result = parser.parse_partial("@hello").unwrap();
+        let result = parser("@hello", Position::start()).unwrap();
         assert_eq!(result.0, '@');
-        assert!(parser.parse_partial("hello").is_err());
+        assert!(parser("hello", Position::start()).is_err());
     }
 }

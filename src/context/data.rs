@@ -19,7 +19,7 @@
 //! }
 //! ```
 
-use crate::error::{ClmdError, ClmdResult};
+use crate::core::error::{ClmdError, ClmdResult};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -34,7 +34,7 @@ fn init_embedded_data() -> HashMap<&'static str, &'static [u8]> {
     let mut map: HashMap<&'static str, &'static [u8]> = HashMap::new();
 
     // Default templates - convert array reference to slice using a temporary
-    let html_bytes: &[u8] = include_bytes!("../data/templates/default.html");
+    let html_bytes: &[u8] = include_bytes!("../../data/templates/default.html");
     map.insert("templates/default.html", html_bytes);
 
     map

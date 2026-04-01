@@ -1,10 +1,10 @@
 //! HTML renderer
 
-use crate::adapters::SyntaxHighlighterAdapter;
-use crate::arena::{NodeArena, NodeId};
+use crate::core::adapters::SyntaxHighlighterAdapter;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
 use crate::ext::tagfilter::filter_html;
-use crate::html_utils::{escape_html, is_safe_url};
-use crate::nodes::{ListType, NodeHeading, NodeList, NodeValue};
+use crate::text::html_utils::{escape_html, is_safe_url};
 use crate::parser::{OPT_SOURCEPOS, OPT_TAGFILTER};
 use std::borrow::Cow;
 use std::collections::HashMap;

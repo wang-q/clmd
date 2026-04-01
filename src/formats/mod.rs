@@ -23,7 +23,11 @@ pub mod mime;
 pub mod tex;
 pub mod xml;
 
-use crate::error::{ClmdError, ClmdResult};
+// Format conversion
+pub mod from;
+pub mod slides;
+
+use crate::core::error::{ClmdError, ClmdResult};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display};
 use std::path::Path;
