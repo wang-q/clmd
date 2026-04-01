@@ -27,7 +27,7 @@ pub use crate::options::{
 
 // Re-export new types from parser::options
 pub use crate::parser::options::{
-    InputFormat, OutputFormat, ReaderOptions, WriterOptions, WrapOption,
+    InputFormat, OutputFormat, ReaderOptions, WrapOption, WriterOptions,
 };
 
 // Re-export extension types

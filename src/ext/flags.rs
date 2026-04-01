@@ -215,19 +215,13 @@ impl ExtensionKind {
             "attribute" | "attributes" => Some(ExtensionKind::Attributes),
             "yaml_front_matter" => Some(ExtensionKind::YamlFrontMatter),
             "abbreviation" | "abbreviations" => Some(ExtensionKind::Abbreviations),
-            "definition_list" | "definition_lists" => Some(ExtensionKind::DefinitionLists),
+            "definition_list" | "definition_lists" => {
+                Some(ExtensionKind::DefinitionLists)
+            }
             _ => None,
         }
     }
 }
-
-/// Deprecated alias for `ExtensionFlags`.
-#[deprecated(since = "0.2.0", note = "Use `ExtensionFlags` instead")]
-pub type Extensions = ExtensionFlags;
-
-/// Deprecated alias for `ExtensionKind`.
-#[deprecated(since = "0.2.0", note = "Use `ExtensionKind` instead")]
-pub type Extension = ExtensionKind;
 
 #[cfg(test)]
 mod tests {

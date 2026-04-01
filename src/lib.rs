@@ -385,10 +385,6 @@ pub mod extensions {
 /// Re-export extension types for convenience.
 pub use crate::ext::flags::{ExtensionFlags, ExtensionKind};
 
-/// Deprecated alias for `ExtensionFlags`.
-#[deprecated(since = "0.2.0", note = "Use `ExtensionFlags` instead")]
-pub use crate::ext::flags::ExtensionFlags as Extensions;
-
 /// Document conversion pipeline.
 ///
 /// This module provides a flexible pipeline system for document conversion,
@@ -669,59 +665,6 @@ pub const TAB_STOP: usize = 4;
 pub fn is_space_or_tab(c: char) -> bool {
     c == ' ' || c == '\t'
 }
-
-// =============================================================================
-// Deprecated Type Aliases (for backward compatibility)
-// =============================================================================
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::Extension` instead of `clmd::ExtensionOptions`"
-)]
-/// Deprecated alias: use [`parser::options::Extension`] instead.
-pub type ExtensionOptions<'c> = parser::options::Extension<'c>;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::Parse` instead of `clmd::ParseOptions`"
-)]
-/// Deprecated alias: use [`parser::options::Parse`] instead.
-pub type ParseOptions<'c> = parser::options::Parse<'c>;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::Render` instead of `clmd::RenderOptions`"
-)]
-/// Deprecated alias: use [`parser::options::Render`] instead.
-pub type RenderOptions = parser::options::Render;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::BrokenLinkReference` instead of `clmd::BrokenLinkReference`"
-)]
-/// Deprecated alias: use [`parser::options::BrokenLinkReference`] instead.
-pub type BrokenLinkReference<'l> = parser::options::BrokenLinkReference<'l>;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::ListStyleType` instead of `clmd::ListStyleType`"
-)]
-/// Deprecated alias: use [`parser::options::ListStyleType`] instead.
-pub type ListStyleType = parser::options::ListStyleType;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::WikiLinksMode` instead of `clmd::WikiLinksMode`"
-)]
-/// Deprecated alias: use [`parser::options::WikiLinksMode`] instead.
-pub type WikiLinksMode = parser::options::WikiLinksMode;
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use `clmd::parser::options::RenderPlugins` instead of `clmd::RenderPlugins`"
-)]
-/// Deprecated alias: use [`parser::options::RenderPlugins`] instead.
-pub type RenderPlugins<'p> = parser::options::RenderPlugins<'p>;
 
 // =============================================================================
 // Convenience Functions
