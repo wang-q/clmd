@@ -231,7 +231,7 @@ impl Verbosity {
 
 impl Default for Verbosity {
     fn default() -> Self {
-        Verbosity::Info
+        Verbosity::Normal
     }
 }
 
@@ -272,6 +272,29 @@ pub fn is_data_uri(s: &str) -> bool {
 /// Canonicalize a path.
 pub fn canonicalize_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
+}
+
+/// Generate a hash-based path for data URIs.
+///
+/// This is used by `insert_media` implementations to generate a unique
+/// path for data URI content based on the content hash.
+///
+/// # Arguments
+///
+/// * `data` - The binary content to hash
+/// * `mime_type` - Optional MIME type for determining file extension
+///
+/// # Returns
+///
+/// A hash-based path string (e.g., "abc123.png")
+pub fn generate_hash_path(data: &[u8], mime_type: Option<&str>) -> String {
+    let hash = format!("{:x}", md5::compute(data));
+    let ext = mime_type
+        .and_then(|m| m.split('/').nth(1))
+        .map(|s| s.split(';').next().unwrap_or(s))
+        .map(|s| format!(".{}", s))
+        .unwrap_or_default();
+    format!("{}{}", hash, ext)
 }
 
 #[cfg(test)]

@@ -200,7 +200,7 @@ impl ProcessOutput {
 /// let (status, output) = pipe_process("echo", &["hello"], b"").unwrap();
 /// assert!(status.success());
 /// assert_eq!(String::from_utf8_lossy(&output).trim(), "hello");
-/// ```ignore
+/// ```
 pub fn pipe_process(
     cmd: &str,
     args: &[&str],
@@ -251,7 +251,7 @@ pub fn pipe_process(
 ///     .timeout(Duration::from_secs(30));
 ///
 /// let output = run_process("echo", &["hello"], b"", &options);
-/// ```ignore
+/// ```
 pub fn run_process(
     cmd: &str,
     args: &[&str],
@@ -355,7 +355,7 @@ fn wait_with_timeout(
 ///
 /// let output = run_command("echo", &["hello"]).unwrap();
 /// assert!(output.success());
-/// ```ignore
+/// ```
 pub fn run_command(cmd: &str, args: &[&str]) -> ProcessResult<ProcessOutput> {
     run_process(cmd, args, b"", &ProcessOptions::default())
 }
@@ -369,7 +369,7 @@ pub fn run_command(cmd: &str, args: &[&str]) -> ProcessResult<ProcessOutput> {
 ///
 /// assert!(command_exists("echo"));
 /// assert!(!command_exists("nonexistent_command_12345"));
-/// ```ignore
+/// ```
 pub fn command_exists(cmd: &str) -> bool {
     Command::new(cmd)
         .arg("--version")
@@ -389,7 +389,7 @@ pub fn command_exists(cmd: &str) -> bool {
 ///
 /// let echo_path = which("echo");
 /// assert!(echo_path.is_some());
-/// ```ignore
+/// ```
 pub fn which(cmd: &str) -> Option<std::path::PathBuf> {
     if let Ok(output) = Command::new("which")
         .arg(cmd)
@@ -438,7 +438,7 @@ pub fn which(cmd: &str) -> Option<std::path::PathBuf> {
 ///
 /// let output = pipe_process_string("echo", &["hello"], "").unwrap();
 /// assert_eq!(output.trim(), "hello");
-/// ```ignore
+/// ```
 pub fn pipe_process_string(
     cmd: &str,
     args: &[&str],

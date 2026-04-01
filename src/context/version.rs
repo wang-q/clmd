@@ -72,7 +72,7 @@ const fn parse_u32(s: &str) -> u32 {
 ///
 /// let version = version_string();
 /// assert!(version.starts_with("clmd "));
-/// ```ignore
+/// ```
 pub fn version_string() -> String {
     let pre = if VERSION_PRE.is_empty() {
         String::new()
@@ -94,7 +94,7 @@ pub fn version_string() -> String {
 ///
 /// let detailed = version_string_detailed();
 /// assert!(detailed.contains("clmd"));
-/// ```ignore
+/// ```
 pub fn version_string_detailed() -> String {
     let target = std::env::consts::ARCH;
     let os = std::env::consts::OS;
@@ -123,7 +123,7 @@ pub fn version_string_detailed() -> String {
 ///
 /// // Check if version is at least 0.1.0
 /// assert!(satisfies(0, 1, 0));
-/// ```ignore
+/// ```
 pub const fn satisfies(major: u32, minor: u32, patch: u32) -> bool {
     let current = VERSION_MAJOR;
     if current > major {

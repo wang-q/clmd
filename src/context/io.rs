@@ -25,7 +25,7 @@ use crate::core::error::ClmdError;
 ///
 /// let mut ctx = IoContext::new();
 /// ctx.info("Processing started");
-/// ```ignore
+/// ```
 #[derive(Debug, Clone)]
 pub struct IoContext {
     /// The common state for this context.
@@ -164,13 +164,7 @@ impl ClmdContext for IoContext {
         let path_str = path.to_string_lossy();
         if common::is_data_uri(&path_str) {
             // For data URIs, use a hash-based path
-            let hash = format!("{:x}", md5::compute(&data));
-            let ext = mime_type
-                .and_then(|m| m.split('/').nth(1))
-                .map(|s| s.split(';').next().unwrap_or(s))
-                .map(|s| format!(".{}", s))
-                .unwrap_or_default();
-            let new_path = format!("{}{}", hash, ext);
+            let new_path = common::generate_hash_path(&data, mime_type);
             bag.insert_opt(PathBuf::from(&new_path), mime_type, data);
             return Ok(new_path);
         }

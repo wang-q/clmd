@@ -527,7 +527,67 @@ impl Config {
             toc: other.extensions.toc || self.extensions.toc,
             emoji: other.extensions.emoji || self.extensions.emoji,
         };
-        // Merge other fields...
+        // Merge parse options (other takes precedence for non-default values)
+        if other.parse.smart {
+            self.parse.smart = true;
+        }
+        if other.parse.relaxed_tasklist {
+            self.parse.relaxed_tasklist = true;
+        }
+        if other.parse.relaxed_autolinks {
+            self.parse.relaxed_autolinks = true;
+        }
+        if other.parse.max_nesting_depth > 0 {
+            self.parse.max_nesting_depth = other.parse.max_nesting_depth;
+        }
+
+        // Merge render options (other takes precedence for non-default values)
+        if other.render.hardbreaks {
+            self.render.hardbreaks = true;
+        }
+        if other.render.r#unsafe {
+            self.render.r#unsafe = true;
+        }
+        if other.render.github_pre_lang {
+            self.render.github_pre_lang = true;
+        }
+        if other.render.full_info_string {
+            self.render.full_info_string = true;
+        }
+        if other.render.sourcepos {
+            self.render.sourcepos = true;
+        }
+        if other.render.compact {
+            self.render.compact = true;
+        }
+        if other.render.escape {
+            self.render.escape = true;
+        }
+
+        // Merge syntax options (other takes precedence)
+        if other.syntax.theme.is_some() {
+            self.syntax.theme = other.syntax.theme.clone();
+        }
+        if other.syntax.enabled {
+            self.syntax.enabled = true;
+        }
+
+        // Merge reader options (other takes precedence for non-empty values)
+        if !other.reader.default_format.is_empty() {
+            self.reader.default_format = other.reader.default_format.clone();
+        }
+        self.reader.options.extend(other.reader.options.clone());
+
+        // Merge writer options (other takes precedence)
+        if !other.writer.default_format.is_empty() {
+            self.writer.default_format = other.writer.default_format.clone();
+        }
+        if other.writer.template.is_some() {
+            self.writer.template = other.writer.template.clone();
+        }
+        self.writer.options.extend(other.writer.options.clone());
+
+        // Merge transforms and options
         self.transforms.extend(other.transforms.clone());
         self.options.extend(other.options.clone());
     }

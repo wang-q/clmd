@@ -6,15 +6,15 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::context::data::{read_default_data_file, default_user_data_dir};
+//! use clmd::context::data::{read_data_file, get_user_data_dir};
 //!
-//! // Read a default data file
-//! if let Ok(content) = read_default_data_file("templates/default.html") {
+//! // Read a data file
+//! if let Ok(content) = read_data_file("templates/default.html") {
 //!     println!("Template loaded: {} bytes", content.len());
 //! }
 //!
-//! // Get the default user data directory
-//! if let Ok(user_dir) = default_user_data_dir() {
+//! // Get the user data directory
+//! if let Ok(Some(user_dir)) = get_user_data_dir() {
 //!     println!("User data directory: {:?}", user_dir);
 //! }
 //! ```
@@ -539,11 +539,11 @@ mod tests {
 
     #[test]
     fn test_data_file_exists() {
-        // This test assumes the default template exists
-        // In a real scenario, this would check for embedded files
-        let exists = data_file_exists("templates/default.html");
-        // Result depends on whether the file is embedded
-        assert!(exists || !exists); // Just check it doesn't panic
+        // This test checks that data_file_exists doesn't panic
+        // and returns a boolean value
+        let _exists = data_file_exists("templates/default.html");
+        // The result depends on whether the file is embedded
+        // Just verify the function returns without panicking
     }
 
     #[test]
