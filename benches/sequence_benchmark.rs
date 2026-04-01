@@ -3,7 +3,7 @@
 //! This benchmark tests whether BasedSequence provides performance benefits
 //! over standard String operations for typical Markdown parsing scenarios.
 
-use clmd::sequence::BasedSequence;
+use clmd::text::BasedSequence;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 // Sample Markdown text for testing

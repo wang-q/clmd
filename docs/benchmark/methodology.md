@@ -43,6 +43,52 @@ Stress tests with extreme inputs:
 
 Tests using actual Markdown documents from various sources.
 
+### 5. String Optimization Benchmarks
+
+Tests for string processing optimizations:
+- Text-heavy documents
+- Text node merging
+- HTML output generation
+- Line processing
+- Memory allocation patterns
+- Smart punctuation comparison
+- Append text operations
+
+### 6. Sequence Benchmarks
+
+Tests for BasedSequence performance:
+- Slicing operations
+- Trim operations
+- Finding patterns
+- Line splitting
+- Parsing simulation
+- Large file processing
+- Position tracking
+
+### 7. AST Conversion Benchmarks
+
+Tests for AST parsing performance:
+- Small document parsing
+- Medium document parsing
+- Large document parsing
+- Different parse options
+- Pathological cases
+
+### 8. Formatter Benchmarks
+
+Tests for CommonMark formatter performance:
+- Large document formatting
+- Simple paragraphs
+- Emphasis and strong
+- Links
+- Code blocks
+- Tables
+- Nested lists
+- Headings
+- Blockquotes
+- Task lists
+- Mixed content
+
 ## Cross-Language Comparison
 
 ### Tested Implementations
@@ -97,6 +143,10 @@ cargo bench --bench categorized_benchmark
 cargo bench --bench feature_benchmark
 cargo bench --bench pathological_benchmark
 cargo bench --bench real_world_benchmark
+cargo bench --bench string_optimization_benchmark
+cargo bench --bench sequence_benchmark
+cargo bench --bench ast_conversion_benchmark
+cargo bench --bench formatter_benchmark
 ```
 
 ### Hyperfine (End-to-end)

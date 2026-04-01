@@ -184,7 +184,7 @@ fn bench_smart_punctuation_comparison(c: &mut Criterion) {
 
     // With smart punctuation (tests regular path)
     let options_smart = Options {
-        parse: clmd::parser::options::Parse {
+        parse: clmd::Parse {
             smart: true,
             ..Default::default()
         },

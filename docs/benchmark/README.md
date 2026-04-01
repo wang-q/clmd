@@ -26,6 +26,8 @@ cargo bench --bench pathological_benchmark
 cargo bench --bench real_world_benchmark
 cargo bench --bench string_optimization_benchmark
 cargo bench --bench formatter_benchmark
+cargo bench --bench sequence_benchmark
+cargo bench --bench ast_conversion_benchmark
 ```
 
 ## Benchmark Categories
