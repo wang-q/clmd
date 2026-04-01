@@ -1017,9 +1017,7 @@ impl<'a> Subject<'a> {
                     self.advance();
                 }
                 '}' => {
-                    if brace_depth > 0 {
-                        brace_depth -= 1;
-                    }
+                    brace_depth = brace_depth.saturating_sub(1);
                     self.advance();
                 }
                 '$' => {

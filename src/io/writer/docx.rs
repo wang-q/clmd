@@ -539,7 +539,7 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeHeading, NodeValue};
+    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue};
     use crate::options::WriterOptions;
 
     fn create_test_document() -> (NodeArena, NodeId) {
@@ -552,17 +552,13 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            "Hello".to_string().into_boxed_str(),
-        )));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".into())));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, root, heading);
 
         // Add a paragraph
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
-            "World".to_string().into_boxed_str(),
-        )));
+        let para_text = arena.alloc(Node::with_value(NodeValue::Text("World".into())));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, root, para);
 
@@ -587,6 +583,7 @@ mod tests {
         let writer = DocxWriter;
         assert_eq!(writer.format(), OutputFormat::Docx);
         assert!(writer.extensions().contains(&"docx"));
+        assert_eq!(writer.mime_type(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     }
 
     #[test]
@@ -597,5 +594,239 @@ mod tests {
         // Should be a valid ZIP file (starts with PK)
         assert!(bytes.len() > 4);
         assert_eq!(&bytes[0..2], b"PK");
+    }
+
+    #[test]
+    fn test_docx_writer_empty_document() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_all_heading_levels() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        for level in 1..=6 {
+            let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+                level,
+                setext: false,
+                closed: false,
+            })));
+            let text = arena.alloc(Node::with_value(NodeValue::Text(format!("Heading {}", level).into())));
+            TreeOps::append_child(&mut arena, heading, text);
+            TreeOps::append_child(&mut arena, root, heading);
+        }
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_paragraph_with_emphasis() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("emphasized".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_paragraph_with_strong() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold".into())));
+        TreeOps::append_child(&mut arena, strong, text);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_code_block() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let code = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "fn main() {\n    println!(\"Hello\");\n}".into(),
+            info: "rust".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_inline_code() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let code = NodeValue::Code(Box::new(NodeCode {
+            literal: "code".into(),
+            num_backticks: 1,
+        }));
+        let code_node = arena.alloc(Node::with_value(code));
+        TreeOps::append_child(&mut arena, para, code_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_blockquote() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let quote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quoted text".into())));
+        TreeOps::append_child(&mut arena, quote, text);
+        TreeOps::append_child(&mut arena, root, quote);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_thematic_break() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        TreeOps::append_child(&mut arena, root, hr);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_strikethrough() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strike = arena.alloc(Node::with_value(NodeValue::Strikethrough));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("deleted".into())));
+        TreeOps::append_child(&mut arena, strike, text);
+        TreeOps::append_child(&mut arena, para, strike);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_underline() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let underline = arena.alloc(Node::with_value(NodeValue::Underline));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("underlined".into())));
+        TreeOps::append_child(&mut arena, underline, text);
+        TreeOps::append_child(&mut arena, para, underline);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_docx_link() {
+        let writer = DocxWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".into(),
+            title: "Example".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("click here".into())));
+        TreeOps::append_child(&mut arena, link_node, text);
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_escape_xml_text() {
+        let mut output = String::new();
+        escape_xml_text("<>&\"'", &mut output);
+        assert_eq!(output, "&lt;&gt;&amp;&quot;&apos;");
+    }
+
+    #[test]
+    fn test_generate_document_xml() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Test".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let xml = generate_document_xml(&arena, root).unwrap();
+        assert!(xml.contains("<?xml version="));
+        assert!(xml.contains("<w:document"));
+        assert!(xml.contains("<w:body>"));
+        assert!(xml.contains("Test"));
     }
 }

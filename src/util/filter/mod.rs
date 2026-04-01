@@ -584,4 +584,482 @@ mod tests {
         assert_eq!(result.filter_name, "test");
         assert!(result.success);
     }
+
+    #[test]
+    fn test_filter_chain_extend() {
+        let mut chain = FilterChain::new();
+        chain.add(Filter::header_shift(1));
+        chain.extend(vec![Filter::header_shift(-1), Filter::Citeproc]);
+        assert_eq!(chain.len(), 3);
+    }
+
+    #[test]
+    fn test_filter_chain_clear() {
+        let mut chain = FilterChain::new();
+        chain.add(Filter::header_shift(1));
+        assert!(!chain.is_empty());
+        chain.clear();
+        assert!(chain.is_empty());
+    }
+
+    #[test]
+    fn test_filter_chain_iter() {
+        let mut chain = FilterChain::new();
+        chain.add(Filter::header_shift(1));
+        chain.add(Filter::Citeproc);
+        let count = chain.iter().count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_filter_chain_apply() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let chain = FilterChain::new();
+        // Empty chain should apply without error
+        chain.apply(&mut arena, root).unwrap();
+    }
+
+    #[test]
+    fn test_filter_chain_apply_verbose() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let mut chain = FilterChain::new();
+        chain.add(Filter::header_shift(1));
+
+        let results = chain.apply_verbose(&mut arena, root).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].success);
+        assert_eq!(results[0].filter_name, "header-shift(1)");
+    }
+
+    #[test]
+    fn test_header_shift_negative() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 3,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let filter = Filter::header_shift(-1);
+        filter.apply(&mut arena, root).unwrap();
+
+        let heading_node = arena.get(heading);
+        if let NodeValue::Heading(h) = &heading_node.value {
+            assert_eq!(h.level, 2);
+        } else {
+            panic!("Expected heading node");
+        }
+    }
+
+    #[test]
+    fn test_header_shift_clamping_lower() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let filter = Filter::header_shift(-1);
+        filter.apply(&mut arena, root).unwrap();
+
+        let heading_node = arena.get(heading);
+        if let NodeValue::Heading(h) = &heading_node.value {
+            assert_eq!(h.level, 1); // Should be clamped to 1
+        } else {
+            panic!("Expected heading node");
+        }
+    }
+
+    #[test]
+    fn test_link_transform_builder() {
+        let filter = Filter::link_transform()
+            .with_base_url("https://example.com/")
+            .absolute_only()
+            .build();
+
+        match filter {
+            Filter::LinkTransform {
+                base_url,
+                absolute_only,
+            } => {
+                assert_eq!(base_url, Some("https://example.com/".to_string()));
+                assert!(absolute_only);
+            }
+            _ => panic!("Expected LinkTransform filter"),
+        }
+    }
+
+    #[test]
+    fn test_link_transform_default() {
+        let filter = Filter::link_transform().build();
+
+        match filter {
+            Filter::LinkTransform {
+                base_url,
+                absolute_only,
+            } => {
+                assert!(base_url.is_none());
+                assert!(!absolute_only);
+            }
+            _ => panic!("Expected LinkTransform filter"),
+        }
+    }
+
+    #[test]
+    fn test_image_transform_builder() {
+        let filter = Filter::image_transform()
+            .with_base_url("https://example.com/images/")
+            .embed_images()
+            .build();
+
+        match filter {
+            Filter::ImageTransform {
+                base_url,
+                embed_images,
+            } => {
+                assert_eq!(base_url, Some("https://example.com/images/".to_string()));
+                assert!(embed_images);
+            }
+            _ => panic!("Expected ImageTransform filter"),
+        }
+    }
+
+    #[test]
+    fn test_image_transform_default() {
+        let filter = Filter::image_transform().build();
+
+        match filter {
+            Filter::ImageTransform {
+                base_url,
+                embed_images,
+            } => {
+                assert!(base_url.is_none());
+                assert!(!embed_images);
+            }
+            _ => panic!("Expected ImageTransform filter"),
+        }
+    }
+
+    #[test]
+    fn test_link_transform_apply() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "./page.html".into(),
+            title: "Page".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let filter = Filter::link_transform()
+            .with_base_url("https://example.com/")
+            .build();
+        filter.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(link_node);
+        if let NodeValue::Link(l) = &node.value {
+            assert_eq!(l.url, "https://example.com/./page.html");
+        } else {
+            panic!("Expected link node");
+        }
+    }
+
+    #[test]
+    fn test_link_transform_no_match() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://other.com/page.html".into(),
+            title: "Page".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let filter = Filter::link_transform()
+            .with_base_url("https://example.com/")
+            .build();
+        filter.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(link_node);
+        if let NodeValue::Link(l) = &node.value {
+            // Absolute URL should not be modified
+            assert_eq!(l.url, "https://other.com/page.html");
+        } else {
+            panic!("Expected link node");
+        }
+    }
+
+    #[test]
+    fn test_image_transform_apply() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let image = NodeValue::Image(Box::new(NodeLink {
+            url: "./image.png".into(),
+            title: "Image".into(),
+        }));
+        let image_node = arena.alloc(Node::with_value(image));
+        TreeOps::append_child(&mut arena, para, image_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let filter = Filter::image_transform()
+            .with_base_url("https://example.com/images/")
+            .build();
+        filter.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(image_node);
+        if let NodeValue::Image(i) = &node.value {
+            assert_eq!(i.url, "https://example.com/images/./image.png");
+        } else {
+            panic!("Expected image node");
+        }
+    }
+
+    #[test]
+    fn test_image_transform_parent_relative() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let image = NodeValue::Image(Box::new(NodeLink {
+            url: "../image.png".into(),
+            title: "Image".into(),
+        }));
+        let image_node = arena.alloc(Node::with_value(image));
+        TreeOps::append_child(&mut arena, para, image_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let filter = Filter::image_transform()
+            .with_base_url("https://example.com/images/")
+            .build();
+        filter.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(image_node);
+        if let NodeValue::Image(i) = &node.value {
+            assert_eq!(i.url, "https://example.com/images/../image.png");
+        } else {
+            panic!("Expected image node");
+        }
+    }
+
+    #[test]
+    fn test_json_filter() {
+        let filter = Filter::json("/path/to/filter.py");
+        match filter {
+            Filter::JSON(json_filter) => {
+                assert_eq!(json_filter.path, std::path::PathBuf::from("/path/to/filter.py"));
+                assert!(json_filter.args.is_empty());
+            }
+            _ => panic!("Expected JSON filter"),
+        }
+    }
+
+    #[test]
+    fn test_lua_filter() {
+        let filter = Filter::lua("/path/to/filter.lua");
+        match filter {
+            Filter::Lua(lua_filter) => {
+                assert_eq!(lua_filter.path, std::path::PathBuf::from("/path/to/filter.lua"));
+                assert!(lua_filter.args.is_empty());
+            }
+            _ => panic!("Expected Lua filter"),
+        }
+    }
+
+    #[test]
+    fn test_native_filter() {
+        fn dummy_filter(_arena: &mut NodeArena, _root: NodeId) -> Result<(), FilterError> {
+            Ok(())
+        }
+
+        let native = NativeFilter {
+            name: "dummy".to_string(),
+            apply: dummy_filter,
+        };
+        let filter = Filter::Native(native);
+        assert_eq!(filter.name(), "native");
+    }
+
+    #[test]
+    fn test_native_filter_apply() {
+        fn test_filter(arena: &mut NodeArena, root: NodeId) -> Result<(), FilterError> {
+            // Simple filter that just verifies it can access the arena
+            let _ = arena.get(root);
+            Ok(())
+        }
+
+        let native = NativeFilter {
+            name: "test".to_string(),
+            apply: test_filter,
+        };
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        native.apply(&mut arena, root).unwrap();
+    }
+
+    #[test]
+    fn test_filter_not_implemented() {
+        let filter = Filter::Citeproc;
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let result = filter.apply(&mut arena, root);
+        assert!(result.is_err());
+        match result {
+            Err(FilterError::NotImplemented(name)) => {
+                assert_eq!(name, "citeproc");
+            }
+            _ => panic!("Expected NotImplemented error"),
+        }
+    }
+
+    #[test]
+    fn test_filter_error_display() {
+        let err = FilterError::NotImplemented("test".to_string());
+        assert!(err.to_string().contains("not implemented"));
+
+        let err = FilterError::InvalidConfig("bad config".to_string());
+        assert!(err.to_string().contains("Invalid filter config"));
+
+        let err = FilterError::ExecutionFailed("failed".to_string());
+        assert!(err.to_string().contains("execution failed"));
+
+        let err = FilterError::Io("io error".to_string());
+        assert!(err.to_string().contains("IO error"));
+
+        let err = FilterError::Json("json error".to_string());
+        assert!(err.to_string().contains("JSON error"));
+
+        let err = FilterError::Lua("lua error".to_string());
+        assert!(err.to_string().contains("Lua error"));
+    }
+
+    #[test]
+    fn test_filter_error_from_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let filter_err: FilterError = io_err.into();
+        match filter_err {
+            FilterError::Io(_) => {}
+            _ => panic!("Expected Io error"),
+        }
+    }
+
+    #[test]
+    fn test_filter_debug() {
+        let filter = Filter::header_shift(2);
+        let debug_str = format!("{:?}", filter);
+        assert!(debug_str.contains("HeaderShift"));
+        assert!(debug_str.contains("2"));
+
+        let filter = Filter::Citeproc;
+        let debug_str = format!("{:?}", filter);
+        assert!(debug_str.contains("Citeproc"));
+
+        let filter = Filter::link_transform().build();
+        let debug_str = format!("{:?}", filter);
+        assert!(debug_str.contains("LinkTransform"));
+
+        let filter = Filter::image_transform().build();
+        let debug_str = format!("{:?}", filter);
+        assert!(debug_str.contains("ImageTransform"));
+    }
+
+    #[test]
+    fn test_native_filter_debug() {
+        fn dummy_filter(_arena: &mut NodeArena, _root: NodeId) -> Result<(), FilterError> {
+            Ok(())
+        }
+
+        let native = NativeFilter {
+            name: "test_filter".to_string(),
+            apply: dummy_filter,
+        };
+        let debug_str = format!("{:?}", native);
+        assert!(debug_str.contains("test_filter"));
+    }
+
+    #[test]
+    fn test_json_filter_name() {
+        let filter = Filter::json("/path/to/myfilter.py");
+        assert_eq!(filter.name(), "json: /path/to/myfilter.py");
+    }
+
+    #[test]
+    fn test_lua_filter_name() {
+        let filter = Filter::lua("/path/to/myfilter.lua");
+        assert_eq!(filter.name(), "lua: /path/to/myfilter.lua");
+    }
+
+    #[test]
+    fn test_header_shift_multiple_headings() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let h1 = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let h2 = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
+        let h3 = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 3,
+            setext: false,
+            closed: false,
+        })));
+
+        TreeOps::append_child(&mut arena, root, h1);
+        TreeOps::append_child(&mut arena, root, h2);
+        TreeOps::append_child(&mut arena, root, h3);
+
+        let filter = Filter::header_shift(1);
+        filter.apply(&mut arena, root).unwrap();
+
+        if let NodeValue::Heading(h) = &arena.get(h1).value {
+            assert_eq!(h.level, 2);
+        }
+        if let NodeValue::Heading(h) = &arena.get(h2).value {
+            assert_eq!(h.level, 3);
+        }
+        if let NodeValue::Heading(h) = &arena.get(h3).value {
+            assert_eq!(h.level, 4);
+        }
+    }
 }

@@ -35,6 +35,8 @@ pub const ENTITY_COUNT: usize = 2125;
 
 /// Sorted array of all HTML5 named entities
 /// Format: (entity_name_without_ampersand, unicode_character(s))
+/// Note: This large const array is intentional for compile-time optimization
+#[allow(clippy::large_const_arrays)]
 const ENTITIES: [(&str, &str); 2125] = [
     ("AElig", "\u{00C6}"),
     ("AMP", "\u{0026}"),

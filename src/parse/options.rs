@@ -852,4 +852,333 @@ mod tests {
         let style: ListStyleType = Default::default();
         assert_eq!(style, ListStyleType::Dash);
     }
+
+    // InputFormat tests
+    #[test]
+    fn test_input_format_as_str() {
+        assert_eq!(InputFormat::Markdown.as_str(), "markdown");
+        assert_eq!(InputFormat::Gfm.as_str(), "gfm");
+        assert_eq!(InputFormat::Html.as_str(), "html");
+        assert_eq!(InputFormat::Bibtex.as_str(), "bibtex");
+        assert_eq!(InputFormat::Latex.as_str(), "latex");
+        assert_eq!(InputFormat::AsciiDoc.as_str(), "asciidoc");
+        assert_eq!(InputFormat::Org.as_str(), "org");
+        assert_eq!(InputFormat::Textile.as_str(), "textile");
+        assert_eq!(InputFormat::MediaWiki.as_str(), "mediawiki");
+        assert_eq!(InputFormat::DokuWiki.as_str(), "dokuwiki");
+    }
+
+    #[test]
+    fn test_input_format_default() {
+        let format: InputFormat = Default::default();
+        assert_eq!(format, InputFormat::Markdown);
+    }
+
+    // OutputFormat tests
+    #[test]
+    fn test_output_format_as_str() {
+        assert_eq!(OutputFormat::Markdown.as_str(), "markdown");
+        assert_eq!(OutputFormat::Gfm.as_str(), "gfm");
+        assert_eq!(OutputFormat::Html.as_str(), "html");
+        assert_eq!(OutputFormat::Xhtml.as_str(), "xhtml");
+        assert_eq!(OutputFormat::Xml.as_str(), "xml");
+        assert_eq!(OutputFormat::Latex.as_str(), "latex");
+        assert_eq!(OutputFormat::Man.as_str(), "man");
+        assert_eq!(OutputFormat::Plain.as_str(), "plain");
+        assert_eq!(OutputFormat::Pdf.as_str(), "pdf");
+        assert_eq!(OutputFormat::Docx.as_str(), "docx");
+        assert_eq!(OutputFormat::Odt.as_str(), "odt");
+        assert_eq!(OutputFormat::Rtf.as_str(), "rtf");
+        assert_eq!(OutputFormat::Epub.as_str(), "epub");
+        assert_eq!(OutputFormat::Typst.as_str(), "typst");
+        assert_eq!(OutputFormat::Beamer.as_str(), "beamer");
+        assert_eq!(OutputFormat::RevealJs.as_str(), "revealjs");
+        assert_eq!(OutputFormat::Bibtex.as_str(), "bibtex");
+    }
+
+    #[test]
+    fn test_output_format_default() {
+        let format: OutputFormat = Default::default();
+        assert_eq!(format, OutputFormat::Markdown);
+    }
+
+    #[test]
+    fn test_output_format_from_str() {
+        use std::str::FromStr;
+
+        assert_eq!(OutputFormat::from_str("markdown").unwrap(), OutputFormat::Markdown);
+        assert_eq!(OutputFormat::from_str("md").unwrap(), OutputFormat::Markdown);
+        assert_eq!(OutputFormat::from_str("commonmark").unwrap(), OutputFormat::Markdown);
+        assert_eq!(OutputFormat::from_str("gfm").unwrap(), OutputFormat::Gfm);
+        assert_eq!(OutputFormat::from_str("html").unwrap(), OutputFormat::Html);
+        assert_eq!(OutputFormat::from_str("xhtml").unwrap(), OutputFormat::Xhtml);
+        assert_eq!(OutputFormat::from_str("xml").unwrap(), OutputFormat::Xml);
+        assert_eq!(OutputFormat::from_str("latex").unwrap(), OutputFormat::Latex);
+        assert_eq!(OutputFormat::from_str("tex").unwrap(), OutputFormat::Latex);
+        assert_eq!(OutputFormat::from_str("man").unwrap(), OutputFormat::Man);
+        assert_eq!(OutputFormat::from_str("plain").unwrap(), OutputFormat::Plain);
+        assert_eq!(OutputFormat::from_str("text").unwrap(), OutputFormat::Plain);
+        assert_eq!(OutputFormat::from_str("pdf").unwrap(), OutputFormat::Pdf);
+        assert_eq!(OutputFormat::from_str("docx").unwrap(), OutputFormat::Docx);
+        assert_eq!(OutputFormat::from_str("odt").unwrap(), OutputFormat::Odt);
+        assert_eq!(OutputFormat::from_str("rtf").unwrap(), OutputFormat::Rtf);
+        assert_eq!(OutputFormat::from_str("epub").unwrap(), OutputFormat::Epub);
+        assert_eq!(OutputFormat::from_str("typst").unwrap(), OutputFormat::Typst);
+        assert_eq!(OutputFormat::from_str("beamer").unwrap(), OutputFormat::Beamer);
+        assert_eq!(OutputFormat::from_str("revealjs").unwrap(), OutputFormat::RevealJs);
+        assert_eq!(OutputFormat::from_str("bibtex").unwrap(), OutputFormat::Bibtex);
+        assert_eq!(OutputFormat::from_str("bib").unwrap(), OutputFormat::Bibtex);
+
+        // Test case insensitivity
+        assert_eq!(OutputFormat::from_str("HTML").unwrap(), OutputFormat::Html);
+        assert_eq!(OutputFormat::from_str("Latex").unwrap(), OutputFormat::Latex);
+
+        // Test unknown format
+        assert!(OutputFormat::from_str("unknown").is_err());
+    }
+
+    // ReaderOptions tests
+    #[test]
+    fn test_reader_options_default() {
+        let opts = ReaderOptions::default();
+        assert_eq!(opts.format, InputFormat::Markdown);
+        assert!(!opts.smart);
+    }
+
+    #[test]
+    fn test_reader_options_to_parser_options() {
+        let opts = ReaderOptions::default();
+        let _parser_opts = opts.to_parser_options();
+        // Just verify it doesn't panic
+    }
+
+    // WriterOptions tests
+    #[test]
+    fn test_writer_options_default() {
+        let opts = WriterOptions::default();
+        assert_eq!(opts.format, OutputFormat::Markdown);
+        assert_eq!(opts.width, 0);
+        assert!(!opts.output_sourcepos);
+    }
+
+    #[test]
+    fn test_writer_options_to_render_options() {
+        let opts = WriterOptions::default();
+        let _render_opts = opts.to_render_options();
+        // Just verify it doesn't panic
+    }
+
+    // WrapOption tests
+    #[test]
+    fn test_wrap_option_default() {
+        let wrap: WrapOption = Default::default();
+        assert_eq!(wrap, WrapOption::Auto);
+    }
+
+    // Extension tests
+    #[test]
+    fn test_extension_default() {
+        let ext = Extension::default();
+        assert!(!ext.strikethrough);
+        assert!(!ext.tagfilter);
+        assert!(!ext.table);
+        assert!(!ext.autolink);
+        assert!(!ext.tasklist);
+        assert!(!ext.superscript);
+        assert!(!ext.subscript);
+        assert!(ext.header_ids.is_none());
+        assert!(!ext.footnotes);
+        assert!(!ext.inline_footnotes);
+        assert!(!ext.description_lists);
+        assert!(ext.front_matter_delimiter.is_none());
+        assert!(!ext.multiline_block_quotes);
+        assert!(!ext.alerts);
+        assert!(!ext.math_dollars);
+        assert!(!ext.math_code);
+        assert!(!ext.wikilinks_title_after_pipe);
+        assert!(!ext.wikilinks_title_before_pipe);
+        assert!(!ext.underline);
+        assert!(!ext.spoiler);
+        assert!(!ext.greentext);
+        assert!(!ext.highlight);
+        assert!(!ext.insert);
+        assert!(!ext.cjk_friendly_emphasis);
+        assert!(!ext.subtext);
+        assert!(!ext.shortcodes);
+        assert!(ext.image_url_rewriter.is_none());
+        assert!(ext.link_url_rewriter.is_none());
+    }
+
+    #[test]
+    fn test_extension_wikilinks_both_enabled() {
+        let mut ext = Extension::default();
+        ext.wikilinks_title_before_pipe = true;
+        ext.wikilinks_title_after_pipe = true;
+        // When both are enabled, UrlFirst takes precedence
+        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::UrlFirst));
+    }
+
+    // Parse tests
+    #[test]
+    fn test_parse_default() {
+        let parse = Parse::default();
+        assert!(!parse.smart);
+        assert!(!parse.sourcepos);
+        assert!(!parse.validate_utf8);
+        assert!(parse.default_info_string.is_none());
+        assert!(!parse.relaxed_tasklist_matching);
+        assert!(!parse.ignore_setext);
+        assert!(!parse.leave_footnote_definitions);
+        assert!(!parse.tasklist_in_table);
+        assert!(!parse.relaxed_autolinks);
+        assert!(!parse.escaped_char_spans);
+        assert!(parse.broken_link_callback.is_none());
+    }
+
+    // Render tests
+    #[test]
+    fn test_render_default() {
+        let render = Render::default();
+        assert!(!render.hardbreaks);
+        assert!(!render.nobreaks);
+        assert!(!render.r#unsafe);
+        assert!(!render.escape);
+        assert!(!render.github_pre_lang);
+        assert!(!render.full_info_string);
+        assert_eq!(render.width, 0);
+        assert_eq!(render.list_style, ListStyleType::Dash);
+        assert!(!render.prefer_fenced);
+        assert!(!render.ignore_empty_links);
+        assert!(!render.tasklist_classes);
+        assert!(!render.compact_html);
+        assert!(!render.sourcepos);
+        assert!(!render.gfm_quirks);
+        assert!(!render.figure_with_caption);
+        assert_eq!(render.ol_width, 0);
+        assert!(!render.escaped_char_spans);
+    }
+
+    // WikiLinksMode tests
+    #[test]
+    fn test_wikilinks_mode_variants() {
+        // Just verify the variants exist and can be compared
+        assert_ne!(WikiLinksMode::UrlFirst, WikiLinksMode::TitleFirst);
+    }
+
+    // URLRewriter tests
+    #[test]
+    fn test_url_rewriter_function() {
+        let rewriter: Box<dyn URLRewriter> = Box::new(|url: &str| format!("prefix:{}", url));
+        assert_eq!(rewriter.rewrite("test"), "prefix:test");
+    }
+
+    // BrokenLinkCallback tests
+    #[test]
+    fn test_broken_link_callback_function() {
+        let callback: Box<dyn BrokenLinkCallback> = Box::new(|_ref: BrokenLinkReference| {
+            Some(ResolvedReference {
+                url: "https://example.com".to_string(),
+                title: "Example".to_string(),
+            })
+        });
+
+        let broken_ref = BrokenLinkReference {
+            normalized: "test",
+            original: "Test",
+        };
+        let result = callback.resolve(broken_ref);
+        assert!(result.is_some());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.url, "https://example.com");
+        assert_eq!(resolved.title, "Example");
+    }
+
+    #[test]
+    fn test_broken_link_reference() {
+        let broken_ref = BrokenLinkReference {
+            normalized: "test-link",
+            original: "Test Link",
+        };
+        assert_eq!(broken_ref.normalized, "test-link");
+        assert_eq!(broken_ref.original, "Test Link");
+    }
+
+    #[test]
+    fn test_resolved_reference() {
+        let resolved = ResolvedReference {
+            url: "https://example.com".to_string(),
+            title: "Example Title".to_string(),
+        };
+        assert_eq!(resolved.url, "https://example.com");
+        assert_eq!(resolved.title, "Example Title");
+    }
+
+    // Plugins tests
+    #[test]
+    fn test_plugins_default() {
+        let plugins = Plugins::default();
+        // Just verify it creates successfully
+        let _ = &plugins.render;
+    }
+
+    #[test]
+    fn test_plugins_new() {
+        let plugins = Plugins::new();
+        let _ = &plugins.render;
+    }
+
+    // RenderPlugins tests
+    #[test]
+    fn test_render_plugins_default() {
+        let plugins = RenderPlugins::default();
+        assert!(plugins.codefence_renderers.is_empty());
+        assert!(plugins.codefence_syntax_highlighter.is_none());
+        assert!(plugins.heading_adapter.is_none());
+        assert!(plugins.is_empty());
+    }
+
+    #[test]
+    fn test_render_plugins_new() {
+        let plugins = RenderPlugins::new();
+        assert!(plugins.is_empty());
+    }
+
+    // Debug trait tests
+    #[test]
+    fn test_options_debug() {
+        let options = Options::default();
+        let debug_str = format!("{:?}", options);
+        assert!(debug_str.contains("Options"));
+    }
+
+    #[test]
+    fn test_extension_debug() {
+        let ext = Extension::default();
+        let debug_str = format!("{:?}", ext);
+        assert!(debug_str.contains("Extension"));
+        assert!(debug_str.contains("strikethrough"));
+    }
+
+    #[test]
+    fn test_parse_debug() {
+        let parse = Parse::default();
+        let debug_str = format!("{:?}", parse);
+        assert!(debug_str.contains("Parse"));
+        assert!(debug_str.contains("smart"));
+    }
+
+    #[test]
+    fn test_render_debug() {
+        let render = Render::default();
+        let debug_str = format!("{:?}", render);
+        assert!(debug_str.contains("Render"));
+        assert!(debug_str.contains("hardbreaks"));
+    }
+
+    #[test]
+    fn test_render_plugins_debug() {
+        let plugins = RenderPlugins::default();
+        let debug_str = format!("{:?}", plugins);
+        assert!(debug_str.contains("RenderPlugins"));
+    }
 }

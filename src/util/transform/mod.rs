@@ -974,4 +974,438 @@ mod tests {
             _ => panic!("Expected LinkRewrite transform"),
         }
     }
+
+    #[test]
+    fn test_image_rewrite() {
+        let transform = Transform::image_rewrite("old", "new");
+        match transform {
+            Transform::ImageRewrite {
+                pattern,
+                replacement,
+            } => {
+                assert_eq!(pattern, "old");
+                assert_eq!(replacement, "new");
+            }
+            _ => panic!("Expected ImageRewrite transform"),
+        }
+    }
+
+    #[test]
+    fn test_transform_strip_footnotes() {
+        let transform = Transform::strip_footnotes();
+        assert_eq!(transform.name(), "strip-footnotes");
+    }
+
+    #[test]
+    fn test_transform_capitalize_headers() {
+        let transform = Transform::capitalize_headers();
+        assert_eq!(transform.name(), "capitalize-headers");
+    }
+
+    #[test]
+    fn test_transform_abs_to_rel() {
+        let transform = Transform::abs_to_rel("https://example.com");
+        match &transform {
+            Transform::AbsToRel { base_url } => {
+                assert_eq!(base_url, "https://example.com");
+            }
+            _ => panic!("Expected AbsToRel transform"),
+        }
+        assert_eq!(transform.name(), "abs-to-rel(https://example.com)");
+    }
+
+    #[test]
+    fn test_transform_auto_ident() {
+        let transform = Transform::auto_ident();
+        assert_eq!(transform.name(), "auto-ident");
+    }
+
+    #[test]
+    fn test_transform_east_asian_line_breaks() {
+        let transform = Transform::east_asian_line_breaks();
+        assert_eq!(transform.name(), "east-asian-line-breaks");
+    }
+
+    #[test]
+    fn test_transform_custom() {
+        let transform = Transform::Custom {
+            name: "custom-transform".to_string(),
+            apply: |_arena, _root| Ok(()),
+        };
+        assert_eq!(transform.name(), "custom(custom-transform)");
+    }
+
+    #[test]
+    fn test_transform_add_attributes() {
+        let mut attrs = std::collections::HashMap::new();
+        attrs.insert("class".to_string(), "highlight".to_string());
+        let transform = Transform::AddAttributes {
+            selector: "h1".to_string(),
+            attributes: attrs,
+        };
+        assert_eq!(transform.name(), "add-attributes");
+    }
+
+    #[test]
+    fn test_transform_remove_elements() {
+        let transform = Transform::RemoveElements {
+            selector: ".hidden".to_string(),
+        };
+        assert_eq!(transform.name(), "remove-elements");
+    }
+
+    #[test]
+    fn test_transform_chain_extend() {
+        let mut chain = TransformChain::new();
+        chain.add(Transform::header_shift(1));
+        chain.extend(vec![Transform::normalize(), Transform::strip_footnotes()]);
+        assert_eq!(chain.len(), 3);
+    }
+
+    #[test]
+    fn test_transform_chain_clear() {
+        let mut chain = TransformChain::new();
+        chain.add(Transform::header_shift(1));
+        assert!(!chain.is_empty());
+        chain.clear();
+        assert!(chain.is_empty());
+    }
+
+    #[test]
+    fn test_transform_chain_iter() {
+        let mut chain = TransformChain::new();
+        chain.add(Transform::header_shift(1));
+        chain.add(Transform::normalize());
+        let count = chain.iter().count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_transform_chain_apply() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let chain = TransformChain::new();
+        // Empty chain should apply without error
+        chain.apply(&mut arena, root).unwrap();
+    }
+
+    #[test]
+    fn test_header_shift_negative() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 3,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let transform = Transform::header_shift(-1);
+        transform.apply(&mut arena, root).unwrap();
+
+        let heading_node = arena.get(heading);
+        if let NodeValue::Heading(h) = &heading_node.value {
+            assert_eq!(h.level, 2);
+        } else {
+            panic!("Expected heading node");
+        }
+    }
+
+    #[test]
+    fn test_header_shift_clamping_lower() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let transform = Transform::header_shift(-1);
+        transform.apply(&mut arena, root).unwrap();
+
+        let heading_node = arena.get(heading);
+        if let NodeValue::Heading(h) = &heading_node.value {
+            assert_eq!(h.level, 1); // Should be clamped to 1
+        } else {
+            panic!("Expected heading node");
+        }
+    }
+
+    #[test]
+    fn test_normalize_transform() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let text_node = arena.alloc(Node::with_value(NodeValue::Text("  multiple   spaces  ".into())));
+        TreeOps::append_child(&mut arena, root, text_node);
+
+        let transform = Transform::normalize();
+        transform.apply(&mut arena, root).unwrap();
+
+        // Normalize should collapse whitespace
+        let node = arena.get(text_node);
+        if let NodeValue::Text(t) = &node.value {
+            assert_eq!(t.as_ref(), "multiple spaces");
+        }
+    }
+
+    #[test]
+    fn test_link_rewrite_apply() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://old-domain.com/page".into(),
+            title: "Link".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        TreeOps::append_child(&mut arena, root, link_node);
+
+        let transform = Transform::link_rewrite("old-domain", "new-domain");
+        transform.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(link_node);
+        if let NodeValue::Link(l) = &node.value {
+            assert_eq!(l.url, "https://new-domain.com/page");
+        } else {
+            panic!("Expected link node");
+        }
+    }
+
+    #[test]
+    fn test_image_rewrite_apply() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let image = NodeValue::Image(Box::new(NodeLink {
+            url: "/old-path/image.png".into(),
+            title: "Image".into(),
+        }));
+        let image_node = arena.alloc(Node::with_value(image));
+        TreeOps::append_child(&mut arena, root, image_node);
+
+        let transform = Transform::image_rewrite("/old-path", "/new-path");
+        transform.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(image_node);
+        if let NodeValue::Image(i) = &node.value {
+            assert_eq!(i.url, "/new-path/image.png");
+        } else {
+            panic!("Expected image node");
+        }
+    }
+
+    #[test]
+    fn test_strip_footnotes_apply() {
+        use crate::core::nodes::{NodeFootnoteDefinition, NodeFootnoteReference};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let footnote_def = NodeValue::FootnoteDefinition(Box::new(NodeFootnoteDefinition {
+            name: "note1".into(),
+            total_references: 1,
+        }));
+        let def_node = arena.alloc(Node::with_value(footnote_def));
+        TreeOps::append_child(&mut arena, root, def_node);
+
+        let footnote_ref = NodeValue::FootnoteReference(Box::new(NodeFootnoteReference {
+            name: "note1".into(),
+            ref_num: 1,
+            ix: 0,
+        }));
+        let ref_node = arena.alloc(Node::with_value(footnote_ref));
+        TreeOps::append_child(&mut arena, root, ref_node);
+
+        let transform = Transform::strip_footnotes();
+        transform.apply(&mut arena, root).unwrap();
+
+        // Both nodes should be unlinked
+        let def = arena.get(def_node);
+        let ref_n = arena.get(ref_node);
+        assert!(def.parent.is_none());
+        assert!(ref_n.parent.is_none());
+    }
+
+    #[test]
+    fn test_capitalize_headers_apply() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("hello world".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let transform = Transform::capitalize_headers();
+        transform.apply(&mut arena, root).unwrap();
+
+        let text_node = arena.get(text);
+        if let NodeValue::Text(t) = &text_node.value {
+            assert_eq!(t.as_ref(), "HELLO WORLD");
+        }
+    }
+
+    #[test]
+    fn test_abs_to_rel_apply() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com/path/to/page".into(),
+            title: "Link".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        TreeOps::append_child(&mut arena, root, link_node);
+
+        let transform = Transform::abs_to_rel("https://example.com");
+        transform.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(link_node);
+        if let NodeValue::Link(l) = &node.value {
+            assert_eq!(l.url, "/path/to/page");
+        } else {
+            panic!("Expected link node");
+        }
+    }
+
+    #[test]
+    fn test_abs_to_rel_no_match() {
+        use crate::core::nodes::NodeLink;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://other.com/page".into(),
+            title: "Link".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        TreeOps::append_child(&mut arena, root, link_node);
+
+        let transform = Transform::abs_to_rel("https://example.com");
+        transform.apply(&mut arena, root).unwrap();
+
+        let node = arena.get(link_node);
+        if let NodeValue::Link(l) = &node.value {
+            // URL should remain unchanged
+            assert_eq!(l.url, "https://other.com/page");
+        } else {
+            panic!("Expected link node");
+        }
+    }
+
+    #[test]
+    fn test_auto_ident_apply() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello World".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let transform = Transform::auto_ident();
+        // Should not panic
+        transform.apply(&mut arena, root).unwrap();
+    }
+
+    #[test]
+    fn test_toc_builder_clamping() {
+        let transform = Transform::table_of_contents()
+            .min_level(0) // Should be clamped to 1
+            .max_level(10) // Should be clamped to 6
+            .build();
+
+        match transform {
+            Transform::TableOfContents {
+                min_level,
+                max_level,
+                ..
+            } => {
+                assert_eq!(min_level, 1);
+                assert_eq!(max_level, 6);
+            }
+            _ => panic!("Expected TableOfContents transform"),
+        }
+    }
+
+    #[test]
+    fn test_transform_error_display() {
+        let err = TransformError::NotImplemented("test".to_string());
+        assert!(err.to_string().contains("not implemented"));
+
+        let err = TransformError::InvalidConfig("bad config".to_string());
+        assert!(err.to_string().contains("Invalid transform config"));
+
+        let err = TransformError::ExecutionFailed("failed".to_string());
+        assert!(err.to_string().contains("execution failed"));
+    }
+
+    #[test]
+    fn test_transform_error_from() {
+        let transform_err = TransformError::ExecutionFailed("test".to_string());
+        let clmd_err: ClmdError = transform_err.into();
+        // Just verify conversion works
+        let _ = clmd_err.to_string();
+    }
+
+    #[test]
+    fn test_table_of_contents_empty() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Document with no headings
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("No headings here".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let transform = Transform::table_of_contents().build();
+        // Should not panic with empty document
+        transform.apply(&mut arena, root).unwrap();
+    }
+
+    #[test]
+    fn test_table_of_contents_with_title() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Section 1".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let transform = Transform::table_of_contents()
+            .title("Table of Contents")
+            .build();
+        transform.apply(&mut arena, root).unwrap();
+
+        // TOC should be inserted at the beginning
+        let root_node = arena.get(root);
+        assert!(root_node.first_child.is_some());
+    }
+
 }

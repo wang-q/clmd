@@ -25,7 +25,7 @@ where
     Box::new(move |input: &str, pos: Position| {
         let mut last_error = None;
         for parser in &parsers {
-            match parser(input, pos.clone()) {
+            match parser(input, pos) {
                 Ok(result) => return Ok(result),
                 Err(e) => last_error = Some(e),
             }
@@ -53,7 +53,7 @@ where
     Box::new(move |input: &str, mut pos: Position| {
         let mut first_result = None;
         for parser in &parsers {
-            match parser(input, pos.clone()) {
+            match parser(input, pos) {
                 Ok((result, new_pos)) => {
                     if first_result.is_none() {
                         first_result = Some(result);
@@ -181,14 +181,9 @@ where
 {
     Box::new(move |input: &str, mut pos: Position| {
         let mut results = Vec::new();
-        loop {
-            match parser(input, pos.clone()) {
-                Ok((result, new_pos)) => {
-                    results.push(result);
-                    pos = new_pos;
-                }
-                Err(_) => break,
-            }
+        while let Ok((result, new_pos)) = parser(input, pos) {
+            results.push(result);
+            pos = new_pos;
         }
         Ok((results, pos))
     })
@@ -214,14 +209,9 @@ where
         let (first, mut current_pos) = parser(input, pos)?;
         let mut results = vec![first];
 
-        loop {
-            match parser(input, current_pos.clone()) {
-                Ok((result, new_pos)) => {
-                    results.push(result);
-                    current_pos = new_pos;
-                }
-                Err(_) => break,
-            }
+        while let Ok((result, new_pos)) = parser(input, current_pos) {
+            results.push(result);
+            current_pos = new_pos;
         }
 
         Ok((results, current_pos))
@@ -243,12 +233,10 @@ pub fn optional<T>(parser: BoxedParser<T>) -> BoxedParser<Option<T>>
 where
     T: 'static,
 {
-    Box::new(
-        move |input: &str, pos: Position| match parser(input, pos.clone()) {
-            Ok((result, new_pos)) => Ok((Some(result), new_pos)),
-            Err(_) => Ok((None, pos)),
-        },
-    )
+    Box::new(move |input: &str, pos: Position| match parser(input, pos) {
+        Ok((result, new_pos)) => Ok((Some(result), new_pos)),
+        Err(_) => Ok((None, pos)),
+    })
 }
 
 /// Parse with two parsers and apply a function to combine results.
@@ -325,7 +313,7 @@ where
         let mut current_pos = pos;
 
         // Parse first element
-        match parser(input, current_pos.clone()) {
+        match parser(input, current_pos) {
             Ok((result, new_pos)) => {
                 results.push(result);
                 current_pos = new_pos;
@@ -334,15 +322,12 @@ where
         }
 
         // Parse (separator, element)*
-        loop {
-            match sep(input, current_pos.clone()) {
-                Ok((_, sep_pos)) => match parser(input, sep_pos.clone()) {
-                    Ok((result, elem_pos)) => {
-                        results.push(result);
-                        current_pos = elem_pos;
-                    }
-                    Err(_) => break,
-                },
+        while let Ok((_, sep_pos)) = sep(input, current_pos) {
+            match parser(input, sep_pos) {
+                Ok((result, elem_pos)) => {
+                    results.push(result);
+                    current_pos = elem_pos;
+                }
                 Err(_) => break,
             }
         }

@@ -869,12 +869,10 @@ impl ErrorRenderer {
             } else {
                 output.push_str(&format!("\x1b[31merror:\x1b[0m {}\n", error));
             }
+        } else if error.is_warning() {
+            output.push_str(&format!("warning: {}\n", error));
         } else {
-            if error.is_warning() {
-                output.push_str(&format!("warning: {}\n", error));
-            } else {
-                output.push_str(&format!("error: {}\n", error));
-            }
+            output.push_str(&format!("error: {}\n", error));
         }
 
         // Add source context if available and error has position
@@ -946,12 +944,10 @@ impl ErrorRenderer {
             } else {
                 format!("\x1b[31merror:\x1b[0m {}", error)
             }
+        } else if error.is_warning() {
+            format!("warning: {}", error)
         } else {
-            if error.is_warning() {
-                format!("warning: {}", error)
-            } else {
-                format!("error: {}", error)
-            }
+            format!("error: {}", error)
         }
     }
 }

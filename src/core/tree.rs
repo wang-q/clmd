@@ -176,44 +176,47 @@ pub enum NodeType {
 impl NodeType {
     /// Check if a NodeValue matches this node type
     pub fn matches(&self, value: &NodeValue) -> bool {
-        match (self, value) {
-            (NodeType::Document, NodeValue::Document) => true,
-            (NodeType::BlockQuote, NodeValue::BlockQuote) => true,
-            (NodeType::List, NodeValue::List(_)) => true,
-            (NodeType::Item, NodeValue::Item(_)) => true,
-            (NodeType::CodeBlock, NodeValue::CodeBlock(_)) => true,
-            (NodeType::HtmlBlock, NodeValue::HtmlBlock(_)) => true,
-            (NodeType::Paragraph, NodeValue::Paragraph) => true,
-            (NodeType::Heading, NodeValue::Heading(_)) => true,
-            (NodeType::ThematicBreak, NodeValue::ThematicBreak) => true,
-            (NodeType::FootnoteDefinition, NodeValue::FootnoteDefinition(_)) => true,
-            (NodeType::Table, NodeValue::Table(_)) => true,
-            (NodeType::TableRow, NodeValue::TableRow(_)) => true,
-            (NodeType::TableCell, NodeValue::TableCell) => true,
-            (NodeType::Text, NodeValue::Text(_)) => true,
-            (NodeType::TaskItem, NodeValue::TaskItem(_)) => true,
-            (NodeType::SoftBreak, NodeValue::SoftBreak) => true,
-            (NodeType::HardBreak, NodeValue::HardBreak) => true,
-            (NodeType::Code, NodeValue::Code(_)) => true,
-            (NodeType::HtmlInline, NodeValue::HtmlInline(_)) => true,
-            (NodeType::Emph, NodeValue::Emph) => true,
-            (NodeType::Strong, NodeValue::Strong) => true,
-            (NodeType::Strikethrough, NodeValue::Strikethrough) => true,
-            (NodeType::Superscript, NodeValue::Superscript) => true,
-            (NodeType::Subscript, NodeValue::Subscript) => true,
-            (NodeType::Link, NodeValue::Link(_)) => true,
-            (NodeType::Image, NodeValue::Image(_)) => true,
-            (NodeType::FootnoteReference, NodeValue::FootnoteReference(_)) => true,
-            (NodeType::Math, NodeValue::Math(_)) => true,
-            (NodeType::Raw, NodeValue::Raw(_)) => true,
-            (NodeType::DescriptionList, NodeValue::DescriptionList) => true,
-            (NodeType::DescriptionItem, NodeValue::DescriptionItem(_)) => true,
-            (NodeType::DescriptionTerm, NodeValue::DescriptionTerm) => true,
-            (NodeType::DescriptionDetails, NodeValue::DescriptionDetails) => true,
-            (NodeType::Alert, NodeValue::Alert(_)) => true,
-            (NodeType::WikiLink, NodeValue::WikiLink(_)) => true,
-            _ => false,
-        }
+        matches!(
+            (self, value),
+            (NodeType::Document, NodeValue::Document)
+                | (NodeType::BlockQuote, NodeValue::BlockQuote)
+                | (NodeType::List, NodeValue::List(_))
+                | (NodeType::Item, NodeValue::Item(_))
+                | (NodeType::CodeBlock, NodeValue::CodeBlock(_))
+                | (NodeType::HtmlBlock, NodeValue::HtmlBlock(_))
+                | (NodeType::Paragraph, NodeValue::Paragraph)
+                | (NodeType::Heading, NodeValue::Heading(_))
+                | (NodeType::ThematicBreak, NodeValue::ThematicBreak)
+                | (
+                    NodeType::FootnoteDefinition,
+                    NodeValue::FootnoteDefinition(_)
+                )
+                | (NodeType::Table, NodeValue::Table(_))
+                | (NodeType::TableRow, NodeValue::TableRow(_))
+                | (NodeType::TableCell, NodeValue::TableCell)
+                | (NodeType::Text, NodeValue::Text(_))
+                | (NodeType::TaskItem, NodeValue::TaskItem(_))
+                | (NodeType::SoftBreak, NodeValue::SoftBreak)
+                | (NodeType::HardBreak, NodeValue::HardBreak)
+                | (NodeType::Code, NodeValue::Code(_))
+                | (NodeType::HtmlInline, NodeValue::HtmlInline(_))
+                | (NodeType::Emph, NodeValue::Emph)
+                | (NodeType::Strong, NodeValue::Strong)
+                | (NodeType::Strikethrough, NodeValue::Strikethrough)
+                | (NodeType::Superscript, NodeValue::Superscript)
+                | (NodeType::Subscript, NodeValue::Subscript)
+                | (NodeType::Link, NodeValue::Link(_))
+                | (NodeType::Image, NodeValue::Image(_))
+                | (NodeType::FootnoteReference, NodeValue::FootnoteReference(_))
+                | (NodeType::Math, NodeValue::Math(_))
+                | (NodeType::Raw, NodeValue::Raw(_))
+                | (NodeType::DescriptionList, NodeValue::DescriptionList)
+                | (NodeType::DescriptionItem, NodeValue::DescriptionItem(_))
+                | (NodeType::DescriptionTerm, NodeValue::DescriptionTerm)
+                | (NodeType::DescriptionDetails, NodeValue::DescriptionDetails)
+                | (NodeType::Alert, NodeValue::Alert(_))
+                | (NodeType::WikiLink, NodeValue::WikiLink(_))
+        )
     }
 
     /// Check if this node type is a block element

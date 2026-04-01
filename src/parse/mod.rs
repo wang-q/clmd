@@ -24,7 +24,6 @@ pub mod block;
 pub mod inline;
 
 // Parsing utilities (moved from parsing/)
-/// Parsing utilities and combinators.
 pub mod util {
     //! Parsing utilities for clmd.
     //!

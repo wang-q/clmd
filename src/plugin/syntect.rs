@@ -121,6 +121,8 @@ impl SyntectAdapter {
     }
 
     /// Highlight code using CSS classes.
+    // TODO: This method is currently unused but kept for future CSS class-based highlighting support
+    #[allow(dead_code)]
     fn highlight_with_classes(&self, code: &str, lang: Option<&str>) -> fmt::Result {
         // For CSS class mode, we need to use the HighlightLines approach
         // and convert to HTML with classes
