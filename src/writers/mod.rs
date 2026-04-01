@@ -248,8 +248,32 @@ impl WriterRegistry {
         self.register(Box::new(HtmlWriter));
         self.register(Box::new(CommonMarkWriter));
         self.register(Box::new(XmlWriter));
+        self.register(Box::new(BibTeXWriter));
+        self.register(Box::new(RtfWriter));
+        self.register(Box::new(DocxWriter));
+        self.register(Box::new(EpubWriter));
+        self.register(Box::new(BeamerWriter));
+        self.register(Box::new(RevealJsWriter));
     }
 }
+
+pub mod bibtex;
+pub use bibtex::BibTeXWriter;
+
+pub mod rtf;
+pub use rtf::RtfWriter;
+
+pub mod docx;
+pub use docx::DocxWriter;
+
+pub mod epub;
+pub use epub::EpubWriter;
+
+pub mod beamer;
+pub use beamer::BeamerWriter;
+
+pub mod revealjs;
+pub use revealjs::RevealJsWriter;
 
 impl Clone for WriterRegistry {
     fn clone(&self) -> Self {

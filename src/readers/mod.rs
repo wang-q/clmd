@@ -212,8 +212,16 @@ impl ReaderRegistry {
     fn register_default_readers(&mut self) {
         self.register(Box::new(MarkdownReader));
         self.register(Box::new(HtmlReader));
+        self.register(Box::new(BibTeXReader));
+        self.register(Box::new(LaTeXReader));
     }
 }
+
+pub mod bibtex;
+pub use bibtex::BibTeXReader;
+
+pub mod latex;
+pub use latex::LaTeXReader;
 
 impl Clone for ReaderRegistry {
     fn clone(&self) -> Self {

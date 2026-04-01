@@ -34,8 +34,11 @@ pub enum InputFormat {
     Gfm,
     /// HTML
     Html,
-    /// ReStructuredText
-    Rst,
+    /// BibTeX
+    Bibtex,
+    /// LaTeX
+    Latex,
+
     /// AsciiDoc
     AsciiDoc,
     /// Org mode
@@ -55,7 +58,8 @@ impl InputFormat {
             InputFormat::Markdown => "markdown",
             InputFormat::Gfm => "gfm",
             InputFormat::Html => "html",
-            InputFormat::Rst => "rst",
+            InputFormat::Bibtex => "bibtex",
+            InputFormat::Latex => "latex",
             InputFormat::AsciiDoc => "asciidoc",
             InputFormat::Org => "org",
             InputFormat::Textile => "textile",
@@ -97,6 +101,12 @@ pub enum OutputFormat {
     Epub,
     /// Typst
     Typst,
+    /// Beamer (LaTeX slides)
+    Beamer,
+    /// RevealJS (HTML slides)
+    RevealJs,
+    /// BibTeX
+    Bibtex,
 }
 
 impl OutputFormat {
@@ -117,6 +127,10 @@ impl OutputFormat {
             OutputFormat::Rtf => "rtf",
             OutputFormat::Epub => "epub",
             OutputFormat::Typst => "typst",
+
+            OutputFormat::Beamer => "beamer",
+            OutputFormat::RevealJs => "revealjs",
+            OutputFormat::Bibtex => "bibtex",
         }
     }
 }
@@ -140,6 +154,10 @@ impl std::str::FromStr for OutputFormat {
             "rtf" => Ok(OutputFormat::Rtf),
             "epub" => Ok(OutputFormat::Epub),
             "typst" => Ok(OutputFormat::Typst),
+
+            "beamer" => Ok(OutputFormat::Beamer),
+            "revealjs" => Ok(OutputFormat::RevealJs),
+            "bibtex" | "bib" => Ok(OutputFormat::Bibtex),
             _ => Err(format!("Unknown output format: {}", s)),
         }
     }
