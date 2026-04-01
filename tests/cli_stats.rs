@@ -43,9 +43,11 @@ fn test_stats_json_format() {
     // Parse JSON to verify structure
     let json: serde_json::Value =
         serde_json::from_str(&stats).expect("Invalid JSON output");
-    assert!(json.get("lines").is_some());
-    assert!(json.get("words").is_some());
-    assert!(json.get("headings").is_some());
+    assert!(json.get("basic").is_some());
+    assert!(json["basic"].get("lines").is_some());
+    assert!(json["basic"].get("words").is_some());
+    assert!(json.get("structure").is_some());
+    assert!(json["structure"].get("headings").is_some());
 }
 
 #[test]
@@ -78,16 +80,16 @@ fn main() {}
     let stats = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stats).unwrap();
 
-    assert_eq!(json["headings"]["h1"], 1);
-    assert_eq!(json["headings"]["h2"], 1);
-    assert_eq!(json["headings"]["h3"], 1);
-    assert_eq!(json["links"], 1);
-    assert_eq!(json["images"], 1);
-    assert_eq!(json["code_blocks"], 1);
-    assert_eq!(json["blockquotes"], 1);
-    assert_eq!(json["thematic_breaks"], 1);
-    assert_eq!(json["lists"], 1);
-    assert_eq!(json["list_items"], 2);
+    assert_eq!(json["structure"]["headings"]["h1"], 1);
+    assert_eq!(json["structure"]["headings"]["h2"], 1);
+    assert_eq!(json["structure"]["headings"]["h3"], 1);
+    assert_eq!(json["structure"]["links"], 1);
+    assert_eq!(json["structure"]["images"], 1);
+    assert_eq!(json["code"]["code_blocks"], 1);
+    assert_eq!(json["structure"]["blockquotes"], 1);
+    assert_eq!(json["structure"]["thematic_breaks"], 1);
+    assert_eq!(json["structure"]["lists"], 1);
+    assert_eq!(json["structure"]["list_items"], 2);
 }
 
 #[test]
@@ -113,6 +115,6 @@ fn test_stats_empty_document() {
     assert!(output.status.success());
     let stats = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stats).unwrap();
-    assert_eq!(json["lines"], 0);
-    assert_eq!(json["words"], 0);
+    assert_eq!(json["basic"]["lines"], 0);
+    assert_eq!(json["basic"]["words"], 0);
 }

@@ -306,8 +306,7 @@ mod tests {
     use crate::core::arena::{Node, NodeArena, TreeOps};
     use crate::core::nodes::{
         NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
-        NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable,
-        NodeValue,
+        NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeValue,
     };
     use crate::parse::options::Options;
 

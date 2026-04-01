@@ -7,7 +7,7 @@
 pub mod asciify;
 pub mod char;
 pub mod emoji;
-pub mod puncttable;
+
 pub mod roff_char;
 pub mod strings;
 pub mod unicode_width;

@@ -18,8 +18,14 @@ pub fn read_input(input_path: Option<&str>) -> anyhow::Result<String> {
 /// Write output to file or stdout
 pub fn write_output(output_path: Option<&str>, content: &str) -> anyhow::Result<()> {
     if let Some(path) = output_path {
-        fs::write(path, content)
-            .map_err(|e| anyhow::anyhow!("Failed to write file '{}': {}", path, e))
+        if path == "-" {
+            io::stdout()
+                .write_all(content.as_bytes())
+                .map_err(|e| anyhow::anyhow!("Failed to write stdout: {}", e))
+        } else {
+            fs::write(path, content)
+                .map_err(|e| anyhow::anyhow!("Failed to write file '{}': {}", path, e))
+        }
     } else {
         io::stdout()
             .write_all(content.as_bytes())

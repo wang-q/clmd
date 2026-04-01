@@ -24,7 +24,7 @@ fn run_with_stdin(args: &[&str], input: &[u8]) -> std::process::Output {
 
 #[test]
 fn test_to_html_basic() {
-    let output = run_with_stdin(&["convert", "to-html"], b"# Hello\n\nWorld");
+    let output = run_with_stdin(&["convert", "to", "html"], b"# Hello\n\nWorld");
 
     assert!(output.status.success());
     let html = String::from_utf8(output.stdout).unwrap();
@@ -34,7 +34,7 @@ fn test_to_html_basic() {
 
 #[test]
 fn test_to_html_with_emphasis() {
-    let output = run_with_stdin(&["convert", "to-html"], b"**bold** and *italic*");
+    let output = run_with_stdin(&["convert", "to", "html"], b"**bold** and *italic*");
 
     assert!(output.status.success());
     let html = String::from_utf8(output.stdout).unwrap();
@@ -44,7 +44,8 @@ fn test_to_html_with_emphasis() {
 
 #[test]
 fn test_to_html_with_link() {
-    let output = run_with_stdin(&["convert", "to-html"], b"[link](https://example.com)");
+    let output =
+        run_with_stdin(&["convert", "to", "html"], b"[link](https://example.com)");
 
     assert!(output.status.success());
     let html = String::from_utf8(output.stdout).unwrap();
@@ -53,7 +54,7 @@ fn test_to_html_with_link() {
 
 #[test]
 fn test_to_html_full_document() {
-    let output = run_with_stdin(&["convert", "to-html", "--full"], b"# Title");
+    let output = run_with_stdin(&["convert", "to", "html", "--full"], b"# Title");
 
     assert!(output.status.success());
     let html = String::from_utf8(output.stdout).unwrap();
@@ -68,7 +69,7 @@ fn test_to_html_full_document() {
 fn test_to_html_hardbreaks() {
     // Test that --hardbreaks flag is accepted (actual functionality depends on library implementation)
     let output =
-        run_with_stdin(&["convert", "to-html", "--hardbreaks"], b"line1\nline2");
+        run_with_stdin(&["convert", "to", "html", "--hardbreaks"], b"line1\nline2");
 
     assert!(output.status.success());
     let html = String::from_utf8(output.stdout).unwrap();
@@ -83,7 +84,14 @@ fn test_to_html_from_file() {
     write!(temp_file, "# Test Heading\n\nTest content.").unwrap();
 
     let output = clmd_bin()
-        .args(["convert", "to-html", temp_file.path().to_str().unwrap()])
+        .args([
+            "convert",
+            "to",
+            "html",
+            temp_file.path().to_str().unwrap(),
+            "-o",
+            "-",
+        ])
         .output()
         .expect("Failed to execute command");
 
@@ -100,7 +108,8 @@ fn test_to_html_output_to_file() {
     let output = run_with_stdin(
         &[
             "convert",
-            "to-html",
+            "to",
+            "html",
             "-o",
             output_file.path().to_str().unwrap(),
         ],
@@ -118,7 +127,7 @@ fn test_to_html_with_table_extension() {
     let input = "| a | b |\n|---|---|\n| c | d |";
 
     let output =
-        run_with_stdin(&["-e", "table", "convert", "to-html"], input.as_bytes());
+        run_with_stdin(&["-e", "table", "convert", "to", "html"], input.as_bytes());
 
     assert!(output.status.success());
     // The command should succeed; actual table parsing depends on the library
