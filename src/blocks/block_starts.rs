@@ -10,7 +10,7 @@ use crate::core::nodes::{
 };
 use crate::ext::tables;
 use crate::inlines::unescape_string;
-use crate::parsing::scanners;
+use crate::parser::util::scanners;
 use crate::{is_space_or_tab, CODE_INDENT};
 
 /// Result of trying to open a new block during block parsing.

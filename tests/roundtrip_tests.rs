@@ -3,7 +3,6 @@
 //! Tests for Markdown -> HTML -> Markdown roundtrip consistency.
 //! Based on cmark's roundtrip_tests.py.
 
-use clmd::from::html as html_to_md;
 use clmd::markdown_to_html;
 use clmd::parser::options::Options;
 use std::fs;
@@ -11,6 +10,11 @@ use std::fs;
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
     markdown_to_html(input, &Options::default())
+}
+
+/// Helper function to convert HTML to Markdown
+fn html_to_md(html: &str) -> String {
+    clmd::io::from::html_to_markdown(html)
 }
 
 /// Test logging macro - only prints when VERBOSE_TESTS is set
@@ -81,7 +85,7 @@ fn test_roundtrip_basic() {
 
     for (name, markdown) in test_cases {
         let html = md_to_html(markdown);
-        let roundtrip = html_to_md::convert(&html);
+        let roundtrip = html_to_md(&html);
 
         test_log!("\n=== {} ===", name);
         test_log!("Original: {:?}", markdown);
@@ -102,7 +106,7 @@ fn test_roundtrip_spec_examples() {
     let sample_size = std::cmp::min(10, tests.len());
     for test in tests.iter().take(sample_size) {
         let html = md_to_html(&test.markdown);
-        let roundtrip = html_to_md::convert(&html);
+        let roundtrip = html_to_md(&html);
 
         test_log!("\n=== {} ===", test.name);
         test_log!("Original length: {}", test.markdown.len());
@@ -120,7 +124,7 @@ fn test_roundtrip_preserves_structure() {
     let markdown = "# Heading\n\nParagraph with **bold** and *italic*.\n\n- List item\n\n> Blockquote\n";
 
     let html = md_to_html(markdown);
-    let roundtrip = html_to_md::convert(&html);
+    let roundtrip = html_to_md(&html);
 
     test_log!("Original:\n{}", markdown);
     test_log!("\nHTML:\n{}", html);
@@ -136,7 +140,7 @@ fn test_roundtrip_preserves_structure() {
 #[test]
 fn test_roundtrip_empty_input() {
     let html = md_to_html("");
-    let roundtrip = html_to_md::convert(&html);
+    let roundtrip = html_to_md(&html);
     assert!(
         roundtrip.is_empty(),
         "Empty input should produce empty roundtrip"
@@ -146,7 +150,7 @@ fn test_roundtrip_empty_input() {
 #[test]
 fn test_roundtrip_whitespace_only() {
     let html = md_to_html("   \n   ");
-    let roundtrip = html_to_md::convert(&html);
+    let roundtrip = html_to_md(&html);
     // Whitespace handling may vary
     test_log!("Whitespace roundtrip: {:?}", roundtrip);
 }
@@ -155,7 +159,7 @@ fn test_roundtrip_whitespace_only() {
 fn test_roundtrip_special_chars() {
     let markdown = "< > & \"";
     let html = md_to_html(markdown);
-    let roundtrip = html_to_md::convert(&html);
+    let roundtrip = html_to_md(&html);
 
     test_log!("Special chars HTML: {:?}", html);
     test_log!("Special chars roundtrip: {:?}", roundtrip);

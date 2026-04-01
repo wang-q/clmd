@@ -3,7 +3,7 @@
 //! This module provides combinators for combining parsers, inspired by
 //! Pandoc's parsing infrastructure and functional parsing libraries.
 
-use crate::parsing::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parser::util::{BoxedParser, ParseError, ParseResult, Position};
 
 /// Parse with the first successful parser.
 ///
@@ -520,8 +520,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsing::char::{char_lit, digit};
-    use crate::parsing::Parser;
+    use crate::parser::util::char::{char_lit, digit};
+    use crate::parser::util::Parser;
 
     #[test]
     fn test_choice() {

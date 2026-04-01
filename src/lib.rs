@@ -199,7 +199,7 @@ mod blocks;
 
 /// Format converters for importing content to Markdown.
 pub mod from {
-    pub use crate::io::format::from::*;
+    pub use crate::io::from::*;
 }
 
 /// Markdown extensions (GFM and others).
@@ -234,7 +234,7 @@ pub(crate) mod inlines;
 /// options.parse.smart = true;
 /// ```
 pub mod options {
-    pub use crate::parse::options::*;
+    pub use crate::parser::options::*;
 }
 
 /// IO module for document reading and writing.
@@ -243,20 +243,13 @@ pub mod options {
 /// formats and writing to various output formats.
 pub mod io;
 
-/// Compatibility re-export for old `formats` module.
+// IO modules - these are used internally so we keep the re-exports
 pub use io::format as formats;
-
-/// Compatibility re-export for old `readers` module.
 pub use io::read as readers;
-
-/// Compatibility re-export for old `writers` module.
 pub use io::write as writers;
 
 /// Parser module for Markdown documents.
-pub mod parse;
-
-/// Compatibility re-export for old `parser` module name.
-pub use parse as parser;
+pub mod parser;
 
 /// Plugin system for extending Markdown rendering.
 pub mod plugin;
@@ -271,8 +264,7 @@ pub use render::commonmark as formatter;
 /// Utility modules for internal use.
 pub mod util;
 
-/// Compatibility re-export for old `test_utils` module.
-pub use util::test as test_utils;
+// Test utilities are accessed through `util::test` directly
 
 // Text and parsing utilities are accessed through their respective modules
 
@@ -308,22 +300,22 @@ pub mod pipeline;
 /// Context system for IO operations and resource management.
 pub mod context;
 
-/// Compatibility re-export for old `transforms` module.
-pub use util::transform as transforms;
+// Transform utilities are accessed through `util::transform` directly
 
-/// Compatibility re-export for old `filter` module (internal).
-pub(crate) use util::filter;
+/// Filter system for document transformation.
+pub mod filter {
+    pub use crate::util::filter::*;
+}
 
 /// Template system for document rendering.
 pub mod template;
 
-/// Compatibility re-export for old `parsing` module.
-/// Parsing utilities are now in `parse::util`.
-pub use parse::util as parsing;
+/// Parsing utilities.
+/// 
+/// This module provides low-level parsing primitives and combinators.
+pub use parser::util as parsing;
 
-// Re-export reader/writer modules for convenience
-pub use crate::io::read as reader;
-pub use crate::io::write as writer;
+// Reader and writer modules are accessed through `io::read` and `io::write` directly
 
 // =============================================================================
 // Core Type Exports
@@ -1014,4 +1006,337 @@ pub fn markdown_to_typst_with_plugins(
 // =============================================================================
 
 #[cfg(test)]
-mod tests;
+mod tests {
+    use crate::{format_html, markdown_to_html, parse_document, version, Options};
+
+    #[test]
+    fn test_markdown_to_html_basic() {
+        let options = Options::default();
+        let html = markdown_to_html("Hello world", &options);
+        println!("HTML output bytes: {:?}", html.as_bytes());
+        assert!(html.contains("<p>Hello world</p>"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_heading() {
+        let options = Options::default();
+        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options);
+        assert!(html.contains("<h1>"));
+        assert!(html.contains("<h2>"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_emphasis() {
+        let options = Options::default();
+        let html = markdown_to_html("*italic* and **bold**", &options);
+        println!("HTML output: {:?}", html);
+        assert!(html.contains("<em>italic</em>"));
+        assert!(html.contains("<strong>bold</strong>"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_link() {
+        let options = Options::default();
+        let html = markdown_to_html("[link](https://example.com)", &options);
+        assert!(html.contains("<a href=\"https://example.com\">"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_code_inline() {
+        let options = Options::default();
+        let html = markdown_to_html("Use `code` here", &options);
+        assert!(html.contains("<code>code</code>"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_code_block() {
+        let options = Options::default();
+        let html = markdown_to_html("```rust\nfn main() {}\n```", &options);
+        assert!(html.contains("<pre>"));
+        assert!(html.contains("<code"));
+        assert!(html.contains("fn main() {}"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_blockquote() {
+        let options = Options::default();
+        let html = markdown_to_html("> Quote", &options);
+        assert!(html.contains("<blockquote>"));
+        assert!(html.contains("Quote"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_list() {
+        let options = Options::default();
+        let html = markdown_to_html("- Item 1\n- Item 2", &options);
+        assert!(html.contains("<ul>"));
+        assert!(html.contains("Item 1"));
+        assert!(html.contains("Item 2"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_ordered_list() {
+        let options = Options::default();
+        let html = markdown_to_html("1. First\n2. Second", &options);
+        assert!(html.contains("<ol>"));
+        assert!(html.contains("First"));
+        assert!(html.contains("Second"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_thematic_break() {
+        let options = Options::default();
+        let html = markdown_to_html("---", &options);
+        assert!(html.contains("<hr"));
+    }
+
+    #[test]
+    fn test_markdown_to_html_image() {
+        let options = Options::default();
+        let html = markdown_to_html("![alt text](image.png)", &options);
+        // Image rendering may vary between implementations
+        // Just check that it doesn't panic and produces some output
+        assert!(!html.is_empty());
+    }
+
+    #[test]
+    fn test_parse_and_render_roundtrip() {
+        let options = Options::default();
+        let input = "# Title\n\nParagraph with text.";
+        let (arena, root) = parse_document(input, &options);
+        let mut html = String::new();
+        format_html(&arena, root, &options, &mut html).unwrap();
+        assert!(html.contains("<h1>"));
+        assert!(html.contains("Paragraph"));
+    }
+
+    #[test]
+    fn test_version() {
+        let v = version();
+        assert!(!v.is_empty());
+    }
+
+    #[test]
+    fn test_tagfilter_extension() {
+        let mut options = Options::default();
+        options.extension.tagfilter = true;
+
+        // Test that dangerous HTML tags are filtered
+        let html = markdown_to_html("<script>alert('xss')</script>", &options);
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+    }
+
+    #[cfg(feature = "syntect")]
+    #[test]
+    fn test_syntect_syntax_highlighting() {
+        use crate::markdown_to_html_with_plugins;
+        use crate::plugin::syntect::SyntectAdapter;
+        use crate::Plugins;
+
+        let options = Options::default();
+        let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
+
+        let mut plugins = Plugins::new();
+        plugins.render.set_syntax_highlighter(&adapter);
+
+        let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
+        let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+
+        // Should contain pre and code tags
+        assert!(html.contains("<pre"));
+        assert!(html.contains("<code"));
+
+        // With a theme, should contain styled spans
+        assert!(html.contains("<span") || html.contains("fn main"));
+    }
+
+    #[cfg(feature = "syntect")]
+    #[test]
+    fn test_syntect_css_class_mode() {
+        use crate::markdown_to_html_with_plugins;
+        use crate::plugin::syntect::SyntectAdapter;
+        use crate::Plugins;
+
+        let options = Options::default();
+        let adapter = SyntectAdapter::new(None); // CSS class mode
+
+        let mut plugins = Plugins::new();
+        plugins.render.set_syntax_highlighter(&adapter);
+
+        let markdown = "```python\nprint('hello')\n```";
+        let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+
+        assert!(html.contains("<pre"));
+        assert!(html.contains("<code"));
+        assert!(html.contains("print"));
+    }
+
+    // Shortcode tests
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeShortCode, NodeValue};
+    use crate::ext::shortcodes::parse_shortcode;
+    use crate::ext::shortcodes_data::lookup_shortcode;
+    use crate::render;
+
+    #[test]
+    fn test_lookup_shortcode() {
+        assert_eq!(lookup_shortcode("+1"), Some("👍"));
+        assert_eq!(lookup_shortcode("thumbsup"), Some("👍"));
+        assert_eq!(lookup_shortcode("smile"), Some("😄"));
+        assert_eq!(lookup_shortcode("heart"), Some("❤️"));
+        assert_eq!(lookup_shortcode("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_parse_shortcode_valid() {
+        assert_eq!(parse_shortcode(":thumbsup:", 0), Some(("👍", 10)));
+        assert_eq!(parse_shortcode(":smile:", 0), Some(("😄", 7)));
+        assert_eq!(parse_shortcode(":+1:", 0), Some(("👍", 4)));
+        assert_eq!(parse_shortcode(":heart:", 0), Some(("❤️", 7)));
+    }
+
+    #[test]
+    fn test_parse_shortcode_with_offset() {
+        let text = "Hello :thumbsup: world";
+        assert_eq!(parse_shortcode(text, 6), Some(("👍", 10)));
+    }
+
+    #[test]
+    fn test_parse_shortcode_invalid() {
+        assert_eq!(parse_shortcode("not a shortcode", 0), None);
+        assert_eq!(parse_shortcode(":", 0), None);
+        assert_eq!(parse_shortcode(":a:", 0), None); // Too short
+        assert_eq!(parse_shortcode(":invalid:", 0), None); // Unknown code
+        assert_eq!(parse_shortcode(":no closing", 0), None);
+    }
+
+    #[test]
+    fn test_shortcode_html_rendering() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Great job ")));
+        let shortcode = arena.alloc(Node::with_value(NodeValue::ShortCode(Box::new(
+            NodeShortCode {
+                code: "thumbsup".to_string(),
+                emoji: "👍".to_string(),
+            },
+        ))));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("!")));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, shortcode);
+        TreeOps::append_child(&mut arena, para, text2);
+
+        let html = render::html::render(&arena, root, &crate::parser::options::Options::default());
+        assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
+        assert!(
+            !html.contains(":thumbsup:"),
+            "HTML should not contain shortcode: {}",
+            html
+        );
+    }
+
+    #[test]
+    fn test_shortcode_commonmark_rendering() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("Great job ")));
+        let shortcode = arena.alloc(Node::with_value(NodeValue::ShortCode(Box::new(
+            NodeShortCode {
+                code: "thumbsup".to_string(),
+                emoji: "👍".to_string(),
+            },
+        ))));
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text("!")));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, shortcode);
+        TreeOps::append_child(&mut arena, para, text2);
+
+        let cm = render::commonmark::render(&arena, root, 0, 0);
+        assert!(
+            cm.contains(":thumbsup:"),
+            "CommonMark should preserve shortcode: {}",
+            cm
+        );
+    }
+
+    #[test]
+    fn test_shortcode_xml_rendering() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let shortcode = arena.alloc(Node::with_value(NodeValue::ShortCode(Box::new(
+            NodeShortCode {
+                code: "thumbsup".to_string(),
+                emoji: "👍".to_string(),
+            },
+        ))));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, shortcode);
+
+        let xml = render::xml::render(&arena, root, 0);
+        assert!(
+            xml.contains("<shortcode"),
+            "XML should contain shortcode tag: {}",
+            xml
+        );
+        assert!(
+            xml.contains("code=\"thumbsup\""),
+            "XML should contain code attribute: {}",
+            xml
+        );
+        assert!(xml.contains("👍"), "XML should contain emoji: {}", xml);
+    }
+
+    #[test]
+    fn test_multiple_shortcodes() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        let shortcode1 = arena.alloc(Node::with_value(NodeValue::ShortCode(Box::new(
+            NodeShortCode {
+                code: "smile".to_string(),
+                emoji: "😄".to_string(),
+            },
+        ))));
+        let shortcode2 = arena.alloc(Node::with_value(NodeValue::ShortCode(Box::new(
+            NodeShortCode {
+                code: "heart".to_string(),
+                emoji: "❤️".to_string(),
+            },
+        ))));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, shortcode1);
+        TreeOps::append_child(&mut arena, para, shortcode2);
+
+        let html = render::html::render(&arena, root, &crate::parser::options::Options::default());
+        assert!(
+            html.contains("😄"),
+            "HTML should contain first emoji: {}",
+            html
+        );
+        assert!(
+            html.contains("❤️"),
+            "HTML should contain second emoji: {}",
+            html
+        );
+    }
+
+    #[test]
+    fn test_shortcode_special_chars() {
+        // Test shortcodes with + and - characters
+        assert_eq!(parse_shortcode(":+1:", 0), Some(("👍", 4)));
+        assert_eq!(parse_shortcode(":-1:", 0), Some(("👎", 4)));
+        assert_eq!(lookup_shortcode("+1"), Some("👍"));
+        assert_eq!(lookup_shortcode("-1"), Some("👎"));
+    }
+}

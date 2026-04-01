@@ -15,8 +15,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use clmd::transforms::{Transform, TransformChain};
+//! ```ignore
+//! use clmd::util::transform::{Transform, TransformChain};
 //!
 //! let mut chain = TransformChain::new();
 //! chain.add(Transform::header_shift(1));

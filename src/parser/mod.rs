@@ -108,7 +108,7 @@ use options::Options;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, parse::options::Options};
+/// use clmd::{parse_document, parser::options::Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
@@ -126,7 +126,7 @@ pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document_with_limits, parse::options::Options};
+/// use clmd::{parse_document_with_limits, parser::options::Options};
 /// use clmd::core::error::ParserLimits;
 ///
 /// let options = Options::default();

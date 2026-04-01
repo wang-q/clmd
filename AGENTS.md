@@ -38,7 +38,7 @@
 
 ```
 src/
-├── lib.rs          # 公共 API 和选项定义（已清理重复导出）
+├── lib.rs          # 公共 API 和选项定义
 ├── prelude.rs      # 预导入模块（推荐的用户入口）
 ├── core/           # 核心类型模块
 │   ├── adapters.rs # 适配器 trait
@@ -53,28 +53,36 @@ src/
 ├── blocks/         # 块级元素解析（包含解析器、块检测、延续、终处理等）
 ├── context/        # 上下文管理（配置、IO、日志、资源等）
 ├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表、YAML 前页、短代码、标签过滤等）
-├── filter/         # 过滤器系统（内部使用）
-├── formats/        # 格式抽象层（格式检测、MIME 类型、幻灯片等）
-├── formatter/      # Markdown 格式化工具（CommonMark 输出）
 ├── inlines/        # 内联元素解析（强调、链接、实体、HTML标签、文本处理等）
-├── parsing/        # 通用解析工具（组合子、扫描器、源文件管理等）
+├── io/             # IO 操作模块
+│   ├── format.rs   # 格式抽象层（格式检测、MIME 类型等）
+│   ├── format_*.rs # 格式子模块（css, csv, mime, slides, tex, xml）
+│   ├── from.rs     # 格式转换（HTML 到 Markdown）
+│   ├── read/       # 多格式文档读取器
+│   └── write/      # 多格式文档写入器
 ├── parser/         # Markdown 解析器核心
+│   ├── options.rs  # 解析选项
+│   └── util/       # 解析工具（组合子、扫描器、源文件管理等）
 ├── pipeline/       # 文档转换管道
-├── plugins/        # 插件系统（包含 syntect 语法高亮支持）
-├── readers/        # 多格式文档读取器
+├── plugin/         # 插件系统（包含 syntect 语法高亮支持）
 ├── render/         # 渲染器（HTML、XML、CommonMark、LaTeX、Man、PDF、Typst等）
+│   └── commonmark/ # CommonMark 格式化器
 ├── template/       # 模板系统
-├── test_utils/     # 测试工具
 ├── text/           # 文本处理工具（HTML 转义、字符串处理、URI、Unicode 宽度等）
-├── transforms/     # 文档转换工具
-└── writers/        # 多格式文档写入器
+└── util/           # 工具模块
+    ├── filter/     # 过滤器系统
+    ├── test/       # 测试工具
+    └── transform/  # 文档转换工具
 ```
 
 ### 模块访问路径
 
 - 核心类型通过 `clmd::core::*` 访问（如 `clmd::core::arena::NodeArena`）
 - 便捷导入通过 `clmd::prelude::*` 提供常用类型
-- 已移除的重复导出：`ast`、`adapters`、`arena`、`error`、`nodes`、`iterator` 等顶级模块
+- 解析器通过 `clmd::parser` 访问（原 `parse` 已重命名为 `parser`）
+- IO 模块通过 `clmd::io` 访问，包含 `read`、`write`、`format`、`from` 子模块
+- 格式相关功能通过 `clmd::io::format` 访问（原 `formats` 目录已扁平化）
+- 测试统一在 `#[cfg(test)]` 模块中，位于各源文件底部
 
 ## 构建命令
 

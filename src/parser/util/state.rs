@@ -319,7 +319,7 @@ pub fn with_state<S: Clone, T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsing::Parser;
+    use crate::parser::util::Parser;
 
     #[test]
     fn test_indentation_state() {

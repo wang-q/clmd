@@ -12,11 +12,11 @@ use clmd::context::PureContext;
 use clmd::core::arena::{Node, NodeArena, TreeOps};
 use clmd::core::error::ClmdResult;
 use clmd::options::Options;
-use clmd::readers::ReaderRegistry;
+use clmd::io::read::ReaderRegistry;
 use clmd::template::{TemplateContext, TemplateEngine};
 use clmd::text::uri::is_uri;
-use clmd::transforms::{Filter, FilterChain};
-use clmd::writers::WriterRegistry;
+use clmd::util::transform::{Filter, FilterChain};
+use clmd::io::write::WriterRegistry;
 
 fn main() -> ClmdResult<()> {
     println!("=== Pandoc-style Workflow Example ===\n");

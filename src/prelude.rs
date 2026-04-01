@@ -26,8 +26,8 @@ pub use crate::options::{
     RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };
 
-// Re-export new types from parse::options
-pub use crate::parse::options::{
+// Re-export new types from parser::options
+pub use crate::parser::options::{
     InputFormat, OutputFormat, ReaderOptions, WrapOption, WriterOptions,
 };
 

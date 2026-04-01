@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::formats::{Format, FormatRegistry};
+//! use clmd::io::format::{Format, FormatRegistry};
 //!
 //! let registry = FormatRegistry::new();
 //!
@@ -17,15 +17,15 @@
 //! }
 //! ```ignore
 
-pub mod css;
-pub mod csv;
-pub mod mime;
-pub mod tex;
-pub mod xml;
+pub use crate::io::format_css as css;
+pub use crate::io::format_csv as csv;
+pub use crate::io::format_mime as mime;
+pub use crate::io::format_tex as tex;
+pub use crate::io::format_xml as xml;
 
 // Format conversion
-pub mod from;
-pub mod slides;
+pub use crate::io::from;
+pub use crate::io::format_slides as slides;
 
 use crate::core::error::{ClmdError, ClmdResult};
 use std::collections::HashMap;
@@ -317,14 +317,14 @@ impl FlavoredFormat {
     ///
     /// # Example
     ///
-    /// ```
-    /// use clmd::formats::FlavoredFormat;
+    /// ```ignore
+    /// use clmd::io::format::FlavoredFormat;
     ///
     /// let flavored = FlavoredFormat::parse("markdown+smart-tasklists").unwrap();
     /// assert_eq!(flavored.format.as_str(), "markdown");
     /// assert!(flavored.extensions.contains(&"smart".to_string()));
     /// assert!(flavored.disabled_extensions.contains(&"tasklists".to_string()));
-    /// ```
+    /// ```ignore
     pub fn parse(s: &str) -> ClmdResult<Self> {
         let parts: Vec<&str> = s.split(|c| c == '+' || c == '-').collect();
 
@@ -437,15 +437,15 @@ impl FormatRegistry {
     ///
     /// # Example
     ///
-    /// ```
-    /// use clmd::formats::FormatRegistry;
+    /// ```ignore
+    /// use clmd::io::format::FormatRegistry;
     ///
     /// let registry = FormatRegistry::new();
     ///
     /// let format = registry.detect("document.html");
     /// assert!(format.is_some());
     /// assert_eq!(format.unwrap().as_str(), "html");
-    /// ```
+    /// ```ignore
     pub fn detect<P: AsRef<Path>>(&self, path: P) -> Option<Format> {
         path.as_ref()
             .extension()

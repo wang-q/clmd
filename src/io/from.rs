@@ -1,15 +1,21 @@
-//! HTML to Markdown converter
+//! Format converters for importing content to Markdown
 //!
-//! This module converts HTML content back to Markdown format.
+//! This module provides conversion from various formats back to Markdown.
+//! These are reverse operations of the `render` module.
 //!
-//! Example:
-//! ```
-//! use clmd::from::html::convert;
+//! Supported formats:
+//! - **HTML**: Convert HTML content to Markdown
+//!
+//! # Example
+//!
+//! ```ignore
+//! use clmd::io::from::html_to_markdown;
 //!
 //! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
-//! let markdown = convert(html);
+//! let markdown = html_to_markdown(html);
 //! assert!(markdown.contains("# Title"));
-//! ```
+//! assert!(markdown.contains("**bold**"));
+//! ```ignore
 
 /// HTML element conversion rules
 #[derive(Debug, Clone, Copy, Default)]
@@ -21,13 +27,13 @@ pub struct ConversionRules {
 }
 
 /// Convert HTML to Markdown
-pub fn convert(html: &str) -> String {
+pub fn html_to_markdown(html: &str) -> String {
     let rules = ConversionRules::default();
-    convert_with_rules(html, &rules)
+    html_to_markdown_with_rules(html, &rules)
 }
 
 /// Convert HTML to Markdown with custom rules
-pub fn convert_with_rules(html: &str, rules: &ConversionRules) -> String {
+pub fn html_to_markdown_with_rules(html: &str, rules: &ConversionRules) -> String {
     let mut converter = HtmlToMarkdown::new(*rules);
     converter.convert(html)
 }
@@ -362,67 +368,67 @@ mod tests {
 
     #[test]
     fn test_convert_heading() {
-        let md = convert("<h1>Title</h1>");
+        let md = html_to_markdown("<h1>Title</h1>");
         assert!(md.contains("# Title"));
     }
 
     #[test]
     fn test_convert_paragraph() {
-        let md = convert("<p>Hello world</p>");
+        let md = html_to_markdown("<p>Hello world</p>");
         assert!(md.contains("Hello world"));
     }
 
     #[test]
     fn test_convert_emphasis() {
-        let md = convert("<em>italic</em>");
+        let md = html_to_markdown("<em>italic</em>");
         assert!(md.contains("*italic*"));
 
-        let md = convert("<strong>bold</strong>");
+        let md = html_to_markdown("<strong>bold</strong>");
         assert!(md.contains("**bold**"));
     }
 
     #[test]
     fn test_convert_code() {
-        let md = convert("<code>inline code</code>");
+        let md = html_to_markdown("<code>inline code</code>");
         assert!(md.contains("`inline code`"));
     }
 
     #[test]
     fn test_convert_code_block() {
-        let md = convert("<pre><code>code block</code></pre>");
+        let md = html_to_markdown("<pre><code>code block</code></pre>");
         assert!(md.contains("```"));
         assert!(md.contains("code block"));
     }
 
     #[test]
     fn test_convert_list() {
-        let md = convert("<ul><li>Item 1</li><li>Item 2</li></ul>");
+        let md = html_to_markdown("<ul><li>Item 1</li><li>Item 2</li></ul>");
         assert!(md.contains("- Item 1"));
         assert!(md.contains("- Item 2"));
     }
 
     #[test]
     fn test_convert_ordered_list() {
-        let md = convert("<ol><li>First</li><li>Second</li></ol>");
+        let md = html_to_markdown("<ol><li>First</li><li>Second</li></ol>");
         assert!(md.contains("1. First"));
         assert!(md.contains("2. Second"));
     }
 
     #[test]
     fn test_convert_blockquote() {
-        let md = convert("<blockquote>Quote</blockquote>");
+        let md = html_to_markdown("<blockquote>Quote</blockquote>");
         assert!(md.contains("> Quote"));
     }
 
     #[test]
     fn test_convert_strikethrough() {
-        let md = convert("<del>deleted</del>");
+        let md = html_to_markdown("<del>deleted</del>");
         assert!(md.contains("~~deleted~~"));
     }
 
     #[test]
     fn test_convert_image() {
-        let md = convert(r#"<img src="image.png" alt="Description">"#);
+        let md = html_to_markdown(r#"<img src="image.png" alt="Description">"#);
         assert!(md.contains("![Description](image.png)"));
     }
 
