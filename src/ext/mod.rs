@@ -12,92 +12,111 @@ pub mod flags;
 // Re-export commonly used extension types for convenience
 pub use flags::{ExtensionFlags, ExtensionKind};
 
-/// Abbreviation extension
+/// GitHub Flavored Markdown (GFM) extensions.
 ///
-/// Allows defining abbreviations that will be wrapped in HTML `abbr` tags.
-/// Syntax: `*[HTML]: Hyper Text Markup Language`
-pub mod abbreviation;
+/// This module includes GFM-specific extensions:
+/// - Tables
+/// - Strikethrough
+/// - Task lists
+/// - Autolinks
+/// - Tag filtering
+pub mod gfm;
 
-/// Attributes extension
+/// Syntax extensions.
 ///
-/// Adds support for adding IDs, classes, and custom attributes to Markdown elements.
-/// Syntax: `# Heading {#id .class key=value}`
-pub mod attributes;
+/// This module includes syntax-related extensions:
+/// - Footnotes
+/// - Abbreviations
+/// - Definition lists
+/// - Attributes
+pub mod syntax;
 
-/// Autolink extension (GFM)
+/// Metadata extensions.
 ///
-/// Automatically converts URLs and email addresses to links.
-/// Syntax: `https://example.com` or `email@example.com`
-pub mod autolink;
+/// This module includes metadata-related extensions:
+/// - YAML front matter
+/// - Table of contents (TOC)
+pub mod metadata;
 
-/// Definition list extension
+/// Shortcode extensions.
 ///
-/// Adds support for definition lists.
-/// Syntax:
-/// ```markdown
-/// Term
-/// : Definition
-/// ```ignore
-pub mod definition;
+/// This module includes shortcode support for emoji and other content.
+pub mod shortcode;
 
-/// Footnote extension
-///
-/// Adds support for footnotes.
-/// Syntax: `[^1]` and `[^1]: Footnote content`
-pub mod footnotes;
+/// Deprecated: Use `gfm::table` instead.
+#[deprecated(since = "0.2.0", note = "Use `gfm::table` instead")]
+pub mod tables {
+    pub use crate::ext::gfm::table::*;
+}
 
-/// Strikethrough extension (GFM)
-///
-/// Adds support for strikethrough text.
-/// Syntax: `~~deleted~~`
-pub mod strikethrough;
+/// Deprecated: Use `gfm::strikethrough` instead.
+#[deprecated(since = "0.2.0", note = "Use `gfm::strikethrough` instead")]
+pub mod strikethrough {
+    pub use crate::ext::gfm::strikethrough::*;
+}
 
-/// Tables extension (GFM)
-///
-/// Adds support for tables.
-/// Syntax:
-/// ```markdown
-/// | Header | Header |
-/// |--------|--------|
-/// | Cell   | Cell   |
-/// ```ignore
-pub mod tables;
+/// Deprecated: Use `gfm::tasklist` instead.
+#[deprecated(since = "0.2.0", note = "Use `gfm::tasklist` instead")]
+pub mod tasklist {
+    pub use crate::ext::gfm::tasklist::*;
+}
 
-/// Tag filter extension (GFM)
-///
-/// Filters out certain HTML tags for security.
-pub mod tagfilter;
+/// Deprecated: Use `gfm::autolink` instead.
+#[deprecated(since = "0.2.0", note = "Use `gfm::autolink` instead")]
+pub mod autolink {
+    pub use crate::ext::gfm::autolink::*;
+}
 
-/// Task list extension (GFM)
-///
-/// Adds support for task list items with checkboxes.
-/// Syntax: `- [ ] Unchecked` or `- [x] Checked`
-pub mod tasklist;
+/// Deprecated: Use `gfm::tagfilter` instead.
+#[deprecated(since = "0.2.0", note = "Use `gfm::tagfilter` instead")]
+pub mod tagfilter {
+    pub use crate::ext::gfm::tagfilter::*;
+}
 
-/// Table of Contents extension
-///
-/// Generates a table of contents from document headings.
-/// Syntax: `[TOC]`
-pub mod toc;
+/// Deprecated: Use `syntax::footnote` instead.
+#[deprecated(since = "0.2.0", note = "Use `syntax::footnote` instead")]
+pub mod footnotes {
+    pub use crate::ext::syntax::footnote::*;
+}
 
-/// YAML Front Matter extension
-///
-/// Adds support for YAML metadata at the beginning of documents.
-/// Syntax:
-/// ```markdown
-/// ---
-/// title: My Doc
-/// ---
-/// ```ignore
-pub mod yaml_front_matter;
+/// Deprecated: Use `syntax::abbreviation` instead.
+#[deprecated(since = "0.2.0", note = "Use `syntax::abbreviation` instead")]
+pub mod abbreviation {
+    pub use crate::ext::syntax::abbreviation::*;
+}
 
-/// Shortcodes extension
-///
-/// Adds support for emoji shortcodes.
-/// Syntax: `:thumbsup:` -> 👍
-pub mod shortcodes;
+/// Deprecated: Use `syntax::definition` instead.
+#[deprecated(since = "0.2.0", note = "Use `syntax::definition` instead")]
+pub mod definition {
+    pub use crate::ext::syntax::definition::*;
+}
 
-/// Shortcodes data
-///
-/// Contains the mapping of shortcode names to Unicode emoji.
-pub mod shortcodes_data;
+/// Deprecated: Use `syntax::attribute` instead.
+#[deprecated(since = "0.2.0", note = "Use `syntax::attribute` instead")]
+pub mod attributes {
+    pub use crate::ext::syntax::attribute::*;
+}
+
+/// Deprecated: Use `metadata::toc` instead.
+#[deprecated(since = "0.2.0", note = "Use `metadata::toc` instead")]
+pub mod toc {
+    pub use crate::ext::metadata::toc::*;
+}
+
+/// Deprecated: Use `metadata::yaml_front_matter` instead.
+#[deprecated(since = "0.2.0", note = "Use `metadata::yaml_front_matter` instead")]
+pub mod yaml_front_matter {
+    pub use crate::ext::metadata::yaml_front_matter::*;
+}
+
+/// Deprecated: Use `shortcode::parser` instead.
+#[deprecated(since = "0.2.0", note = "Use `shortcode::parser` instead")]
+pub mod shortcodes {
+    pub use crate::ext::shortcode::parser::*;
+}
+
+/// Deprecated: Use `shortcode::data` instead.
+#[deprecated(since = "0.2.0", note = "Use `shortcode::data` instead")]
+pub mod shortcodes_data {
+    pub use crate::ext::shortcode::data::*;
+}
