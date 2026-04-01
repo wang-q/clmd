@@ -148,4 +148,6 @@ coverge_*
 coverage.*
 
 flamegraph.*
-ß
+
+node_modules/
+package-lock.json

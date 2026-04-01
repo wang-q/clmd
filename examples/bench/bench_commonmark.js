@@ -2,7 +2,7 @@
 "use strict";
 
 var fs = require("fs");
-var commonmark = require("./commonmark.js-0.31.2/lib/index.js");
+var commonmark = require("commonmark");
 
 var parser = new commonmark.Parser();
 var renderer = new commonmark.HtmlRenderer();
