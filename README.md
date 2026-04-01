@@ -1,116 +1,264 @@
-# clmd - CLean Markdown
+# clmd - CommonMark Markdown Processor
 
-A high-performance CommonMark parser written in Rust, inspired by cmark (C implementation) and commonmark.js (JavaScript implementation).
+A high-performance CommonMark and GFM compatible Markdown parser written in Rust, inspired by cmark (C implementation) and commonmark.js (JavaScript implementation).
 
 ## Features
 
-- **Full CommonMark Compliance**: Passes all 652 CommonMark spec tests (100%)
-- **High Performance**: Arena-based memory management with ~40% performance improvement over Rc<RefCell>
-- **Multiple Output Formats**: HTML, XML, LaTeX, Man page, and CommonMark
-- **GitHub Flavored Markdown Extensions**: Tables, strikethrough, task lists
+- **Full CommonMark Compliance**: 100% CommonMark compatible
+- **GitHub Flavored Markdown (GFM) Extensions**: Tables, strikethrough, task lists, autolinks, tag filtering
+- **Rich Extension Ecosystem**:
+  - Footnotes (regular and inline)
+  - Definition lists
+  - Superscript and subscript
+  - Underline, highlight, insert
+  - Math support (dollar syntax and code syntax)
+  - Wikilinks
+  - Spoilers
+  - GitHub-style alerts
+  - Emoji shortcodes
+  - YAML front matter
+  - Header IDs
+  - Multiline block quotes
+  - CJK-friendly emphasis
+- **Multiple Output Formats**: HTML, XHTML, XML, LaTeX, Man page, Typst, DOCX, EPUB, RTF, PDF, Beamer, Reveal.js, Plain text
 - **Smart Punctuation**: Converts straight quotes to curly quotes, `--` to en dash, `---` to em dash
 - **Safe by Default**: Sanitizes raw HTML and unsafe links to prevent XSS
+- **Plugin System**: Extensible rendering with syntax highlighter support (syntect)
+- **HTML to Markdown**: Convert HTML back to Markdown
+- **Memory Efficient**: Arena-based memory management for optimal performance
+
+## Installation
+
+```bash
+cargo build --release
+```
+
+With syntect syntax highlighting support:
+```bash
+cargo build --release --features syntect
+```
 
 ## Usage
 
-### Basic Usage
+### Library Usage
+
+#### Basic Usage
 
 ```rust
-use clmd::{markdown_to_html, config::options::Options};
+use clmd::{markdown_to_html, Options};
 
 // Simple conversion
-let options = Options::new();
+let options = Options::default();
 let html = markdown_to_html("Hello *world*", &options);
-assert_eq!(html, "<p>Hello <em>world</em></p>");
+assert!(html.contains("<em>world</em>"));
 ```
 
-### Advanced Usage
+#### Working with the AST
 
 ```rust
-use clmd::{Document, config::options::Options};
+use clmd::{parse_document, format_html, Options};
 
 // Parse with default options
-let doc = Document::parse("# Title\n\nSome **bold** text").unwrap();
+let options = Options::default();
+let (arena, root) = parse_document("# Title\n\nSome **bold** text", &options);
 
-// Render to different formats
-let html = doc.to_html();
-let xml = doc.to_xml();
-let latex = doc.to_latex();
-let commonmark = doc.to_commonmark();
-
-// With custom options
-let mut options = Options::new();
-options.set(&clmd::config_options::SMART, true);
-options.set(&clmd::config_options::SOURCEPOS, true);
-let html = doc.to_html_with_options(&options);
+// Format to different outputs
+let mut html = String::new();
+format_html(&arena, root, &options, &mut html).unwrap();
 ```
 
-### Options
+#### Multiple Output Formats
 
 ```rust
-use clmd::config::options::{Options, SOURCEPOS, HARDBREAKS, NOBREAKS, SMART, UNSAFE};
+use clmd::{markdown_to_html, markdown_to_commonmark, markdown_to_typst, Options};
 
-let mut options = Options::new();
-options.set(&SOURCEPOS, true);    // Include data-sourcepos attributes
-options.set(&HARDBREAKS, true);   // Render soft breaks as hard line breaks
-options.set(&NOBREAKS, true);     // Render soft breaks as spaces
-options.set(&SMART, true);        // Enable smart punctuation
-options.set(&UNSAFE, true);       // Allow raw HTML and unsafe links
+let markdown = "# Hello\n\n**Bold** text";
+let options = Options::default();
+
+// HTML output
+let html = markdown_to_html(markdown, &options);
+
+// CommonMark output (formatting)
+let commonmark = markdown_to_commonmark(markdown, &options);
+
+// Typst output
+let typst = markdown_to_typst(markdown, &options);
 ```
 
-### Parser Limits
+#### GFM Extensions
 
 ```rust
-use clmd::{Document, ParserLimits};
+use clmd::{markdown_to_html, Options};
 
-let limits = ParserLimits::new()
-    .max_input_size(1024 * 1024)  // 1MB
-    .max_nesting_depth(50);
+let mut options = Options::default();
+options.extension.table = true;
+options.extension.strikethrough = true;
+options.extension.tasklist = true;
+options.extension.autolink = true;
+options.extension.footnotes = true;
 
-let doc = Document::parse_with_limits(input, limits).unwrap();
+// Tables
+let table = "| a | b |\n|---|---|\n| c | d |";
+let html = markdown_to_html(table, &options);
+
+// Strikethrough
+let strike = "~~deleted~~";
+let html = markdown_to_html(strike, &options);
+
+// Task lists
+let task = "- [x] Done\n- [ ] Todo";
+let html = markdown_to_html(task, &options);
 ```
 
-## Performance
+#### Parser Options
 
-clmd uses an arena-based memory allocator that provides significant performance improvements:
+```rust
+use clmd::{markdown_to_html, Options};
 
-| Metric | Improvement |
-|--------|-------------|
-| Block parsing | 35-48% faster |
-| Inline parsing | 22-59% faster |
-| Full document | 30-41% faster |
-| Memory usage | 30-40% reduction |
+let mut options = Options::default();
 
-### Cross-Language Comparison
+// Parse options
+options.parse.smart = true;           // Smart punctuation
+options.parse.sourcepos = true;       // Include source position attributes
 
-Using hyperfine for fair comparison (includes process startup and file IO):
+// Render options
+options.render.hardbreaks = true;     // Render soft breaks as hard line breaks
+options.render.nobreaks = true;       // Render soft breaks as spaces
+options.render.r#unsafe = true;       // Allow raw HTML (use with caution)
+```
 
-**Small File (~1KB):**
-| Implementation | Time | Relative |
-|----------------|------|----------|
-| cmark (C) | 1.5 ms | 1.00x |
-| **clmd (Rust)** | **1.7 ms** | **1.13x** |
-| commonmark.js | 63.5 ms | 42.3x |
+#### Parser Limits
 
-**Large File (~110KB):**
-| Implementation | Time | Relative |
-|----------------|------|----------|
-| cmark (C) | 2.7 ms | 1.00x |
-| **clmd (Rust)** | **4.8 ms** | **1.78x** |
-| commonmark.js | 75.9 ms | 28.1x |
+```rust
+use clmd::parse::parse_document_with_limits;
+use clmd::{Options, ParserLimits};
 
-Throughput: ~50-53 MB/s across different document sizes.
+let options = Options::default();
+let limits = ParserLimits {
+    max_input_size: 1024 * 1024,      // 1MB max input
+    max_line_length: 10000,            // 10KB max line length
+    max_nesting_depth: 100,            // Max nesting depth
+    max_list_items: 10000,             // Max list items
+    max_links: 10000,                  // Max links
+};
+
+let result = parse_document_with_limits("# Hello\n\nWorld!", &options, limits);
+```
+
+#### HTML to Markdown
+
+```rust
+use clmd::from::html_to_markdown;
+
+let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
+let markdown = html_to_markdown(html);
+```
+
+#### With Syntax Highlighting (syntect feature)
+
+```rust
+use clmd::{markdown_to_html_with_plugins, Options, Plugins};
+use clmd::plugin::syntect::SyntectAdapter;
+
+let options = Options::default();
+let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
+
+let mut plugins = Plugins::new();
+plugins.render.set_syntax_highlighter(&adapter);
+
+let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
+let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+```
+
+### CLI Usage
+
+```bash
+# Convert Markdown to HTML
+clmd convert to html README.md
+
+# Convert to other formats
+clmd convert to latex input.md -o output.tex
+clmd convert to typst input.md -o output.typ
+clmd convert to docx input.md -o output.docx
+clmd convert to epub input.md -o output.epub
+
+# Enable extensions
+clmd -e table -e strikethrough convert to html input.md
+
+# Format Markdown
+clmd fmt input.md
+
+# Extract content
+clmd extract links input.md
+clmd extract headings input.md
+clmd extract tables input.md --format csv
+
+# Generate table of contents
+clmd toc input.md
+
+# Statistics
+clmd stats input.md --readability
+
+# Validation
+clmd validate input.md --strict
+
+# Transform
+clmd transform shift-headings input.md -s -1
+
+# Shell completion
+clmd complete bash > /etc/bash_completion.d/clmd
+```
+
+#### CLI Options
+
+```bash
+clmd [OPTIONS] <COMMAND>
+
+Options:
+  -c, --config <FILE>     Configuration file path (TOML format)
+  -e, --extension <EXT>   Enable extensions (table, strikethrough, tasklist,
+                          footnotes, tagfilter, superscript, subscript,
+                          underline, highlight, math, wikilink, spoiler, alerts)
+      --safe              Enable safe mode (filter dangerous HTML)
+  -h, --help              Print help
+  -V, --version           Print version
+
+Commands:
+  convert     Convert between formats
+  extract     Extract specific content from documents
+  stats       Document statistics and analysis
+  toc         Generate table of contents
+  fmt         Format Markdown documents
+  validate    Validate Markdown documents
+  transform   Transform document structure
+  complete    Generate shell completion scripts
+```
+
+## Configuration
+
+clmd looks for a configuration file at:
+- `$XDG_CONFIG_HOME/clmd/config.toml`
+- `~/.config/clmd/config.toml`
+
+Example configuration:
+
+```toml
+[extension]
+table = true
+strikethrough = true
+tasklist = true
+autolink = true
+footnotes = true
+
+[parse]
+smart = true
+
+[render]
+hardbreaks = false
+unsafe = false
+```
 
 ## Project Status
-
-### Test Coverage
-
-| Test Suite | Status |
-|------------|--------|
-| CommonMark Spec | 652/652 (100%) |
-| Regression Tests | 32/32 (100%) |
-| Smart Punctuation | 14/15 (93.3%) |
-| AST System | 296 tests passing |
 
 ### Supported Features
 
@@ -119,10 +267,39 @@ Throughput: ~50-53 MB/s across different document sizes.
 - [x] Tables (GFM)
 - [x] Strikethrough (GFM)
 - [x] Task lists (GFM)
-- [x] Footnotes
+- [x] Autolinks (GFM)
+- [x] Tag filtering (GFM)
+- [x] Footnotes (regular and inline)
 - [x] Definition lists
+- [x] Superscript/subscript
+- [x] Underline, highlight, insert
+- [x] Math support
+- [x] Wikilinks
+- [x] Spoilers
+- [x] GitHub-style alerts
+- [x] Emoji shortcodes
 - [x] YAML front matter
 - [x] Smart punctuation
+- [x] HTML to Markdown conversion
+
+### Output Formats
+
+| Format | Status |
+|--------|--------|
+| HTML | Supported |
+| XHTML | Supported |
+| XML (CommonMark AST) | Supported |
+| CommonMark | Supported |
+| LaTeX | Supported |
+| Man page | Supported |
+| Typst | Supported |
+| DOCX | Supported |
+| EPUB | Supported |
+| RTF | Supported |
+| PDF | Supported |
+| Beamer | Supported |
+| Reveal.js | Supported |
+| Plain text | Supported |
 
 ## Architecture
 
@@ -140,11 +317,13 @@ The arena-based allocator provides:
 - Simple lifetime management
 
 ```rust
-use clmd::{NodeArena, Node, NodeType, TreeOps};
+use clmd::{Arena, NodeId};
+use clmd::core::nodes::NodeValue;
+use clmd::core::tree::TreeOps;
 
-let mut arena = NodeArena::new();
-let root = arena.alloc(Node::new(NodeType::Document));
-let para = arena.alloc(Node::new(NodeType::Paragraph));
+let mut arena = Arena::new();
+let root = arena.alloc(NodeValue::Document);
+let para = arena.alloc(NodeValue::Paragraph);
 TreeOps::append_child(&mut arena, root, para);
 ```
 
@@ -160,6 +339,12 @@ cargo build
 
 # Release build (optimized)
 cargo build --release
+
+# With syntect feature
+cargo build --release --features syntect
+
+# With all features
+cargo build --release --all-features
 ```
 
 ### Testing
@@ -198,16 +383,25 @@ cargo clippy
 cargo llvm-cov
 ```
 
+## Features
+
+- `syntect`: Enable syntect syntax highlighting support
+- `serde`: Enable Serde serialization support
+
+## Safety
+
+This crate is 100% safe Rust - it contains no `unsafe` code.
+
 ## References
 
 - [CommonMark Specification](https://spec.commonmark.org/)
+- [GFM Specification](https://github.github.com/gfm/)
 - [cmark - C reference implementation](https://github.com/commonmark/cmark)
 - [commonmark.js - JavaScript reference implementation](https://github.com/commonmark/commonmark.js)
-- [flexmark-java - Java implementation with extensions](https://github.com/vsch/flexmark-java)
 
 ## License
 
-MIT
+MIT OR Apache-2.0
 
 ## Contributing
 

@@ -15,15 +15,21 @@
 
 - 100% CommonMark 和 GFM 规范兼容
 - 100% 安全 Rust 代码（无 `unsafe` 代码）
-- 支持多种渲染格式：HTML、CommonMark、XML、Typst、PDF、LaTeX、Man 等
+- 支持多种渲染格式：HTML、CommonMark、XML、Typst、PDF、LaTeX、Man、DOCX、EPUB、RTF 等
 - 插件系统，支持自定义渲染和 syntect 语法高亮
-- 丰富的扩展功能：表格、脚注、删除线、任务列表、自动链接、缩写、属性、YAML 前页、短代码、标签过滤等
+- 丰富的扩展功能：
+  - GFM 扩展：表格、脚注、删除线、任务列表、自动链接、标签过滤
+  - 语法扩展：缩写、属性、定义列表
+  - 元数据：YAML 前页、目录生成
+  - 短代码：Emoji 短代码支持
 - 内存高效的 AST 实现，基于 Arena 内存分配
 - 提供便捷的 API 和迭代器用于 AST 遍历和操作
 - 支持 HTML 到 Markdown 的转换
 - 内置 Markdown 格式化工具
-- 配置文件支持
+- 配置文件支持（TOML 格式）
 - Unicode 显示宽度计算
+- 多格式文档读写支持（BibTeX、LaTeX 等）
+- 幻灯片格式支持（Reveal.js、Beamer）
 
 ### 设计理念
 
@@ -38,50 +44,190 @@
 
 ```
 src/
-├── lib.rs          # 公共 API 和选项定义
-├── prelude.rs      # 预导入模块（推荐的用户入口）
-├── core/           # 核心类型模块
-│   ├── adapters.rs # 适配器 trait
-│   ├── arena.rs    # 内存分配器（Arena）
-│   ├── ast.rs      # AST 类型定义
-│   ├── error.rs    # 错误处理
-│   ├── iterator.rs # AST 遍历器
-│   ├── nodes.rs    # AST 节点定义和操作
-│   ├── shared.rs   # 共享工具函数
-│   ├── tree.rs     # 树操作
-│   └── walk.rs     # AST 遍历
-├── blocks/         # 块级元素解析（包含解析器、块检测、延续、终处理等）
-├── context/        # 上下文管理（配置、IO、日志、资源等）
-├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表、YAML 前页、短代码、标签过滤等）
-├── inlines/        # 内联元素解析（强调、链接、实体、HTML标签、文本处理等）
-├── io/             # IO 操作模块
-│   ├── format.rs   # 格式抽象层（格式检测、MIME 类型等）
-│   ├── format_*.rs # 格式子模块（css, csv, mime, slides, tex, xml）
-│   ├── from.rs     # 格式转换（HTML 到 Markdown）
-│   ├── read/       # 多格式文档读取器
-│   └── write/      # 多格式文档写入器
-├── parser/         # Markdown 解析器核心
-│   ├── options.rs  # 解析选项
-│   └── util/       # 解析工具（组合子、扫描器、源文件管理等）
-├── pipeline/       # 文档转换管道
-├── plugin/         # 插件系统（包含 syntect 语法高亮支持）
-├── render/         # 渲染器（HTML、XML、CommonMark、LaTeX、Man、PDF、Typst等）
-│   └── commonmark/ # CommonMark 格式化器
-├── template/       # 模板系统
-├── text/           # 文本处理工具（HTML 转义、字符串处理、URI、Unicode 宽度等）
-└── util/           # 工具模块
-    ├── filter/     # 过滤器系统
-    ├── test/       # 测试工具
-    └── transform/  # 文档转换工具
+├── lib.rs              # 公共 API 和选项定义
+├── prelude.rs          # 预导入模块（推荐的用户入口）
+├── bin/                # CLI 二进制入口
+│   ├── main.rs         # 主程序入口
+│   └── cmd/            # 子命令实现
+│       ├── extract/    # 提取命令
+│       ├── from/       # 格式转换命令
+│       ├── to/         # 输出格式命令
+│       ├── complete.rs # 自动补全
+│       ├── convert.rs  # 转换命令
+│       ├── fmt.rs      # 格式化命令
+│       ├── stats.rs    # 统计命令
+│       ├── toc.rs      # 目录生成
+│       ├── transform.rs# 文档转换
+│       ├── utils.rs    # 工具函数
+│       └── validate.rs # 验证命令
+├── core/               # 核心类型模块
+│   ├── adapter.rs      # 适配器 trait
+│   ├── arena.rs        # 内存分配器（Arena）
+│   ├── ast.rs          # AST 类型定义
+│   ├── error.rs        # 错误处理
+│   ├── iterator.rs     # AST 遍历器
+│   ├── mod.rs          # 模块入口
+│   ├── monad.rs        # Monad 抽象
+│   ├── nodes.rs        # AST 节点定义和操作
+│   ├── sandbox.rs      # 沙箱支持
+│   ├── shared.rs       # 共享工具函数
+│   ├── state.rs        # 状态管理
+│   ├── tree.rs         # 树操作
+│   └── walk.rs         # AST 遍历
+├── context/            # 上下文管理
+│   ├── common.rs       # 通用上下文
+│   ├── config.rs       # 配置管理
+│   ├── data.rs         # 数据管理
+│   ├── io.rs           # IO 上下文
+│   ├── logging.rs      # 日志系统
+│   ├── mediabag.rs     # 媒体资源管理
+│   ├── mod.rs          # 模块入口
+│   ├── process.rs      # 进程管理
+│   ├── pure.rs         # 纯函数上下文
+│   ├── uuid.rs         # UUID 生成
+│   └── version.rs      # 版本信息
+├── ext/                # 扩展功能
+│   ├── gfm/            # GitHub Flavored Markdown
+│   │   ├── autolink.rs # 自动链接
+│   │   ├── mod.rs      # GFM 模块入口
+│   │   ├── strikethrough.rs # 删除线
+│   │   ├── table.rs    # 表格
+│   │   ├── tagfilter.rs# 标签过滤
+│   │   └── tasklist.rs # 任务列表
+│   ├── metadata/       # 元数据处理
+│   │   ├── mod.rs      # 模块入口
+│   │   ├── toc.rs      # 目录生成
+│   │   └── yaml_front_matter.rs # YAML 前页
+│   ├── shortcode/      # 短代码支持
+│   │   ├── data.rs     # 短代码数据
+│   │   ├── mod.rs      # 模块入口
+│   │   └── parser.rs   # 短代码解析器
+│   ├── syntax/         # 语法扩展
+│   │   ├── abbreviation.rs # 缩写
+│   │   ├── attribute.rs    # 属性
+│   │   ├── definition.rs   # 定义列表
+│   │   ├── footnote.rs     # 脚注
+│   │   └── mod.rs          # 模块入口
+│   ├── flags.rs        # 扩展标志
+│   └── mod.rs          # 扩展模块入口
+├── io/                 # IO 操作模块
+│   ├── convert/        # 格式转换
+│   │   └── mod.rs      # HTML 到 Markdown 转换
+│   ├── format/         # 格式支持
+│   │   ├── css.rs      # CSS 处理
+│   │   ├── csv.rs      # CSV 格式
+│   │   ├── mime.rs     # MIME 类型
+│   │   ├── mod.rs      # 格式模块入口
+│   │   ├── slides.rs   # 幻灯片格式
+│   │   ├── tex.rs      # TeX 格式
+│   │   └── xml.rs      # XML 格式
+│   ├── reader/         # 多格式文档读取器
+│   │   ├── bibtex.rs   # BibTeX 读取
+│   │   ├── latex.rs    # LaTeX 读取
+│   │   ├── mod.rs      # 读取器入口
+│   │   └── registry.rs # 读取器注册表
+│   ├── writer/         # 多格式文档写入器
+│   │   ├── beamer.rs   # Beamer 输出
+│   │   ├── bibtex.rs   # BibTeX 输出
+│   │   ├── docx.rs     # DOCX 输出
+│   │   ├── epub.rs     # EPUB 输出
+│   │   ├── mod.rs      # 写入器入口
+│   │   ├── registry.rs # 写入器注册表
+│   │   ├── revealjs.rs # Reveal.js 输出
+│   │   └── rtf.rs      # RTF 输出
+│   ├── format_impl.rs  # 格式实现
+│   ├── from_impl.rs    # 转换实现
+│   └── mod.rs          # IO 模块入口
+├── parse/              # Markdown 解析器核心
+│   ├── block/          # 块级元素解析
+│   │   ├── block_info.rs      # 块信息
+│   │   ├── block_starts.rs    # 块开始检测
+│   │   ├── continuation.rs    # 块延续
+│   │   ├── finalization.rs    # 块终处理
+│   │   ├── helpers.rs         # 辅助函数
+│   │   ├── info.rs            # 块元信息
+│   │   ├── mod.rs             # 块解析入口
+│   │   ├── parser.rs          # 块解析器
+│   │   └── tests.rs           # 块解析测试
+│   ├── inline/         # 内联元素解析
+│   │   ├── autolinks.rs       # 自动链接
+│   │   ├── emphasis.rs        # 强调处理
+│   │   ├── entities.rs        # HTML 实体
+│   │   ├── entities_table.rs  # 实体表
+│   │   ├── html_tags.rs       # HTML 标签
+│   │   ├── links.rs           # 链接处理
+│   │   ├── mod.rs             # 内联解析入口
+│   │   ├── text.rs            # 文本处理
+│   │   └── utils.rs           # 工具函数
+│   ├── util/           # 解析工具
+│   │   ├── char.rs            # 字符处理
+│   │   ├── chunks.rs          # 文本分块
+│   │   ├── combinator.rs      # 解析组合子
+│   │   ├── primitives.rs      # 基础原语
+│   │   ├── scanners.rs        # 扫描器
+│   │   ├── sources.rs         # 源文件管理
+│   │   └── state.rs           # 解析状态
+│   ├── mod.rs          # 解析器入口
+│   └── options.rs      # 解析选项
+├── pipeline/           # 文档转换管道
+│   └── mod.rs          # 管道模块入口
+├── plugin/             # 插件系统
+│   ├── mod.rs          # 插件入口
+│   ├── owned.rs        #  owned 插件支持
+│   └── syntect.rs      # syntect 语法高亮
+├── render/             # 渲染器
+│   ├── commonmark/     # CommonMark 格式化器
+│   │   ├── commonmark_formatter.rs
+│   │   ├── context.rs
+│   │   ├── mod.rs
+│   │   ├── node.rs
+│   │   ├── options.rs
+│   │   ├── phase.rs
+│   │   ├── phased.rs
+│   │   ├── purpose.rs
+│   │   ├── table.rs
+│   │   ├── utils.rs
+│   │   └── writer.rs
+│   ├── format/         # 格式渲染器
+│   │   ├── docx.rs     # DOCX 渲染
+│   │   ├── html.rs     # HTML 渲染
+│   │   ├── latex.rs    # LaTeX 渲染
+│   │   ├── man.rs      # Man page 渲染
+│   │   ├── mod.rs      # 格式渲染入口
+│   │   ├── pdf.rs      # PDF 渲染
+│   │   ├── typst.rs    # Typst 渲染
+│   │   └── xml.rs      # XML 渲染
+│   ├── mod.rs          # 渲染器入口
+│   └── renderer.rs     # 渲染器 trait
+├── template/           # 模板系统
+│   └── mod.rs          # 模板入口
+├── text/               # 文本处理工具
+│   ├── asciify.rs      # ASCII 转换
+│   ├── char.rs         # 字符处理
+│   ├── emoji.rs        # Emoji 支持
+│   ├── html_utils.rs   # HTML 工具
+│   ├── mod.rs          # 文本模块入口
+│   ├── roff_char.rs    # Roff 字符
+│   ├── sequence.rs     # 序列处理
+│   ├── strings.rs      # 字符串工具
+│   ├── unicode_width.rs# Unicode 宽度
+│   └── uri.rs          # URI 处理
+└── util/               # 工具模块
+    ├── filter/         # 过滤器系统
+    │   └── mod.rs
+    ├── transform/      # 文档转换工具
+    │   └── mod.rs
+    └── mod.rs          # 工具入口
 ```
 
 ### 模块访问路径
 
 - 核心类型通过 `clmd::core::*` 访问（如 `clmd::core::arena::NodeArena`）
 - 便捷导入通过 `clmd::prelude::*` 提供常用类型
-- 解析器通过 `clmd::parser` 访问（原 `parse` 已重命名为 `parser`）
-- IO 模块通过 `clmd::io` 访问，包含 `read`、`write`、`format`、`from` 子模块
-- 格式相关功能通过 `clmd::io::format` 访问（原 `formats` 目录已扁平化）
+- 解析器通过 `clmd::parse` 访问
+- IO 模块通过 `clmd::io` 访问，包含 `reader`、`writer`、`format`、`convert` 子模块
+- 格式相关功能通过 `clmd::io::format` 访问
+- HTML 到 Markdown 转换通过 `clmd::from` 访问
 - 测试统一在 `#[cfg(test)]` 模块中，位于各源文件底部
 
 ## 构建命令
@@ -94,7 +240,18 @@ cargo build
 
 # 发布构建 (高性能)
 cargo build --release
+
+# 启用 syntect 语法高亮特性
+cargo build --features syntect
+
+# 启用所有特性
+cargo build --all-features
 ```
+
+### 可用特性
+
+- `syntect`: 启用 syntect 语法高亮支持
+- `serde`: 启用 Serde 序列化支持
 
 ## 代码规范
 

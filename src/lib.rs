@@ -255,8 +255,6 @@ pub use render::commonmark as formatter;
 /// Utility modules for internal use.
 pub mod util;
 
-// Test utilities are accessed through `util::test` directly
-
 // Text and parsing utilities are accessed through their respective modules
 
 /// Text processing utilities.
