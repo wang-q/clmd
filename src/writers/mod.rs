@@ -64,7 +64,7 @@ pub trait Writer: Send + Sync + Debug {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<String>;
 
@@ -90,7 +90,7 @@ pub trait Writer: Send + Sync + Debug {
         arena: &NodeArena,
         root: NodeId,
         path: &Path,
-        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<()> {
         let content = self.write(arena, root, ctx, options)?;
@@ -270,7 +270,7 @@ impl Writer for HtmlWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<String> {
         let mut render_options = crate::parser::options::Options::default();
@@ -304,7 +304,7 @@ impl Writer for CommonMarkWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<String> {
         let width = if options.wrap == crate::options::WrapOption::Auto {
@@ -339,7 +339,7 @@ impl Writer for XmlWriter {
         &self,
         arena: &NodeArena,
         root: NodeId,
-        _ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         _options: &WriterOptions,
     ) -> ClmdResult<String> {
         Ok(crate::render::renderer::render_to_xml(arena, root, 0))
@@ -387,7 +387,7 @@ pub fn write_document(
     arena: &NodeArena,
     root: NodeId,
     format: &str,
-    ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+    ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
     options: &WriterOptions,
 ) -> ClmdResult<String> {
     let registry = WriterRegistry::new();
@@ -431,7 +431,7 @@ pub fn write_file(
     root: NodeId,
     path: &Path,
     format: Option<&str>,
-    ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+    ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
     options: &WriterOptions,
 ) -> ClmdResult<()> {
     // Create the appropriate writer based on format or file extension
@@ -455,8 +455,8 @@ mod tests {
     use crate::context::PureContext;
 
     fn create_test_document() -> (NodeArena, NodeId) {
-        use crate::arena::{Node, TreeOps};
-        use crate::nodes::{NodeHeading, NodeValue};
+        use crate::core::arena::{Node, TreeOps};
+        use crate::core::nodes::{NodeHeading, NodeValue};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));

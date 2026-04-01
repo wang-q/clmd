@@ -441,7 +441,7 @@ pub struct FilterResult {
 /// Built-in filter implementations.
 pub mod filters {
     use super::*;
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     /// Apply header level shift.
     pub fn apply_header_shift(
@@ -507,8 +507,8 @@ pub mod filters {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeHeading, NodeValue};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeHeading, NodeValue};
 
     #[test]
     fn test_filter_chain() {

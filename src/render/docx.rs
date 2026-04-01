@@ -270,14 +270,14 @@ impl<'a> DocxRenderer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
 
     fn create_test_document() -> (NodeArena, NodeId) {
         let mut arena = NodeArena::new();
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
 
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::nodes::NodeHeading {
+            crate::core::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,

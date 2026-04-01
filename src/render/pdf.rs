@@ -18,8 +18,8 @@
 //! 3. Add font embedding
 //! 4. Handle images and complex layouts
 
-use crate::arena::{NodeArena, NodeId};
-use crate::nodes::NodeValue;
+use crate::core::arena::{NodeArena, NodeId};
+use crate::core::nodes::NodeValue;
 use std::io::Write;
 
 /// PDF export options
@@ -274,14 +274,14 @@ impl<'a> PdfRenderer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
 
     fn create_test_document() -> (NodeArena, NodeId) {
         let mut arena = NodeArena::new();
         let doc = arena.alloc(Node::with_value(NodeValue::Document));
 
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::nodes::NodeHeading {
+            crate::core::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,

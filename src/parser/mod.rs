@@ -73,7 +73,7 @@ pub fn parse_document_with_limits(
 mod tests {
     use super::*;
     use crate::core::error::ParserLimits;
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     #[test]
     fn test_parse_document() {

@@ -17,7 +17,7 @@ pub fn render_list(
     let _options = context.get_formatter_options();
 
     // Determine list properties
-    let _is_ordered = list.list_type == crate::nodes::ListType::Ordered;
+    let _is_ordered = list.list_type == crate::core::nodes::ListType::Ordered;
     let _start = list.start;
     let is_tight = list.tight;
 

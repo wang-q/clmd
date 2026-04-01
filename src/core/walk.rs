@@ -483,8 +483,8 @@ fn collect_recursive<F>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeHeading, NodeValue};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeHeading, NodeValue};
 
     #[test]
     fn test_walk() {

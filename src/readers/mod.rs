@@ -56,7 +56,7 @@ pub trait Reader: Send + Sync + Debug {
         &self,
         input: &str,
         options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)>;
+    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)>;
 
     /// Get the format name this reader supports.
     fn format(&self) -> &'static str;
@@ -234,7 +234,7 @@ impl Reader for MarkdownReader {
         &self,
         input: &str,
         options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
         // Convert ReaderOptions to parser Options
         let parser_options = options.to_parser_options();
         Ok(parser::parse_document(input, &parser_options))
@@ -264,7 +264,7 @@ impl Reader for HtmlReader {
         &self,
         input: &str,
         _options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
         // Convert HTML to Markdown, then parse
         let markdown = crate::from::html_to_markdown(input);
         let parser_options = crate::parser::options::Options::default();
@@ -309,7 +309,7 @@ pub fn read_document(
     input: &str,
     format: Option<&str>,
     options: &ReaderOptions,
-) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
     let registry = ReaderRegistry::new();
 
     let format = format.unwrap_or("markdown");
@@ -346,7 +346,7 @@ pub fn read_file(
     path: &std::path::Path,
     format: Option<&str>,
     options: &ReaderOptions,
-) -> ClmdResult<(NodeArena, crate::arena::NodeId)> {
+) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
     use std::fs;
 
     let content = fs::read_to_string(path)
@@ -367,7 +367,7 @@ pub fn read_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     #[test]
     fn test_markdown_reader() {

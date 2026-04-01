@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_heading_adapter() {
-        use crate::adapters::HeadingAdapter;
+        use crate::core::adapters::HeadingAdapter;
 
         struct TestHeadingAdapter;
         impl HeadingAdapter for TestHeadingAdapter {

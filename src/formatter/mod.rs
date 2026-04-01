@@ -223,7 +223,7 @@ pub struct MainFormatterContext<'a> {
     /// Table data collection
     table_rows: Vec<Vec<String>>,
     /// Table alignments
-    table_alignments: Vec<crate::nodes::TableAlignment>,
+    table_alignments: Vec<crate::core::nodes::TableAlignment>,
     /// Whether we're collecting table data
     collecting_table: bool,
     /// Whether to skip rendering children (for table cells)
@@ -339,7 +339,7 @@ impl<'a> MainFormatterContext<'a> {
     fn find_document_root(&self) -> Option<NodeId> {
         // Try to find the document node (should be node 0)
         if let Some(_node) = self.arena.try_get(0) {
-            if matches!(_node.value, crate::nodes::NodeValue::Document) {
+            if matches!(_node.value, crate::core::nodes::NodeValue::Document) {
                 return Some(0);
             }
         }
@@ -598,7 +598,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     // Table data collection methods
 
-    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>) {
+    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>) {
         self.table_rows = Vec::new();
         self.table_alignments = alignments;
         self.collecting_table = true;
@@ -620,7 +620,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn take_table_data(
         &mut self,
-    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
         if self.collecting_table {
             self.collecting_table = false;
             let rows = std::mem::take(&mut self.table_rows);
@@ -744,8 +744,8 @@ pub fn format_document_with_options(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::NodeValue;
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::NodeValue;
 
     #[test]
     fn test_formatter_creation() {
@@ -787,7 +787,7 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::nodes::NodeHeading {
+            crate::core::nodes::NodeHeading {
                 level: 1,
                 setext: false,
                 closed: false,
@@ -905,7 +905,7 @@ mod tests {
     #[test]
     fn test_format_document_with_table() {
         use crate::formatter::CommonMarkNodeFormatter;
-        use crate::nodes::{NodeTable, TableAlignment};
+        use crate::core::nodes::{NodeTable, TableAlignment};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));

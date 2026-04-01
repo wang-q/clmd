@@ -3,13 +3,13 @@
 //! This module defines the context trait for node formatters,
 //! inspired by flexmark-java's NodeFormatterContext interface.
 
-use crate::arena::{NodeArena, NodeId};
+use crate::core::arena::{NodeArena, NodeId};
 use crate::formatter::node::NodeValueType;
 use crate::formatter::options::FormatterOptions;
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::purpose::RenderPurpose;
 use crate::formatter::writer::MarkdownWriter;
-use crate::nodes::NodeValue;
+use crate::core::nodes::NodeValue;
 
 /// Context for node formatting operations
 ///
@@ -83,7 +83,7 @@ pub trait NodeFormatterContext {
     /// Start collecting table data
     ///
     /// Called when entering a table node to begin collecting row and cell data.
-    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>);
+    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>);
 
     /// Add a table row
     ///
@@ -100,7 +100,7 @@ pub trait NodeFormatterContext {
     /// Called when exiting a table node to get all collected data for formatting.
     fn take_table_data(
         &mut self,
-    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)>;
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>;
 
     /// Check if we're currently collecting table data
     fn is_collecting_table(&self) -> bool;
@@ -353,7 +353,7 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     // Table data collection methods - delegate to parent
 
-    fn start_table_collection(&mut self, alignments: Vec<crate::nodes::TableAlignment>) {
+    fn start_table_collection(&mut self, alignments: Vec<crate::core::nodes::TableAlignment>) {
         self.parent.start_table_collection(alignments);
     }
 
@@ -367,7 +367,7 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn take_table_data(
         &mut self,
-    ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+    ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
         self.parent.take_table_data()
     }
 
@@ -459,10 +459,10 @@ impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena};
+    use crate::core::arena::{Node, NodeArena};
     use crate::formatter::options::FormatterOptions;
     use crate::formatter::purpose::RenderPurpose;
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
@@ -473,7 +473,7 @@ mod tests {
         list_nesting: usize,
         in_block_quote: bool,
         block_quote_nesting: usize,
-        table_data: Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)>,
+        table_data: Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>,
     }
 
     impl MockContext {
@@ -602,7 +602,7 @@ mod tests {
 
         fn start_table_collection(
             &mut self,
-            alignments: Vec<crate::nodes::TableAlignment>,
+            alignments: Vec<crate::core::nodes::TableAlignment>,
         ) {
             self.table_data = Some((vec![], alignments));
         }
@@ -625,7 +625,7 @@ mod tests {
 
         fn take_table_data(
             &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
             self.table_data.take()
         }
 
@@ -721,8 +721,8 @@ mod tests {
 
         // Start collecting table data
         ctx.start_table_collection(vec![
-            crate::nodes::TableAlignment::Left,
-            crate::nodes::TableAlignment::Center,
+            crate::core::nodes::TableAlignment::Left,
+            crate::core::nodes::TableAlignment::Center,
         ]);
         assert!(ctx.is_collecting_table());
 

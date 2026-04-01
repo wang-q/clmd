@@ -252,7 +252,7 @@ pub mod entities {
     /// This function uses the more complete implementation from `crate::strings::decode_entities`
     /// which supports numeric entities (decimal and hex) in addition to named entities.
     pub fn decode_entities(input: &str) -> String {
-        crate::strings::decode_entities(input).into_owned()
+        crate::text::strings::decode_entities(input).into_owned()
     }
 }
 

@@ -420,7 +420,7 @@ pub mod transforms {
         max_level: u8,
         title: Option<&str>,
     ) -> ClmdResult<()> {
-        use crate::arena::TreeOps;
+        use crate::core::arena::TreeOps;
 
         // Collect headers
         let mut headers: Vec<(u8, String, NodeId)> = Vec::new();
@@ -438,10 +438,10 @@ pub mod transforms {
                     url: format!("#header-{}", text.to_lowercase().replace(' ', "-")),
                     title: text.clone().into(),
                 }));
-                let link_node = arena.alloc(crate::arena::Node::with_value(link));
+                let link_node = arena.alloc(crate::core::arena::Node::with_value(link));
 
                 let text_node = arena
-                    .alloc(crate::arena::Node::with_value(NodeValue::Text(text.into())));
+                    .alloc(crate::core::arena::Node::with_value(NodeValue::Text(text.into())));
                 TreeOps::append_child(arena, link_node, text_node);
 
                 // Item uses NodeList struct
@@ -456,7 +456,7 @@ pub mod transforms {
                     is_task_list: false,
                 };
                 let item = NodeValue::Item(item_list);
-                let item_node = arena.alloc(crate::arena::Node::with_value(item));
+                let item_node = arena.alloc(crate::core::arena::Node::with_value(item));
                 TreeOps::append_child(arena, item_node, link_node);
 
                 item_node
@@ -474,7 +474,7 @@ pub mod transforms {
             tight: true,
             is_task_list: false,
         });
-        let list_node = arena.alloc(crate::arena::Node::with_value(list));
+        let list_node = arena.alloc(crate::core::arena::Node::with_value(list));
 
         for item in toc_items {
             TreeOps::append_child(arena, list_node, item);
@@ -487,16 +487,16 @@ pub mod transforms {
                 setext: false,
                 closed: false,
             });
-            let heading_node = arena.alloc(crate::arena::Node::with_value(heading));
+            let heading_node = arena.alloc(crate::core::arena::Node::with_value(heading));
 
-            let title_text_node = arena.alloc(crate::arena::Node::with_value(
+            let title_text_node = arena.alloc(crate::core::arena::Node::with_value(
                 NodeValue::Text(title_text.into()),
             ));
             TreeOps::append_child(arena, heading_node, title_text_node);
 
             // Create a block quote to wrap the TOC content
             let quote = NodeValue::BlockQuote;
-            let quote_node = arena.alloc(crate::arena::Node::with_value(quote));
+            let quote_node = arena.alloc(crate::core::arena::Node::with_value(quote));
             TreeOps::append_child(arena, quote_node, heading_node);
             TreeOps::append_child(arena, quote_node, list_node);
 
@@ -605,7 +605,7 @@ pub mod transforms {
         arena: &mut NodeArena,
         _root: NodeId,
     ) -> ClmdResult<()> {
-        use crate::arena::TreeOps;
+        use crate::core::arena::TreeOps;
 
         // Collect footnote nodes to remove
         let mut footnotes_to_remove = Vec::new();
@@ -869,8 +869,8 @@ pub mod transforms {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeHeading, NodeValue};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeHeading, NodeValue};
 
     #[test]
     fn test_transform_chain() {

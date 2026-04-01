@@ -159,7 +159,7 @@ impl<'a> BlockParser<'a> {
                         self.line_number,
                     ) {
                         // Add the row to the table
-                        crate::arena::TreeOps::append_child(
+                        crate::core::arena::TreeOps::append_child(
                             self.arena, container, row_node,
                         );
                     }
@@ -309,7 +309,7 @@ impl<'a> BlockParser<'a> {
 
     /// Add a child to the tip
     pub(crate) fn add_child(&mut self, value: NodeValue, start_column: usize) -> NodeId {
-        use crate::arena::Node;
+        use crate::core::arena::Node;
 
         let doc = self.doc;
         let mut tip = self.tip;

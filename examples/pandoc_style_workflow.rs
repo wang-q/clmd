@@ -7,17 +7,15 @@
 //! - Template system for rendering
 //! - MediaBag for resource management
 
-use clmd::arena::{Node, NodeArena, TreeOps};
 use clmd::context::PureContext;
-use clmd::error::ClmdResult;
-use clmd::formats::mime::get_mime_type;
-use clmd::mediabag::MediaBag;
+use clmd::context::mediabag::MediaBag;
+use clmd::core::arena::{Node, NodeArena, TreeOps};
+use clmd::core::error::ClmdResult;
 use clmd::options::Options;
-use clmd::pipeline::PipelineBuilder;
 use clmd::readers::ReaderRegistry;
 use clmd::template::{TemplateContext, TemplateEngine};
+use clmd::text::uri::is_uri;
 use clmd::transforms::{Filter, FilterChain};
-use clmd::uri::is_uri;
 use clmd::writers::WriterRegistry;
 
 fn main() -> ClmdResult<()> {
@@ -29,42 +27,23 @@ fn main() -> ClmdResult<()> {
     ctx.info("Created PureContext for testing");
     println!("   Created PureContext for testing without IO\n");
 
-    // 2. Reader/Writer Registry
-    println!("2. Reader/Writer Registry:");
-    let reader_registry = ReaderRegistry::default();
-    let writer_registry = WriterRegistry::default();
+    // 2. Reader Registry
+    println!("2. Reader Registry:");
+    let readers = ReaderRegistry::new();
+    println!("   Reader registry created successfully");
 
-    println!("   Available readers: {:?}", reader_registry.formats());
-    println!("   Available writers: {:?}", writer_registry.formats());
+    // 3. Writer Registry
+    println!("\n3. Writer Registry:");
+    let writers = WriterRegistry::new();
+    println!("   Writer registry created successfully");
 
-    // Get reader by extension
-    if let Some(reader) = reader_registry.get_by_extension("md") {
-        println!("   Format for .md files: {:?}", reader.format());
-    }
+    // 4. Options and Pipeline
+    println!("\n4. Options:");
+    let _options = Options::default();
+    println!("   Options created successfully!");
 
-    // Get writer by extension
-    if let Some(writer) = writer_registry.get_by_extension("html") {
-        println!("   Format for .html files: {:?}\n", writer.format());
-    }
-
-    // 3. Document Conversion Pipeline
-    println!("3. Document Conversion Pipeline:");
-    let pipeline = PipelineBuilder::new().from("markdown").to("html").build()?;
-
-    let markdown_input = "# Hello World\n\nThis is a **test** document.";
-    let options = Options::default();
-    let html_output = pipeline.convert(markdown_input, &options)?;
-    println!(
-        "   Input (Markdown): {}",
-        markdown_input.lines().next().unwrap()
-    );
-    println!(
-        "   Output (HTML): {}...\n",
-        &html_output[..html_output.len().min(100)]
-    );
-
-    // 4. Filter Chain
-    println!("4. Filter Chain:");
+    // 5. Filter Chain
+    println!("\n5. Filter Chain:");
     let mut arena = NodeArena::new();
     let root = create_sample_document(&mut arena);
 
@@ -74,11 +53,11 @@ fn main() -> ClmdResult<()> {
     println!("   Applying header shift filter...");
     chain
         .apply(&mut arena, root)
-        .map_err(|e| clmd::error::ClmdError::Other(format!("Filter error: {}", e)))?;
+        .map_err(|e| clmd::core::error::ClmdError::Other(format!("Filter error: {}", e)))?;
     println!("   Filter applied successfully!\n");
 
-    // 5. Template System
-    println!("5. Template System:");
+    // 6. Template System
+    println!("6. Template System:");
     let _engine = TemplateEngine::new();
     let template = TemplateEngine::default_html_template();
 
@@ -92,8 +71,8 @@ fn main() -> ClmdResult<()> {
         &rendered[..rendered.len().min(80)]
     );
 
-    // 6. MediaBag Resource Management
-    println!("6. MediaBag Resource Management:");
+    // 7. MediaBag Resource Management
+    println!("7. MediaBag Resource Management:");
     let mut bag = MediaBag::new();
 
     // Insert a sample image
@@ -105,18 +84,9 @@ fn main() -> ClmdResult<()> {
 
     // Convert to data URI
     if let Some(data_uri) = bag.to_data_uri("logo.png") {
-        println!("   Data URI: {}...\n", &data_uri[..data_uri.len().min(60)]);
+        let preview_len = data_uri.len().min(60);
+        println!("   Data URI: {}...\n", &data_uri[..preview_len]);
     }
-
-    // 7. MIME Type Detection
-    println!("7. MIME Type Detection:");
-    let files = vec!["image.png", "style.css", "script.js", "document.pdf"];
-    for file in files {
-        if let Some(mime) = get_mime_type(std::path::Path::new(file)) {
-            println!("   {} -> {}", file, mime);
-        }
-    }
-    println!();
 
     // 8. URI Utilities
     println!("8. URI Utilities:");
@@ -137,7 +107,7 @@ fn main() -> ClmdResult<()> {
 
 /// Helper function to create a sample document for filter testing
 fn create_sample_document(arena: &mut NodeArena) -> u32 {
-    use clmd::nodes::{NodeHeading, NodeValue};
+    use clmd::core::nodes::{NodeHeading, NodeValue};
 
     let root = arena.alloc(Node::with_value(NodeValue::Document));
     let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {

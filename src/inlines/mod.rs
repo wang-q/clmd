@@ -985,7 +985,7 @@ impl<'a> Subject<'a> {
     /// Parse math expression with dollar syntax
     /// Supports inline math ($...$) and display math ($$...$$)
     fn parse_math(&mut self, arena: &mut NodeArena, parent: NodeId) -> bool {
-        use crate::nodes::NodeMath;
+        use crate::core::nodes::NodeMath;
 
         let start_pos = self.pos;
 

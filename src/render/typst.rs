@@ -388,8 +388,8 @@ impl<'a> TypstRenderer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink};
 
     #[test]
     fn test_render_heading() {

@@ -14,11 +14,8 @@ pub mod walk;
 // Error handling
 pub mod error;
 
-// State and monad types
+// Iterator types
 pub mod iterator;
-pub mod monad;
-pub mod sandbox;
-pub mod state;
 
 // Shared utilities
 pub mod shared;

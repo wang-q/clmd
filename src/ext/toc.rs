@@ -216,7 +216,7 @@ pub fn render_toc_commonmark(entries: &[TocEntry]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
 
     #[test]
     fn test_is_toc_marker() {

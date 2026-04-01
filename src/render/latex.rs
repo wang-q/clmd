@@ -265,8 +265,8 @@ fn escape_latex(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arena::{Node, NodeArena, TreeOps};
-    use crate::nodes::{NodeCode, NodeCodeBlock, NodeLink};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeLink};
 
     #[test]
     fn test_render_paragraph() {
@@ -413,7 +413,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
             list_type: ListType::Bullet,
-            delimiter: crate::nodes::ListDelimType::Period,
+            delimiter: crate::core::nodes::ListDelimType::Period,
             start: 1,
             tight: true,
             bullet_char: b'-',

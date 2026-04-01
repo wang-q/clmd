@@ -38,33 +38,43 @@
 
 ```
 src/
-├── lib.rs          # 公共 API 和选项定义
-├── arena.rs        # 内存分配器
-├── config.rs       # 配置文件支持
-├── error.rs        # 错误处理
-├── from.rs         # 从其他格式转换的公共 API
-├── html_utils.rs   # HTML 工具函数
-├── iterator.rs     # AST 遍历器
-├── nodes.rs        # AST 节点定义和操作
-├── options.rs      # 配置选项
-├── prelude.rs      # 预导入模块
-├── render.rs       # 渲染器基类
-├── scanners.rs     # 扫描器工具
-├── sequence.rs     # 序列处理
-├── strings.rs      # 字符串处理
-├── unicode_width.rs # Unicode 显示宽度计算
-├── adapters.rs     # 适配器
+├── lib.rs          # 公共 API 和选项定义（已清理重复导出）
+├── prelude.rs      # 预导入模块（推荐的用户入口）
+├── core/           # 核心类型模块
+│   ├── adapters.rs # 适配器 trait
+│   ├── arena.rs    # 内存分配器（Arena）
+│   ├── ast.rs      # AST 类型定义
+│   ├── error.rs    # 错误处理
+│   ├── iterator.rs # AST 遍历器
+│   ├── nodes.rs    # AST 节点定义和操作
+│   ├── shared.rs   # 共享工具函数
+│   ├── tree.rs     # 树操作
+│   └── walk.rs     # AST 遍历
 ├── blocks/         # 块级元素解析（包含解析器、块检测、延续、终处理等）
+├── context/        # 上下文管理（配置、IO、日志、资源等）
 ├── ext/            # 扩展功能（缩写、属性、自动链接、脚注、删除线、表格、任务列表、YAML 前页、短代码、标签过滤等）
-├── formatter/      # Markdown 格式化工具
-├── from/           # 从其他格式转换（HTML）
+├── filter/         # 过滤器系统（内部使用）
+├── formats/        # 格式抽象层（格式检测、MIME 类型、幻灯片等）
+├── formatter/      # Markdown 格式化工具（CommonMark 输出）
 ├── inlines/        # 内联元素解析（强调、链接、实体、HTML标签、文本处理等）
-├── parser/         # 解析器核心
+├── parsing/        # 通用解析工具（组合子、扫描器、源文件管理等）
+├── parser/         # Markdown 解析器核心
+├── pipeline/       # 文档转换管道
 ├── plugins/        # 插件系统（包含 syntect 语法高亮支持）
+├── readers/        # 多格式文档读取器
 ├── render/         # 渲染器（HTML、XML、CommonMark、LaTeX、Man、PDF、Typst等）
+├── template/       # 模板系统
 ├── test_utils/     # 测试工具
-└── tests/          # 测试用例
+├── text/           # 文本处理工具（HTML 转义、字符串处理、URI、Unicode 宽度等）
+├── transforms/     # 文档转换工具
+└── writers/        # 多格式文档写入器
 ```
+
+### 模块访问路径
+
+- 核心类型通过 `clmd::core::*` 访问（如 `clmd::core::arena::NodeArena`）
+- 便捷导入通过 `clmd::prelude::*` 提供常用类型
+- 已移除的重复导出：`ast`、`adapters`、`arena`、`error`、`nodes`、`iterator` 等顶级模块
 
 ## 构建命令
 

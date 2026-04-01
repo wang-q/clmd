@@ -2,7 +2,7 @@ use clap::{Arg, ArgMatches, Command};
 use serde_json::json;
 
 use crate::cmd::utils;
-use clmd::nodes::NodeValue;
+use clmd::core::nodes::NodeValue;
 
 pub fn make_subcommand() -> Command {
     Command::new("stats")

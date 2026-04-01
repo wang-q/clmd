@@ -116,7 +116,7 @@ impl Pipeline {
     pub fn convert_with_context(
         &self,
         input: &str,
-        ctx: &dyn ClmdContext<Error = crate::error::ClmdError>,
+        ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         _options: &Options,
     ) -> ClmdResult<String> {
         // Step 1: Read the input

@@ -38,9 +38,9 @@
 //!
 //! Reference: https://spec.commonmark.org/0.31.2/#emphasis-and-strong-emphasis
 
-use crate::arena::{NodeArena, NodeId, TreeOps};
+use crate::core::arena::{NodeArena, NodeId, TreeOps};
 use crate::inlines::utils::{is_punctuation, DelimScanResult};
-use crate::nodes::NodeValue;
+use crate::core::nodes::NodeValue;
 use smallvec::SmallVec;
 
 /// Delimiter struct for tracking emphasis markers
@@ -119,7 +119,7 @@ fn create_emphasis_node(arena: &mut NodeArena, use_delims: usize) -> NodeId {
     } else {
         NodeValue::Strong
     };
-    arena.alloc(crate::arena::Node::with_value(value))
+    arena.alloc(crate::core::arena::Node::with_value(value))
 }
 
 /// Update delimiter text node by removing used delimiters

@@ -891,7 +891,7 @@ mod tests {
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
             list_type: ListType::Bullet,
-            delimiter: crate::nodes::ListDelimType::Period,
+            delimiter: crate::core::nodes::ListDelimType::Period,
             start: 1,
             tight: true,
             bullet_char: b'-',
@@ -1015,7 +1015,7 @@ mod tests {
     // Sourcepos tests
     #[test]
     fn test_sourcepos_heading() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
@@ -1039,7 +1039,7 @@ mod tests {
 
     #[test]
     fn test_sourcepos_paragraph() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
@@ -1058,7 +1058,7 @@ mod tests {
 
     #[test]
     fn test_sourcepos_blockquote() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
@@ -1079,14 +1079,14 @@ mod tests {
 
     #[test]
     fn test_sourcepos_list() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let mut list = Node::with_value(NodeValue::List(NodeList {
             list_type: ListType::Bullet,
-            delimiter: crate::nodes::ListDelimType::Period,
+            delimiter: crate::core::nodes::ListDelimType::Period,
             start: 1,
             tight: true,
             bullet_char: b'-',
@@ -1114,7 +1114,7 @@ mod tests {
 
     #[test]
     fn test_sourcepos_code_block() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
@@ -1141,7 +1141,7 @@ mod tests {
 
     #[test]
     fn test_sourcepos_thematic_break() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
@@ -1158,7 +1158,7 @@ mod tests {
 
     #[test]
     fn test_sourcepos_disabled() {
-        use crate::nodes::SourcePos;
+        use crate::core::nodes::SourcePos;
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();

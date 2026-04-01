@@ -507,7 +507,7 @@ mod tests {
         let ty = NodeValueType::from_node_value(&text);
         assert!(matches!(ty, NodeValueType::Text));
 
-        let heading = NodeValue::Heading(crate::nodes::NodeHeading {
+        let heading = NodeValue::Heading(crate::core::nodes::NodeHeading {
             level: 1,
             setext: false,
             closed: false,
@@ -519,12 +519,12 @@ mod tests {
         let ty = NodeValueType::from_node_value(&para);
         assert!(matches!(ty, NodeValueType::Paragraph));
 
-        let list = NodeValue::List(crate::nodes::NodeList {
-            list_type: crate::nodes::ListType::Bullet,
+        let list = NodeValue::List(crate::core::nodes::NodeList {
+            list_type: crate::core::nodes::ListType::Bullet,
             marker_offset: 0,
             padding: 0,
             start: 1,
-            delimiter: crate::nodes::ListDelimType::Period,
+            delimiter: crate::core::nodes::ListDelimType::Period,
             bullet_char: b'-',
             tight: true,
             is_task_list: false,
@@ -909,10 +909,10 @@ mod tests {
         fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
             unimplemented!()
         }
-        fn render(&mut self, _node_id: crate::arena::NodeId) {
+        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
             unimplemented!()
         }
-        fn render_children(&mut self, _node_id: crate::arena::NodeId) {
+        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
             unimplemented!()
         }
         fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
@@ -927,22 +927,22 @@ mod tests {
         fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
             crate::formatter::purpose::RenderPurpose::Format
         }
-        fn get_arena(&self) -> &crate::arena::NodeArena {
+        fn get_arena(&self) -> &crate::core::arena::NodeArena {
             unimplemented!()
         }
-        fn get_current_node(&self) -> Option<crate::arena::NodeId> {
+        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
             None
         }
         fn get_nodes_of_type(
             &self,
             _node_type: NodeValueType,
-        ) -> Vec<crate::arena::NodeId> {
+        ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }
         fn get_nodes_of_types(
             &self,
             _node_types: &[NodeValueType],
-        ) -> Vec<crate::arena::NodeId> {
+        ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }
         fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
@@ -980,14 +980,14 @@ mod tests {
         fn decrement_block_quote_nesting(&mut self) {}
         fn start_table_collection(
             &mut self,
-            _alignments: Vec<crate::nodes::TableAlignment>,
+            _alignments: Vec<crate::core::nodes::TableAlignment>,
         ) {
         }
         fn add_table_row(&mut self) {}
         fn add_table_cell(&mut self, _content: String) {}
         fn take_table_data(
             &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::nodes::TableAlignment>)> {
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
             None
         }
         fn is_collecting_table(&self) -> bool {
@@ -996,7 +996,7 @@ mod tests {
         fn set_skip_children(&mut self, _skip: bool) {}
         fn render_children_to_string(
             &mut self,
-            _node_id: crate::arena::NodeId,
+            _node_id: crate::core::arena::NodeId,
         ) -> String {
             String::new()
         }

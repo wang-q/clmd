@@ -261,7 +261,7 @@ fn test_with_plugins() {
 /// Test AST manipulation
 #[test]
 fn test_ast_manipulation() {
-    use clmd::nodes::NodeValue;
+    use clmd::core::nodes::NodeValue;
 
     let input = "# Title\n\nParagraph";
     let options = Options::default();

@@ -662,7 +662,7 @@ impl PhasedNodeFormatter for CommonMarkNodeFormatter {
 /// Determines the appropriate fence length to avoid conflicts with
 /// backticks in the code content.
 fn render_code_block(
-    code_block: &crate::nodes::NodeCodeBlock,
+    code_block: &crate::core::nodes::NodeCodeBlock,
     writer: &mut MarkdownWriter,
 ) {
     // Determine fence length
@@ -708,10 +708,10 @@ fn render_code_block(
 /// appropriate formatting for inline elements, but avoids escaping pipe
 /// characters which are used for table cell separation.
 fn collect_cell_text_content(
-    arena: &crate::arena::NodeArena,
-    node_id: crate::arena::NodeId,
+    arena: &crate::core::arena::NodeArena,
+    node_id: crate::core::arena::NodeId,
 ) -> String {
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     let mut result = String::new();
     let node = arena.get(node_id);
@@ -798,7 +798,7 @@ fn collect_cell_text_content(
 /// and uses table::format_table_lines for Unicode-aware formatting.
 fn render_formatted_table(
     rows: &[Vec<String>],
-    alignments: &[crate::nodes::TableAlignment],
+    alignments: &[crate::core::nodes::TableAlignment],
     writer: &mut MarkdownWriter,
 ) {
     use crate::formatter::table;
@@ -956,8 +956,8 @@ pub fn escape_link_url(url: &str) -> String {
 ///
 /// Returns the appropriate marker for a list item (e.g., "- ", "1. ", "2) ")
 #[allow(dead_code)]
-fn format_list_item_marker(list: &crate::nodes::NodeList) -> String {
-    use crate::nodes::{ListDelimType, ListType};
+fn format_list_item_marker(list: &crate::core::nodes::NodeList) -> String {
+    use crate::core::nodes::{ListDelimType, ListType};
 
     match list.list_type {
         ListType::Bullet => {
@@ -979,10 +979,10 @@ fn format_list_item_marker(list: &crate::nodes::NodeList) -> String {
 /// This is used for ordered lists where each item has its own number.
 /// The item_number is the 1-based index of the item in the list.
 fn format_list_item_marker_with_number(
-    list: &crate::nodes::NodeList,
+    list: &crate::core::nodes::NodeList,
     item_number: usize,
 ) -> String {
-    use crate::nodes::{ListDelimType, ListType};
+    use crate::core::nodes::{ListDelimType, ListType};
 
     match list.list_type {
         ListType::Bullet => {
@@ -1004,10 +1004,10 @@ fn format_list_item_marker_with_number(
 /// This is used to determine the nesting level of a list item.
 /// Returns 0 for top-level items, 1 for items in nested lists, etc.
 fn count_list_ancestors(
-    arena: &crate::arena::NodeArena,
-    list_node_id: crate::arena::NodeId,
+    arena: &crate::core::arena::NodeArena,
+    list_node_id: crate::core::arena::NodeId,
 ) -> usize {
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     let mut count: usize = 0;
     let mut current = list_node_id;
@@ -1029,10 +1029,10 @@ fn count_list_ancestors(
 /// This function examines the content of a task list item to determine
 /// if it starts with [x] or [X] (checked) or [ ] (unchecked).
 fn is_task_item_checked(
-    arena: &crate::arena::NodeArena,
-    item_node_id: Option<crate::arena::NodeId>,
+    arena: &crate::core::arena::NodeArena,
+    item_node_id: Option<crate::core::arena::NodeId>,
 ) -> bool {
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     let item_id = match item_node_id {
         Some(id) => id,
@@ -1071,7 +1071,7 @@ fn is_task_item_checked(
 ///
 /// This checks if the current node's parent is a list item that is part of a task list.
 fn is_in_task_list_item(ctx: &dyn NodeFormatterContext) -> bool {
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     if let Some(current_node) = ctx.get_current_node() {
         let arena = ctx.get_arena();
@@ -1120,11 +1120,11 @@ fn skip_task_marker(text: &str) -> String {
 ///
 /// This is used to determine the correct number for ordered list items.
 fn get_item_number_in_list(
-    arena: &crate::arena::NodeArena,
-    list_node_id: crate::arena::NodeId,
-    item_node_id: Option<crate::arena::NodeId>,
+    arena: &crate::core::arena::NodeArena,
+    list_node_id: crate::core::arena::NodeId,
+    item_node_id: Option<crate::core::arena::NodeId>,
 ) -> usize {
-    use crate::nodes::NodeValue;
+    use crate::core::nodes::NodeValue;
 
     let item_id = match item_node_id {
         Some(id) => id,
@@ -1257,7 +1257,7 @@ mod tests {
 
     #[test]
     fn test_format_list_item_marker_bullet() {
-        use crate::nodes::{ListDelimType, ListType, NodeList};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList};
 
         let list = NodeList {
             list_type: ListType::Bullet,
@@ -1280,7 +1280,7 @@ mod tests {
 
     #[test]
     fn test_format_list_item_marker_ordered() {
-        use crate::nodes::{ListDelimType, ListType, NodeList};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList};
 
         let list = NodeList {
             list_type: ListType::Ordered,
@@ -1310,8 +1310,8 @@ mod tests {
 
     #[test]
     fn test_count_list_ancestors() {
-        use crate::arena::{Node, NodeArena, TreeOps};
-        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
 
         let mut arena = NodeArena::new();
 
@@ -1395,9 +1395,9 @@ mod tests {
 
     #[test]
     fn test_render_document_with_nested_lists() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
 
         let mut arena = NodeArena::new();
 
@@ -1504,9 +1504,9 @@ mod tests {
 
     #[test]
     fn test_render_code_block_with_backticks() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::{NodeCodeBlock, NodeValue};
+        use crate::core::nodes::{NodeCodeBlock, NodeValue};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1550,9 +1550,9 @@ mod tests {
 
     #[test]
     fn test_render_heading_atx() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::{NodeHeading, NodeValue};
+        use crate::core::nodes::{NodeHeading, NodeValue};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1581,9 +1581,9 @@ mod tests {
 
     #[test]
     fn test_render_blockquote() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::NodeValue;
+        use crate::core::nodes::NodeValue;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1611,9 +1611,9 @@ mod tests {
 
     #[test]
     fn test_render_link_and_image() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::{NodeLink, NodeValue};
+        use crate::core::nodes::{NodeLink, NodeValue};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1660,9 +1660,9 @@ mod tests {
 
     #[test]
     fn test_render_emphasis_and_strong() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::NodeValue;
+        use crate::core::nodes::NodeValue;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1701,8 +1701,8 @@ mod tests {
 
     #[test]
     fn test_is_task_item_checked() {
-        use crate::arena::{Node, NodeArena, TreeOps};
-        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
 
         let mut arena = NodeArena::new();
 
@@ -1807,9 +1807,9 @@ mod tests {
 
     #[test]
     fn test_render_task_list() {
-        use crate::arena::{Node, NodeArena, TreeOps};
+        use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::formatter::{Formatter, FormatterOptions};
-        use crate::nodes::{ListDelimType, ListType, NodeList, NodeValue};
+        use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
 
         let mut arena = NodeArena::new();
 

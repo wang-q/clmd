@@ -189,53 +189,12 @@
 /// including AST representations, error handling, memory management, and shared utilities.
 pub mod core;
 
-/// Unified AST definition inspired by Pandoc.
-///
-/// This module is re-exported from [`core::ast`](crate::core::ast) for backward compatibility.
-/// New code should use `core::ast` directly.
-pub mod ast {
-    pub use crate::core::ast::*;
-}
-
-/// Adapter traits for plugins.
-///
-/// This module is re-exported from [`core::adapters`](crate::core::adapters) for backward compatibility.
-/// New code should use `core::adapters` directly.
-pub mod adapters {
-    pub use crate::core::adapters::*;
-}
-
-/// Arena-based memory management for AST nodes.
-///
-/// This module is re-exported from [`core::arena`](crate::core::arena) for backward compatibility.
-/// New code should use `core::arena` directly.
-pub mod arena {
-    pub use crate::core::arena::*;
-}
-
-/// Configuration file support.
-///
-/// This module is re-exported from [`context::config`](crate::context::config) for backward compatibility.
-/// New code should use `context::config` directly.
-pub mod config {
-    pub use crate::context::config::*;
-}
-
-/// Error types and parsing limits.
-///
-/// This module is re-exported from [`core::error`](crate::core::error) for backward compatibility.
-/// New code should use `core::error` directly.
-pub mod error {
-    pub use crate::core::error::*;
-}
+// Core types are exported directly through `core` module and type aliases below
 
 /// Block-level parsing for CommonMark documents.
 mod blocks;
 
 /// Format converters for importing content to Markdown.
-///
-/// This module is re-exported from [`formats::from`](crate::formats::from) for backward compatibility.
-/// New code should use `formats::from` directly.
 pub mod from {
     pub use crate::formats::from::*;
 }
@@ -247,9 +206,6 @@ pub mod ext;
 pub use render::html;
 
 /// HTML utilities (escaping, entity decoding).
-///
-/// This module is re-exported from [`text::html_utils`](crate::text::html_utils) for backward compatibility.
-/// New code should use `text::html_utils` directly.
 pub mod html_utils {
     pub use crate::text::html_utils::*;
 }
@@ -257,24 +213,7 @@ pub mod html_utils {
 /// Inline parsing for CommonMark documents.
 pub(crate) mod inlines;
 
-/// AST iteration and traversal
-///
-/// This module is re-exported from [`core::iterator`](crate::core::iterator) for backward compatibility.
-/// New code should use `core::iterator` directly.
-pub mod iterator {
-    pub use crate::core::iterator::*;
-}
-
-/// AST node definitions (unified API, inspired by comrak)
-///
-/// This module provides a unified `NodeValue` enum that combines node type and data,
-/// offering better type safety and ergonomics compared to the separate `NodeType` and `NodeData` approach.
-///
-/// This module is re-exported from [`core::nodes`](crate::core::nodes) for backward compatibility.
-/// New code should use `core::nodes` directly.
-pub mod nodes {
-    pub use crate::core::nodes::*;
-}
+// AST iteration and node types are exported through `core` module
 
 /// Options for the Markdown parser and renderer.
 ///
@@ -314,32 +253,10 @@ pub mod render;
 /// Markdown formatter for CommonMark output.
 pub mod formatter;
 
-/// Text sequence utilities.
-///
-/// This module is re-exported from [`text::sequence`](crate::text::sequence) for backward compatibility.
-/// New code should use `text::sequence` directly.
-pub mod sequence {
-    pub use crate::text::sequence::*;
-}
-
 /// Test utilities.
 pub mod test_utils;
 
-/// String processing utilities.
-///
-/// This is a re-export of [`text::strings`](crate::text::strings) for backward compatibility.
-/// New code should use `text::strings` directly.
-pub mod strings {
-    pub use crate::text::strings::*;
-}
-
-/// Scanner utilities for CommonMark syntax.
-///
-/// This is a re-export of [`parsing::scanners`](crate::parsing::scanners) for backward compatibility.
-/// New code should use `parsing::scanners` directly.
-pub mod scanners {
-    pub use crate::parsing::scanners::*;
-}
+// Text and parsing utilities are accessed through their respective modules
 
 /// Text processing utilities.
 ///
@@ -372,12 +289,6 @@ pub mod readers;
 pub mod writers;
 
 /// Markdown extensions management using bitflags.
-///
-/// This module provides a unified way to manage Markdown extensions,
-/// inspired by Pandoc's extension system.
-///
-/// This is a re-export of [`ext`](crate::ext) for backward compatibility.
-/// New code should use `ext` directly.
 pub mod extensions {
     pub use crate::ext::flags::*;
 }
@@ -386,191 +297,42 @@ pub mod extensions {
 pub use crate::ext::flags::{ExtensionFlags, ExtensionKind};
 
 /// Document conversion pipeline.
-///
-/// This module provides a flexible pipeline system for document conversion,
-/// inspired by Pandoc's conversion architecture.
 pub mod pipeline;
 
-/// Resource management system.
-///
-/// This module is re-exported from [`context::mediabag`](crate::context::mediabag) for backward compatibility.
-/// New code should use `context::mediabag` directly.
-pub mod mediabag {
-    pub use crate::context::mediabag::*;
-}
-
 /// Context system for IO operations and resource management.
-///
-/// This module provides a unified abstraction for IO operations, logging,
-/// and resource management, inspired by Pandoc's PandocMonad.
-/// It allows for both real IO operations and pure/mock implementations for testing.
 pub mod context;
 
-/// URI handling utilities.
-///
-/// This module is re-exported from [`text::uri`](crate::text::uri) for backward compatibility.
-/// New code should use `text::uri` directly.
-pub mod uri {
-    pub use crate::text::uri::*;
-}
-
-/// Filter system for document transformation.
-///
-/// This module provides a flexible filter system for transforming documents,
-/// inspired by Pandoc's filter architecture. Filters can be used to modify
-/// the AST between parsing and rendering.
-///
-/// This is now a private module. Use [`transforms`](crate::transforms) instead.
+/// Filter system for document transformation (internal).
 pub(crate) mod filter;
 
 /// Document transformation system.
-///
-/// This module provides a set of document transformations inspired by
-/// Pandoc's transform system. Transforms can modify the AST between
-/// parsing and rendering.
-///
-/// This module also re-exports types from the filter system for a unified API.
 pub mod transforms;
 
-/// Slide show processing utilities.
-///
-/// This module is re-exported from [`formats::slides`](crate::formats::slides) for backward compatibility.
-/// New code should use `formats::slides` directly.
-pub mod slides {
-    pub use crate::formats::slides::*;
-}
-
-/// Document chunking utilities.
-///
-/// This module is re-exported from [`parsing::chunks`](crate::parsing::chunks) for backward compatibility.
-/// New code should use `parsing::chunks` directly.
-pub mod chunks {
-    pub use crate::parsing::chunks::*;
-}
-
-/// Source file management utilities.
-///
-/// This module is re-exported from [`parsing::sources`](crate::parsing::sources) for backward compatibility.
-/// New code should use `parsing::sources` directly.
-pub mod sources {
-    pub use crate::parsing::sources::*;
-}
-
 /// Template system for document rendering.
-///
-/// This module provides a flexible template system for document rendering,
-/// inspired by Pandoc's template architecture. Templates use a simple
-/// variable substitution syntax similar to Pandoc's templates.
 pub mod template;
 
-/// Logging system for clmd.
-///
-/// This module is re-exported from [`context::logging`](crate::context::logging) for backward compatibility.
-/// New code should use `context::logging` directly.
-pub mod logging {
-    pub use crate::context::logging::*;
-}
-
-/// Shared utility functions for document processing.
-///
-/// This module is re-exported from [`core::shared`](crate::core::shared) for backward compatibility.
-/// New code should use `core::shared` directly.
-pub mod shared {
-    pub use crate::core::shared::*;
-}
-
-/// Version information for clmd.
-///
-/// This module is re-exported from [`context::version`](crate::context::version) for backward compatibility.
-/// New code should use `context::version` directly.
-pub mod version {
-    pub use crate::context::version::*;
-}
-
-/// UUID generation utilities.
-///
-/// This module is re-exported from [`context::uuid`](crate::context::uuid) for backward compatibility.
-/// New code should use `context::uuid` directly.
-pub mod uuid {
-    pub use crate::context::uuid::*;
-}
-
-/// Process management utilities.
-///
-/// This module is re-exported from [`context::process`](crate::context::process) for backward compatibility.
-/// New code should use `context::process` directly.
-pub mod process {
-    pub use crate::context::process::*;
-}
-
-/// Data file access utilities.
-///
-/// This module is re-exported from [`context::data`](crate::context::data) for backward compatibility.
-/// New code should use `context::data` directly.
-pub mod data {
-    pub use crate::context::data::*;
-}
-
 /// General parsing utilities and combinators.
-///
-/// This module provides general-purpose parsing utilities inspired by Pandoc's
-/// parsing infrastructure. It includes parser combinators, character utilities,
-/// and common parsing patterns.
 pub mod parsing;
 
-/// Pandoc-style options system with separate ReaderOptions and WriterOptions.
-///
-/// This module provides a more structured approach to configuration,
-/// separating parsing options from rendering options.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::options::{Options, ReaderOptions, WriterOptions, InputFormat, OutputFormat};
-///
-/// let options = Options::new(
-///     ReaderOptions::gfm(),
-///     WriterOptions::default().with_output_format(OutputFormat::Html)
-/// );
-/// ```ignore
-///
-/// Document reader trait and implementations.
-///
-/// This module provides a unified interface for reading documents from different
-/// formats, inspired by Pandoc's Reader system.
-///
-/// This is a re-export of [`readers`](crate::readers) for backward compatibility.
-/// New code should use `readers` directly.
-pub mod reader {
-    pub use crate::readers::*;
-}
-
-/// Document writer trait and implementations.
-///
-/// This module provides a unified interface for writing documents to different
-/// formats, inspired by Pandoc's Writer system.
-///
-/// This is a re-export of [`writers`](crate::writers) for backward compatibility.
-/// New code should use `writers` directly.
-pub mod writer {
-    pub use crate::writers::*;
-}
+// Re-export reader/writer modules for convenience
+pub use crate::readers as reader;
+pub use crate::writers as writer;
 
 // =============================================================================
 // Core Type Exports
 // =============================================================================
 
 /// Arena for allocating and managing AST nodes (NodeArena version).
-pub type Arena = arena::NodeArena;
+pub type Arena = core::arena::NodeArena;
 
 /// Node ID type - index into the arena.
-pub type NodeId = arena::NodeId;
+pub type NodeId = core::arena::NodeId;
 
 /// Invalid node ID constant.
-pub use arena::INVALID_NODE_ID;
+pub use core::arena::INVALID_NODE_ID;
 
 /// Re-export iterator types for tree traversal.
-pub use arena::{
+pub use core::arena::{
     AncestorIterator, ChildrenIterator, DescendantIterator, FollowingSiblingsIterator,
     PrecedingSiblingsIterator, SiblingsIterator,
 };
@@ -643,7 +405,7 @@ pub use core::error::{
 // Node Value Exports
 // =============================================================================
 
-pub use nodes::NodeValue;
+pub use core::nodes::NodeValue;
 
 // =============================================================================
 // String Utilities Exports

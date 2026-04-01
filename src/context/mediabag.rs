@@ -461,7 +461,7 @@ impl MediaBag {
         path: P,
         data_uri: &str,
     ) -> Result<bool, base64::DecodeError> {
-        use crate::uri::parse_data_uri;
+        use crate::text::uri::parse_data_uri;
 
         if let Some((mime_type, data)) = parse_data_uri(data_uri) {
             let contents = if data_uri.contains(";base64,") {
@@ -474,7 +474,7 @@ impl MediaBag {
                     .into_bytes()
             };
 
-            let final_mime = if mime_type.is_empty() {
+            let final_mime: &str = if mime_type.is_empty() {
                 "application/octet-stream"
             } else {
                 mime_type
