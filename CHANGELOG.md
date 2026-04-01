@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.0 - 2026-04-01
+
 ### 🎉 Major Architecture Overhaul
 
 Complete restructure of the project with a new pandoc-inspired architecture.

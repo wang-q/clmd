@@ -29,7 +29,7 @@ A high-performance CommonMark and GFM compatible Markdown parser written in Rust
 
 ## Installation
 
-Current release: 0.1.0
+Current release: 0.2.0
 
 ```bash
 cargo build --release
