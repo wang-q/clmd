@@ -91,7 +91,7 @@ impl Default for CommonState {
         Self {
             user_data_dir: None,
             media_bag: Arc::new(Mutex::new(MediaBag::new())),
-            verbosity: Verbosity::Info,
+            verbosity: Verbosity::Normal,
             logs: Arc::new(Mutex::new(Vec::new())),
             search_path: Vec::new(),
             env_vars: std::env::vars().collect(),
@@ -129,12 +129,14 @@ impl CommonState {
 
     /// Log a message.
     pub fn log(&self, level: LogLevel, message: String) {
-        let mut logs = self.logs.lock().unwrap();
-        logs.push(LogMessage {
-            level,
-            message,
-            timestamp: SystemTime::now(),
-        });
+        if level.should_log(self.verbosity.as_u8()) {
+            let mut logs = self.logs.lock().unwrap();
+            logs.push(LogMessage {
+                level,
+                message,
+                timestamp: SystemTime::now(),
+            });
+        }
     }
 
     /// Get all logs.

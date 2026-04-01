@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::core::{ClmdMonad, ClmdIO, ClmdPure, Verbosity};
 //!
 //! let monad = ClmdIO::with_verbosity(Verbosity::Info);

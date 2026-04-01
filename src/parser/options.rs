@@ -126,7 +126,7 @@ impl std::str::FromStr for OutputFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "markdown" | "md" => Ok(OutputFormat::Markdown),
+            "markdown" | "md" | "commonmark" => Ok(OutputFormat::Markdown),
             "gfm" => Ok(OutputFormat::Gfm),
             "html" => Ok(OutputFormat::Html),
             "xhtml" => Ok(OutputFormat::Xhtml),

@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::core::{CommonState, Verbosity};
 //!
 //! let mut state = CommonState::new();

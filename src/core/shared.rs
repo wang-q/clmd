@@ -134,29 +134,67 @@ pub fn normalize_whitespace(input: &str) -> String {
 ///
 /// The trimmed string
 pub fn trim_blank_lines(input: &str) -> &str {
-    let lines: Vec<&str> = input.lines().collect();
-    let mut start = 0;
-    let mut end = lines.len();
+    let mut result = input;
 
-    // Find first non-blank line
-    while start < end && lines[start].trim().is_empty() {
-        start += 1;
+    // Trim leading blank lines
+    loop {
+        if result.is_empty() {
+            return "";
+        }
+        if result.starts_with('\n') {
+            result = &result[1..];
+        } else if result.starts_with("\r\n") {
+            result = &result[2..];
+        } else if result.trim().is_empty() {
+            // Only whitespace remains
+            return "";
+        } else {
+            break;
+        }
     }
 
-    // Find last non-blank line
-    while end > start && lines[end - 1].trim().is_empty() {
-        end -= 1;
+    // Trim trailing blank lines
+    loop {
+        if result.is_empty() {
+            return "";
+        }
+        if result.ends_with('\n') {
+            // Check if the line before the newline is blank
+            if let Some(pos) = result[..result.len() - 1].rfind('\n') {
+                if result[pos + 1..result.len() - 1].trim().is_empty() {
+                    result = &result[..pos + 1];
+                    continue;
+                }
+            } else if result[..result.len() - 1].trim().is_empty() {
+                // The only line is blank
+                return "";
+            }
+            break;
+        } else if result.ends_with("\r\n") {
+            // Check if the line before the newline is blank
+            if let Some(pos) = result[..result.len() - 2].rfind('\n') {
+                if result[pos + 1..result.len() - 2].trim().is_empty() {
+                    result = &result[..pos + 1];
+                    continue;
+                }
+            } else if result[..result.len() - 2].trim().is_empty() {
+                // The only line is blank
+                return "";
+            }
+            break;
+        } else {
+            break;
+        }
     }
 
-    if start >= end {
-        return "";
+    // Remove trailing newline from the result
+    if result.ends_with('\n') {
+        result = &result[..result.len() - 1];
+    } else if result.ends_with("\r\n") {
+        result = &result[..result.len() - 2];
     }
 
-    // Calculate byte positions
-    let start_pos = lines[..start].iter().map(|l| l.len() + 1).sum::<usize>();
-    let end_pos = input.len() - lines[end..].iter().map(|l| l.len() + 1).sum::<usize>();
-
-    &input[start_pos..end_pos]
+    result
 }
 
 /// Split a string into lines and preserve line endings.
@@ -304,21 +342,39 @@ pub fn get_extension(path: &str) -> Option<&str> {
 /// ```ignore
 pub fn to_kebab_case(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
-    let mut prev_was_upper = false;
+    let mut prev_was_separator = false;
+    let mut prev_was_lower = false;
 
     for (i, c) in input.chars().enumerate() {
         if c.is_uppercase() {
-            if i > 0 && !prev_was_upper {
-                result.push('-');
+            // Add separator if:
+            // 1. Not the first character
+            // 2. Previous was not a separator
+            // 3. Previous was lowercase (e.g., "fooBar") OR
+            //    Next is lowercase (e.g., "HTTPResponse" -> "http-response")
+            if i > 0 && !prev_was_separator {
+                let next_is_lower = input
+                    .chars()
+                    .nth(i + 1)
+                    .map(|n| n.is_lowercase())
+                    .unwrap_or(false);
+                if prev_was_lower || next_is_lower {
+                    result.push('-');
+                }
             }
             result.push(c.to_ascii_lowercase());
-            prev_was_upper = true;
+            prev_was_separator = false;
+            prev_was_lower = false;
         } else if c.is_whitespace() || c == '_' {
-            result.push('-');
-            prev_was_upper = false;
+            if !prev_was_separator {
+                result.push('-');
+            }
+            prev_was_separator = true;
+            prev_was_lower = false;
         } else {
             result.push(c);
-            prev_was_upper = false;
+            prev_was_separator = false;
+            prev_was_lower = true;
         }
     }
 
@@ -345,21 +401,39 @@ pub fn to_kebab_case(input: &str) -> String {
 /// ```ignore
 pub fn to_snake_case(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
-    let mut prev_was_upper = false;
+    let mut prev_was_separator = false;
+    let mut prev_was_lower = false;
 
     for (i, c) in input.chars().enumerate() {
         if c.is_uppercase() {
-            if i > 0 && !prev_was_upper {
-                result.push('_');
+            // Add separator if:
+            // 1. Not the first character
+            // 2. Previous was not a separator
+            // 3. Previous was lowercase (e.g., "fooBar") OR
+            //    Next is lowercase (e.g., "HTTPResponse" -> "http_response")
+            if i > 0 && !prev_was_separator {
+                let next_is_lower = input
+                    .chars()
+                    .nth(i + 1)
+                    .map(|n| n.is_lowercase())
+                    .unwrap_or(false);
+                if prev_was_lower || next_is_lower {
+                    result.push('_');
+                }
             }
             result.push(c.to_ascii_lowercase());
-            prev_was_upper = true;
+            prev_was_separator = false;
+            prev_was_lower = false;
         } else if c.is_whitespace() || c == '-' {
-            result.push('_');
-            prev_was_upper = false;
+            if !prev_was_separator {
+                result.push('_');
+            }
+            prev_was_separator = true;
+            prev_was_lower = false;
         } else {
             result.push(c);
-            prev_was_upper = false;
+            prev_was_separator = false;
+            prev_was_lower = true;
         }
     }
 
