@@ -1,6 +1,9 @@
 use clmd::markdown_to_html;
 use clmd::parse::options::Options;
-use clmd::util::test::spec_parser::parse_spec_file;
+
+mod test_utils;
+use test_utils::spec_parser::parse_spec_file;
+
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
