@@ -2,6 +2,83 @@
 
 ## Unreleased - ReleaseDate
 
+### 🎉 Major Architecture Overhaul
+
+Complete restructure of the project with a new pandoc-inspired architecture.
+
+### ✨ New Features
+
+#### Multiple Format Support
+- **New Output Formats**: DOCX, EPUB, RTF, PDF, Beamer, Reveal.js, Plain text
+- **New Input Formats**: BibTeX, LaTeX
+- **Format Registry**: Reader and writer registry system for easy format discovery
+
+#### CLI Enhancements
+- **New Subcommands**:
+  - `convert`: Convert between formats with `from` and `to` subcommands
+  - `extract`: Extract links, headings, tables from documents
+  - `stats`: Document statistics and readability analysis
+  - `toc`: Generate table of contents
+  - `fmt`: Markdown formatting tool
+  - `validate`: Validate Markdown documents
+  - `transform`: Transform document structure
+  - `complete`: Shell completion script generation
+- **Configuration**: TOML configuration file support
+- **Extensions**: Rich extension flag system
+
+#### Core Functionality
+- **HTML to Markdown**: Convert HTML back to Markdown
+- **Document Chunking**: Split documents for multi-page outputs
+- **Source Management**: Multi-file input support
+- **Sandboxing**: Security sandbox capabilities
+- **CJK Typography**: East Asian line break support
+- **Unicode Width**: Unicode display width calculation
+- **Math Support**: Math dollar syntax
+- **Emoji Shortcodes**: Emoji shortcode support
+
+#### Plugin System
+- **Syntect Integration**: Syntax highlighting with syntect
+- **Owned Plugins**: Owned plugin support
+- **Rendering Hooks**: Extensible rendering pipeline
+
+#### Extensions
+- **GFM Extensions**: Autolinks, tag filtering
+- **Syntax Extensions**: Abbreviations, attributes, definition lists
+- **Metadata**: YAML front matter, table of contents generation
+- **Shortcodes**: Emoji shortcode support
+
+### 🏗️ Architecture Changes
+
+#### Module Restructuring
+- **Core Module**: `core/` contains all core types (arena, ast, nodes, iterator, etc.)
+- **Parse Module**: `parse/` contains block and inline parsers
+- **Render Module**: `render/` contains format renderers and CommonMark formatter
+- **IO Module**: `io/` contains readers, writers, format handling, and conversion
+- **Context Module**: `context/` for context management and configuration
+- **Text Module**: `text/` for text processing utilities
+- **Util Module**: `util/` for filters and transforms
+
+#### API Improvements
+- **Structured Options**: Replaced flag-based options with structured `Options` type
+- **Prelude**: Convenient prelude module for common imports
+- **Unified AST**: Format-agnostic document representation
+- **Pipeline System**: Document conversion pipeline
+
+### 🧪 Testing
+
+- Comprehensive test coverage for inline parsing
+- Command tests for CLI functionality
+- Test utilities moved to dedicated tests directory
+- Formatter benchmark tests
+
+### 🛠️ Technical Improvements
+
+- **String Handling**: Improved string handling and case conversion
+- **Module Imports**: Reorganized imports for better maintainability
+- **Error Handling**: Improved error handling throughout
+- **Performance**: Various performance optimizations
+- **Code Quality**: Formatted code and improved readability
+
 ## 0.1.0 - 2026-03-29
 
 ### 🎉 Initial Release
