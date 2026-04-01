@@ -390,4 +390,201 @@ mod tests {
         assert!(formatter.has_collection_phase());
         assert!(!formatter.participates_in_phase(FormattingPhase::Document));
     }
+
+    #[test]
+    fn test_simple_phased_formatter_document_top() {
+        let formatter = SimplePhasedFormatter::for_document_top(|_, _, _| {});
+
+        assert!(formatter.participates_in_phase(FormattingPhase::DocumentTop));
+        assert!(!formatter.participates_in_phase(FormattingPhase::Collect));
+        assert!(!formatter.participates_in_phase(FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_simple_phased_formatter_document_bottom() {
+        let formatter = SimplePhasedFormatter::for_document_bottom(|_, _, _| {});
+
+        assert!(formatter.participates_in_phase(FormattingPhase::DocumentBottom));
+        assert!(!formatter.participates_in_phase(FormattingPhase::Collect));
+        assert!(!formatter.participates_in_phase(FormattingPhase::DocumentTop));
+    }
+
+    #[test]
+    fn test_composed_formatter_default() {
+        let composed: ComposedPhasedFormatter = Default::default();
+        let phases = composed.get_all_phases();
+        assert!(phases.is_empty());
+    }
+
+    #[test]
+    fn test_composed_formatter_get_formatters_for_phase() {
+        let mut composed = ComposedPhasedFormatter::new();
+
+        let formatter1 = SimplePhasedFormatter::for_collection(|_, _, _| {});
+        let formatter2 = SimplePhasedFormatter::for_collection(|_, _, _| {});
+        let formatter3 = SimplePhasedFormatter::for_document_top(|_, _, _| {});
+
+        composed.add_formatter(Box::new(formatter1));
+        composed.add_formatter(Box::new(formatter2));
+        composed.add_formatter(Box::new(formatter3));
+
+        let collection_formatters =
+            composed.get_formatters_for_phase(FormattingPhase::Collect);
+        assert_eq!(collection_formatters.len(), 2);
+
+        let top_formatters =
+            composed.get_formatters_for_phase(FormattingPhase::DocumentTop);
+        assert_eq!(top_formatters.len(), 1);
+
+        let bottom_formatters =
+            composed.get_formatters_for_phase(FormattingPhase::DocumentBottom);
+        assert!(bottom_formatters.is_empty());
+    }
+
+    #[test]
+    fn test_phased_formatter_with_multiple_phases() {
+        use crate::formatter::node::NodeFormattingHandler;
+        use crate::formatter::node::NodeValueType;
+
+        struct MultiPhaseFormatter;
+
+        impl NodeFormatter for MultiPhaseFormatter {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                Vec::new()
+            }
+
+            fn get_node_classes(&self) -> Vec<NodeValueType> {
+                Vec::new()
+            }
+        }
+
+        impl PhasedNodeFormatter for MultiPhaseFormatter {
+            fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
+                vec![
+                    FormattingPhase::Collect,
+                    FormattingPhase::DocumentFirst,
+                    FormattingPhase::Document,
+                ]
+            }
+
+            fn render_document(
+                &self,
+                _context: &mut dyn NodeFormatterContext,
+                _writer: &mut MarkdownWriter,
+                _root: NodeId,
+                _phase: FormattingPhase,
+            ) {
+            }
+        }
+
+        let formatter = MultiPhaseFormatter;
+        assert!(formatter.has_pre_document_phases());
+        assert!(!formatter.has_post_document_phases());
+        assert!(formatter.participates_in_phase(FormattingPhase::Collect));
+        assert!(formatter.participates_in_phase(FormattingPhase::DocumentFirst));
+        assert!(formatter.participates_in_phase(FormattingPhase::Document));
+        assert!(!formatter.participates_in_phase(FormattingPhase::DocumentTop));
+        assert!(!formatter.participates_in_phase(FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_simple_phased_formatter_render() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_clone = Arc::clone(&counter);
+        let formatter = SimplePhasedFormatter::for_collection(move |_, _, _| {
+            counter_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // Verify the formatter has the correct phases
+        let phases = formatter.get_formatting_phases();
+        assert_eq!(phases.len(), 1);
+        assert_eq!(phases[0], FormattingPhase::Collect);
+    }
+
+    #[test]
+    fn test_composed_formatter_node_formatter_impl() {
+        let mut composed = ComposedPhasedFormatter::new();
+
+        // Add formatters with different handlers
+        let formatter1 = SimplePhasedFormatter::for_collection(|_, _, _| {});
+        let formatter2 = SimplePhasedFormatter::for_document_top(|_, _, _| {});
+
+        composed.add_formatter(Box::new(formatter1));
+        composed.add_formatter(Box::new(formatter2));
+
+        // Test NodeFormatter implementation
+        let handlers = composed.get_node_formatting_handlers();
+        assert!(handlers.is_empty()); // SimplePhasedFormatter returns empty handlers
+
+        let classes = composed.get_node_classes();
+        assert!(classes.is_empty()); // SimplePhasedFormatter returns empty classes
+
+        let prefix = composed.get_block_quote_like_prefix_char();
+        assert_eq!(prefix, None); // SimplePhasedFormatter returns None
+    }
+
+    #[test]
+    fn test_composed_formatter_phased_impl() {
+        let mut composed = ComposedPhasedFormatter::new();
+
+        let formatter1 = SimplePhasedFormatter::for_collection(|_, _, _| {});
+        let formatter2 = SimplePhasedFormatter::for_document_top(|_, _, _| {});
+        let formatter3 = SimplePhasedFormatter::for_document_bottom(|_, _, _| {});
+
+        composed.add_formatter(Box::new(formatter1));
+        composed.add_formatter(Box::new(formatter2));
+        composed.add_formatter(Box::new(formatter3));
+
+        // Test PhasedNodeFormatter implementation
+        let phases = composed.get_formatting_phases();
+        assert_eq!(phases.len(), 3);
+        assert!(phases.contains(&FormattingPhase::Collect));
+        assert!(phases.contains(&FormattingPhase::DocumentTop));
+        assert!(phases.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_formatting_phase_ordering() {
+        // Test that phases are sorted correctly
+        let mut phases = vec![
+            FormattingPhase::Document,
+            FormattingPhase::Collect,
+            FormattingPhase::DocumentTop,
+            FormattingPhase::DocumentBottom,
+            FormattingPhase::DocumentFirst,
+        ];
+
+        phases.sort_by_key(|p| match p {
+            FormattingPhase::Collect => 0,
+            FormattingPhase::DocumentFirst => 1,
+            FormattingPhase::DocumentTop => 2,
+            FormattingPhase::Document => 3,
+            FormattingPhase::DocumentBottom => 4,
+        });
+
+        assert_eq!(phases[0], FormattingPhase::Collect);
+        assert_eq!(phases[1], FormattingPhase::DocumentFirst);
+        assert_eq!(phases[2], FormattingPhase::DocumentTop);
+        assert_eq!(phases[3], FormattingPhase::Document);
+        assert_eq!(phases[4], FormattingPhase::DocumentBottom);
+    }
+
+    #[test]
+    fn test_standard_formatting_phases() {
+        assert_eq!(STANDARD_FORMATTING_PHASES.len(), 3);
+        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::Collect));
+        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::DocumentTop));
+        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_reference_formatting_phases() {
+        assert_eq!(REFERENCE_FORMATTING_PHASES.len(), 3);
+        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::Collect));
+        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::DocumentTop));
+        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::DocumentBottom));
+    }
 }

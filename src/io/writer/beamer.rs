@@ -417,7 +417,9 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeHeading, NodeValue};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
+    };
     use crate::options::WriterOptions;
 
     fn create_test_presentation() -> (NodeArena, NodeId) {
@@ -430,9 +432,8 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text(
-            "My Presentation".to_string().into_boxed_str(),
-        )));
+        let text =
+            arena.alloc(Node::with_value(NodeValue::Text("My Presentation".into())));
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, root, heading);
 
@@ -442,17 +443,15 @@ mod tests {
             setext: false,
             closed: false,
         })));
-        let slide_text = arena.alloc(Node::with_value(NodeValue::Text(
-            "First Slide".to_string().into_boxed_str(),
-        )));
+        let slide_text =
+            arena.alloc(Node::with_value(NodeValue::Text("First Slide".into())));
         TreeOps::append_child(&mut arena, slide, slide_text);
         TreeOps::append_child(&mut arena, root, slide);
 
         // Add a paragraph
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text(
-            "Hello World".to_string().into_boxed_str(),
-        )));
+        let para_text =
+            arena.alloc(Node::with_value(NodeValue::Text("Hello World".into())));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, root, para);
 
@@ -481,6 +480,8 @@ mod tests {
         let writer = BeamerWriter;
         assert_eq!(writer.format(), OutputFormat::Beamer);
         assert!(writer.extensions().contains(&"tex"));
+        assert!(writer.extensions().contains(&"beamer"));
+        assert_eq!(writer.mime_type(), "text/x-tex");
     }
 
     #[test]
@@ -491,10 +492,402 @@ mod tests {
     }
 
     #[test]
+    fn test_beamer_empty_document() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\documentclass"));
+        assert!(output.contains("\\begin{document}"));
+        assert!(output.contains("\\end{document}"));
+    }
+
+    #[test]
+    fn test_beamer_title_slide() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Title Slide".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\title{Title Slide}"));
+        assert!(output.contains("\\maketitle"));
+    }
+
+    #[test]
+    fn test_beamer_section() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Section Name".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\section{Section Name}"));
+    }
+
+    #[test]
+    fn test_beamer_frame_with_frametitle() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 2,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Frame Title".into())));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\begin{frame}"));
+        assert!(output.contains("\\frametitle{Frame Title}"));
+        assert!(output.contains("\\end{frame}"));
+    }
+
+    #[test]
+    fn test_beamer_paragraph_frame() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text(
+            "Paragraph content".into(),
+        )));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\begin{frame}"));
+        assert!(output.contains("Paragraph content"));
+        assert!(output.contains("\\end{frame}"));
+    }
+
+    #[test]
+    fn test_beamer_code_block_frame() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let code_block = NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+            literal: "fn main() {}".into(),
+            info: "rust".into(),
+            fenced: true,
+            fence_char: b'`',
+            fence_length: 3,
+            fence_offset: 0,
+            closed: true,
+        }));
+        let code_node = arena.alloc(Node::with_value(code_block));
+        TreeOps::append_child(&mut arena, root, code_node);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\begin{frame}[fragile]"));
+        assert!(output.contains("\\begin{verbatim}"));
+        assert!(output.contains("fn main() {}"));
+        assert!(output.contains("\\end{verbatim}"));
+        assert!(output.contains("\\end{frame}"));
+    }
+
+    #[test]
+    fn test_beamer_emphasis() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("italic".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, para, emph);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\emph{italic}"));
+    }
+
+    #[test]
+    fn test_beamer_strong() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold".into())));
+        TreeOps::append_child(&mut arena, strong, text);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\textbf{bold}"));
+    }
+
+    #[test]
+    fn test_beamer_code_inline() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let code = NodeValue::Code(Box::new(NodeCode {
+            literal: "code".into(),
+            num_backticks: 1,
+        }));
+        let code_node = arena.alloc(Node::with_value(code));
+        TreeOps::append_child(&mut arena, para, code_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\texttt{code}"));
+    }
+
+    #[test]
+    fn test_beamer_link() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".into(),
+            title: "Example".into(),
+        }));
+        let link_node = arena.alloc(Node::with_value(link));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("click".into())));
+        TreeOps::append_child(&mut arena, link_node, text);
+        TreeOps::append_child(&mut arena, para, link_node);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\href{https://example.com}{click}"));
+    }
+
+    #[test]
+    fn test_beamer_strikethrough() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strike = arena.alloc(Node::with_value(NodeValue::Strikethrough));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("deleted".into())));
+        TreeOps::append_child(&mut arena, strike, text);
+        TreeOps::append_child(&mut arena, para, strike);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\sout{deleted}"));
+    }
+
+    #[test]
+    fn test_beamer_underline() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let underline = arena.alloc(Node::with_value(NodeValue::Underline));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("underlined".into())));
+        TreeOps::append_child(&mut arena, underline, text);
+        TreeOps::append_child(&mut arena, para, underline);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\underline{underlined}"));
+    }
+
+    #[test]
+    fn test_beamer_blockquote() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let quote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Quoted text".into())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, quote, para);
+        TreeOps::append_child(&mut arena, root, quote);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\begin{frame}"));
+        assert!(output.contains("\\begin{quote}"));
+        assert!(output.contains("Quoted text"));
+        assert!(output.contains("\\end{quote}"));
+        assert!(output.contains("\\end{frame}"));
+    }
+
+    #[test]
+    fn test_beamer_list() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let list = NodeValue::List(crate::core::nodes::NodeList {
+            list_type: crate::core::nodes::ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let list_node = arena.alloc(Node::with_value(list));
+
+        let item = NodeValue::Item(crate::core::nodes::NodeList {
+            list_type: crate::core::nodes::ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 1,
+            delimiter: crate::core::nodes::ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        });
+        let item_node = arena.alloc(Node::with_value(item));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("Item 1".into())));
+        TreeOps::append_child(&mut arena, item_node, text);
+        TreeOps::append_child(&mut arena, list_node, item_node);
+        TreeOps::append_child(&mut arena, root, list_node);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\begin{frame}"));
+        assert!(output.contains("\\begin{itemize}"));
+        assert!(output.contains("\\item Item 1"));
+        assert!(output.contains("\\end{itemize}"));
+        assert!(output.contains("\\end{frame}"));
+    }
+
+    #[test]
+    fn test_beamer_soft_break() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line1".into())));
+        let soft_break = arena.alloc(Node::with_value(NodeValue::SoftBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, soft_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("Line1 Line2"));
+    }
+
+    #[test]
+    fn test_beamer_hard_break() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text1 = arena.alloc(Node::with_value(NodeValue::Text("Line1".into())));
+        let hard_break = arena.alloc(Node::with_value(NodeValue::HardBreak));
+        let text2 = arena.alloc(Node::with_value(NodeValue::Text("Line2".into())));
+        TreeOps::append_child(&mut arena, para, text1);
+        TreeOps::append_child(&mut arena, para, hard_break);
+        TreeOps::append_child(&mut arena, para, text2);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("Line1 Line2"));
+    }
+
+    #[test]
+    fn test_beamer_nested_inline() {
+        let writer = BeamerWriter;
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let strong = arena.alloc(Node::with_value(NodeValue::Strong));
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let text = arena.alloc(Node::with_value(NodeValue::Text("bold italic".into())));
+        TreeOps::append_child(&mut arena, emph, text);
+        TreeOps::append_child(&mut arena, strong, emph);
+        TreeOps::append_child(&mut arena, para, strong);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("\\textbf{\\emph{bold italic}}"));
+    }
+
+    #[test]
     fn test_latex_escape() {
         assert_eq!(escape_latex("hello"), "hello");
         assert_eq!(escape_latex("$100"), "\\$100");
         assert_eq!(escape_latex("10%"), "10\\%");
         assert_eq!(escape_latex("a_b"), "a\\_b");
+        assert_eq!(escape_latex("\\"), "\\textbackslash{}");
+        assert_eq!(escape_latex("{"), "\\{");
+        assert_eq!(escape_latex("}"), "\\}");
+        assert_eq!(escape_latex("&"), "\\&");
+        assert_eq!(escape_latex("#"), "\\#");
+        assert_eq!(escape_latex("^"), "\\^{}");
+        assert_eq!(escape_latex("~"), "\\textasciitilde{}");
+        assert_eq!(escape_latex("<"), "\\textless{}");
+        assert_eq!(escape_latex(">"), "\\textgreater{}");
+        assert_eq!(escape_latex("|"), "\\textbar{}");
+        assert_eq!(escape_latex("\""), "\\textquotedbl{}");
+        assert_eq!(escape_latex("'"), "\\textquotesingle{}");
+        assert_eq!(escape_latex("`"), "\\textasciigrave{}");
     }
 }

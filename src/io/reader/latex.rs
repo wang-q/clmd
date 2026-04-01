@@ -792,4 +792,326 @@ World
         assert!(reader.extensions().contains(&"tex"));
         assert!(reader.extensions().contains(&"latex"));
     }
+
+    #[test]
+    fn test_latex_reader_default() {
+        let reader: LaTeXReader = Default::default();
+        assert_eq!(reader.format(), "latex");
+    }
+
+    #[test]
+    fn test_latex_reader_input_format() {
+        let reader = LaTeXReader::new();
+        assert_eq!(reader.input_format(), InputFormat::Latex);
+    }
+
+    #[test]
+    fn test_latex_reader_empty() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+        let (arena, root) = reader.read("", &options).unwrap();
+        let node = arena.get(root);
+        assert!(matches!(node.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_subsection() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\subsection{Subsection Title}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_subsubsection() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\subsubsection{Subsubsection Title}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_paragraph() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\paragraph{Paragraph Title}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_textbf() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"Some \textbf{bold} text."#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_textit() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"Some \textit{italic} text."#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_texttt() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"Some \texttt{code} text."#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_href() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\href{https://example.com}{link}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        // href command is skipped, so document may be empty
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_itemize() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{itemize}
+\item First
+\item Second
+\end{itemize}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_enumerate() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{enumerate}
+\item First
+\item Second
+\end{enumerate}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_verbatim() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{verbatim}
+code block
+\end{verbatim}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_quote() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{quote}
+Quoted text
+\end{quote}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_quotation() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{quotation}
+Quoted text
+\end{quotation}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_center() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{center}
+Centered text
+\end{center}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_comment() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"% This is a comment
+Text"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_label() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\label{sec:intro}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_ref() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\ref{sec:intro}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_cite() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\cite{key}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_preamble_commands() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\documentclass{article}
+\usepackage{graphicx}
+\title{Title}
+\author{Author}
+\date{Date}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_unknown_command() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\unknown{arg}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_unknown_environment() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\begin{unknown}
+content
+\end{unknown}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_nested_braces() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\section{Title {with} braces}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
+
+    #[test]
+    fn test_latex_reader_optional_argument() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\documentclass[12pt]{article}"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(matches!(doc.value, NodeValue::Document));
+    }
+
+    #[test]
+    fn test_latex_reader_multiple_sections() {
+        let reader = LaTeXReader::new();
+        let options = ReaderOptions::default();
+
+        let input = r#"\section{First}
+Text 1
+\section{Second}
+Text 2"#;
+        let (arena, root) = reader.read(input, &options).unwrap();
+
+        let doc = arena.get(root);
+        assert!(doc.first_child.is_some());
+    }
 }

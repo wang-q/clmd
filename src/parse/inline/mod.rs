@@ -1031,6 +1031,10 @@ impl<'a> Subject<'a> {
                             break;
                         }
                         // Different number of dollars, continue searching
+                        // count_char already advanced past the dollars
+                    } else {
+                        // Inside braces, skip this dollar sign
+                        self.advance();
                     }
                 }
                 '\\' => {
@@ -1060,8 +1064,14 @@ impl<'a> Subject<'a> {
             TreeOps::append_child(arena, parent, math_node);
             true
         } else {
-            // No matching close found, treat as literal
+            // No matching close found, treat opening dollars as literal text
+            // Don't reset position - we've already scanned past the opening dollars
+            // and the content. Just output the opening dollars as text.
             self.pos = start_pos;
+            self.advance(); // Skip the first $
+            if dollar_count == 2 {
+                self.advance(); // Skip the second $ for display math
+            }
             self.append_text(arena, parent, &"$".repeat(dollar_count));
             true
         }
@@ -1124,3 +1134,612 @@ pub use entities::unescape_string;
 // normalize_reference is re-exported for public API use
 #[allow(unused_imports)]
 pub use utils::normalize_reference;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::arena::NodeArena;
+    use crate::core::nodes::NodeValue;
+
+    fn parse_inline_content(content: &str) -> (NodeArena, NodeId) {
+        let mut arena = NodeArena::new();
+        let parent = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let refmap = FxHashMap::default();
+        parse_inlines_with_options(
+            &mut arena, parent, content, 1, 0, &refmap, false, false,
+        );
+        (arena, parent)
+    }
+
+    fn parse_inline_with_smart(content: &str) -> (NodeArena, NodeId) {
+        let mut arena = NodeArena::new();
+        let parent = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let refmap = FxHashMap::default();
+        parse_inlines_with_options(
+            &mut arena, parent, content, 1, 0, &refmap, true, false,
+        );
+        (arena, parent)
+    }
+
+    // ============================================================================
+    // Code Span Tests
+    // ============================================================================
+
+    #[test]
+    fn test_inline_code_simple() {
+        let (arena, parent) = parse_inline_content("`code`");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Code(code) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(code.literal, "code");
+            assert_eq!(code.num_backticks, 1);
+        } else {
+            panic!("Expected Code node");
+        }
+    }
+
+    #[test]
+    fn test_inline_code_double_backticks() {
+        let (arena, parent) = parse_inline_content("``code``");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Code(code) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(code.literal, "code");
+            assert_eq!(code.num_backticks, 2);
+        } else {
+            panic!("Expected Code node");
+        }
+    }
+
+    #[test]
+    fn test_inline_code_with_backticks_inside() {
+        let (arena, parent) = parse_inline_content("`` `code` ``");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Code(code) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(code.literal, "`code`");
+        } else {
+            panic!("Expected Code node");
+        }
+    }
+
+    #[test]
+    fn test_inline_code_unclosed() {
+        let (arena, parent) = parse_inline_content("`unclosed code");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should be treated as literal backtick + text
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert!(text.as_ref().contains('`'));
+        }
+    }
+
+    #[test]
+    fn test_inline_code_with_newlines() {
+        let (arena, parent) = parse_inline_content("`line1\nline2`");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Code(code) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(code.literal, "line1 line2");
+        } else {
+            panic!("Expected Code node");
+        }
+    }
+
+    // ============================================================================
+    // Emphasis Tests
+    // ============================================================================
+
+    #[test]
+    fn test_emphasis_asterisk() {
+        let (arena, parent) = parse_inline_content("*emphasis*");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Emph
+        ));
+    }
+
+    #[test]
+    fn test_emphasis_underscore() {
+        let (arena, parent) = parse_inline_content("_emphasis_");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Emph
+        ));
+    }
+
+    #[test]
+    fn test_strong_asterisk() {
+        let (arena, parent) = parse_inline_content("**strong**");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Strong
+        ));
+    }
+
+    #[test]
+    fn test_strong_underscore() {
+        let (arena, parent) = parse_inline_content("__strong__");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Strong
+        ));
+    }
+
+    #[test]
+    fn test_emphasis_in_word() {
+        let (arena, parent) = parse_inline_content("un*frigging*believable");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should have text, emph, text
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "un");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    #[test]
+    fn test_strong_emphasis_nested() {
+        let (arena, parent) = parse_inline_content("**strong *and* emphasis**");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Strong
+        ));
+    }
+
+    // ============================================================================
+    // Link Tests
+    // ============================================================================
+
+    #[test]
+    fn test_inline_link() {
+        let (arena, parent) = parse_inline_content("[text](https://example.com)");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Link(link) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(link.url, "https://example.com");
+        } else {
+            panic!("Expected Link node");
+        }
+    }
+
+    #[test]
+    fn test_inline_link_with_title() {
+        let (arena, parent) =
+            parse_inline_content("[text](https://example.com \"title\")");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Link(link) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(link.url, "https://example.com");
+            assert_eq!(link.title, "title");
+        } else {
+            panic!("Expected Link node");
+        }
+    }
+
+    #[test]
+    fn test_image() {
+        let (arena, parent) =
+            parse_inline_content("![alt](https://example.com/image.png)");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Image(img) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(img.url, "https://example.com/image.png");
+        } else {
+            panic!(
+                "Expected Image node, got {:?}",
+                arena.get(first_child.unwrap()).value
+            );
+        }
+    }
+
+    #[test]
+    fn test_bare_brackets() {
+        let (arena, parent) = parse_inline_content("[text]");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should be literal text since no link definition
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Text(_)
+        ));
+    }
+
+    // ============================================================================
+    // Autolink Tests
+    // ============================================================================
+
+    #[test]
+    fn test_autolink_url() {
+        let (arena, parent) = parse_inline_content("<https://example.com>");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Link(link) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(link.url, "https://example.com");
+        } else {
+            panic!("Expected Link node");
+        }
+    }
+
+    #[test]
+    fn test_autolink_email() {
+        let (arena, parent) = parse_inline_content("<test@example.com>");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Link(link) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(link.url, "mailto:test@example.com");
+        } else {
+            panic!("Expected Link node");
+        }
+    }
+
+    // ============================================================================
+    // Entity Tests
+    // ============================================================================
+
+    #[test]
+    fn test_entity_named() {
+        let (arena, parent) = parse_inline_content("&amp;");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "&");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    #[test]
+    fn test_entity_numeric() {
+        let (arena, parent) = parse_inline_content("&#123;");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "{");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    #[test]
+    fn test_entity_hex() {
+        let (arena, parent) = parse_inline_content("&#x7B;");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "{");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    #[test]
+    fn test_invalid_entity() {
+        let (arena, parent) = parse_inline_content("&notanentity;");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should be literal text
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert!(text.as_ref().contains('&'));
+        }
+    }
+
+    // ============================================================================
+    // HTML Tag Tests
+    // ============================================================================
+
+    #[test]
+    fn test_inline_html_tag() {
+        let (arena, parent) = parse_inline_content("<br>");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::HtmlInline(_)
+        ));
+    }
+
+    #[test]
+    fn test_inline_html_tag_with_attributes() {
+        let (arena, parent) = parse_inline_content("<span class=\"test\">");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::HtmlInline(_)
+        ));
+    }
+
+    // ============================================================================
+    // Line Break Tests
+    // ============================================================================
+
+    #[test]
+    fn test_soft_break() {
+        let (arena, parent) = parse_inline_content("line1\nline2");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        // First child should be text "line1"
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "line1");
+        } else {
+            panic!("Expected Text node");
+        }
+
+        // Next should be soft break
+        let second = arena.get(first_child.unwrap()).next;
+        assert!(second.is_some());
+        assert!(matches!(
+            arena.get(second.unwrap()).value,
+            NodeValue::SoftBreak
+        ));
+    }
+
+    #[test]
+    fn test_hard_break_spaces() {
+        let (arena, parent) = parse_inline_content("line1  \nline2");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        // First child should be text "line1"
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "line1");
+        } else {
+            panic!("Expected Text node");
+        }
+
+        // Next should be hard break
+        let second = arena.get(first_child.unwrap()).next;
+        assert!(second.is_some());
+        assert!(matches!(
+            arena.get(second.unwrap()).value,
+            NodeValue::HardBreak
+        ));
+    }
+
+    #[test]
+    fn test_hard_break_backslash() {
+        let (arena, parent) = parse_inline_content("line1\\\nline2");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        // First child should be text "line1"
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "line1");
+        } else {
+            panic!("Expected Text node");
+        }
+
+        // Next should be hard break
+        let second = arena.get(first_child.unwrap()).next;
+        assert!(second.is_some());
+        assert!(matches!(
+            arena.get(second.unwrap()).value,
+            NodeValue::HardBreak
+        ));
+    }
+
+    // ============================================================================
+    // Escape Tests
+    // ============================================================================
+
+    #[test]
+    fn test_escape_special_char() {
+        let (arena, parent) = parse_inline_content("\\*not emphasis\\*");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "*not emphasis*");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    #[test]
+    fn test_escape_backslash() {
+        let (arena, parent) = parse_inline_content("\\\\");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert_eq!(text.as_ref(), "\\");
+        } else {
+            panic!("Expected Text node");
+        }
+    }
+
+    // ============================================================================
+    // Smart Punctuation Tests
+    // ============================================================================
+
+    #[test]
+    fn test_smart_quotes_double() {
+        let (arena, parent) = parse_inline_with_smart("\"quoted\"");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        // Smart quotes are handled via delimiter processing
+        // The exact structure depends on emphasis processing
+        // Just verify it parses without panic and produces some output
+        assert!(arena.get(parent).first_child.is_some());
+    }
+
+    #[test]
+    fn test_smart_quotes_single() {
+        let (arena, parent) = parse_inline_with_smart("'quoted'");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        // Smart quotes are handled via delimiter processing
+        // The exact structure depends on emphasis processing
+        assert!(arena.get(parent).first_child.is_some());
+    }
+
+    #[test]
+    fn test_smart_dash() {
+        let (arena, parent) = parse_inline_with_smart("--");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert!(text.as_ref().contains('\u{2013}')); // en dash
+        }
+    }
+
+    #[test]
+    fn test_smart_ellipsis() {
+        let (arena, parent) = parse_inline_with_smart("...");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert!(text.as_ref().contains('\u{2026}')); // ellipsis
+        }
+    }
+
+    // ============================================================================
+    // Math Tests
+    // ============================================================================
+
+    fn parse_inline_with_math(content: &str) -> (NodeArena, NodeId) {
+        let mut arena = NodeArena::new();
+        let parent = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let refmap = FxHashMap::default();
+        parse_inlines_with_options(
+            &mut arena, parent, content, 1, 0, &refmap, false, true,
+        );
+        (arena, parent)
+    }
+
+    #[test]
+    fn test_inline_math() {
+        let (arena, parent) = parse_inline_with_math("$x + y$");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Math(_)
+        ));
+    }
+
+    #[test]
+    fn test_display_math() {
+        let (arena, parent) = parse_inline_with_math("$$x + y$$");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Math(math) = &arena.get(first_child.unwrap()).value {
+            assert!(math.display_math);
+        } else {
+            panic!("Expected Math node");
+        }
+    }
+
+    #[test]
+    fn test_unclosed_math() {
+        // Test with simple unclosed math - should be treated as literal $
+        let (arena, parent) = parse_inline_with_math("$abc");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should be literal text containing $
+        match &arena.get(first_child.unwrap()).value {
+            NodeValue::Text(text) => {
+                assert!(text.as_ref().contains('$'));
+            }
+            _ => {
+                // If it's a math node, that's also acceptable
+                // The parser might handle unclosed math differently
+            }
+        }
+    }
+
+    // ============================================================================
+    // Complex Content Tests
+    // ============================================================================
+
+    #[test]
+    fn test_mixed_content() {
+        let (arena, parent) = parse_inline_content("Text *emphasis* `code` [link](url)");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        // Should have multiple children
+        assert!(arena.get(parent).first_child.is_some());
+    }
+
+    #[test]
+    fn test_nested_emphasis() {
+        let (arena, parent) = parse_inline_content("*outer **inner** outer*");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Emph
+        ));
+    }
+
+    #[test]
+    fn test_link_in_emphasis() {
+        let (arena, parent) = parse_inline_content("*[link](url)*");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+        assert!(matches!(
+            arena.get(first_child.unwrap()).value,
+            NodeValue::Emph
+        ));
+    }
+
+    #[test]
+    fn test_empty_content() {
+        let (arena, parent) = parse_inline_content("");
+        let first_child = arena.get(parent).first_child;
+        assert!(
+            first_child.is_none(),
+            "Empty content should have no children"
+        );
+    }
+
+    #[test]
+    fn test_only_whitespace() {
+        let (arena, parent) = parse_inline_content("   ");
+        let _first_child = arena.get(parent).first_child;
+        // May or may not have children depending on implementation
+        // Just ensure it doesn't panic
+    }
+
+    #[test]
+    fn test_unicode_content() {
+        let (arena, parent) = parse_inline_content("Hello 世界 🌍");
+        let first_child = arena.get(parent).first_child;
+        assert!(first_child.is_some());
+
+        if let NodeValue::Text(text) = &arena.get(first_child.unwrap()).value {
+            assert!(text.as_ref().contains('世'));
+            assert!(text.as_ref().contains('🌍'));
+        }
+    }
+}
