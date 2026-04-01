@@ -3,6 +3,12 @@
 //! This module contains various extensions to the CommonMark specification,
 //! including GitHub Flavored Markdown (GFM) features and other commonly used extensions.
 
+/// Extension flags management
+///
+/// This module provides the `ExtensionFlags` bitflags type and `ExtensionKind` enum
+/// for managing Markdown extensions.
+pub mod flags;
+
 /// Abbreviation extension
 ///
 /// Allows defining abbreviations that will be wrapped in HTML `abbr` tags.

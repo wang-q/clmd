@@ -278,8 +278,19 @@ pub mod nodes {
 
 /// Options for the Markdown parser and renderer.
 ///
-/// This module is re-exported from [`parser::options`](crate::parser::options) for backward compatibility.
-/// New code should use `parser::options` directly.
+/// This module provides configuration options for parsing and rendering
+/// Markdown documents. It includes options for extensions, parsing behavior,
+/// and rendering output.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::options::{Options, InputFormat, OutputFormat};
+///
+/// let mut options = Options::default();
+/// options.extension.table = true;
+/// options.parse.smart = true;
+/// ```
 pub mod options {
     pub use crate::parser::options::*;
 }
@@ -365,6 +376,13 @@ pub mod writers;
 /// This module provides a unified way to manage Markdown extensions,
 /// inspired by Pandoc's extension system.
 pub mod extensions;
+
+/// Re-export extension types for convenience.
+pub use crate::ext::flags::{ExtensionFlags, ExtensionKind};
+
+/// Deprecated alias for `ExtensionFlags`.
+#[deprecated(since = "0.2.0", note = "Use `ExtensionFlags` instead")]
+pub use crate::ext::flags::ExtensionFlags as Extensions;
 
 /// Document conversion pipeline.
 ///

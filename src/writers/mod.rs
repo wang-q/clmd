@@ -278,7 +278,7 @@ impl Writer for HtmlWriter {
         }
         if options
             .extensions
-            .contains(crate::extensions::Extensions::TAGFILTER)
+            .contains(crate::extensions::ExtensionFlags::TAGFILTER)
         {
             html_options |= crate::parser::OPT_TAGFILTER;
         }

@@ -24,3 +24,11 @@ pub use crate::options::{
     BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Render,
     RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
 };
+
+// Re-export new types from parser::options
+pub use crate::parser::options::{
+    InputFormat, OutputFormat, ReaderOptions, WriterOptions, WrapOption,
+};
+
+// Re-export extension types
+pub use crate::extensions::{ExtensionFlags, ExtensionKind};

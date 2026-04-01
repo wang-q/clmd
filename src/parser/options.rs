@@ -153,7 +153,7 @@ pub struct ReaderOptions {
     /// Whether to parse smart punctuation.
     pub smart: bool,
     /// Whether to enable extensions.
-    pub extensions: crate::extensions::Extensions,
+    pub extensions: crate::extensions::ExtensionFlags,
 }
 
 impl ReaderOptions {
@@ -173,7 +173,7 @@ pub struct WriterOptions {
     /// The wrap width.
     pub width: usize,
     /// Whether to enable extensions.
-    pub extensions: crate::extensions::Extensions,
+    pub extensions: crate::extensions::ExtensionFlags,
     /// Whether to output source positions.
     pub output_sourcepos: bool,
 }

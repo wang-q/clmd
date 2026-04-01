@@ -58,7 +58,7 @@
 //! ```
 
 use crate::core::error::{ClmdError, ClmdResult};
-use crate::extensions::Extensions;
+use crate::extensions::ExtensionFlags;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -209,112 +209,112 @@ pub struct ExtensionsConfig {
 }
 
 impl ExtensionsConfig {
-    /// Convert to Extensions bitflags
-    pub fn to_extensions(&self) -> Extensions {
-        let mut ext = Extensions::empty();
+    /// Convert to ExtensionFlags bitflags
+    pub fn to_extensions(&self) -> ExtensionFlags {
+        let mut ext = ExtensionFlags::empty();
         if self.table {
-            ext |= Extensions::TABLES;
+            ext |= ExtensionFlags::TABLES;
         }
         if self.strikethrough {
-            ext |= Extensions::STRIKETHROUGH;
+            ext |= ExtensionFlags::STRIKETHROUGH;
         }
         if self.tasklist {
-            ext |= Extensions::TASKLISTS;
+            ext |= ExtensionFlags::TASKLISTS;
         }
         if self.autolink {
-            ext |= Extensions::AUTOLINKS;
+            ext |= ExtensionFlags::AUTOLINKS;
         }
         if self.footnotes {
-            ext |= Extensions::FOOTNOTES;
+            ext |= ExtensionFlags::FOOTNOTES;
         }
         if self.description_list {
-            ext |= Extensions::DESCRIPTION_LISTS;
+            ext |= ExtensionFlags::DESCRIPTION_LISTS;
         }
         if self.tagfilter {
-            ext |= Extensions::TAGFILTER;
+            ext |= ExtensionFlags::TAGFILTER;
         }
         if self.superscript {
-            ext |= Extensions::SUPERSCRIPT;
+            ext |= ExtensionFlags::SUPERSCRIPT;
         }
         if self.subscript {
-            ext |= Extensions::SUBSCRIPT;
+            ext |= ExtensionFlags::SUBSCRIPT;
         }
         if self.underline {
-            ext |= Extensions::UNDERLINE;
+            ext |= ExtensionFlags::UNDERLINE;
         }
         if self.highlight {
-            ext |= Extensions::HIGHLIGHT;
+            ext |= ExtensionFlags::HIGHLIGHT;
         }
         if self.math {
-            ext |= Extensions::MATH_DOLLARS;
+            ext |= ExtensionFlags::MATH_DOLLARS;
         }
         if self.wikilink {
-            ext |= Extensions::WIKILINKS_TITLE_AFTER_PIPE;
+            ext |= ExtensionFlags::WIKILINKS_TITLE_AFTER_PIPE;
         }
         if self.alerts {
-            ext |= Extensions::ALERTS;
+            ext |= ExtensionFlags::ALERTS;
         }
         if self.yaml_front_matter {
-            ext |= Extensions::YAML_FRONT_MATTER;
+            ext |= ExtensionFlags::YAML_FRONT_MATTER;
         }
         if self.abbreviation {
-            ext |= Extensions::ABBREVIATIONS;
+            ext |= ExtensionFlags::ABBREVIATIONS;
         }
         if self.attributes {
-            ext |= Extensions::ATTRIBUTES;
+            ext |= ExtensionFlags::ATTRIBUTES;
         }
         if self.toc {
-            ext |= Extensions::TOC;
+            ext |= ExtensionFlags::TOC;
         }
         if self.emoji {
-            ext |= Extensions::SHORTCODES;
+            ext |= ExtensionFlags::SHORTCODES;
         }
         if self.insert {
-            ext |= Extensions::INSERT;
+            ext |= ExtensionFlags::INSERT;
         }
         if self.spoiler {
-            ext |= Extensions::SPOILER;
+            ext |= ExtensionFlags::SPOILER;
         }
         if self.greentext {
-            ext |= Extensions::GREENTEXT;
+            ext |= ExtensionFlags::GREENTEXT;
         }
         if self.multiline_block_quote {
-            ext |= Extensions::MULTILINE_BLOCK_QUOTES;
+            ext |= ExtensionFlags::MULTILINE_BLOCK_QUOTES;
         }
         if self.shortcode {
-            ext |= Extensions::SHORTCODES;
+            ext |= ExtensionFlags::SHORTCODES;
         }
         ext
     }
 
-    /// Create from Extensions bitflags
-    pub fn from_extensions(ext: Extensions) -> Self {
+    /// Create from ExtensionFlags bitflags
+    pub fn from_extensions(ext: ExtensionFlags) -> Self {
         Self {
-            table: ext.contains(Extensions::TABLES),
-            strikethrough: ext.contains(Extensions::STRIKETHROUGH),
-            tasklist: ext.contains(Extensions::TASKLISTS),
-            autolink: ext.contains(Extensions::AUTOLINKS),
-            footnotes: ext.contains(Extensions::FOOTNOTES),
-            tagfilter: ext.contains(Extensions::TAGFILTER),
-            superscript: ext.contains(Extensions::SUPERSCRIPT),
-            subscript: ext.contains(Extensions::SUBSCRIPT),
-            underline: ext.contains(Extensions::UNDERLINE),
-            highlight: ext.contains(Extensions::HIGHLIGHT),
-            insert: ext.contains(Extensions::INSERT),
-            math: ext.contains(Extensions::MATH_DOLLARS),
-            wikilink: ext.contains(Extensions::WIKILINKS_TITLE_AFTER_PIPE)
-                || ext.contains(Extensions::WIKILINKS_TITLE_BEFORE_PIPE),
-            spoiler: ext.contains(Extensions::SPOILER),
-            greentext: ext.contains(Extensions::GREENTEXT),
-            alerts: ext.contains(Extensions::ALERTS),
-            multiline_block_quote: ext.contains(Extensions::MULTILINE_BLOCK_QUOTES),
-            description_list: ext.contains(Extensions::DESCRIPTION_LISTS),
-            shortcode: ext.contains(Extensions::SHORTCODES),
-            yaml_front_matter: ext.contains(Extensions::YAML_FRONT_MATTER),
-            abbreviation: ext.contains(Extensions::ABBREVIATIONS),
-            attributes: ext.contains(Extensions::ATTRIBUTES),
-            toc: ext.contains(Extensions::TOC),
-            emoji: ext.contains(Extensions::SHORTCODES),
+            table: ext.contains(ExtensionFlags::TABLES),
+            strikethrough: ext.contains(ExtensionFlags::STRIKETHROUGH),
+            tasklist: ext.contains(ExtensionFlags::TASKLISTS),
+            autolink: ext.contains(ExtensionFlags::AUTOLINKS),
+            footnotes: ext.contains(ExtensionFlags::FOOTNOTES),
+            tagfilter: ext.contains(ExtensionFlags::TAGFILTER),
+            superscript: ext.contains(ExtensionFlags::SUPERSCRIPT),
+            subscript: ext.contains(ExtensionFlags::SUBSCRIPT),
+            underline: ext.contains(ExtensionFlags::UNDERLINE),
+            highlight: ext.contains(ExtensionFlags::HIGHLIGHT),
+            insert: ext.contains(ExtensionFlags::INSERT),
+            math: ext.contains(ExtensionFlags::MATH_DOLLARS),
+            wikilink: ext.contains(ExtensionFlags::WIKILINKS_TITLE_AFTER_PIPE)
+                || ext.contains(ExtensionFlags::WIKILINKS_TITLE_BEFORE_PIPE),
+            spoiler: ext.contains(ExtensionFlags::SPOILER),
+            greentext: ext.contains(ExtensionFlags::GREENTEXT),
+            alerts: ext.contains(ExtensionFlags::ALERTS),
+            multiline_block_quote: ext.contains(ExtensionFlags::MULTILINE_BLOCK_QUOTES),
+            description_list: ext.contains(ExtensionFlags::DESCRIPTION_LISTS),
+            shortcode: ext.contains(ExtensionFlags::SHORTCODES),
+            yaml_front_matter: ext.contains(ExtensionFlags::YAML_FRONT_MATTER),
+            abbreviation: ext.contains(ExtensionFlags::ABBREVIATIONS),
+            attributes: ext.contains(ExtensionFlags::ATTRIBUTES),
+            toc: ext.contains(ExtensionFlags::TOC),
+            emoji: ext.contains(ExtensionFlags::SHORTCODES),
         }
     }
 }
@@ -533,12 +533,12 @@ impl Config {
     }
 
     /// Get extensions as bitflags
-    pub fn get_extensions(&self) -> Extensions {
+    pub fn get_extensions(&self) -> ExtensionFlags {
         self.extensions.to_extensions()
     }
 
     /// Set extensions from bitflags
-    pub fn set_extensions(&mut self, ext: Extensions) {
+    pub fn set_extensions(&mut self, ext: ExtensionFlags) {
         self.extensions = ExtensionsConfig::from_extensions(ext);
     }
 }
@@ -729,14 +729,14 @@ hardbreaks = false
         };
 
         let ext = config.to_extensions();
-        assert!(ext.contains(Extensions::TABLES));
-        assert!(ext.contains(Extensions::STRIKETHROUGH));
-        assert!(!ext.contains(Extensions::TASKLISTS));
+        assert!(ext.contains(ExtensionFlags::TABLES));
+        assert!(ext.contains(ExtensionFlags::STRIKETHROUGH));
+        assert!(!ext.contains(ExtensionFlags::TASKLISTS));
     }
 
     #[test]
     fn test_extensions_from_bitflags() {
-        let ext = Extensions::TABLES | Extensions::STRIKETHROUGH;
+        let ext = ExtensionFlags::TABLES | ExtensionFlags::STRIKETHROUGH;
         let config = ExtensionsConfig::from_extensions(ext);
 
         assert!(config.table);
