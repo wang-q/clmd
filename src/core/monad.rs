@@ -754,10 +754,8 @@ mod tests {
 
     #[test]
     fn test_clmd_io_with_resource_paths() {
-        let io = ClmdIO::new().with_resource_paths(vec![
-            PathBuf::from("/path1"),
-            PathBuf::from("/path2"),
-        ]);
+        let io = ClmdIO::new()
+            .with_resource_paths(vec![PathBuf::from("/path1"), PathBuf::from("/path2")]);
         let paths = io.get_resource_paths();
         assert_eq!(paths.len(), 2);
         assert_eq!(paths[0], PathBuf::from("/path1"));
@@ -791,7 +789,8 @@ mod tests {
 
         // Test write_file_bytes
         let binary_path = temp_dir.path().join("binary.bin");
-        io.write_file_bytes(&binary_path, &[0x00, 0x01, 0x02]).unwrap();
+        io.write_file_bytes(&binary_path, &[0x00, 0x01, 0x02])
+            .unwrap();
         let binary_content = io.read_file_bytes(&binary_path).unwrap();
         assert_eq!(binary_content, vec![0x00, 0x01, 0x02]);
 
@@ -805,8 +804,7 @@ mod tests {
         let file_path = temp_dir.path().join("resource.txt");
         std::fs::write(&file_path, "resource content").unwrap();
 
-        let io = ClmdIO::new()
-            .with_resource_paths(vec![temp_dir.path().to_path_buf()]);
+        let io = ClmdIO::new().with_resource_paths(vec![temp_dir.path().to_path_buf()]);
 
         // Test fetching from resource path
         let content = io.fetch_resource("resource.txt").unwrap();
@@ -873,7 +871,7 @@ mod tests {
 
     #[test]
     fn test_clmd_io_with_sandbox() {
-        use crate::core::sandbox::{SandboxPolicy, SandboxMode};
+        use crate::core::sandbox::{SandboxMode, SandboxPolicy};
 
         let temp_dir = tempfile::tempdir().unwrap();
         let file_path = temp_dir.path().join("test.txt");
@@ -944,8 +942,7 @@ mod tests {
 
     #[test]
     fn test_clmd_pure_fetch_resource() {
-        let pure = ClmdPure::new()
-            .with_file("/test/resource.txt", "resource content");
+        let pure = ClmdPure::new().with_file("/test/resource.txt", "resource content");
 
         let content = pure.fetch_resource("/test/resource.txt").unwrap();
         assert_eq!(content, b"resource content");

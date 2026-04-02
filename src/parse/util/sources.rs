@@ -752,4 +752,291 @@ mod tests {
         let range2 = SourceRange::new(SourcePos::new(1, 1, 0), SourcePos::new(2, 5, 20));
         assert_eq!(format!("{}", range2), "1:1-2:5");
     }
+
+    #[test]
+    fn test_source_path() {
+        let file_source = Source::from_file("/test/file.md", "content");
+        assert_eq!(
+            file_source.path(),
+            Some(PathBuf::from("/test/file.md").as_path())
+        );
+
+        let string_source = Source::from_string("content");
+        assert_eq!(string_source.path(), None);
+
+        let url_source = Source::from_url("http://example.com", "content");
+        assert_eq!(url_source.path(), None);
+    }
+
+    #[test]
+    fn test_source_char_count() {
+        let source = Source::from_string("hello");
+        assert_eq!(source.char_count(), 5);
+
+        let source2 = Source::from_string("héllo");
+        assert_eq!(source2.char_count(), 5);
+    }
+
+    #[test]
+    fn test_source_get_lines() {
+        let source = Source::from_string("line1\nline2\nline3\nline4");
+        let lines = source.get_lines(2, 3);
+        assert_eq!(lines, vec!["line2", "line3"]);
+
+        let lines2 = source.get_lines(1, 1);
+        assert_eq!(lines2, vec!["line1"]);
+    }
+
+    #[test]
+    fn test_source_pos_default() {
+        let pos: SourcePos = Default::default();
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.column, 1);
+        assert_eq!(pos.offset, 0);
+    }
+
+    #[test]
+    fn test_source_pos_start() {
+        let pos = SourcePos::start();
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.column, 1);
+        assert_eq!(pos.offset, 0);
+    }
+
+    #[test]
+    fn test_source_pos_line_column() {
+        let pos = SourcePos::new(5, 10, 100);
+        assert_eq!(pos.line_column(), (5, 10));
+    }
+
+    #[test]
+    fn test_source_pos_format() {
+        let pos = SourcePos::new(3, 7, 50);
+        assert_eq!(pos.format(), "3:7");
+    }
+
+    #[test]
+    fn test_source_pos_advance_multibyte() {
+        let mut pos = SourcePos::start();
+        pos.advance('中');
+        assert_eq!(pos.offset, 3);
+        assert_eq!(pos.column, 2);
+    }
+
+    #[test]
+    fn test_source_range_default() {
+        let range: SourceRange = Default::default();
+        assert_eq!(range.start.line, 1);
+        assert_eq!(range.start.column, 1);
+        assert_eq!(range.end.line, 1);
+        assert_eq!(range.end.column, 1);
+    }
+
+    #[test]
+    fn test_source_range_from_pos() {
+        let pos = SourcePos::new(5, 10, 100);
+        let range = SourceRange::from_pos(pos);
+        assert_eq!(range.start, pos);
+        assert_eq!(range.end, pos);
+        assert!(range.is_empty());
+    }
+
+    #[test]
+    fn test_source_range_is_empty() {
+        let pos = SourcePos::new(1, 1, 0);
+        let range = SourceRange::from_pos(pos);
+        assert!(range.is_empty());
+
+        let range2 = SourceRange::new(pos, SourcePos::new(1, 2, 1));
+        assert!(!range2.is_empty());
+    }
+
+    #[test]
+    fn test_source_range_contains_edge() {
+        let start = SourcePos::new(1, 1, 0);
+        let end = SourcePos::new(1, 10, 9);
+        let range = SourceRange::new(start, end);
+
+        assert!(range.contains(start));
+        assert!(range.contains(end));
+    }
+
+    #[test]
+    fn test_source_loc_format() {
+        let source = Source::from_file("test.md", "content");
+        let pos = SourcePos::new(2, 5, 20);
+        let loc = SourceLoc::new(source, pos);
+        assert_eq!(loc.format(), "test.md:2:5");
+    }
+
+    #[test]
+    fn test_sources_from_source() {
+        let source = Source::from_string("content");
+        let sources = Sources::from_source(source);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources.current().unwrap().content(), "content");
+    }
+
+    #[test]
+    fn test_sources_add_file() {
+        let mut sources = Sources::new();
+        sources.add_file("/test/file.md", "content");
+        assert_eq!(sources.len(), 1);
+        assert!(sources.get(0).unwrap().is_file());
+    }
+
+    #[test]
+    fn test_sources_add_named_string() {
+        let mut sources = Sources::new();
+        sources.add_named_string("test", "content");
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources.get(0).unwrap().name(), "test");
+    }
+
+    #[test]
+    fn test_sources_get_none() {
+        let sources = Sources::new();
+        assert_eq!(sources.get(0), None);
+    }
+
+    #[test]
+    fn test_sources_set_current() {
+        let mut sources = Sources::new();
+        sources.add_string("first");
+        sources.add_string("second");
+        sources.add_string("third");
+
+        sources.set_current(2);
+        assert_eq!(sources.current().unwrap().content(), "third");
+
+        sources.set_current(10);
+        assert_eq!(sources.current().unwrap().content(), "third");
+    }
+
+    #[test]
+    fn test_sources_current_index() {
+        let mut sources = Sources::new();
+        assert_eq!(sources.current_index(), None);
+
+        sources.add_string("content");
+        assert_eq!(sources.current_index(), Some(0));
+    }
+
+    #[test]
+    fn test_sources_advance_none() {
+        let mut sources = Sources::new();
+        assert_eq!(sources.advance(), None);
+
+        sources.add_string("only");
+        assert_eq!(sources.advance(), None);
+    }
+
+    #[test]
+    fn test_sources_prev() {
+        let mut sources = Sources::new();
+        sources.add_string("first");
+        sources.add_string("second");
+        sources.advance();
+
+        let prev = sources.prev();
+        assert_eq!(prev.unwrap().content(), "first");
+        assert_eq!(sources.current().unwrap().content(), "first");
+    }
+
+    #[test]
+    fn test_sources_prev_none() {
+        let mut sources = Sources::new();
+        sources.add_string("only");
+        assert_eq!(sources.prev(), None);
+
+        sources.set_current(0);
+        assert_eq!(sources.prev(), None);
+    }
+
+    #[test]
+    fn test_sources_total_chars() {
+        let mut sources = Sources::new();
+        sources.add_string("hello");
+        sources.add_string("world");
+        assert_eq!(sources.total_chars(), 10);
+    }
+
+    #[test]
+    fn test_sources_total_lines() {
+        let mut sources = Sources::new();
+        sources.add_string("line1\nline2");
+        sources.add_string("line3\nline4\nline5");
+        assert_eq!(sources.total_lines(), 5);
+    }
+
+    #[test]
+    fn test_sources_into_iter() {
+        let mut sources = Sources::new();
+        sources.add_string("a");
+        sources.add_string("b");
+
+        let collected: Vec<_> = sources
+            .into_iter()
+            .map(|s| s.content().to_string())
+            .collect();
+        assert_eq!(collected, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_sources_ref_into_iter() {
+        let mut sources = Sources::new();
+        sources.add_string("a");
+        sources.add_string("b");
+
+        let collected: Vec<_> = (&sources).into_iter().map(|s| s.content()).collect();
+        assert_eq!(collected, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_spanned_with_source() {
+        let range = SourceRange::new(SourcePos::new(1, 1, 0), SourcePos::new(1, 5, 4));
+        let source = Source::from_named_string("test.md", "content");
+        let spanned = Spanned::with_source("data", range, source);
+
+        assert_eq!(spanned.data, "data");
+        assert!(spanned.source.is_some());
+        assert_eq!(spanned.source.unwrap().name(), "test.md");
+    }
+
+    #[test]
+    fn test_spanned_display_with_source() {
+        let range = SourceRange::new(SourcePos::new(1, 1, 0), SourcePos::new(1, 5, 4));
+        let source = Source::from_named_string("test.md", "content");
+        let spanned = Spanned::with_source("error", range, source);
+
+        let display = format!("{}", spanned);
+        assert!(display.contains("test.md"));
+        assert!(display.contains("error"));
+    }
+
+    #[test]
+    fn test_spanned_display_without_source() {
+        let range = SourceRange::new(SourcePos::new(1, 1, 0), SourcePos::new(1, 5, 4));
+        let spanned = Spanned::new("error", range);
+
+        let display = format!("{}", spanned);
+        assert!(!display.contains("test.md"));
+        assert!(display.contains("error"));
+    }
+
+    #[test]
+    fn test_start_pos() {
+        let pos = start_pos();
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.column, 1);
+    }
+
+    #[test]
+    fn test_range() {
+        let start = SourcePos::new(1, 1, 0);
+        let end = SourcePos::new(2, 5, 20);
+        let r = range(start, end);
+        assert_eq!(r.start, start);
+        assert_eq!(r.end, end);
+    }
 }

@@ -1680,7 +1680,8 @@ mod tests {
         });
 
         // Verify the text node was modified
-        let grandchild1 = Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
+        let grandchild1 =
+            Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
         assert!(grandchild1.is_some());
         if let Some(node) = arena.try_get(grandchild1.unwrap()) {
             if let NodeValue::Text(text) = &node.value {
@@ -1710,8 +1711,14 @@ mod tests {
         let (arena, root) = create_test_arena();
 
         // Test any
-        assert!(Query::any(&arena, root, |v| matches!(v, NodeValue::Text(_))));
-        assert!(!Query::any(&arena, root, |v| matches!(v, NodeValue::Code(_))));
+        assert!(Query::any(&arena, root, |v| matches!(
+            v,
+            NodeValue::Text(_)
+        )));
+        assert!(!Query::any(&arena, root, |v| matches!(
+            v,
+            NodeValue::Code(_)
+        )));
 
         // Test all
         assert!(Query::all(&arena, root, |v| {
@@ -1720,7 +1727,10 @@ mod tests {
                 NodeValue::Document | NodeValue::Paragraph | NodeValue::Text(_)
             )
         }));
-        assert!(!Query::all(&arena, root, |v| matches!(v, NodeValue::Text(_))));
+        assert!(!Query::all(&arena, root, |v| matches!(
+            v,
+            NodeValue::Text(_)
+        )));
 
         // Test count
         assert_eq!(
@@ -1844,22 +1854,14 @@ mod tests {
         let (mut arena, root) = create_test_arena();
 
         let mut bottom_up_order = Vec::new();
-        arena.walk_with_direction(
-            root,
-            WalkDirection::BottomUp,
-            &mut |_id, value| {
-                bottom_up_order.push(format!("{:?}", value));
-            },
-        );
+        arena.walk_with_direction(root, WalkDirection::BottomUp, &mut |_id, value| {
+            bottom_up_order.push(format!("{:?}", value));
+        });
 
         let mut top_down_order = Vec::new();
-        arena.walk_with_direction(
-            root,
-            WalkDirection::TopDown,
-            &mut |_id, value| {
-                top_down_order.push(format!("{:?}", value));
-            },
-        );
+        arena.walk_with_direction(root, WalkDirection::TopDown, &mut |_id, value| {
+            top_down_order.push(format!("{:?}", value));
+        });
 
         assert_eq!(bottom_up_order.len(), top_down_order.len());
     }
@@ -2020,7 +2022,8 @@ mod tests {
         let (arena, root) = create_test_arena();
 
         // Find a node with no children (the text node)
-        let text_node = Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
+        let text_node =
+            Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
         assert!(text_node.is_some());
 
         let children: Vec<_> = arena.children_iter(text_node.unwrap()).collect();

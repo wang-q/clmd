@@ -345,7 +345,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                             // Apply CJK spacing if enabled
                             let final_text = if ctx.get_formatter_options().cjk_spacing {
-                                crate::text::cjk_spacing::add_cjk_spacing(&processed_text)
+                                crate::text::cjk_spacing::add_cjk_spacing(
+                                    &processed_text,
+                                )
                             } else {
                                 processed_text
                             };

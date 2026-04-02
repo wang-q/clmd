@@ -631,15 +631,13 @@ mod tests {
     fn test_extend_by() {
         let text = "Hello World";
         let seq = BasedSequence::new(text).sub_sequence(0, 5); // "Hello"
-        // extend_by extends by matching characters from the base string after the current end
-        // After "Hello" (indices 0-5), the next characters are " World"
-        // It will match up to max_count characters that satisfy the predicate
+                                                               // extend_by extends by matching characters from the base string after the current end
+                                                               // After "Hello" (indices 0-5), the next characters are " World"
+                                                               // It will match up to max_count characters that satisfy the predicate
         let extended = seq.extend_by(|c| c.is_alphabetic() || c == ' ', 3);
         // Should extend by " W" (space + W) since they're within max_count=3
         assert!(extended.as_str().starts_with("Hello"));
     }
-
-
 
     #[test]
     fn test_with_offsets() {

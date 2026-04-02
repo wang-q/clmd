@@ -408,10 +408,22 @@ mod tests {
         assert!(matches!("typst".parse::<Format>().unwrap(), Format::Typst));
         assert!(matches!("typ".parse::<Format>().unwrap(), Format::Typst));
         assert!(matches!("man".parse::<Format>().unwrap(), Format::Man));
-        assert!(matches!("revealjs".parse::<Format>().unwrap(), Format::Revealjs));
-        assert!(matches!("reveal".parse::<Format>().unwrap(), Format::Revealjs));
-        assert!(matches!("beamer".parse::<Format>().unwrap(), Format::Beamer));
-        assert!(matches!("bibtex".parse::<Format>().unwrap(), Format::Bibtex));
+        assert!(matches!(
+            "revealjs".parse::<Format>().unwrap(),
+            Format::Revealjs
+        ));
+        assert!(matches!(
+            "reveal".parse::<Format>().unwrap(),
+            Format::Revealjs
+        ));
+        assert!(matches!(
+            "beamer".parse::<Format>().unwrap(),
+            Format::Beamer
+        ));
+        assert!(matches!(
+            "bibtex".parse::<Format>().unwrap(),
+            Format::Bibtex
+        ));
         assert!(matches!("bib".parse::<Format>().unwrap(), Format::Bibtex));
         assert!(matches!("csv".parse::<Format>().unwrap(), Format::Csv));
         assert!(matches!("json".parse::<Format>().unwrap(), Format::Json));
@@ -426,10 +438,7 @@ mod tests {
             "unknown".parse::<Format>().unwrap(),
             Format::Unknown
         ));
-        assert!(matches!(
-            "xyz".parse::<Format>().unwrap(),
-            Format::Unknown
-        ));
+        assert!(matches!("xyz".parse::<Format>().unwrap(), Format::Unknown));
     }
 
     #[test]
@@ -564,7 +573,9 @@ mod tests {
             Format::Markdown
         ));
         assert!(matches!(
-            registry.detect(std::path::Path::new("doc.markdown")).unwrap(),
+            registry
+                .detect(std::path::Path::new("doc.markdown"))
+                .unwrap(),
             Format::Markdown
         ));
         assert!(matches!(
@@ -620,18 +631,54 @@ mod tests {
 
     #[test]
     fn test_format_category() {
-        assert_eq!(FormatCategory::from_format(Format::Html), FormatCategory::Markup);
-        assert_eq!(FormatCategory::from_format(Format::Xhtml), FormatCategory::Markup);
-        assert_eq!(FormatCategory::from_format(Format::Xml), FormatCategory::Markup);
-        assert_eq!(FormatCategory::from_format(Format::Pdf), FormatCategory::Document);
-        assert_eq!(FormatCategory::from_format(Format::Docx), FormatCategory::Document);
-        assert_eq!(FormatCategory::from_format(Format::Epub), FormatCategory::Document);
-        assert_eq!(FormatCategory::from_format(Format::Odt), FormatCategory::Document);
-        assert_eq!(FormatCategory::from_format(Format::Text), FormatCategory::Text);
-        assert_eq!(FormatCategory::from_format(Format::Markdown), FormatCategory::Text);
-        assert_eq!(FormatCategory::from_format(Format::Json), FormatCategory::Data);
-        assert_eq!(FormatCategory::from_format(Format::Yaml), FormatCategory::Data);
-        assert_eq!(FormatCategory::from_format(Format::Unknown), FormatCategory::Unknown);
+        assert_eq!(
+            FormatCategory::from_format(Format::Html),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Xhtml),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Xml),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Pdf),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Docx),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Epub),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Odt),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Text),
+            FormatCategory::Text
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Markdown),
+            FormatCategory::Text
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Json),
+            FormatCategory::Data
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Yaml),
+            FormatCategory::Data
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Unknown),
+            FormatCategory::Unknown
+        );
     }
 
     #[test]

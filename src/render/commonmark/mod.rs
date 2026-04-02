@@ -1007,4 +1007,217 @@ mod tests {
             result
         );
     }
+
+    #[test]
+    fn test_format_document_with_heading() {
+        use crate::core::nodes::NodeHeading;
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create heading
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Title")));
+        TreeOps::append_child(&mut arena, heading, text);
+        TreeOps::append_child(&mut arena, root, heading);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(
+            result.contains("# Title"),
+            "Should contain heading. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_document_with_list() {
+        use crate::core::nodes::{ListDelimType, ListType, NodeList};
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create bullet list
+        let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+
+        let item1 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+        let item1_text = arena.alloc(Node::with_value(NodeValue::make_text("Item 1")));
+        TreeOps::append_child(&mut arena, item1, item1_text);
+        TreeOps::append_child(&mut arena, list, item1);
+
+        let item2 = arena.alloc(Node::with_value(NodeValue::Item(NodeList {
+            list_type: ListType::Bullet,
+            marker_offset: 0,
+            padding: 2,
+            start: 0,
+            delimiter: ListDelimType::Period,
+            bullet_char: b'-',
+            tight: true,
+            is_task_list: false,
+        })));
+        let item2_text = arena.alloc(Node::with_value(NodeValue::make_text("Item 2")));
+        TreeOps::append_child(&mut arena, item2, item2_text);
+        TreeOps::append_child(&mut arena, list, item2);
+
+        TreeOps::append_child(&mut arena, root, list);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(
+            result.contains("- Item 1"),
+            "Should contain list item 1. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains("- Item 2"),
+            "Should contain list item 2. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_document_with_code_block() {
+        use crate::core::nodes::NodeCodeBlock;
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create code block
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
+            NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+                closed: true,
+            },
+        ))));
+        TreeOps::append_child(&mut arena, root, code_block);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(
+            result.contains("```rust"),
+            "Should contain code block start. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains("fn main() {}"),
+            "Should contain code. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains("```"),
+            "Should contain code block end. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_document_with_link() {
+        use crate::core::nodes::NodeLink;
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create paragraph with link
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let link = arena.alloc(Node::with_value(NodeValue::Link(Box::new(NodeLink {
+            url: "https://example.com".to_string(),
+            title: "Example".to_string(),
+        }))));
+        let link_text = arena.alloc(Node::with_value(NodeValue::make_text("Example")));
+        TreeOps::append_child(&mut arena, link, link_text);
+        TreeOps::append_child(&mut arena, para, link);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(
+            result.contains("[Example]"),
+            "Should contain link text. Result: {:?}",
+            result
+        );
+        assert!(
+            result.contains("https://example.com"),
+            "Should contain link URL. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_document_with_blockquote() {
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create blockquote
+        let quote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Quote text")));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, quote, para);
+        TreeOps::append_child(&mut arena, root, quote);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(
+            result.contains("> Quote text"),
+            "Should contain blockquote. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_empty_document() {
+        use crate::formatter::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.is_empty() || result.trim().is_empty(), "Empty document should produce empty or whitespace-only output. Result: {:?}", result);
+    }
 }

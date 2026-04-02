@@ -527,15 +527,16 @@ mod tests {
 
     #[test]
     fn test_with_nesting_wrapper() {
-        let parser = with_nesting(|input: &str, pos: Position, _state: &mut NestingState| {
-            if input.get(pos.offset..pos.offset + 1) == Some("x") {
-                let mut new_pos = pos;
-                new_pos.advance('x');
-                Ok(("found x", new_pos))
-            } else {
-                Err(ParseError::at(pos.line, pos.column, "expected x"))
-            }
-        });
+        let parser =
+            with_nesting(|input: &str, pos: Position, _state: &mut NestingState| {
+                if input.get(pos.offset..pos.offset + 1) == Some("x") {
+                    let mut new_pos = pos;
+                    new_pos.advance('x');
+                    Ok(("found x", new_pos))
+                } else {
+                    Err(ParseError::at(pos.line, pos.column, "expected x"))
+                }
+            });
 
         let result = parser("x", Position::start());
         assert!(result.is_ok());

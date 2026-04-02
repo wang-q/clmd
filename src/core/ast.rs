@@ -928,10 +928,8 @@ mod tests {
     #[test]
     fn test_walk_blocks_all_variants() {
         // Test CodeBlock
-        let code_block = Block::CodeBlock(
-            Attr::with_id("code"),
-            "println!(\"hello\");".to_string(),
-        );
+        let code_block =
+            Block::CodeBlock(Attr::with_id("code"), "println!(\"hello\");".to_string());
         let mut count = 0;
         code_block.walk_blocks(&mut |_block| {
             count += 1;
@@ -979,9 +977,10 @@ mod tests {
         assert_eq!(count, 2); // DefinitionList + Para
 
         // Test Div
-        let div = Block::Div(Attr::with_id("div"), vec![Block::Para(vec![Inline::Str(
-            "content".to_string(),
-        )])]);
+        let div = Block::Div(
+            Attr::with_id("div"),
+            vec![Block::Para(vec![Inline::Str("content".to_string())])],
+        );
         count = 0;
         div.walk_blocks(&mut |_block| {
             count += 1;
@@ -1032,7 +1031,10 @@ mod tests {
         assert_eq!(count, 2);
 
         // Test Quoted
-        let quoted = Inline::Quoted(QuoteType::DoubleQuote, vec![Inline::Str("quote".to_string())]);
+        let quoted = Inline::Quoted(
+            QuoteType::DoubleQuote,
+            vec![Inline::Str("quote".to_string())],
+        );
         count = 0;
         quoted.walk_inlines(&mut |_inline| {
             count += 1;
@@ -1074,7 +1076,8 @@ mod tests {
         assert_eq!(count, 1);
 
         // Test Span
-        let span = Inline::Span(Attr::with_id("span"), vec![Inline::Str("text".to_string())]);
+        let span =
+            Inline::Span(Attr::with_id("span"), vec![Inline::Str("text".to_string())]);
         count = 0;
         span.walk_inlines(&mut |_inline| {
             count += 1;
@@ -1089,7 +1092,9 @@ mod tests {
             meta: MetaData::new(),
             blocks: vec![
                 Block::Para(vec![Inline::Str("hello".to_string())]),
-                Block::BlockQuote(vec![Block::Para(vec![Inline::Str("quote".to_string())])]),
+                Block::BlockQuote(vec![Block::Para(vec![Inline::Str(
+                    "quote".to_string(),
+                )])]),
             ],
         };
 
@@ -1127,7 +1132,8 @@ mod tests {
         assert_eq!(attr_with_id.id, "myid");
 
         // Test with_classes
-        let attr_with_classes = Attr::with_classes(vec!["a".to_string(), "b".to_string()]);
+        let attr_with_classes =
+            Attr::with_classes(vec!["a".to_string(), "b".to_string()]);
         assert_eq!(attr_with_classes.classes.len(), 2);
     }
 
@@ -1146,7 +1152,10 @@ mod tests {
 
         // Test MetaMap
         let mut map = std::collections::HashMap::new();
-        map.insert("key".to_string(), MetaValue::MetaString("value".to_string()));
+        map.insert(
+            "key".to_string(),
+            MetaValue::MetaString("value".to_string()),
+        );
         let meta_map = MetaValue::MetaMap(map);
         assert!(matches!(meta_map, MetaValue::MetaMap(_)));
 
@@ -1359,7 +1368,8 @@ mod tests {
 
     #[test]
     fn test_inline_note() {
-        let note = Inline::Note(vec![Block::Para(vec![Inline::Str("footnote".to_string())])]);
+        let note =
+            Inline::Note(vec![Block::Para(vec![Inline::Str("footnote".to_string())])]);
 
         let mut count = 0;
         note.walk_inlines(&mut |_inline| {
@@ -1416,7 +1426,8 @@ mod tests {
 
     #[test]
     fn test_table_cell() {
-        let cell: TableCell = vec![Block::Para(vec![Inline::Str("cell content".to_string())])];
+        let cell: TableCell =
+            vec![Block::Para(vec![Inline::Str("cell content".to_string())])];
         assert_eq!(cell.len(), 1);
     }
 }

@@ -707,7 +707,9 @@ mod tests {
         assert!(!manager.is_cached("test_key"));
 
         // Manually insert into cache
-        manager.cache.insert("test_key".to_string(), b"cached data".to_vec());
+        manager
+            .cache
+            .insert("test_key".to_string(), b"cached data".to_vec());
 
         // Now it should be cached
         assert!(manager.is_cached("test_key"));
@@ -738,7 +740,9 @@ mod tests {
         let mut manager = DataFileManager::new().unwrap();
 
         // Insert into cache directly
-        manager.cache.insert("my_key".to_string(), b"my_data".to_vec());
+        manager
+            .cache
+            .insert("my_key".to_string(), b"my_data".to_vec());
 
         // Verify it's cached
         assert!(manager.is_cached("my_key"));
@@ -749,7 +753,9 @@ mod tests {
         let mut manager = DataFileManager::new().unwrap();
 
         // Insert and then remove directly
-        manager.cache.insert("to_remove".to_string(), b"data".to_vec());
+        manager
+            .cache
+            .insert("to_remove".to_string(), b"data".to_vec());
         assert!(manager.is_cached("to_remove"));
 
         manager.cache.remove("to_remove");

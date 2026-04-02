@@ -440,4 +440,167 @@ mod tests {
         assert_eq!(msg.line, Some(10));
         assert_eq!(msg.column, Some(5));
     }
+
+    #[test]
+    fn test_common_state_test_state() {
+        let state = CommonState::test_state();
+        assert_eq!(state.verbosity, Verbosity::Warning);
+        assert_eq!(state.resource_path, vec![PathBuf::from("/test")]);
+        assert_eq!(
+            state.user_data_dir,
+            Some(PathBuf::from("/test/.local/share/clmd"))
+        );
+        assert_eq!(state.timestamp, SystemTime::UNIX_EPOCH);
+    }
+
+    #[test]
+    fn test_set_output_file() {
+        let mut state = CommonState::new();
+        state.set_output_file("output.html");
+        assert_eq!(state.output_file, Some(PathBuf::from("output.html")));
+    }
+
+    #[test]
+    fn test_add_resource_path() {
+        let mut state = CommonState::new();
+        state.add_resource_path("/usr/share");
+        assert!(state.resource_path.contains(&PathBuf::from("/usr/share")));
+    }
+
+    #[test]
+    fn test_add_request_header() {
+        let mut state = CommonState::new();
+        state
+            .add_request_header("Authorization".to_string(), "Bearer token".to_string());
+        assert_eq!(state.request_headers.len(), 1);
+        assert_eq!(
+            state.request_headers[0],
+            ("Authorization".to_string(), "Bearer token".to_string())
+        );
+    }
+
+    #[test]
+    fn test_get_logs() {
+        let mut state = CommonState::new();
+        state.log_info("Message 1");
+        state.log_info("Message 2");
+
+        let logs = state.get_logs();
+        assert_eq!(logs.len(), 2);
+        assert_eq!(logs[0].message, "Message 1");
+        assert_eq!(logs[1].message, "Message 2");
+    }
+
+    #[test]
+    fn test_get_logs_at_level() {
+        let mut state = CommonState::new();
+        state.log_debug("Debug");
+        state.log_info("Info");
+        state.log_warning("Warning");
+        state.log_error("Error");
+
+        let debug_logs = state.get_logs_at_level(LogLevel::Debug);
+        assert_eq!(debug_logs.len(), 4);
+
+        let info_logs = state.get_logs_at_level(LogLevel::Info);
+        assert_eq!(info_logs.len(), 3);
+
+        let warning_logs = state.get_logs_at_level(LogLevel::Warning);
+        assert_eq!(warning_logs.len(), 2);
+
+        let error_logs = state.get_logs_at_level(LogLevel::Error);
+        assert_eq!(error_logs.len(), 1);
+    }
+
+    #[test]
+    fn test_clear_logs() {
+        let mut state = CommonState::new();
+        state.log_info("Message");
+        assert_eq!(state.log_messages.len(), 1);
+
+        state.clear_logs();
+        assert!(state.log_messages.is_empty());
+    }
+
+    #[test]
+    fn test_set_translations() {
+        let mut state = CommonState::new();
+        let mut translations = Translations::new("zh-CN");
+        translations.add_term("Figure", "图");
+
+        state.set_translations(translations);
+        assert_eq!(state.translate("Figure"), Some("图"));
+        assert_eq!(state.translate("Unknown"), None);
+    }
+
+    #[test]
+    fn test_insert_and_get_media() {
+        let mut state = CommonState::new();
+        state.insert_media(
+            "image.png".to_string(),
+            "image/png",
+            vec![0x89, 0x50, 0x4E, 0x47],
+        );
+
+        let media = state.get_media("image.png");
+        assert!(media.is_some());
+        let (mime, contents) = media.unwrap();
+        assert_eq!(mime, "image/png");
+        assert_eq!(contents, vec![0x89, 0x50, 0x4E, 0x47]);
+    }
+
+    #[test]
+    fn test_extension_data_mut() {
+        let mut state = CommonState::new();
+        let mut data = ExtensionData::new();
+        data.set("key", "value");
+        state.set_extension_data("ext", data);
+
+        let data_mut = state.get_extension_data_mut("ext").unwrap();
+        data_mut.set("key2", "value2");
+
+        let retrieved = state.get_extension_data("ext").unwrap();
+        assert_eq!(retrieved.get("key2"), Some("value2"));
+    }
+
+    #[test]
+    fn test_reject_changes() {
+        let mut state = CommonState::new();
+        state.track_changes = TrackChanges::RejectChanges;
+        assert!(!state.track_changes());
+        assert!(!state.accept_changes());
+        assert!(state.reject_changes());
+    }
+
+    #[test]
+    fn test_track_changes_default() {
+        let track: TrackChanges = Default::default();
+        assert!(matches!(track, TrackChanges::TrackChanges));
+    }
+
+    #[test]
+    fn test_translations_new() {
+        let translations = Translations::new("en-US");
+        assert_eq!(translations.lang, "en-US");
+        assert!(translations.terms.is_empty());
+    }
+
+    #[test]
+    fn test_extension_data_default() {
+        let data: ExtensionData = Default::default();
+        assert!(data.data.is_empty());
+    }
+
+    #[test]
+    fn test_extension_data_get_none() {
+        let data = ExtensionData::new();
+        assert_eq!(data.get("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_common_state_default_trait() {
+        let state: CommonState = Default::default();
+        assert_eq!(state.verbosity, Verbosity::Warning);
+        assert_eq!(state.tab_stop, 4);
+    }
 }

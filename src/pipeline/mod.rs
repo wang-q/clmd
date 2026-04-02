@@ -375,10 +375,7 @@ mod tests {
     fn test_pipeline_with_filters() {
         use crate::util::filter::Filter;
 
-        let filters = vec![
-            Filter::header_shift(1),
-            Filter::header_shift(-1),
-        ];
+        let filters = vec![Filter::header_shift(1), Filter::header_shift(-1)];
 
         let pipeline = PipelineBuilder::new()
             .from("markdown")
@@ -421,7 +418,9 @@ mod tests {
 
         let filter = Filter::header_shift(1);
         let new_pipeline = pipeline.add_filter(filter);
-        let output = new_pipeline.convert("# Hello", &Options::default()).unwrap();
+        let output = new_pipeline
+            .convert("# Hello", &Options::default())
+            .unwrap();
         assert!(output.contains("<h1>") || output.contains("<h2>"));
     }
 

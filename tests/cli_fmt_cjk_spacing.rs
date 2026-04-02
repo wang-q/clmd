@@ -130,7 +130,7 @@ fn test_fmt_cjk_spacing_code_block() {
 ```
 
 结束。"#
-    .as_bytes();
+        .as_bytes();
     let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
 
     assert!(output.status.success());

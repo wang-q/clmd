@@ -271,11 +271,9 @@ mod tests {
     fn test_is_punctuation_unicode() {
         // Test some Unicode punctuation
         assert!(is_punctuation('。')); // Chinese full stop
-        // Note: '，' (Chinese comma) may not be covered by the current implementation
-        // as it falls outside the checked Unicode ranges
+                                       // Note: '，' (Chinese comma) may not be covered by the current implementation
+                                       // as it falls outside the checked Unicode ranges
     }
-
-
 
     #[test]
     fn test_is_special_char() {

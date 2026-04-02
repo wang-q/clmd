@@ -294,4 +294,101 @@ mod tests {
         let debug = format!("{:?}", plugins);
         assert!(debug.contains("has_syntax_highlighter: true"));
     }
+
+    #[test]
+    fn test_codefence_renderer() {
+        use crate::core::adapter::CodefenceRendererAdapter;
+
+        struct TestCodefenceRenderer;
+        impl CodefenceRendererAdapter for TestCodefenceRenderer {
+            fn is_codefence(&self, info: &str) -> bool {
+                info == "custom"
+            }
+
+            fn render_codefence(&self, _info: &str, content: &str) -> Option<String> {
+                Some(format!("<div class=\"custom\">{}</div>", content))
+            }
+        }
+
+        let mut plugins = OwnedPlugins::new();
+        plugins.register_codefence_renderer("custom", Box::new(TestCodefenceRenderer));
+        assert!(!plugins.is_empty());
+        assert!(plugins.codefence_renderer("custom").is_some());
+        assert!(plugins.codefence_renderer("unknown").is_none());
+    }
+
+    #[test]
+    fn test_link_url_rewriter() {
+        use crate::core::adapter::UrlRewriter;
+
+        struct TestUrlRewriter;
+        impl UrlRewriter for TestUrlRewriter {
+            fn rewrite_url(&self, url: &str) -> String {
+                format!("https://example.com/{}", url)
+            }
+        }
+
+        let mut plugins = OwnedPlugins::new();
+        plugins.set_link_url_rewriter(Box::new(TestUrlRewriter));
+        assert!(!plugins.is_empty());
+        assert!(plugins.link_url_rewriter().is_some());
+        assert!(plugins.image_url_rewriter().is_none());
+    }
+
+    #[test]
+    fn test_image_url_rewriter() {
+        use crate::core::adapter::UrlRewriter;
+
+        struct TestUrlRewriter;
+        impl UrlRewriter for TestUrlRewriter {
+            fn rewrite_url(&self, url: &str) -> String {
+                format!("https://cdn.example.com/{}", url)
+            }
+        }
+
+        let mut plugins = OwnedPlugins::new();
+        plugins.set_image_url_rewriter(Box::new(TestUrlRewriter));
+        assert!(!plugins.is_empty());
+        assert!(plugins.image_url_rewriter().is_some());
+        assert!(plugins.link_url_rewriter().is_none());
+    }
+
+    #[test]
+    fn test_as_plugins() {
+        let mut plugins = OwnedPlugins::new();
+        plugins.set_syntax_highlighter(Box::new(DefaultSyntaxHighlighter));
+
+        let comrak_plugins = plugins.as_plugins();
+        assert!(comrak_plugins.render.syntax_highlighter().is_some());
+    }
+
+    #[test]
+    fn test_default_syntax_highlighter_default() {
+        let highlighter: DefaultSyntaxHighlighter = Default::default();
+        let mut output = String::new();
+        highlighter
+            .write_highlighted(&mut output, None, "test")
+            .unwrap();
+        assert_eq!(output, "test");
+    }
+
+    #[test]
+    fn test_default_syntax_highlighter_ampersand_escape() {
+        let highlighter = DefaultSyntaxHighlighter;
+        let mut output = String::new();
+        highlighter
+            .write_highlighted(&mut output, None, "&")
+            .unwrap();
+        assert_eq!(output, "&amp;");
+    }
+
+    #[test]
+    fn test_owned_plugins_new_extended() {
+        let plugins = OwnedPlugins::new();
+        assert!(plugins.is_empty());
+        assert!(plugins.syntax_highlighter().is_none());
+        assert!(plugins.heading_adapter().is_none());
+        assert!(plugins.link_url_rewriter().is_none());
+        assert!(plugins.image_url_rewriter().is_none());
+    }
 }
