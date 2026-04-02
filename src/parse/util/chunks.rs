@@ -178,7 +178,7 @@ impl Chunk {
 
     /// Get the URL for this chunk.
     pub fn url(&self) -> String {
-        format!("{}", self.file_name)
+        self.file_name.to_string()
     }
 }
 
@@ -290,16 +290,16 @@ impl ChunkedDocument {
         NavLinks {
             prev: chunk.prev_id.as_ref().and_then(|id| {
                 self.get_by_id(id).map(|c| {
-                    Link::new(&c.url(), c.title.as_deref().unwrap_or("Previous"))
+                    Link::new(c.url(), c.title.as_deref().unwrap_or("Previous"))
                 })
             }),
             next: chunk.next_id.as_ref().and_then(|id| {
                 self.get_by_id(id)
-                    .map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Next")))
+                    .map(|c| Link::new(c.url(), c.title.as_deref().unwrap_or("Next")))
             }),
             up: chunk.parent_id.as_ref().and_then(|id| {
                 self.get_by_id(id)
-                    .map(|c| Link::new(&c.url(), c.title.as_deref().unwrap_or("Up")))
+                    .map(|c| Link::new(c.url(), c.title.as_deref().unwrap_or("Up")))
             }),
             toc: if self.config.generate_toc {
                 Some(Link::new("index.html", "Table of Contents"))

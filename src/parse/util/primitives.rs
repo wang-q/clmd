@@ -474,15 +474,16 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn test_float() {
         let (result, _) = float("3.14", Position::start()).unwrap();
-        assert!((result - 3.14).abs() < 0.0001);
+        assert!((result - 3.14_f64).abs() < 0.0001);
         let (result, _) = float("-3.14", Position::start()).unwrap();
-        assert!((result - (-3.14)).abs() < 0.0001);
+        assert!((result - (-3.14_f64)).abs() < 0.0001);
         let (result, _) = float("1e10", Position::start()).unwrap();
-        assert!((result - 1e10).abs() < 0.0001);
+        assert!((result - 1e10_f64).abs() < 0.0001);
         let (result, _) = float("1.5e-3", Position::start()).unwrap();
-        assert!((result - 0.0015).abs() < 0.0001);
+        assert!((result - 0.0015_f64).abs() < 0.0001);
     }
 
     #[test]

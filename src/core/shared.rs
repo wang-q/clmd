@@ -55,7 +55,7 @@ pub fn stringify(input: &str) -> String {
                 if chars.peek() == Some(&'(') {
                     chars.next(); // consume '('
                                   // Safely skip until we find ')' or reach the end
-                    while let Some(c) = chars.next() {
+                    for c in chars.by_ref() {
                         if c == ')' {
                             break;
                         }

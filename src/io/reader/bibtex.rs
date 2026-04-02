@@ -96,7 +96,7 @@ fn skip_whitespace_and_comments(chars: &mut std::iter::Peekable<std::str::Chars>
 
         // Skip comments (lines starting with %)
         if let Some(&'%') = chars.peek() {
-            while let Some(c) = chars.next() {
+            for c in chars.by_ref() {
                 if c == '\n' {
                     break;
                 }

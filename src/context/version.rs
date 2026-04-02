@@ -124,6 +124,7 @@ pub fn version_string_detailed() -> String {
 /// // Check if version is at least 0.1.0
 /// assert!(satisfies(0, 1, 0));
 /// ```
+#[allow(clippy::absurd_extreme_comparisons)]
 pub const fn satisfies(major: u32, minor: u32, patch: u32) -> bool {
     let current = VERSION_MAJOR;
     if current > major {

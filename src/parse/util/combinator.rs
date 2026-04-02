@@ -349,15 +349,12 @@ where
         let (first, mut current_pos) = parser(input, pos)?;
         let mut results = vec![first];
 
-        loop {
-            match sep(input, current_pos.clone()) {
-                Ok((_, sep_pos)) => match parser(input, sep_pos.clone()) {
-                    Ok((result, elem_pos)) => {
-                        results.push(result);
-                        current_pos = elem_pos;
-                    }
-                    Err(_) => break,
-                },
+        while let Ok((_, sep_pos)) = sep(input, current_pos) {
+            match parser(input, sep_pos) {
+                Ok((result, elem_pos)) => {
+                    results.push(result);
+                    current_pos = elem_pos;
+                }
                 Err(_) => break,
             }
         }
@@ -463,7 +460,7 @@ where
 /// ```ignore
 pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>> {
     Box::new(
-        move |input: &str, pos: Position| match parser(input, pos.clone()) {
+        move |input: &str, pos: Position| match parser(input, pos) {
             Ok((result, _)) => Ok((Some(result), pos)),
             Err(_) => Ok((None, pos)),
         },
@@ -491,7 +488,7 @@ where
 {
     Box::new(move |input: &str, pos: Position| {
         let (result, new_pos) = parser(input, pos)?;
-        match not_followed(input, new_pos.clone()) {
+        match not_followed(input, new_pos) {
             Ok(_) => Err(ParseError::at(
                 new_pos.line,
                 new_pos.column,
