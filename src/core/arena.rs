@@ -130,7 +130,19 @@ impl NodeArena {
     /// # Panics
     ///
     /// Panics if the maximum node limit is reached (when configured)
-    /// or if the node ID would overflow.
+    /// or if the node ID would overflow (exceeds `u32::MAX`).
+    ///
+    /// For a non-panicking version, use [`try_alloc`](Self::try_alloc).
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use clmd::core::{NodeArena, Node, NodeValue};
+    ///
+    /// let mut arena = NodeArena::new();
+    /// let node = Node::with_value(NodeValue::Document);
+    /// let id = arena.alloc(node);
+    /// ```
     pub fn alloc(&mut self, node: Node) -> NodeId {
         self.try_alloc(node).unwrap_or_else(|e| {
             panic!("Arena allocation failed: {}", e);
@@ -144,16 +156,7 @@ impl NodeArena {
     /// Returns an error if the maximum node limit is reached (when configured)
     /// or if the node ID would overflow.
     pub fn try_alloc(&mut self, node: Node) -> Result<NodeId, ClmdError> {
-        // Check for integer overflow (NodeId is u32)
-        if self.nodes.len() >= u32::MAX as usize {
-            return Err(ClmdError::limit_exceeded(
-                LimitKind::NestingDepth,
-                u32::MAX as usize,
-                self.nodes.len(),
-            ));
-        }
-
-        // Check memory limit
+        // Check memory limit first (if configured)
         if self.max_nodes > 0 && self.nodes.len() >= self.max_nodes {
             return Err(ClmdError::limit_exceeded(
                 LimitKind::NestingDepth,
@@ -162,7 +165,18 @@ impl NodeArena {
             ));
         }
 
-        let id = self.nodes.len() as NodeId;
+        // Check for integer overflow (NodeId is u32)
+        // Use saturating_add to safely check for overflow
+        let current_len = self.nodes.len();
+        if current_len >= u32::MAX as usize {
+            return Err(ClmdError::limit_exceeded(
+                LimitKind::NestingDepth,
+                u32::MAX as usize,
+                current_len,
+            ));
+        }
+
+        let id = current_len as NodeId;
         self.nodes.push(node);
         self.total_allocations += 1;
         Ok(id)

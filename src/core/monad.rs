@@ -335,8 +335,13 @@ impl ClmdMonad for ClmdIO {
     fn fetch_resource(&self, url: &str) -> Result<Vec<u8>, Self::Error> {
         // Check if it's a URL or a local path
         if url.starts_with("http://") || url.starts_with("https://") {
-            // For now, return an error - HTTP support would require a feature flag
-            Err(ClmdError::feature_not_enabled("http"))
+            // HTTP support is not implemented yet
+            // This would require adding a dependency like reqwest or ureq
+            Err(ClmdError::feature_not_enabled(
+                "HTTP resource fetching is not enabled. \
+                To fetch resources from URLs, enable the 'http' feature. \
+                Alternatively, download the resource manually and reference it by local path."
+            ))
         } else {
             // Try as a local path
             let path = Path::new(url);
@@ -354,7 +359,18 @@ impl ClmdMonad for ClmdIO {
                 return self.read_file_bytes(path);
             }
 
-            Err(ClmdError::resource_not_found(url))
+            // Provide helpful error message with searched paths
+            let searched_paths: Vec<String> = self
+                .resource_paths
+                .iter()
+                .map(|p| format!("  - {}", p.join(path).display()))
+                .collect();
+            Err(ClmdError::resource_not_found(format!(
+                "Resource '{}' not found. Searched in:\n{}\n  - {} (absolute path)",
+                url,
+                searched_paths.join("\n"),
+                path.display()
+            )))
         }
     }
 

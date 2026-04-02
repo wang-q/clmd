@@ -58,7 +58,10 @@ impl Transliterator {
     /// assert_eq!(result, "cafe");
     /// ```
     pub fn transliterate(&self, input: &str) -> String {
-        let mut result = String::with_capacity(input.len());
+        // Estimate capacity: input length is a lower bound,
+        // some characters may expand to multiple bytes (e.g., 'ß' -> "ss")
+        let estimated_capacity = input.len().saturating_mul(2).min(1024 * 1024);
+        let mut result = String::with_capacity(estimated_capacity);
 
         for ch in input.chars() {
             if ch.is_ascii() {
@@ -335,7 +338,7 @@ impl Transliterator {
 ///
 /// let ascii = asciify("café résumé naïve");
 /// assert_eq!(ascii, "cafe resume naive");
-/// ```ignore
+/// ```
 pub fn asciify(input: &str) -> String {
     let transliterator = Transliterator::new();
     transliterator.transliterate(input)
@@ -350,7 +353,7 @@ pub fn asciify(input: &str) -> String {
 ///
 /// assert!(has_non_ascii("café"));
 /// assert!(!has_non_ascii("cafe"));
-/// ```ignore
+/// ```
 pub fn has_non_ascii(input: &str) -> bool {
     !input.is_ascii()
 }
