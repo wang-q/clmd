@@ -2,6 +2,62 @@
 
 ## Unreleased - ReleaseDate
 
+### 🎉 Major Changes
+
+#### CLI Restructuring
+- **Simplified Command Structure**: Split `convert` command into standalone `to` and `from` subcommands
+  - `clmd to <format>` - Convert Markdown to various output formats
+  - `clmd from <format>` - Convert other formats to Markdown
+- **New Commands**:
+  - `validate` - Validate Markdown documents
+  - `transform` - Transform document structure
+  - `complete` - Shell completion script generation
+
+### ✨ New Features
+
+#### CJK Typography
+- **CJK Spacing**: Added utility for adding spaces between CJK characters and English/numbers for better typography
+- **CLI Integration**: `--cjk-spacing` flag for the `fmt` command
+
+#### CommonMark Formatting
+- **Empty Line Preservation**: Code blocks now preserve empty lines correctly
+- **Improved Escaping**: Better markdown escaping logic for special characters
+
+#### CI/CD
+- **GitHub Actions**: Added workflows for build, test, coverage, and publish
+- **README Badges**: Added build status, codecov, crates.io, and license badges
+
+### 🐛 Bug Fixes
+
+- **List Formatting**: Changed list item marker formatting to use single space
+- **Markdown Escaping**: Improved escaping logic for special characters
+- **Rendering**: Add blank line after lists and code blocks for better output
+- **Parentheses**: Remove unnecessary escaping of parentheses in markdown output
+
+### 🏗️ Architecture Improvements
+
+#### Module Restructuring
+- **HTML Conversion**: Moved from `io/convert` to `io/reader` module
+- **Command Modules**: Restructured for better organization and maintainability
+- **AST Traversal**: Improved traversal safety and restructured iterator modules
+
+#### Code Quality
+- **Error Handling**: Improved error messages and error handling throughout
+- **String Handling**: Enhanced string handling and code style consistency
+- **Clippy Compliance**: Improved iterator usage and clippy compliance
+
+### 🧪 Testing
+
+- **Comprehensive Coverage**: Added test coverage for multiple modules
+- **Complete Tests**: Added unit tests for shell completion generation
+- **CJK Spacing Tests**: Added dedicated test file for CJK spacing functionality
+
+### 🛠️ Technical Improvements
+
+- **Input Size Estimation**: Added input size estimation for better memory management
+- **Hash Path Generation**: Extracted to common function in context module
+- **Code Documentation**: Improved documentation across multiple modules
+
 ## 0.2.0 - 2026-04-01
 
 ### 🎉 Major Architecture Overhaul
