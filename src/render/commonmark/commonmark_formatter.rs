@@ -897,7 +897,7 @@ pub fn get_backtick_sequence(content: &str) -> String {
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let special_chars = [
-        '*', '_', '[', ']', '(', ')', '<', '>', '#', '`', '\\', '!', '|',
+        '*', '_', '[', ']', '<', '>', '#', '`', '\\', '!', '|',
     ];
 
     for c in text.chars() {
@@ -916,7 +916,7 @@ pub fn escape_markdown(text: &str) -> String {
 fn escape_markdown_for_table(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     // Note: '|' is not included here as it's used for table cell separation
-    let special_chars = ['*', '_', '[', ']', '(', ')', '<', '>', '#', '`', '\\', '!'];
+    let special_chars = ['*', '_', '[', ']', '<', '>', '#', '`', '\\', '!'];
 
     for c in text.chars() {
         if special_chars.contains(&c) {
@@ -1195,7 +1195,7 @@ mod tests {
         assert_eq!(escape_markdown("*text*"), "\\*text\\*");
         assert_eq!(escape_markdown("_text_"), "\\_text\\_");
         assert_eq!(escape_markdown("[link]"), "\\[link\\]");
-        assert_eq!(escape_markdown("(paren)"), "\\(paren\\)");
+        assert_eq!(escape_markdown("(paren)"), "(paren)"); // parentheses are not escaped
         assert_eq!(escape_markdown("`code`"), "\\`code\\`");
     }
 

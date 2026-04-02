@@ -132,8 +132,8 @@ pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     for ch in text.chars() {
         match ch {
-            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+'
-            | '-' | '.' | '!' | '|' => {
+            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '#' | '+' | '-' | '.'
+            | '!' | '|' => {
                 result.push('\\');
                 result.push(ch);
             }

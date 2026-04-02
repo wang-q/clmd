@@ -120,6 +120,7 @@ impl Formatter {
     /// This is the main entry point for rendering a document tree to Markdown.
     pub fn render(&self, arena: &NodeArena, root: NodeId) -> String {
         let mut writer = writer::MarkdownWriter::new(self.options.format_flags);
+        writer.set_max_trailing_blank_lines(self.options.max_trailing_blank_lines);
         let mut context =
             MainFormatterContext::new(arena, &self.options, &self.node_formatters);
 
@@ -152,6 +153,7 @@ impl Formatter {
         purpose: purpose::RenderPurpose,
     ) -> String {
         let mut writer = writer::MarkdownWriter::new(self.options.format_flags);
+        writer.set_max_trailing_blank_lines(self.options.max_trailing_blank_lines);
         let mut context = MainFormatterContext::with_purpose(
             arena,
             &self.options,
