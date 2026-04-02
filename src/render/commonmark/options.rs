@@ -222,7 +222,7 @@ pub struct FormatterOptions {
     /// Heading style preference
     pub heading_style: HeadingStyle,
     /// Add space after ATX marker
-    pub space_after_atx_marker: DiscretionaryText,
+    pub space_after_atx_marker: bool,
     /// ATX heading trailing marker handling
     pub atx_heading_trailing_marker: TrailingMarker,
     /// Equalize Setext heading marker length
@@ -249,6 +249,8 @@ pub struct FormatterOptions {
     pub list_add_blank_line_before: bool,
     /// Item content after suffix
     pub lists_item_content_after_suffix: bool,
+    /// Item content indent based on marker width (vs fixed indent)
+    pub item_content_indent: bool,
 
     // Code block options
     /// Fenced code block marker type
@@ -299,6 +301,8 @@ pub struct FormatterOptions {
     pub right_margin: usize,
     /// Thematic break string
     pub thematic_break: Option<String>,
+    /// Thematic break marker character
+    pub thematic_break_marker: char,
     /// Format flags
     pub format_flags: FormatFlags,
     /// Enable CJK spacing (add spaces between CJK and ASCII)
@@ -332,7 +336,7 @@ impl Default for FormatterOptions {
         Self {
             // Heading defaults
             heading_style: HeadingStyle::default(),
-            space_after_atx_marker: DiscretionaryText::Add,
+            space_after_atx_marker: true,
             atx_heading_trailing_marker: TrailingMarker::AsIs,
             setext_heading_equalize_marker: true,
             min_setext_marker_length: 3,
@@ -347,6 +351,7 @@ impl Default for FormatterOptions {
             list_align_numeric: Alignment::None,
             list_add_blank_line_before: false,
             lists_item_content_after_suffix: false,
+            item_content_indent: true,
 
             // Code block defaults
             fenced_code_marker_type: CodeFenceMarker::default(),
@@ -378,6 +383,7 @@ impl Default for FormatterOptions {
             max_trailing_blank_lines: 2,
             right_margin: 0,
             thematic_break: None,
+            thematic_break_marker: '*',
             format_flags: FormatFlags::DEFAULT,
             cjk_spacing: false,
 
@@ -410,7 +416,7 @@ impl FormatterOptions {
     }
 
     /// Set space after ATX marker
-    pub fn with_space_after_atx_marker(mut self, value: DiscretionaryText) -> Self {
+    pub fn with_space_after_atx_marker(mut self, value: bool) -> Self {
         self.space_after_atx_marker = value;
         self
     }
@@ -595,7 +601,7 @@ mod tests {
     fn test_all_builder_methods() {
         let opts = FormatterOptions::new()
             .with_heading_style(HeadingStyle::Setext)
-            .with_space_after_atx_marker(DiscretionaryText::Remove)
+            .with_space_after_atx_marker(false)
             .with_atx_heading_trailing_marker(TrailingMarker::Remove)
             .with_setext_heading_equalize_marker(false)
             .with_min_setext_marker_length(5)
@@ -619,10 +625,7 @@ mod tests {
             .with_formatter_off_tag("off");
 
         assert!(matches!(opts.heading_style, HeadingStyle::Setext));
-        assert!(matches!(
-            opts.space_after_atx_marker,
-            DiscretionaryText::Remove
-        ));
+        assert!(!opts.space_after_atx_marker);
         assert!(matches!(
             opts.atx_heading_trailing_marker,
             TrailingMarker::Remove

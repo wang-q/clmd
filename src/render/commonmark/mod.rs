@@ -18,6 +18,7 @@
 
 pub mod commonmark_formatter;
 pub mod context;
+pub mod escaping;
 pub mod node;
 pub mod options;
 pub mod phase;

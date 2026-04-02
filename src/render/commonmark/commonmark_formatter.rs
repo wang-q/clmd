@@ -16,8 +16,11 @@
 use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
+use crate::formatter::escaping::{
+    choose_emphasis_marker, compute_fence_length, escape_string, escape_text, escape_url,
+};
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
-use crate::formatter::options::FormatterOptions;
+use crate::formatter::options::{FormatterOptions, HeadingStyle};
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::phased::PhasedNodeFormatter;
 use crate::formatter::writer::MarkdownWriter;
@@ -146,19 +149,67 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Heading,
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Heading(heading) = value {
-                            let hashes = "#".repeat(heading.level as usize);
-                            // Append hash and space together to avoid whitespace trimming
-                            writer.append_raw(format!("{} ", hashes));
+                            let options = ctx.get_formatter_options();
+
+                            // Determine heading style
+                            let use_setext = match options.heading_style {
+                                HeadingStyle::Setext => heading.level <= 2,
+                                HeadingStyle::Atx => false,
+                                HeadingStyle::AsIs => heading.setext,
+                            };
+
+                            if use_setext {
+                                // Setext style - no prefix needed, marker comes after content
+                            } else {
+                                // ATX style
+                                let hashes = "#".repeat(heading.level as usize);
+                                if options.space_after_atx_marker {
+                                    writer.append_raw(format!("{} ", hashes));
+                                } else {
+                                    writer.append_raw(hashes);
+                                }
+                            }
                         }
                     },
                 ),
                 Box::new(
-                    |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
+                        if let NodeValue::Heading(heading) = value {
+                            let heading_style =
+                                ctx.get_formatter_options().heading_style;
+                            let min_setext_marker_length =
+                                ctx.get_formatter_options().min_setext_marker_length;
+
+                            // Determine heading style
+                            let use_setext = match heading_style {
+                                HeadingStyle::Setext => heading.level <= 2,
+                                HeadingStyle::Atx => false,
+                                HeadingStyle::AsIs => heading.setext,
+                            };
+
+                            if use_setext {
+                                // Add Setext underline
+                                let marker = if heading.level == 1 { '=' } else { '-' };
+                                writer.line();
+
+                                // Calculate underline length based on content
+                                let content_len =
+                                    if let Some(node_id) = ctx.get_current_node() {
+                                        ctx.render_children_to_string(node_id).len()
+                                    } else {
+                                        min_setext_marker_length
+                                    };
+                                let underline_len =
+                                    content_len.max(min_setext_marker_length);
+                                writer.append(marker.to_string().repeat(underline_len));
+                            }
+                            // ATX style doesn't need closing marker
+                        }
                         // Heading closing - add blank line after heading
                         writer.blank_line();
                     },
@@ -304,9 +355,11 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::ThematicBreak,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("***");
+                        let options = ctx.get_formatter_options();
+                        let marker = options.thematic_break_marker;
+                        writer.append(marker.to_string().repeat(3));
                         writer.line();
                     },
                 ),
@@ -352,7 +405,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 processed_text
                             };
 
-                            let escaped = escape_markdown(&final_text);
+                            // Use context-aware escaping
+                            let escaped = escape_text(&final_text, ctx);
                             // Use append_raw to preserve whitespace in text content
                             writer.append_raw(&escaped);
                         }
@@ -366,9 +420,24 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      _ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Code(code) = value {
-                            let backticks = get_backtick_sequence(&code.literal);
+                            // Use compute_fence_length for dynamic calculation
+                            let fence_len = compute_fence_length(&code.literal, 1);
+                            let backticks = "`".repeat(fence_len);
                             writer.append(&backticks);
+
+                            // Add space if content starts/ends with backtick
+                            let needs_space = code.literal.starts_with('`')
+                                || code.literal.ends_with('`');
+                            if needs_space {
+                                writer.append(" ");
+                            }
+
                             writer.append(&code.literal);
+
+                            if needs_space {
+                                writer.append(" ");
+                            }
+
                             writer.append(&backticks);
                         }
                     },
@@ -378,16 +447,30 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Emph,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("*");
+                        // Choose the best emphasis marker based on content
+                        if let Some(node_id) = ctx.get_current_node() {
+                            let content = ctx.render_children_to_string(node_id);
+                            let marker = choose_emphasis_marker(&content);
+                            writer.append(marker.to_string());
+                        } else {
+                            writer.append("*");
+                        }
                     },
                 ),
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("*");
+                        // Match the opening marker
+                        if let Some(node_id) = ctx.get_current_node() {
+                            let content = ctx.render_children_to_string(node_id);
+                            let marker = choose_emphasis_marker(&content);
+                            writer.append(marker.to_string());
+                        } else {
+                            writer.append("*");
+                        }
                     },
                 ),
             ),
@@ -423,7 +506,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Link(link) = value {
                             writer.append("](");
-                            writer.append(escape_link_url(&link.url));
+                            writer.append(escape_url(&link.url));
                             if !link.title.is_empty() {
                                 writer.append(format!(
                                     " \"{}\"",
@@ -450,7 +533,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Image(link) = value {
                             writer.append("](");
-                            writer.append(escape_link_url(&link.url));
+                            writer.append(escape_url(&link.url));
                             if !link.title.is_empty() {
                                 writer.append(format!(
                                     " \"{}\"",
@@ -676,20 +759,8 @@ fn render_code_block(
     code_block: &crate::core::nodes::NodeCodeBlock,
     writer: &mut MarkdownWriter,
 ) {
-    // Determine fence length
-    let mut fence_len = 3;
-    for seq in code_block.literal.split('\n') {
-        let mut count = 0;
-        for c in seq.chars() {
-            if c == '`' {
-                count += 1;
-                fence_len = fence_len.max(count + 1);
-            } else {
-                count = 0;
-            }
-        }
-    }
-
+    // Use the escaping module's compute_fence_length for dynamic calculation
+    let fence_len = compute_fence_length(&code_block.literal, 3);
     let fence = "`".repeat(fence_len);
     writer.append(&fence);
 
@@ -793,7 +864,7 @@ fn collect_cell_text_content(
                 child_opt = arena.get(child_id).next;
             }
             result.push_str("](");
-            result.push_str(&escape_link_url(&link.url));
+            result.push_str(&escape_url(&link.url));
             if !link.title.is_empty() {
                 result.push_str(&format!(" \"{}\"", escape_string(&link.title)));
             }
@@ -906,73 +977,6 @@ pub fn get_backtick_sequence(content: &str) -> String {
     "`".repeat(count)
 }
 
-/// Escape special Markdown characters in text
-///
-/// Escapes characters that have special meaning in Markdown to ensure
-/// they are rendered as literal text.
-///
-/// # Examples
-///
-/// ```ignore
-/// use clmd::formatter::commonmark_formatter::escape_markdown;
-///
-/// assert_eq!(escape_markdown("*text*"), "\\*text\\*");
-/// assert_eq!(escape_markdown("_text_"), "\\_text\\_");
-/// assert_eq!(escape_markdown("[link]"), "\\[link\\]");
-/// ```ignore
-pub fn escape_markdown(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    let chars: Vec<char> = text.chars().collect();
-    for (i, ch) in chars.iter().enumerate() {
-        match *ch {
-            // Backslash and backtick always need escaping
-            '\\' | '`' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Asterisk and underscore are emphasis markers
-            '*' | '_' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Square brackets are link markers
-            '[' | ']' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Hash only needs escaping at the beginning of a line (ATX heading)
-            // For simplicity, we escape it everywhere to be safe
-            '#' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Exclamation mark only needs escaping when followed by '[' (image syntax)
-            '!' => {
-                if i + 1 < chars.len() && chars[i + 1] == '[' {
-                    result.push('\\');
-                }
-                result.push(*ch);
-            }
-            // Angle brackets only need escaping in specific contexts
-            // For now, we escape them to be safe
-            '<' | '>' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Pipe only has special meaning in tables
-            '|' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Other characters don't need escaping in CommonMark
-            // including: '{', '}', '+', '-', '.', '&'
-            _ => result.push(*ch),
-        }
-    }
-
-    result
-}
-
 /// Escape special Markdown characters in text, but preserve pipe for table cells
 ///
 /// This is used for table cell content where pipe characters should not be escaped.
@@ -1000,28 +1004,73 @@ fn escape_markdown_for_table(text: &str) -> String {
     result
 }
 
-/// Escape string for use in link title
+/// Choose the best bullet marker based on content and nesting level
 ///
-/// Escapes quotes and backslashes in link titles.
-pub fn escape_string(text: &str) -> String {
-    text.replace('"', "\\\"").replace('\\', "\\\\")
+/// This function selects the most appropriate bullet marker character
+/// based on the list's nesting level and content.
+fn choose_bullet_marker(
+    _list: &crate::core::nodes::NodeList,
+    nesting_level: usize,
+    options: &FormatterOptions,
+) -> char {
+    use crate::formatter::options::BulletMarker;
+
+    match options.list_bullet_marker {
+        BulletMarker::Dash => '-',
+        BulletMarker::Asterisk => '*',
+        BulletMarker::Plus => '+',
+        BulletMarker::Any => {
+            // Rotate markers based on nesting level for better visual distinction
+            match nesting_level % 3 {
+                0 => '-',
+                1 => '*',
+                2 => '+',
+                _ => '-',
+            }
+        }
+    }
 }
 
-/// Escape URL for use in link destination
+/// Calculate the indentation for a list item
 ///
-/// Escapes special characters that need escaping in link URLs.
-pub fn escape_link_url(url: &str) -> String {
-    let mut result = String::with_capacity(url.len());
-    let special_chars = ['(', ')', '<', '>', '[', ']', '"', ' ', '\n'];
+/// Returns the appropriate indentation string based on nesting level
+/// and list type.
+fn calculate_list_indent(
+    list: &crate::core::nodes::NodeList,
+    nesting_level: usize,
+    item_number: usize,
+    options: &FormatterOptions,
+) -> String {
+    use crate::core::nodes::{ListDelimType, ListType};
 
-    for c in url.chars() {
-        if special_chars.contains(&c) {
-            result.push('\\');
-        }
-        result.push(c);
-    }
+    let _base_indent = if options.item_content_indent {
+        // Calculate indent based on marker width
+        let marker_width = match list.list_type {
+            ListType::Bullet => 2, // "- "
+            ListType::Ordered => {
+                let marker = match list.delimiter {
+                    ListDelimType::Period => format!("{}.", item_number),
+                    ListDelimType::Paren => format!("{})", item_number),
+                };
+                marker.len() + 1 // marker + space
+            }
+        };
+        // Indent to align content with first line after marker
+        marker_width
+    } else {
+        // Fixed indent of 4 spaces
+        4
+    };
 
-    result
+    // Apply nesting level
+    let total_indent = if nesting_level == 0 {
+        0
+    } else {
+        // Each nesting level adds 4 spaces (or aligns with parent content)
+        nesting_level * 4
+    };
+
+    " ".repeat(total_indent)
 }
 
 /// Format list item marker based on list type
@@ -1235,6 +1284,140 @@ fn get_item_number_in_list(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::formatter::escaping::escape_text;
+
+    // Mock context for testing
+    struct MockContext;
+
+    impl NodeFormatterContext for MockContext {
+        fn get_markdown_writer(
+            &mut self,
+        ) -> &mut crate::formatter::writer::MarkdownWriter {
+            panic!("Not implemented")
+        }
+
+        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
+            crate::formatter::phase::FormattingPhase::Document
+        }
+
+        fn delegate_render(&mut self) {}
+
+        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+            panic!("Not implemented")
+        }
+
+        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
+            crate::formatter::purpose::RenderPurpose::Format
+        }
+
+        fn get_arena(&self) -> &crate::core::arena::NodeArena {
+            panic!("Not implemented")
+        }
+
+        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
+            None
+        }
+
+        fn get_nodes_of_type(
+            &self,
+            _node_type: crate::formatter::node::NodeValueType,
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_nodes_of_types(
+            &self,
+            _node_types: &[crate::formatter::node::NodeValueType],
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
+            Box::new(|c| c == '>')
+        }
+
+        fn get_block_quote_like_prefix_chars(&self) -> &str {
+            ">"
+        }
+
+        fn transform_non_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn transform_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
+            panic!("Not implemented")
+        }
+
+        fn is_in_tight_list(&self) -> bool {
+            false
+        }
+
+        fn set_tight_list(&mut self, _tight: bool) {}
+
+        fn get_list_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_list_nesting(&mut self) {}
+
+        fn decrement_list_nesting(&mut self) {}
+
+        fn is_in_block_quote(&self) -> bool {
+            false
+        }
+
+        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
+
+        fn get_block_quote_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_block_quote_nesting(&mut self) {}
+
+        fn decrement_block_quote_nesting(&mut self) {}
+
+        fn start_table_collection(
+            &mut self,
+            _alignments: Vec<crate::core::nodes::TableAlignment>,
+        ) {
+        }
+
+        fn add_table_row(&mut self) {}
+
+        fn add_table_cell(&mut self, _content: String) {}
+
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
+            None
+        }
+
+        fn is_collecting_table(&self) -> bool {
+            false
+        }
+
+        fn set_skip_children(&mut self, _skip: bool) {}
+
+        fn render_children_to_string(
+            &mut self,
+            _node_id: crate::core::arena::NodeId,
+        ) -> String {
+            String::new()
+        }
+    }
 
     #[test]
     fn test_commonmark_formatter_creation() {
@@ -1263,18 +1446,20 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_markdown() {
-        assert_eq!(escape_markdown("*text*"), "\\*text\\*");
-        assert_eq!(escape_markdown("_text_"), "\\_text\\_");
-        assert_eq!(escape_markdown("[link]"), "\\[link\\]");
-        assert_eq!(escape_markdown("(paren)"), "(paren)"); // parentheses are not escaped
-        assert_eq!(escape_markdown("`code`"), "\\`code\\`");
+    fn test_escape_text() {
+        let ctx = MockContext;
+        assert_eq!(escape_text("*text*", &ctx), "\\*text\\*");
+        assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
+        assert_eq!(escape_text("[link]", &ctx), "\\[link\\]");
+        assert_eq!(escape_text("(paren)", &ctx), "(paren)"); // parentheses are not escaped
+        assert_eq!(escape_text("`code`", &ctx), "\\`code\\`");
     }
 
     #[test]
-    fn test_escape_markdown_no_special_chars() {
-        assert_eq!(escape_markdown("plain text"), "plain text");
-        assert_eq!(escape_markdown("123"), "123");
+    fn test_escape_text_no_special_chars() {
+        let ctx = MockContext;
+        assert_eq!(escape_text("plain text", &ctx), "plain text");
+        assert_eq!(escape_text("123", &ctx), "123");
     }
 
     #[test]
@@ -1318,13 +1503,10 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_link_url() {
-        assert_eq!(
-            escape_link_url("https://example.com"),
-            "https://example.com"
-        );
-        assert_eq!(escape_link_url("url with space"), "url\\ with\\ space");
-        assert_eq!(escape_link_url("(paren)"), "\\(paren\\)");
+    fn test_escape_url() {
+        assert_eq!(escape_url("https://example.com"), "https://example.com");
+        assert_eq!(escape_url("url with space"), "url\\ with\\ space");
+        assert_eq!(escape_url("(paren)"), "\\(paren\\)");
     }
 
     #[test]

@@ -1,0 +1,578 @@
+//! Markdown escaping utilities
+//!
+//! This module provides context-aware escaping for Markdown content,
+//! inspired by flexmark-java's escaping logic in CoreNodeFormatter.
+//!
+//! Different contexts require different escaping rules:
+//! - Plain text: escape special Markdown characters
+//! - Code spans: only escape backticks
+//! - Code blocks: no escaping needed
+//! - Link text: escape brackets
+//! - Link URLs: escape parentheses and spaces
+//! - HTML: no escaping needed
+
+use crate::core::nodes::NodeValue;
+use crate::formatter::context::NodeFormatterContext;
+
+/// Characters that have special meaning in Markdown
+const MARKDOWN_SPECIAL_CHARS: &[char] = &[
+    '\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '(', ')', '#', '+', '-', '.',
+    '!', '|',
+];
+
+/// Characters that need escaping in link text
+const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
+
+/// Characters that need escaping in link URLs
+const URL_SPECIAL_CHARS: &[char] = &['(', ')', ' ', '\t', '\n', '\r', '<', '>', '\\'];
+
+/// Characters that need escaping in code spans
+const CODE_SPAN_SPECIAL_CHARS: &[char] = &['`', '\\'];
+
+/// Check if a character needs escaping in the given context
+pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
+    if !is_markdown_special_char(ch) {
+        return false;
+    }
+
+    // Get current node info
+    let current_node = context.get_current_node();
+    let parent_type = current_node.and_then(|id| {
+        let arena = context.get_arena();
+        let node = arena.get(id);
+        node.parent.map(|pid| arena.get(pid).value.clone())
+    });
+
+    match ch {
+        // Backslash always needs escaping (it's the escape character)
+        '\\' => true,
+        // Backtick needs escaping outside of code
+        '`' => !is_in_code_context(context),
+        // Asterisk and underscore are emphasis markers
+        '*' | '_' => {
+            // Don't escape inside code blocks or code spans
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Check if this is part of an emphasis node
+            if let Some(NodeValue::Emph | NodeValue::Strong) = parent_type {
+                return false;
+            }
+            true
+        }
+        // Square brackets are link markers
+        '[' | ']' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Don't escape inside link text
+            if let Some(NodeValue::Link(_) | NodeValue::Image(_)) = parent_type {
+                return false;
+            }
+            true
+        }
+        // Hash is heading marker at line start
+        '#' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Check if at start of line
+            is_at_line_start(context)
+        }
+        // Less-than can start HTML tags or autolinks
+        '<' | '>' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Don't escape inside HTML nodes
+            if let Some(NodeValue::HtmlInline(_) | NodeValue::HtmlBlock(_)) = parent_type
+            {
+                return false;
+            }
+            true
+        }
+        // Exclamation mark only needs escaping when followed by '['
+        '!' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Check if followed by '['
+            is_followed_by_bracket(context)
+        }
+        // Pipe character is table delimiter
+        '|' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Check if inside a table
+            is_inside_table(context)
+        }
+        // Other special characters
+        _ => !is_in_code_context(context),
+    }
+}
+
+/// Check if a character is a Markdown special character
+fn is_markdown_special_char(ch: char) -> bool {
+    MARKDOWN_SPECIAL_CHARS.contains(&ch)
+}
+
+/// Check if we're inside a code context (code block or code span)
+fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
+    let current_node = context.get_current_node();
+    if let Some(node_id) = current_node {
+        let arena = context.get_arena();
+        let mut current = node_id;
+
+        while let Some(node) = arena.try_get(current) {
+            match &node.value {
+                NodeValue::Code(_) | NodeValue::CodeBlock(_) => return true,
+                _ => {
+                    if let Some(parent) = node.parent {
+                        current = parent;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Check if we're at the start of a line
+fn is_at_line_start(_context: &dyn NodeFormatterContext) -> bool {
+    // Simplified check - in a full implementation, we'd track position
+    // For now, assume it might be at line start to be safe
+    true
+}
+
+/// Check if the current position is followed by a bracket
+fn is_followed_by_bracket(_context: &dyn NodeFormatterContext) -> bool {
+    // Simplified - in a full implementation, we'd check the next character
+    true
+}
+
+/// Check if we're inside a table
+fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
+    let current_node = context.get_current_node();
+    if let Some(node_id) = current_node {
+        let arena = context.get_arena();
+        let mut current = node_id;
+
+        while let Some(node) = arena.try_get(current) {
+            match &node.value {
+                NodeValue::Table(_) | NodeValue::TableRow(_) | NodeValue::TableCell => {
+                    return true
+                }
+                _ => {
+                    if let Some(parent) = node.parent {
+                        current = parent;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Escape text according to the current context
+pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
+    let mut result = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+
+    for (i, ch) in chars.iter().enumerate() {
+        match *ch {
+            '\\' => {
+                // Always escape backslash
+                result.push('\\');
+                result.push('\\');
+            }
+            '`' => {
+                if !is_in_code_context(context) {
+                    result.push('\\');
+                }
+                result.push('`');
+            }
+            '*' | '_' => {
+                if need_to_escape(*ch, context) {
+                    result.push('\\');
+                }
+                result.push(*ch);
+            }
+            '[' | ']' => {
+                if need_to_escape(*ch, context) {
+                    result.push('\\');
+                }
+                result.push(*ch);
+            }
+            '<' | '>' => {
+                if need_to_escape(*ch, context) {
+                    result.push('\\');
+                }
+                result.push(*ch);
+            }
+            '#' => {
+                if need_to_escape(*ch, context) && i == 0 {
+                    result.push('\\');
+                }
+                result.push('#');
+            }
+            '!' => {
+                if need_to_escape(*ch, context) {
+                    result.push('\\');
+                }
+                result.push('!');
+            }
+            '|' => {
+                if need_to_escape(*ch, context) {
+                    result.push('\\');
+                }
+                result.push('|');
+            }
+            _ => result.push(*ch),
+        }
+    }
+
+    result
+}
+
+/// Escape text for use in code spans
+/// Only escapes backticks and backslashes
+pub fn escape_code_span(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+
+    for ch in text.chars() {
+        match ch {
+            '\\' | '`' => {
+                result.push('\\');
+                result.push(ch);
+            }
+            _ => result.push(ch),
+        }
+    }
+
+    result
+}
+
+/// Escape link text
+pub fn escape_link_text(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+
+    for ch in text.chars() {
+        if LINK_TEXT_SPECIAL_CHARS.contains(&ch) {
+            result.push('\\');
+        }
+        result.push(ch);
+    }
+
+    result
+}
+
+/// Escape URL for use in links
+pub fn escape_url(url: &str) -> String {
+    let mut result = String::with_capacity(url.len());
+
+    for ch in url.chars() {
+        if URL_SPECIAL_CHARS.contains(&ch) {
+            result.push('\\');
+        }
+        result.push(ch);
+    }
+
+    result
+}
+
+/// Escape string for use in link title
+///
+/// Escapes quotes and backslashes in link titles.
+pub fn escape_string(text: &str) -> String {
+    text.replace('"', "\\\"").replace('\\', "\\\\")
+}
+
+/// Escape text for use in HTML attributes
+pub fn escape_html_attribute(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+
+    for ch in text.chars() {
+        match ch {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            _ => result.push(ch),
+        }
+    }
+
+    result
+}
+
+/// Check if text contains characters that would need escaping
+pub fn needs_escaping(text: &str, context: &dyn NodeFormatterContext) -> bool {
+    text.chars().any(|ch| need_to_escape(ch, context))
+}
+
+/// Choose the best emphasis marker for the given text
+/// Returns '*' or '_' depending on which would require less escaping
+pub fn choose_emphasis_marker(text: &str) -> char {
+    let asterisk_count = text.matches('*').count();
+    let underscore_count = text.matches('_').count();
+
+    // Prefer the marker that doesn't appear in the text
+    if asterisk_count == 0 && underscore_count > 0 {
+        '*'
+    } else if underscore_count == 0 && asterisk_count > 0 {
+        '_'
+    } else {
+        // Both appear or neither appears - prefer asterisk
+        '*'
+    }
+}
+
+/// Compute the required fence length for code blocks or code spans
+/// based on the content to ensure the fence doesn't appear in the content
+pub fn compute_fence_length(content: &str, base_length: usize) -> usize {
+    let mut max_consecutive = 0;
+    let mut current = 0;
+
+    for ch in content.chars() {
+        if ch == '`' {
+            current += 1;
+            max_consecutive = max_consecutive.max(current);
+        } else {
+            current = 0;
+        }
+    }
+
+    // Need one more backtick than the maximum consecutive sequence
+    (max_consecutive + 1).max(base_length)
+}
+
+/// Normalize line endings to LF
+pub fn normalize_line_endings(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+/// Escape special regex characters in a string
+pub fn escape_regex(text: &str) -> String {
+    let special_chars = r"\.^$|?*+()[]{}";
+    let mut result = String::with_capacity(text.len());
+
+    for ch in text.chars() {
+        if special_chars.contains(ch) {
+            result.push('\\');
+        }
+        result.push(ch);
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Mock context for testing
+    struct MockContext;
+
+    impl NodeFormatterContext for MockContext {
+        fn get_markdown_writer(
+            &mut self,
+        ) -> &mut crate::formatter::writer::MarkdownWriter {
+            panic!("Not implemented")
+        }
+
+        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
+            crate::formatter::phase::FormattingPhase::Document
+        }
+
+        fn delegate_render(&mut self) {}
+
+        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+            panic!("Not implemented")
+        }
+
+        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
+            crate::formatter::purpose::RenderPurpose::Format
+        }
+
+        fn get_arena(&self) -> &crate::core::arena::NodeArena {
+            panic!("Not implemented")
+        }
+
+        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
+            None
+        }
+
+        fn get_nodes_of_type(
+            &self,
+            _node_type: crate::formatter::node::NodeValueType,
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_nodes_of_types(
+            &self,
+            _node_types: &[crate::formatter::node::NodeValueType],
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
+            Box::new(|c| c == '>')
+        }
+
+        fn get_block_quote_like_prefix_chars(&self) -> &str {
+            ">"
+        }
+
+        fn transform_non_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn transform_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
+            panic!("Not implemented")
+        }
+
+        fn is_in_tight_list(&self) -> bool {
+            false
+        }
+
+        fn set_tight_list(&mut self, _tight: bool) {}
+
+        fn get_list_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_list_nesting(&mut self) {}
+
+        fn decrement_list_nesting(&mut self) {}
+
+        fn is_in_block_quote(&self) -> bool {
+            false
+        }
+
+        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
+
+        fn get_block_quote_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_block_quote_nesting(&mut self) {}
+
+        fn decrement_block_quote_nesting(&mut self) {}
+
+        fn start_table_collection(
+            &mut self,
+            _alignments: Vec<crate::core::nodes::TableAlignment>,
+        ) {
+        }
+
+        fn add_table_row(&mut self) {}
+
+        fn add_table_cell(&mut self, _content: String) {}
+
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
+            None
+        }
+
+        fn is_collecting_table(&self) -> bool {
+            false
+        }
+
+        fn set_skip_children(&mut self, _skip: bool) {}
+
+        fn render_children_to_string(
+            &mut self,
+            _node_id: crate::core::arena::NodeId,
+        ) -> String {
+            String::new()
+        }
+    }
+
+    #[test]
+    fn test_is_markdown_special_char() {
+        assert!(is_markdown_special_char('\\'));
+        assert!(is_markdown_special_char('*'));
+        assert!(is_markdown_special_char('_'));
+        assert!(is_markdown_special_char('['));
+        assert!(!is_markdown_special_char('a'));
+        assert!(!is_markdown_special_char(' '));
+    }
+
+    #[test]
+    fn test_escape_link_text() {
+        assert_eq!(escape_link_text("[text]"), "\\[text\\]");
+        assert_eq!(escape_link_text("normal"), "normal");
+        assert_eq!(escape_link_text("a[b]c"), "a\\[b\\]c");
+    }
+
+    #[test]
+    fn test_escape_url() {
+        assert_eq!(escape_url("(url)"), "\\(url\\)");
+        assert_eq!(escape_url("with space"), "with\\ space");
+    }
+
+    #[test]
+    fn test_escape_code_span() {
+        assert_eq!(escape_code_span("`code`"), "\\`code\\`");
+        assert_eq!(escape_code_span("normal"), "normal");
+        assert_eq!(escape_code_span("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn test_escape_html_attribute() {
+        assert_eq!(escape_html_attribute("<test>"), "&lt;test&gt;");
+        assert_eq!(escape_html_attribute("\"quoted\""), "&quot;quoted&quot;");
+        assert_eq!(escape_html_attribute("a&b"), "a&amp;b");
+    }
+
+    #[test]
+    fn test_choose_emphasis_marker() {
+        assert_eq!(choose_emphasis_marker("no special"), '*');
+        assert_eq!(choose_emphasis_marker("has_underscore"), '*');
+        assert_eq!(choose_emphasis_marker("has*asterisk"), '_');
+        assert_eq!(choose_emphasis_marker("has_both*"), '*');
+    }
+
+    #[test]
+    fn test_compute_fence_length() {
+        assert_eq!(compute_fence_length("code", 3), 3);
+        assert_eq!(compute_fence_length("``", 3), 3);
+        assert_eq!(compute_fence_length("```", 3), 4);
+        assert_eq!(compute_fence_length("````", 3), 5);
+        assert_eq!(compute_fence_length("code `inline` more", 3), 3);
+        assert_eq!(compute_fence_length("code `` more", 3), 3);
+    }
+
+    #[test]
+    fn test_normalize_line_endings() {
+        assert_eq!(normalize_line_endings("a\r\nb"), "a\nb");
+        assert_eq!(normalize_line_endings("a\rb"), "a\nb");
+        assert_eq!(normalize_line_endings("a\nb"), "a\nb");
+    }
+
+    #[test]
+    fn test_escape_regex() {
+        assert_eq!(escape_regex("a.b"), "a\\.b");
+        assert_eq!(escape_regex("a*b"), "a\\*b");
+        assert_eq!(escape_regex("[test]"), "\\[test\\]");
+    }
+}

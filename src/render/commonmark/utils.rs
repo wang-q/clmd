@@ -120,61 +120,6 @@ pub fn strip_soft_line_breaks(text: &str, replacement: &str) -> String {
     text.replace('\n', replacement)
 }
 
-/// Check if text needs escaping in the given context
-pub fn needs_escaping(text: &str, _context: &dyn NodeFormatterContext) -> bool {
-    // Check for characters that need escaping in Markdown
-    // Note: '{', '}', '+', '-', '.', '|' are not included as they are not special in CommonMark
-    let special_chars = ['\\', '`', '*', '_', '[', ']', '#', '<', '>', '!'];
-    text.chars().any(|c| special_chars.contains(&c))
-}
-
-/// Escape Markdown special characters
-pub fn escape_markdown(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    let chars: Vec<char> = text.chars().collect();
-    for (i, ch) in chars.iter().enumerate() {
-        match *ch {
-            // Backslash and backtick always need escaping
-            '\\' | '`' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Asterisk and underscore are emphasis markers
-            '*' | '_' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Square brackets are link markers
-            '[' | ']' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Hash only needs escaping at the beginning of a line (ATX heading)
-            '#' => {
-                // For simplicity, we escape it everywhere to be safe
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Exclamation mark only needs escaping when followed by '[' (image syntax)
-            '!' => {
-                if i + 1 < chars.len() && chars[i + 1] == '[' {
-                    result.push('\\');
-                }
-                result.push(*ch);
-            }
-            // Angle brackets only need escaping in specific contexts
-            // For now, we escape them to be safe
-            '<' | '>' => {
-                result.push('\\');
-                result.push(*ch);
-            }
-            // Other characters don't need escaping in CommonMark
-            _ => result.push(*ch),
-        }
-    }
-    result
-}
-
 /// Get the appropriate number of blank lines between blocks
 pub fn get_blank_lines_between_blocks(
     prev_block_type: &str,
@@ -349,8 +294,144 @@ mod tests {
 
     #[test]
     fn test_escape_markdown() {
-        let escaped = escape_markdown("Hello *world*");
+        // Test moved to escaping.rs module
+        // This test is kept for backward compatibility
+        let escaped =
+            crate::formatter::escaping::escape_text("Hello *world*", &MockContext);
         assert!(escaped.contains("\\*"));
+    }
+
+    // Mock context for testing
+    struct MockContext;
+
+    impl NodeFormatterContext for MockContext {
+        fn get_markdown_writer(
+            &mut self,
+        ) -> &mut crate::formatter::writer::MarkdownWriter {
+            panic!("Not implemented")
+        }
+
+        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
+            crate::formatter::phase::FormattingPhase::Document
+        }
+
+        fn delegate_render(&mut self) {}
+
+        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+            panic!("Not implemented")
+        }
+
+        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
+            crate::formatter::purpose::RenderPurpose::Format
+        }
+
+        fn get_arena(&self) -> &crate::core::arena::NodeArena {
+            panic!("Not implemented")
+        }
+
+        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
+            None
+        }
+
+        fn get_nodes_of_type(
+            &self,
+            _node_type: crate::formatter::node::NodeValueType,
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_nodes_of_types(
+            &self,
+            _node_types: &[crate::formatter::node::NodeValueType],
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
+            Box::new(|c| c == '>')
+        }
+
+        fn get_block_quote_like_prefix_chars(&self) -> &str {
+            ">"
+        }
+
+        fn transform_non_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn transform_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
+            panic!("Not implemented")
+        }
+
+        fn is_in_tight_list(&self) -> bool {
+            false
+        }
+
+        fn set_tight_list(&mut self, _tight: bool) {}
+
+        fn get_list_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_list_nesting(&mut self) {}
+
+        fn decrement_list_nesting(&mut self) {}
+
+        fn is_in_block_quote(&self) -> bool {
+            false
+        }
+
+        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
+
+        fn get_block_quote_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_block_quote_nesting(&mut self) {}
+
+        fn decrement_block_quote_nesting(&mut self) {}
+
+        fn start_table_collection(
+            &mut self,
+            _alignments: Vec<crate::core::nodes::TableAlignment>,
+        ) {
+        }
+
+        fn add_table_row(&mut self) {}
+
+        fn add_table_cell(&mut self, _content: String) {}
+
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
+            None
+        }
+
+        fn is_collecting_table(&self) -> bool {
+            false
+        }
+
+        fn set_skip_children(&mut self, _skip: bool) {}
+
+        fn render_children_to_string(
+            &mut self,
+            _node_id: crate::core::arena::NodeId,
+        ) -> String {
+            String::new()
+        }
     }
 
     #[test]
