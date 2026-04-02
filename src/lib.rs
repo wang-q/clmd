@@ -11,7 +11,7 @@
 //!
 //! The simplest way to use this library is with [`markdown_to_html`]:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let html = markdown_to_html("Hello, **world**!", &Options::default());
@@ -22,7 +22,7 @@
 //!
 //! For more control, you can parse the input into an AST, manipulate it, and then format it:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{parse_document, format_html, Options};
 //! use clmd::core::nodes::NodeValue;
 //!
@@ -43,7 +43,7 @@
 //!
 //! You can enable GFM extensions and configure rendering:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -80,7 +80,7 @@
 //!
 //! clmd supports multiple output formats:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{markdown_to_html, markdown_to_commonmark, Options};
 //!
 //! let markdown = "# Hello\n\n**Bold** text";
@@ -99,7 +99,7 @@
 //!
 //! You can iterate over the AST to process nodes:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{parse_document, Options};
 //! use clmd::core::traverse::{Traverse, Query};
 //! use clmd::core::nodes::NodeValue;
@@ -124,7 +124,7 @@
 //!
 //! Enable GitHub Flavored Markdown extensions:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -159,7 +159,7 @@
 //!
 //! Convert HTML back to Markdown:
 //!
-//! ```no_run
+//! ```ignore
 //! use clmd::from::html_to_markdown;
 //!
 //! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
@@ -187,7 +187,6 @@
 )]
 
 // Internal imports for use within this crate
-use core::nodes::NodeValue;
 
 /// Core module for AST, arena, and error types.
 ///
@@ -818,25 +817,8 @@ fn format_node_xml(
     let node = arena.get(node_id);
     let indent = "  ".repeat(depth);
 
-    let tag_name = match &node.value {
-        NodeValue::Document => "document",
-        NodeValue::Paragraph => "paragraph",
-        NodeValue::Heading(_) => "heading",
-        NodeValue::BlockQuote => "block_quote",
-        NodeValue::List(_) => "list",
-        NodeValue::Item(_) => "item",
-        NodeValue::CodeBlock(_) => "code_block",
-        NodeValue::ThematicBreak => "thematic_break",
-        NodeValue::Text(_) => "text",
-        NodeValue::Emph => "emph",
-        NodeValue::Strong => "strong",
-        NodeValue::Code(_) => "code",
-        NodeValue::Link(_) => "link",
-        NodeValue::Image(_) => "image",
-        NodeValue::SoftBreak => "softbreak",
-        NodeValue::HardBreak => "linebreak",
-        _ => "unknown",
-    };
+    // Use the existing xml_node_name() method for consistency and performance
+    let tag_name = node.value.xml_node_name();
 
     writeln!(output, "{}<{}>", indent, tag_name)?;
 

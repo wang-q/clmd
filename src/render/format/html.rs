@@ -702,13 +702,15 @@ impl<'a> HtmlRenderer<'a> {
 /// The escaped URL string, or "#" if the URL is considered unsafe
 fn escape_href(url: &str) -> String {
     // First check if the URL is safe (prevents javascript: and other unsafe protocols)
+    // Check the original URL before any modification to prevent bypass attempts
+    if !is_safe_url(url) {
+        return "#".to_string();
+    }
+
     // Empty URL is allowed by CommonMark spec (generates href="")
     let trimmed = url.trim();
     if trimmed.is_empty() {
         return "".to_string();
-    }
-    if !is_safe_url(url) {
-        return "#".to_string();
     }
 
     // Escape special HTML characters for attribute context

@@ -803,71 +803,85 @@ impl NodeValue {
     }
 
     /// Create a Text node from a string.
+    #[inline]
     pub fn make_text<S: Into<Box<str>>>(s: S) -> Self {
         NodeValue::Text(s.into())
     }
 
     /// Create a CodeBlock node.
+    #[inline]
     pub fn code_block(code: NodeCodeBlock) -> Self {
         NodeValue::CodeBlock(Box::new(code))
     }
 
     /// Create an HtmlBlock node.
+    #[inline]
     pub fn html_block(block: NodeHtmlBlock) -> Self {
         NodeValue::HtmlBlock(Box::new(block))
     }
 
     /// Create a FootnoteDefinition node.
+    #[inline]
     pub fn footnote_definition(def: NodeFootnoteDefinition) -> Self {
         NodeValue::FootnoteDefinition(Box::new(def))
     }
 
     /// Create a Table node.
+    #[inline]
     pub fn table(table: NodeTable) -> Self {
         NodeValue::Table(Box::new(table))
     }
 
     /// Create a Code inline node.
+    #[inline]
     pub fn code(code: NodeCode) -> Self {
         NodeValue::Code(Box::new(code))
     }
 
     /// Create a Link node.
+    #[inline]
     pub fn link(link: NodeLink) -> Self {
         NodeValue::Link(Box::new(link))
     }
 
     /// Create an Image node.
+    #[inline]
     pub fn image(image: NodeLink) -> Self {
         NodeValue::Image(Box::new(image))
     }
 
     /// Create a FootnoteReference node.
+    #[inline]
     pub fn footnote_reference(ref_: NodeFootnoteReference) -> Self {
         NodeValue::FootnoteReference(Box::new(ref_))
     }
 
     /// Create a Heading node.
+    #[inline]
     pub fn heading(heading: NodeHeading) -> Self {
         NodeValue::Heading(heading)
     }
 
     /// Create a Math node.
+    #[inline]
     pub fn math(math: NodeMath) -> Self {
         NodeValue::Math(Box::new(math))
     }
 
     /// Create a WikiLink node.
+    #[inline]
     pub fn wiki_link(wiki: NodeWikiLink) -> Self {
         NodeValue::WikiLink(Box::new(wiki))
     }
 
     /// Create a MultilineBlockQuote node.
+    #[inline]
     pub fn multiline_block_quote(quote: NodeMultilineBlockQuote) -> Self {
         NodeValue::MultilineBlockQuote(Box::new(quote))
     }
 
     /// Create an Alert node.
+    #[inline]
     pub fn alert(alert: NodeAlert) -> Self {
         NodeValue::Alert(Box::new(alert))
     }

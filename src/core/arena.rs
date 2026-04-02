@@ -433,21 +433,25 @@ impl NodeArena {
     }
 
     /// Returns the first child of the given node, if any.
+    #[inline]
     pub fn first_child(&self, node: NodeId) -> Option<NodeId> {
         self.get(node).first_child
     }
 
     /// Returns the last child of the given node, if any.
+    #[inline]
     pub fn last_child(&self, node: NodeId) -> Option<NodeId> {
         self.get(node).last_child
     }
 
     /// Returns the next sibling of the given node, if any.
+    #[inline]
     pub fn next_sibling(&self, node: NodeId) -> Option<NodeId> {
         self.get(node).next
     }
 
     /// Returns the previous sibling of the given node, if any.
+    #[inline]
     pub fn prev_sibling(&self, node: NodeId) -> Option<NodeId> {
         self.get(node).prev
     }

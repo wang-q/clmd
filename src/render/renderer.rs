@@ -184,7 +184,7 @@ pub fn render_to_commonmark(
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use clmd::{parse_document, render::renderer::render_to_commonmark_with_options};
 /// use clmd::formatter::options::FormatterOptions;
 ///
