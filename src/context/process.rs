@@ -457,8 +457,18 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(windows))]
     fn test_pipe_process() {
         let (status, output) = pipe_process("echo", &["hello"], b"").unwrap();
+        assert!(status.success());
+        assert_eq!(String::from_utf8_lossy(&output).trim(), "hello");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_pipe_process() {
+        let (status, output) =
+            pipe_process("cmd", &["/c", "echo", "hello"], b"").unwrap();
         assert!(status.success());
         assert_eq!(String::from_utf8_lossy(&output).trim(), "hello");
     }
@@ -472,6 +482,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_run_command() {
         let output = run_command("echo", &["test"]).unwrap();
         assert!(output.success());
@@ -479,12 +490,34 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn test_run_command() {
+        let output = run_command("cmd", &["/c", "echo", "test"]).unwrap();
+        assert!(output.success());
+        assert_eq!(output.stdout_str().trim(), "test");
+    }
+
+    #[test]
+    #[cfg(not(windows))]
     fn test_run_process_with_options() {
         let options = ProcessOptions::new()
             .capture_stdout(true)
             .capture_stderr(true);
 
         let output = run_process("echo", &["hello"], b"", &options).unwrap();
+        assert!(output.success());
+        assert_eq!(output.stdout_str().trim(), "hello");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_run_process_with_options() {
+        let options = ProcessOptions::new()
+            .capture_stdout(true)
+            .capture_stderr(true);
+
+        let output =
+            run_process("cmd", &["/c", "echo", "hello"], b"", &options).unwrap();
         assert!(output.success());
         assert_eq!(output.stdout_str().trim(), "hello");
     }
@@ -501,25 +534,42 @@ mod tests {
 
     #[test]
     fn test_command_exists() {
-        assert!(command_exists("echo"));
+        assert!(command_exists("cargo"));
         assert!(!command_exists("nonexistent_command_12345"));
     }
 
     #[test]
     fn test_which() {
-        let echo_path = which("echo");
-        assert!(echo_path.is_some());
+        let cargo_path = which("cargo");
+        assert!(cargo_path.is_some());
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_pipe_process_string() {
         let output = pipe_process_string("echo", &["hello"], "").unwrap();
         assert_eq!(output.trim(), "hello");
     }
 
     #[test]
+    #[cfg(windows)]
+    fn test_pipe_process_string() {
+        let output = pipe_process_string("cmd", &["/c", "echo", "hello"], "").unwrap();
+        assert_eq!(output.trim(), "hello");
+    }
+
+    #[test]
+    #[cfg(not(windows))]
     fn test_process_output_methods() {
         let output = run_command("echo", &["test"]).unwrap();
+        assert!(output.success());
+        assert!(!output.stdout.is_empty());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_process_output_methods() {
+        let output = run_command("cmd", &["/c", "echo", "test"]).unwrap();
         assert!(output.success());
         assert!(!output.stdout.is_empty());
     }
