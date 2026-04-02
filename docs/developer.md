@@ -31,13 +31,12 @@ cargo build
 
 ## 参考项目
 
-| 项目 | 语言 | 特点 |
-|------|------|------|
-| cmark-0.31.2 | C | 高性能，比原始 Markdown.pl 快 10,000 倍 |
-| commonmark.js-0.31.2 | JavaScript | 与 marked 相当，纯 JS 实现 |
-| flexmark-java-0.64.6 | Java | 高度可扩展，功能丰富，34+ 扩展模块 |
-| comrak-0.51.0 | Rust | 100% CommonMark + GFM 兼容，Arena-based AST |
-
+| 项目                 |    语言    | 特点                                    |
+| -------------------- | :--------: | --------------------------------------- |
+| cmark-0.31.2         |     C      | 高性能，比原始 Markdown.pl 快 10,000 倍 |
+| commonmark.js-0.31.2 | JavaScript | 与 marked 相当，纯 JS 实现              |
+| flexmark-java-0.64.6 |    Java    | 高度可扩展，功能丰富，34+ 扩展模块      |
+| comrak-0.51.0        |    Rust    | Arena-based AST                         |
 ### 学习资源
 
 - [CommonMark 规范](https://spec.commonmark.org/)
