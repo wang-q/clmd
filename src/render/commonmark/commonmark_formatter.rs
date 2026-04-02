@@ -1000,8 +1000,8 @@ fn format_list_item_marker(list: &crate::core::nodes::NodeList) -> String {
                 ListDelimType::Period => format!("{}.", list.start),
                 ListDelimType::Paren => format!("{})", list.start),
             };
-            // Pad to 4 characters for alignment
-            format!("{:4}", marker)
+            // Add a single space after the marker
+            format!("{} ", marker)
         }
     }
 }
@@ -1025,8 +1025,8 @@ fn format_list_item_marker_with_number(
                 ListDelimType::Period => format!("{}.", item_number),
                 ListDelimType::Paren => format!("{})", item_number),
             };
-            // Pad to 4 characters for alignment
-            format!("{:4}", marker)
+            // Add a single space after the marker
+            format!("{} ", marker)
         }
     }
 }
@@ -1324,13 +1324,13 @@ mod tests {
             tight: false,
             is_task_list: false,
         };
-        assert_eq!(format_list_item_marker(&list), "1.  ");
+        assert_eq!(format_list_item_marker(&list), "1. ");
 
         let list_paren = NodeList {
             delimiter: ListDelimType::Paren,
             ..list
         };
-        assert_eq!(format_list_item_marker(&list_paren), "1)  ");
+        assert_eq!(format_list_item_marker(&list_paren), "1) ");
 
         let list_start10 = NodeList {
             start: 10,
