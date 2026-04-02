@@ -329,3 +329,136 @@ fn test_fmt_from_file_with_extensions() {
     let cm = String::from_utf8(output.stdout).unwrap();
     assert!(cm.contains("Alice"), "Should contain table content: {}", cm);
 }
+
+// Regression tests for blank line handling
+
+#[test]
+fn test_fmt_list_followed_by_heading_has_blank_line() {
+    // Regression test: List followed by heading should have blank line
+    let input = b"# Title\n- item 1\n- item 2\n## Section";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Verify list items are present
+    assert!(cm.contains("- item 1"), "Should contain item 1: {}", cm);
+    assert!(cm.contains("- item 2"), "Should contain item 2: {}", cm);
+    assert!(cm.contains("## Section"), "Should contain heading: {}", cm);
+
+    // Verify there's a blank line between list and heading
+    // The output should have "- item 2" followed by blank line, then "## Section"
+    let lines: Vec<&str> = cm.lines().collect();
+    let item2_idx = lines.iter().position(|&l| l == "- item 2").expect("item 2 not found");
+    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+
+    assert!(
+        heading_idx > item2_idx + 1,
+        "There should be at least one blank line between list and heading.\nOutput:\n{}",
+        cm
+    );
+
+    // Verify the line between is blank (or contains only whitespace)
+    if heading_idx == item2_idx + 2 {
+        let middle_line = lines[item2_idx + 1];
+        assert!(
+            middle_line.trim().is_empty(),
+            "Line between list and heading should be blank, got: {:?}\nOutput:\n{}",
+            middle_line,
+            cm
+        );
+    }
+}
+
+#[test]
+fn test_fmt_code_block_followed_by_heading_has_blank_line() {
+    // Regression test: Code block followed by heading should have blank line
+    let input = b"# Title\n\n```\ncode\n```\n## Section";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Verify code block and heading are present
+    assert!(cm.contains("```"), "Should contain code fence: {}", cm);
+    assert!(cm.contains("code"), "Should contain code content: {}", cm);
+    assert!(cm.contains("## Section"), "Should contain heading: {}", cm);
+
+    // Verify there's a blank line between code block and heading
+    let lines: Vec<&str> = cm.lines().collect();
+    let code_fence_idx = lines.iter().position(|&l| l == "```").expect("code fence not found");
+    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+
+    // Find the closing code fence (second occurrence)
+    let closing_fence_idx = lines[code_fence_idx + 1..]
+        .iter()
+        .position(|&l| l == "```")
+        .map(|i| i + code_fence_idx + 1)
+        .expect("closing code fence not found");
+
+    assert!(
+        heading_idx > closing_fence_idx + 1,
+        "There should be at least one blank line between code block and heading.\nOutput:\n{}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_nested_list_followed_by_heading_has_blank_line() {
+    // Regression test: Nested list followed by heading should have blank line
+    let input = b"# Title\n- item 1\n  - nested 1\n  - nested 2\n- item 2\n## Section";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Verify nested list items are present
+    assert!(cm.contains("- item 1"), "Should contain item 1: {}", cm);
+    assert!(cm.contains("  - nested 1"), "Should contain nested 1: {}", cm);
+    assert!(cm.contains("  - nested 2"), "Should contain nested 2: {}", cm);
+    assert!(cm.contains("- item 2"), "Should contain item 2: {}", cm);
+    assert!(cm.contains("## Section"), "Should contain heading: {}", cm);
+
+    // Verify there's a blank line between list and heading
+    let lines: Vec<&str> = cm.lines().collect();
+    let item2_idx = lines.iter().position(|&l| l == "- item 2").expect("item 2 not found");
+    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+
+    assert!(
+        heading_idx > item2_idx + 1,
+        "There should be at least one blank line between nested list and heading.\nOutput:\n{}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_multiple_lists_followed_by_heading_has_blank_line() {
+    // Regression test: Multiple lists followed by heading should have blank line
+    let input = b"# Title\n- bullet 1\n- bullet 2\n\n1. ordered 1\n2. ordered 2\n## Section";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Verify both lists are present
+    assert!(cm.contains("- bullet 1"), "Should contain bullet 1: {}", cm);
+    assert!(cm.contains("- bullet 2"), "Should contain bullet 2: {}", cm);
+    assert!(cm.contains("1."), "Should contain ordered item: {}", cm);
+    assert!(cm.contains("## Section"), "Should contain heading: {}", cm);
+
+    // Verify there's a blank line between last list and heading
+    let lines: Vec<&str> = cm.lines().collect();
+    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+
+    // Find the last list item (could be ordered list)
+    let last_list_idx = lines
+        .iter()
+        .rposition(|&l| l.starts_with("- ") || l.trim().starts_with(|c: char| c.is_ascii_digit() && l.contains('.')))
+        .expect("list item not found");
+
+    assert!(
+        heading_idx > last_list_idx + 1,
+        "There should be at least one blank line between lists and heading.\nOutput:\n{}",
+        cm
+    );
+}

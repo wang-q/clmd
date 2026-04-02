@@ -214,10 +214,12 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 Box::new(
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
-                     _writer: &mut MarkdownWriter| {
+                     writer: &mut MarkdownWriter| {
                         ctx.decrement_list_nesting();
                         if ctx.get_list_nesting_level() == 0 {
                             ctx.set_tight_list(false);
+                            // Add blank line after list ends to separate from following content
+                            writer.blank_line();
                         }
                     },
                 ),
@@ -699,7 +701,7 @@ fn render_code_block(
     }
 
     writer.append(&fence);
-    writer.line();
+    writer.blank_line();
 }
 
 /// Collect text content from a cell node and its children
