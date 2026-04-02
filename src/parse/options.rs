@@ -627,6 +627,23 @@ pub struct Render {
     /// Note that enabling this option will cause the `escaped_char_spans`
     /// parse option to be enabled.
     pub escaped_char_spans: bool,
+
+    /// Add spaces between CJK characters and English/numbers.
+    ///
+    /// When enabled, spaces are automatically added between CJK characters
+    /// and ASCII letters/numbers for better typography.
+    ///
+    /// ```ignore
+    /// use clmd::{markdown_to_commonmark, Options};
+    ///
+    /// let mut options = Options::default();
+    /// options.render.cjk_spacing = true;
+    ///
+    /// let input = "中文test";
+    /// let output = markdown_to_commonmark(input, &options);
+    /// assert!(output.contains("中文 test"));
+    /// ```
+    pub cjk_spacing: bool,
 }
 
 /// Style type for bullet lists.
@@ -1091,6 +1108,7 @@ mod tests {
         assert!(!render.figure_with_caption);
         assert_eq!(render.ol_width, 0);
         assert!(!render.escaped_char_spans);
+        assert!(!render.cjk_spacing);
     }
 
     // WikiLinksMode tests

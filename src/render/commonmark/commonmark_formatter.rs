@@ -343,7 +343,14 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 text_str.to_string()
                             };
 
-                            let escaped = escape_markdown(&processed_text);
+                            // Apply CJK spacing if enabled
+                            let final_text = if ctx.get_formatter_options().cjk_spacing {
+                                crate::text::cjk_spacing::add_cjk_spacing(&processed_text)
+                            } else {
+                                processed_text
+                            };
+
+                            let escaped = escape_markdown(&final_text);
                             // Use append_raw to preserve whitespace in text content
                             writer.append_raw(&escaped);
                         }

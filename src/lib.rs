@@ -731,11 +731,17 @@ pub fn format_commonmark_with_plugins(
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    write!(
-        output,
-        "{}",
-        render::commonmark::render(arena, root, 0, options.render.width)
-    )
+    let opts = render::commonmark::options::FormatterOptions::new()
+        .with_right_margin(options.render.width)
+        .with_cjk_spacing(options.render.cjk_spacing);
+
+    let mut formatter = render::commonmark::Formatter::with_options(opts);
+    formatter.add_node_formatter(Box::new(
+        render::commonmark::commonmark_formatter::CommonMarkNodeFormatter::new(),
+    ));
+
+    let result = formatter.render(arena, root);
+    write!(output, "{}", result)
 }
 
 /// Format an existing AST to XML.

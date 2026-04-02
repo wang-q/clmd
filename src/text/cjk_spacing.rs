@@ -1,0 +1,101 @@
+//! CJK spacing utilities
+//!
+//! This module provides functionality to add spaces between CJK (Chinese, Japanese, Korean)
+//! characters and ASCII letters/numbers for better typography.
+
+/// Check if a character is a CJK character
+pub fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
+        '\u{3400}'..='\u{4DBF}' |  // CJK Extension A
+        '\u{3040}'..='\u{309F}' |  // Hiragana
+        '\u{30A0}'..='\u{30FF}' |  // Katakana
+        '\u{AC00}'..='\u{D7AF}'    // Hangul Syllables
+    )
+}
+
+/// Check if a character is an ASCII letter
+pub fn is_ascii_letter(c: char) -> bool {
+    c.is_ascii_alphabetic()
+}
+
+/// Check if a character is an ASCII digit
+pub fn is_ascii_digit(c: char) -> bool {
+    c.is_ascii_digit()
+}
+
+/// Check if spacing is needed between two characters
+pub fn needs_spacing(prev: char, next: char) -> bool {
+    let prev_is_cjk = is_cjk(prev);
+    let next_is_cjk = is_cjk(next);
+    let prev_is_ascii_alnum = is_ascii_letter(prev) || is_ascii_digit(prev);
+    let next_is_ascii_alnum = is_ascii_letter(next) || is_ascii_digit(next);
+
+    // CJK <-> ASCII alphanumeric needs spacing
+    (prev_is_cjk && next_is_ascii_alnum) || (prev_is_ascii_alnum && next_is_cjk)
+}
+
+/// Add spaces between CJK and ASCII characters in text
+pub fn add_cjk_spacing(text: &str) -> String {
+    if text.is_empty() {
+        return text.to_string();
+    }
+
+    let mut result = String::with_capacity(text.len() * 2);
+    let chars: Vec<char> = text.chars().collect();
+
+    for i in 0..chars.len() {
+        result.push(chars[i]);
+
+        // Check if we need to add space between current and next character
+        if i + 1 < chars.len() {
+            let current = chars[i];
+            let next = chars[i + 1];
+
+            // Don't add space if either character is already whitespace
+            if !current.is_whitespace() && !next.is_whitespace() {
+                if needs_spacing(current, next) {
+                    result.push(' ');
+                }
+            }
+        }
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_cjk() {
+        assert!(is_cjk('中'));
+        assert!(is_cjk('文'));
+        assert!(is_cjk('あ')); // Hiragana
+        assert!(is_cjk('ア')); // Katakana
+        assert!(is_cjk('한')); // Hangul
+        assert!(!is_cjk('a'));
+        assert!(!is_cjk('1'));
+    }
+
+    #[test]
+    fn test_needs_spacing() {
+        assert!(needs_spacing('中', 'a'));
+        assert!(needs_spacing('a', '中'));
+        assert!(needs_spacing('中', '1'));
+        assert!(needs_spacing('1', '中'));
+        assert!(!needs_spacing('中', '文'));
+        assert!(!needs_spacing('a', 'b'));
+        assert!(!needs_spacing('1', '2'));
+    }
+
+    #[test]
+    fn test_add_cjk_spacing() {
+        assert_eq!(add_cjk_spacing("中文test"), "中文 test");
+        assert_eq!(add_cjk_spacing("test中文"), "test 中文");
+        assert_eq!(add_cjk_spacing("数字123"), "数字 123");
+        assert_eq!(add_cjk_spacing("123数字"), "123 数字");
+        assert_eq!(add_cjk_spacing("中文 test"), "中文 test"); // Already has space
+    }
+}

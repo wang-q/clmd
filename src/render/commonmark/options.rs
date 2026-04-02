@@ -301,6 +301,8 @@ pub struct FormatterOptions {
     pub thematic_break: Option<String>,
     /// Format flags
     pub format_flags: FormatFlags,
+    /// Enable CJK spacing (add spaces between CJK and ASCII)
+    pub cjk_spacing: bool,
 
     // Format control options
     /// Enable formatter control comments
@@ -377,6 +379,7 @@ impl Default for FormatterOptions {
             right_margin: 0,
             thematic_break: None,
             format_flags: FormatFlags::DEFAULT,
+            cjk_spacing: false,
 
             // Format control defaults
             formatter_tags_enabled: false,
@@ -535,6 +538,12 @@ impl FormatterOptions {
     /// Set formatter off tag
     pub fn with_formatter_off_tag(mut self, value: impl Into<String>) -> Self {
         self.formatter_off_tag = value.into();
+        self
+    }
+
+    /// Set CJK spacing
+    pub fn with_cjk_spacing(mut self, value: bool) -> Self {
+        self.cjk_spacing = value;
         self
     }
 }
