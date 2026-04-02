@@ -474,11 +474,22 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_pipe_process_with_input() {
         // Use cat to echo back input
         let (status, output) = pipe_process("cat", &[], b"hello world").unwrap();
         assert!(status.success());
         assert_eq!(String::from_utf8_lossy(&output), "hello world");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_pipe_process_with_input() {
+        // Use PowerShell to echo back input
+        let (status, output) =
+            pipe_process("powershell", &["-Command", "$input"], b"hello world").unwrap();
+        assert!(status.success());
+        assert_eq!(String::from_utf8_lossy(&output).trim(), "hello world");
     }
 
     #[test]
