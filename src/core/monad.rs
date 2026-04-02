@@ -751,4 +751,246 @@ mod tests {
 
         assert_eq!(shared.get_verbosity(), Verbosity::Warning);
     }
+
+    #[test]
+    fn test_clmd_io_with_resource_paths() {
+        let io = ClmdIO::new().with_resource_paths(vec![
+            PathBuf::from("/path1"),
+            PathBuf::from("/path2"),
+        ]);
+        let paths = io.get_resource_paths();
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0], PathBuf::from("/path1"));
+        assert_eq!(paths[1], PathBuf::from("/path2"));
+    }
+
+    #[test]
+    fn test_clmd_io_with_user_data_dir() {
+        let io = ClmdIO::new().with_user_data_dir(PathBuf::from("/custom/data"));
+        assert_eq!(io.get_user_data_dir(), Some(PathBuf::from("/custom/data")));
+    }
+
+    #[test]
+    fn test_clmd_io_file_operations() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.txt");
+
+        let io = ClmdIO::new();
+
+        // Test write_file
+        io.write_file(&file_path, "Hello, World!").unwrap();
+        assert!(io.file_exists(&file_path));
+
+        // Test read_file
+        let content = io.read_file(&file_path).unwrap();
+        assert_eq!(content, "Hello, World!");
+
+        // Test read_file_bytes
+        let bytes = io.read_file_bytes(&file_path).unwrap();
+        assert_eq!(bytes, b"Hello, World!");
+
+        // Test write_file_bytes
+        let binary_path = temp_dir.path().join("binary.bin");
+        io.write_file_bytes(&binary_path, &[0x00, 0x01, 0x02]).unwrap();
+        let binary_content = io.read_file_bytes(&binary_path).unwrap();
+        assert_eq!(binary_content, vec![0x00, 0x01, 0x02]);
+
+        // Test file_exists for non-existent file
+        assert!(!io.file_exists(&temp_dir.path().join("nonexistent.txt")));
+    }
+
+    #[test]
+    fn test_clmd_io_fetch_resource_local() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("resource.txt");
+        std::fs::write(&file_path, "resource content").unwrap();
+
+        let io = ClmdIO::new()
+            .with_resource_paths(vec![temp_dir.path().to_path_buf()]);
+
+        // Test fetching from resource path
+        let content = io.fetch_resource("resource.txt").unwrap();
+        assert_eq!(content, b"resource content");
+
+        // Test fetching with absolute path
+        let content = io.fetch_resource(file_path.to_str().unwrap()).unwrap();
+        assert_eq!(content, b"resource content");
+    }
+
+    #[test]
+    fn test_clmd_io_fetch_resource_not_found() {
+        let io = ClmdIO::new();
+
+        let result = io.fetch_resource("nonexistent_file_xyz.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_clmd_io_fetch_resource_http() {
+        let io = ClmdIO::new();
+
+        // HTTP fetching should return error (not enabled)
+        let result = io.fetch_resource("http://example.com/test.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_clmd_io_get_current_dir() {
+        let io = ClmdIO::new();
+        let current_dir = io.get_current_dir().unwrap();
+        assert!(current_dir.exists());
+    }
+
+    #[test]
+    fn test_clmd_io_get_timestamp() {
+        let io = ClmdIO::new();
+        let timestamp = io.get_timestamp();
+        // Just verify it returns a valid timestamp
+        let _elapsed = timestamp.elapsed();
+    }
+
+    #[test]
+    fn test_clmd_io_report() {
+        let io = ClmdIO::with_verbosity(Verbosity::Debug);
+
+        // These should not panic
+        io.report(LogMessage::error("Test error"));
+        io.report(LogMessage::warning("Test warning"));
+        io.report(LogMessage::info("Test info"));
+        io.report(LogMessage::debug("Test debug"));
+    }
+
+    #[test]
+    fn test_clmd_io_log_methods() {
+        let io = ClmdIO::with_verbosity(Verbosity::Debug);
+
+        // These should not panic
+        io.log_error("Error message");
+        io.log_warning("Warning message");
+        io.log_info("Info message");
+        io.log_debug("Debug message");
+    }
+
+    #[test]
+    fn test_clmd_io_with_sandbox() {
+        use crate::core::sandbox::{SandboxPolicy, SandboxMode};
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.txt");
+        std::fs::write(&file_path, "test").unwrap();
+
+        let sandbox = SandboxPolicy::new(SandboxMode::Strict)
+            .allow_path(temp_dir.path().to_path_buf())
+            .without_writes();
+
+        let io = ClmdIO::new().with_sandbox(sandbox);
+
+        // Should be able to read allowed path
+        assert!(io.file_exists(&file_path));
+
+        // Write should be blocked by sandbox
+        let result = io.write_file(&temp_dir.path().join("new.txt"), "content");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_clmd_pure_write_operations() {
+        let pure = ClmdPure::new();
+
+        // Test write_file
+        pure.write_file(Path::new("/test/output.txt"), "written content")
+            .unwrap();
+
+        // Test get_written_file
+        let content = pure.get_written_file(Path::new("/test/output.txt"));
+        assert_eq!(content, Some("written content".to_string()));
+
+        // Test get_written_file_paths
+        let paths = pure.get_written_file_paths();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0], PathBuf::from("/test/output.txt"));
+
+        // Test write_file_bytes
+        pure.write_file_bytes(Path::new("/test/binary.bin"), &[0x00, 0x01, 0x02])
+            .unwrap();
+        let binary_content = pure.get_written_binary_file(Path::new("/test/binary.bin"));
+        assert_eq!(binary_content, Some(vec![0x00, 0x01, 0x02]));
+    }
+
+    #[test]
+    fn test_clmd_pure_log_operations() {
+        let pure = ClmdPure::new().with_verbosity(Verbosity::Debug);
+
+        // Test report
+        pure.report(LogMessage::info("Test info"));
+        pure.report(LogMessage::warning("Test warning"));
+        pure.report(LogMessage::error("Test error"));
+
+        // Test get_logs
+        let logs = pure.get_logs();
+        assert_eq!(logs.len(), 3);
+
+        // Test has_logged
+        assert!(pure.has_logged(Verbosity::Info, "Test info"));
+        assert!(pure.has_logged(Verbosity::Warning, "warning"));
+        assert!(pure.has_logged(Verbosity::Error, "error"));
+        assert!(!pure.has_logged(Verbosity::Info, "nonexistent"));
+
+        // Test clear_logs
+        pure.clear_logs();
+        let logs = pure.get_logs();
+        assert!(logs.is_empty());
+    }
+
+    #[test]
+    fn test_clmd_pure_fetch_resource() {
+        let pure = ClmdPure::new()
+            .with_file("/test/resource.txt", "resource content");
+
+        let content = pure.fetch_resource("/test/resource.txt").unwrap();
+        assert_eq!(content, b"resource content");
+    }
+
+    #[test]
+    fn test_clmd_pure_read_file_bytes_from_text() {
+        let pure = ClmdPure::new().with_file("/test/file.txt", "Hello");
+
+        // Should be able to read text file as bytes
+        let bytes = pure.read_file_bytes(Path::new("/test/file.txt")).unwrap();
+        assert_eq!(bytes, b"Hello");
+    }
+
+    #[test]
+    fn test_clmd_pure_get_user_data_dir() {
+        let pure = ClmdPure::new();
+        assert_eq!(
+            pure.get_user_data_dir(),
+            Some(PathBuf::from("/test/.local/share/clmd"))
+        );
+    }
+
+    #[test]
+    fn test_clmd_pure_default() {
+        let pure: ClmdPure = Default::default();
+        assert_eq!(pure.get_verbosity(), Verbosity::Warning);
+        assert_eq!(pure.get_timestamp(), SystemTime::UNIX_EPOCH);
+        assert_eq!(pure.get_current_dir().unwrap(), PathBuf::from("/test"));
+    }
+
+    #[test]
+    fn test_verbosity_default() {
+        let default: Verbosity = Default::default();
+        assert_eq!(default, Verbosity::Warning);
+    }
+
+    #[test]
+    fn test_verbosity_is_enabled() {
+        let io = ClmdIO::with_verbosity(Verbosity::Info);
+
+        assert!(!io.is_verbosity_enabled(Verbosity::Debug));
+        assert!(io.is_verbosity_enabled(Verbosity::Info));
+        assert!(io.is_verbosity_enabled(Verbosity::Warning));
+        assert!(io.is_verbosity_enabled(Verbosity::Error));
+        assert!(io.is_verbosity_enabled(Verbosity::Silent));
+    }
 }

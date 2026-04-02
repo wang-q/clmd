@@ -587,3 +587,58 @@ set edit:completion:arg-completer[clmd] = {|@args|
 }
 "#.to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_make_subcommand() {
+        let cmd = make_subcommand();
+        assert_eq!(cmd.get_name(), "complete");
+    }
+
+    #[test]
+    fn test_generate_bash_completion() {
+        let script = generate_bash_completion();
+        assert!(script.contains("#!/bin/bash"));
+        assert!(script.contains("_clmd()"));
+        assert!(script.contains("complete -F _clmd clmd"));
+        assert!(script.contains("_clmd_convert"));
+        assert!(script.contains("_clmd_extract"));
+        assert!(script.contains("_clmd_fmt"));
+    }
+
+    #[test]
+    fn test_generate_zsh_completion() {
+        let script = generate_zsh_completion();
+        assert!(script.contains("#compdef clmd"));
+        assert!(script.contains("_clmd()"));
+        assert!(script.contains("_clmd_commands"));
+        assert!(script.contains("compdef _clmd clmd"));
+    }
+
+    #[test]
+    fn test_generate_fish_completion() {
+        let script = generate_fish_completion();
+        assert!(script.contains("# clmd fish completion script"));
+        assert!(script.contains("complete -c clmd"));
+        assert!(script.contains("convert"));
+        assert!(script.contains("extract"));
+    }
+
+    #[test]
+    fn test_generate_powershell_completion() {
+        let script = generate_powershell_completion();
+        assert!(script.contains("# clmd PowerShell completion script"));
+        assert!(script.contains("Register-ArgumentCompleter"));
+        assert!(script.contains("$script:clmdCommands"));
+    }
+
+    #[test]
+    fn test_generate_elvish_completion() {
+        let script = generate_elvish_completion();
+        assert!(script.contains("# clmd elvish completion script"));
+        assert!(script.contains("set edit:completion:arg-completer[clmd]"));
+    }
+}
