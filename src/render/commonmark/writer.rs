@@ -174,6 +174,15 @@ impl MarkdownWriter {
         self
     }
 
+    /// Force a newline even if already at the beginning of a line
+    /// This is used for preserving empty lines in code blocks
+    pub fn force_newline(&mut self) -> &mut Self {
+        self.output.push('\n');
+        self.beginning_of_line = true;
+        self.column = 0;
+        self
+    }
+
     /// Add a blank line
     pub fn blank_line(&mut self) -> &mut Self {
         self.line();

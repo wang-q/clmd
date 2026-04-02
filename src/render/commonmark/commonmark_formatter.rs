@@ -694,10 +694,25 @@ fn render_code_block(
     }
     writer.line();
 
-    for line in code_block.literal.lines() {
-        // Use append_raw to preserve leading whitespace in code blocks
-        writer.append_raw(line);
-        writer.line();
+    // Use split('\n') instead of lines() to preserve empty lines in code blocks
+    let mut lines = code_block.literal.split('\n').peekable();
+    while let Some(line) = lines.next() {
+        // For non-empty lines, use append_raw to preserve leading whitespace
+        if !line.is_empty() {
+            writer.append_raw(line);
+        }
+        // Add line break if this is not the last line
+        // For empty lines, we need to ensure a newline is added even if
+        // beginning_of_line is true, so we use a different approach
+        if lines.peek().is_some() {
+            // Check if we need to force a newline for empty lines
+            if line.is_empty() {
+                // Force output a newline by temporarily resetting beginning_of_line
+                writer.force_newline();
+            } else {
+                writer.line();
+            }
+        }
     }
 
     writer.append(&fence);
