@@ -20,6 +20,10 @@ const MARKDOWN_SPECIAL_CHARS: &[char] = &[
     '!', '|',
 ];
 
+/// Characters that need escaping at the start of a line
+/// These are block-level markers that would be interpreted as structural elements
+const LINE_START_SPECIAL_CHARS: &[char] = &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
+
 /// Characters that need escaping in link text
 const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
 
@@ -107,7 +111,18 @@ pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
             // Check if inside a table
             is_inside_table(context)
         }
-        // Other special characters
+        // Parentheses only need escaping in specific contexts (like link URLs)
+        '(' | ')' => {
+            // In most contexts, parentheses don't need escaping
+            // They only need escaping in link URLs to avoid ambiguity
+            if is_in_code_context(context) {
+                false
+            } else {
+                // Check if we're in a link URL context
+                is_in_link_url_context(context)
+            }
+        }
+        // Other special characters (curly braces, dots, etc.)
         _ => !is_in_code_context(context),
     }
 }
@@ -178,61 +193,60 @@ fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
     false
 }
 
+/// Check if we're inside a link URL context
+/// Parentheses need escaping in link URLs to avoid ambiguity
+fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
+    // For now, assume we're not in a link URL context
+    // In a full implementation, we'd track whether we're rendering a link URL
+    false
+}
+
 /// Escape text according to the current context
+///
+/// This function applies context-aware escaping for Markdown special characters.
+/// It handles:
+/// - Line-start special characters (like # for headings, > for blockquotes)
+/// - Inline special characters (like * and _ for emphasis)
+/// - Context-specific escaping (different rules inside code, links, etc.)
 pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
+    let mut at_line_start = true;
 
-    for (i, ch) in chars.iter().enumerate() {
+    for ch in &chars {
         match *ch {
+            '\n' | '\r' => {
+                // Newline - reset line start flag
+                result.push(*ch);
+                at_line_start = true;
+            }
             '\\' => {
                 // Always escape backslash
                 result.push('\\');
                 result.push('\\');
+                at_line_start = false;
             }
-            '`' => {
-                if !is_in_code_context(context) {
-                    result.push('\\');
-                }
-                result.push('`');
-            }
-            '*' | '_' => {
-                if need_to_escape(*ch, context) {
-                    result.push('\\');
-                }
-                result.push(*ch);
-            }
-            '[' | ']' => {
-                if need_to_escape(*ch, context) {
-                    result.push('\\');
-                }
-                result.push(*ch);
-            }
-            '<' | '>' => {
-                if need_to_escape(*ch, context) {
+            _ => {
+                // Check if we need to escape this character
+                let needs_escape = if at_line_start {
+                    // At line start, check if this is a special character
+                    if LINE_START_SPECIAL_CHARS.contains(ch) && !is_in_code_context(context) {
+                        true
+                    } else {
+                        // Not a line-start special char, check normal escaping rules
+                        need_to_escape(*ch, context)
+                    }
+                } else {
+                    // Not at line start, use normal escaping rules
+                    need_to_escape(*ch, context)
+                };
+
+                if needs_escape {
                     result.push('\\');
                 }
                 result.push(*ch);
+                at_line_start = false;
             }
-            '#' => {
-                if need_to_escape(*ch, context) && i == 0 {
-                    result.push('\\');
-                }
-                result.push('#');
-            }
-            '!' => {
-                if need_to_escape(*ch, context) {
-                    result.push('\\');
-                }
-                result.push('!');
-            }
-            '|' => {
-                if need_to_escape(*ch, context) {
-                    result.push('\\');
-                }
-                result.push('|');
-            }
-            _ => result.push(*ch),
         }
     }
 

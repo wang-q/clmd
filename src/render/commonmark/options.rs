@@ -312,7 +312,7 @@ pub struct FormatterOptions {
     /// Enable formatter control comments
     pub formatter_tags_enabled: bool,
     /// Accept regex in formatter tags
-    pub formatter_tags_accept_regexp: bool,
+    pub formatter_tags_accept_regex: bool,
     /// Formatter on tag
     pub formatter_on_tag: String,
     /// Formatter off tag
@@ -388,10 +388,10 @@ impl Default for FormatterOptions {
             cjk_spacing: false,
 
             // Format control defaults
-            formatter_tags_enabled: false,
-            formatter_tags_accept_regexp: false,
-            formatter_on_tag: "@formatter:on".to_string(),
-            formatter_off_tag: "@formatter:off".to_string(),
+            formatter_tags_enabled: true,
+            formatter_tags_accept_regex: false,
+            formatter_on_tag: "formatter:on".to_string(),
+            formatter_off_tag: "formatter:off".to_string(),
 
             // Translation defaults
             translation_id_format: "_%d_".to_string(),
@@ -582,7 +582,7 @@ mod tests {
         assert!(opts.list_renumber_items);
         assert!(opts.setext_heading_equalize_marker);
         assert!(opts.fenced_code_match_closing_marker);
-        assert!(!opts.formatter_tags_enabled);
+        assert!(opts.formatter_tags_enabled);
     }
 
     #[test]

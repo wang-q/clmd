@@ -163,6 +163,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                             if use_setext {
                                 // Setext style - no prefix needed, marker comes after content
+                                // Store that we're using setext style for the close handler
                             } else {
                                 // ATX style
                                 let hashes = "#".repeat(heading.level as usize);
@@ -180,10 +181,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Heading(heading) = value {
-                            let heading_style =
-                                ctx.get_formatter_options().heading_style;
-                            let min_setext_marker_length =
-                                ctx.get_formatter_options().min_setext_marker_length;
+                            let options = ctx.get_formatter_options();
+                            let heading_style = options.heading_style;
+                            let min_setext_marker_length = options.min_setext_marker_length;
+                            let setext_equalize_marker = options.setext_heading_equalize_marker;
 
                             // Determine heading style
                             let use_setext = match heading_style {
@@ -198,17 +199,46 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 writer.line();
 
                                 // Calculate underline length based on content
+                                // We need to get the content that was just rendered
                                 let content_len =
                                     if let Some(node_id) = ctx.get_current_node() {
-                                        ctx.render_children_to_string(node_id).len()
+                                        // Calculate content length from children
+                                        calculate_heading_content_length(ctx, node_id)
                                     } else {
                                         min_setext_marker_length
                                     };
-                                let underline_len =
-                                    content_len.max(min_setext_marker_length);
+
+                                // Calculate marker length
+                                let underline_len = if setext_equalize_marker {
+                                    // Equalize marker to match content length
+                                    content_len.max(min_setext_marker_length)
+                                } else {
+                                    // Use minimum marker length
+                                    min_setext_marker_length
+                                };
+
                                 writer.append(marker.to_string().repeat(underline_len));
+                            } else {
+                                // ATX style - handle trailing markers
+                                match options.atx_heading_trailing_marker {
+                                    crate::formatter::options::TrailingMarker::Add => {
+                                        // Add trailing hashes
+                                        let hashes = "#".repeat(heading.level as usize);
+                                        writer.append_raw(format!(" {}", hashes));
+                                    }
+                                    crate::formatter::options::TrailingMarker::Remove => {
+                                        // No trailing hashes
+                                    }
+                                    crate::formatter::options::TrailingMarker::AsIs => {
+                                        // Keep as-is (no additional handling needed)
+                                    }
+                                    crate::formatter::options::TrailingMarker::Equalize => {
+                                        // Equalize trailing marker to match opening
+                                        let hashes = "#".repeat(heading.level as usize);
+                                        writer.append_raw(format!(" {}", hashes));
+                                    }
+                                }
                             }
-                            // ATX style doesn't need closing marker
                         }
                         // Heading closing - add blank line after heading
                         writer.blank_line();
@@ -242,10 +272,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::CodeBlock,
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::CodeBlock(code_block) = value {
-                            render_code_block(code_block, writer);
+                            render_code_block(code_block, ctx, writer);
                         }
                     },
                 ),
@@ -281,8 +311,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
+                        let options = ctx.get_formatter_options();
+
                         // Get the parent list to determine the marker and nesting level
-                        let (marker, nesting_level) =
+                        let (marker, nesting_level, parent_list) =
                             if let Some(parent_id) = ctx.get_current_node_parent() {
                                 let arena = ctx.get_arena();
                                 let parent = arena.get(parent_id);
@@ -295,16 +327,27 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                         parent_id,
                                         ctx.get_current_node(),
                                     );
-                                    let marker = format_list_item_marker_with_number(
+
+                                    // Apply list renumbering if configured
+                                    let effective_number = if options.list_renumber_items {
+                                        // Renumber starting from 1
+                                        item_number
+                                    } else {
+                                        // Use original list start + offset
+                                        list.start + item_number - 1
+                                    };
+
+                                    let marker = format_list_item_marker_with_number_and_options(
                                         list,
-                                        item_number,
+                                        effective_number,
+                                        options,
                                     );
-                                    (marker, level)
+                                    (marker, level, Some(list.clone()))
                                 } else {
-                                    ("- ".to_string(), 0)
+                                    ("- ".to_string(), 0, None)
                                 }
                             } else {
-                                ("- ".to_string(), 0)
+                                ("- ".to_string(), 0, None)
                             };
 
                         // Check if this specific item is a task list item
@@ -314,12 +357,32 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             false
                         };
 
-                        // Add indentation based on list nesting level
-                        let indent = "  ".repeat(nesting_level);
+                        // Calculate indentation based on options
+                        let base_indent = if options.item_content_indent {
+                            // Calculate indent based on marker width for content alignment
+                            if let Some(ref list) = parent_list {
+                                calculate_marker_width(list, &marker)
+                            } else {
+                                2 // Default: marker + space
+                            }
+                        } else {
+                            // Fixed indent of 4 spaces (standard CommonMark)
+                            4
+                        };
+
+                        // Calculate total indentation for nested lists
+                        let total_indent = if nesting_level == 0 {
+                            0
+                        } else {
+                            // Each nesting level adds indentation
+                            nesting_level * base_indent
+                        };
+
+                        let indent_str = " ".repeat(total_indent);
 
                         // Output the list marker directly (not as a prefix)
                         // This avoids the prefix stacking issue with nested lists
-                        writer.append_raw(&indent);
+                        writer.append_raw(&indent_str);
                         writer.append_raw(&marker);
 
                         // If this is a task list item, render the task marker
@@ -420,21 +483,30 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      _ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Code(code) = value {
-                            // Use compute_fence_length for dynamic calculation
+                            // Calculate the required fence length based on content
+                            // Need to account for backticks in the content
                             let fence_len = compute_fence_length(&code.literal, 1);
                             let backticks = "`".repeat(fence_len);
+
+                            // Determine if we need padding (spaces around content)
+                            // Padding is needed when:
+                            // 1. Content starts or ends with a backtick
+                            // 2. Content starts or ends with a space
+                            let needs_leading_space = code.literal.starts_with('`')
+                                || code.literal.starts_with(' ');
+                            let needs_trailing_space = code.literal.ends_with('`')
+                                || code.literal.ends_with(' ');
+
                             writer.append(&backticks);
 
-                            // Add space if content starts/ends with backtick
-                            let needs_space = code.literal.starts_with('`')
-                                || code.literal.ends_with('`');
-                            if needs_space {
+                            if needs_leading_space {
                                 writer.append(" ");
                             }
 
-                            writer.append(&code.literal);
+                            // For code content, we don't escape - output as-is
+                            writer.append_raw(&code.literal);
 
-                            if needs_space {
+                            if needs_trailing_space {
                                 writer.append(" ");
                             }
 
@@ -754,21 +826,42 @@ impl PhasedNodeFormatter for CommonMarkNodeFormatter {
 /// Render a code block with proper fencing
 ///
 /// Determines the appropriate fence length to avoid conflicts with
-/// backticks in the code content.
+/// backticks in the code content. Supports various formatting options
+/// including custom fence length, space before info, and matching closing marker.
 fn render_code_block(
     code_block: &crate::core::nodes::NodeCodeBlock,
+    ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
 ) {
-    // Use the escaping module's compute_fence_length for dynamic calculation
-    let fence_len = compute_fence_length(&code_block.literal, 3);
-    let fence = "`".repeat(fence_len);
+    let options = ctx.get_formatter_options();
+
+    // Determine the fence character and base length
+    let fence_char = match options.fenced_code_marker_type {
+        crate::formatter::options::CodeFenceMarker::Tilde => '~',
+        _ => '`',
+    };
+
+    // Calculate the required fence length
+    let base_length = options.fenced_code_marker_length.max(3);
+    let fence_len = if fence_char == '`' {
+        // For backticks, need to ensure fence doesn't appear in content
+        compute_fence_length(&code_block.literal, base_length)
+    } else {
+        // For tildes, just use the base length
+        base_length
+    };
+
+    let fence = fence_char.to_string().repeat(fence_len);
     writer.append(&fence);
 
     // Add info string on the same line as the opening fence
     if !code_block.info.is_empty() {
-        let clean_info = code_block.info.trim_end_matches('`');
+        let clean_info = code_block.info.trim_end_matches(fence_char);
         if !clean_info.is_empty() {
-            writer.append(" ");
+            // Add space before info if configured
+            if options.fenced_code_space_before_info {
+                writer.append(" ");
+            }
             writer.append(clean_info);
         }
     }
@@ -795,7 +888,13 @@ fn render_code_block(
         }
     }
 
-    writer.append(&fence);
+    // Add closing fence - match opening length if configured
+    let closing_fence_len = if options.fenced_code_match_closing_marker {
+        fence_len
+    } else {
+        base_length
+    };
+    writer.append(fence_char.to_string().repeat(closing_fence_len));
     writer.blank_line();
 }
 
@@ -1103,21 +1202,63 @@ fn format_list_item_marker_with_number(
     list: &crate::core::nodes::NodeList,
     item_number: usize,
 ) -> String {
+    format_list_item_marker_with_number_and_options(
+        list,
+        item_number,
+        &FormatterOptions::default(),
+    )
+}
+
+/// Format list item marker with specific item number and options
+///
+/// This version respects the formatter options for marker style.
+fn format_list_item_marker_with_number_and_options(
+    list: &crate::core::nodes::NodeList,
+    item_number: usize,
+    options: &FormatterOptions,
+) -> String {
     use crate::core::nodes::{ListDelimType, ListType};
+    use crate::formatter::options::{BulletMarker, NumberedMarker};
 
     match list.list_type {
         ListType::Bullet => {
-            format!("{} ", list.bullet_char as char)
+            // Choose bullet character based on options
+            let bullet_char = match options.list_bullet_marker {
+                BulletMarker::Dash => '-',
+                BulletMarker::Asterisk => '*',
+                BulletMarker::Plus => '+',
+                BulletMarker::Any => list.bullet_char as char,
+            };
+            format!("{} ", bullet_char)
         }
         ListType::Ordered => {
-            let marker = match list.delimiter {
-                ListDelimType::Period => format!("{}.", item_number),
-                ListDelimType::Paren => format!("{})", item_number),
+            // Choose delimiter based on options
+            let delimiter = match options.list_numbered_marker {
+                NumberedMarker::Period => '.',
+                NumberedMarker::Paren => ')',
+                NumberedMarker::Any => match list.delimiter {
+                    ListDelimType::Period => '.',
+                    ListDelimType::Paren => ')',
+                },
             };
+            let marker = format!("{}{}", item_number, delimiter);
             // Add a single space after the marker
             format!("{} ", marker)
         }
     }
+}
+
+/// Calculate the marker width for indentation purposes
+///
+/// Returns the number of characters the marker occupies, which is used
+/// to align content in subsequent lines of list items.
+fn calculate_marker_width(
+    _list: &crate::core::nodes::NodeList,
+    marker: &str,
+) -> usize {
+    // The marker width is the length of the marker string
+    // This is used to align content with the first line after the marker
+    marker.len()
 }
 
 /// Count the number of list ancestors for a given node
@@ -1235,6 +1376,102 @@ fn skip_task_marker(text: &str) -> String {
     } else {
         text.to_string()
     }
+}
+
+/// Calculate the content length of a heading for Setext underline
+///
+/// This function calculates the visible content length of a heading,
+/// accounting for Unicode character widths and inline formatting.
+fn calculate_heading_content_length(
+    ctx: &mut dyn NodeFormatterContext,
+    node_id: crate::core::arena::NodeId,
+) -> usize {
+    use crate::core::nodes::NodeValue;
+
+    let arena = ctx.get_arena();
+    let node = arena.get(node_id);
+
+    let mut length = 0;
+
+    // Recursively calculate content length from children
+    let mut child_opt = node.first_child;
+    while let Some(child_id) = child_opt {
+        let child = arena.get(child_id);
+
+        match &child.value {
+            NodeValue::Text(text) => {
+                // Use Unicode width for accurate character counting
+                length += crate::text::unicode_width::width(text.as_ref()) as usize;
+            }
+            NodeValue::Code(code) => {
+                // Code spans: count the literal content
+                length += crate::text::unicode_width::width(&code.literal) as usize;
+            }
+            NodeValue::Emph | NodeValue::Strong => {
+                // Recursively count children (emphasis markers don't add to visible length)
+                length += calculate_child_content_length(arena, child_id);
+            }
+            NodeValue::Link(link) => {
+                // For links, count the link text (children), not the URL
+                length += calculate_child_content_length(arena, child_id);
+            }
+            NodeValue::Image(link) => {
+                // For images, count the alt text (children)
+                length += calculate_child_content_length(arena, child_id);
+            }
+            NodeValue::SoftBreak => {
+                // Soft breaks in headings become spaces
+                length += 1;
+            }
+            NodeValue::HardBreak => {
+                // Hard breaks shouldn't normally appear in headings
+                length += 1;
+            }
+            _ => {
+                // For other nodes, recursively count children
+                length += calculate_child_content_length(arena, child_id);
+            }
+        }
+
+        child_opt = child.next;
+    }
+
+    length
+}
+
+/// Calculate content length from children recursively
+fn calculate_child_content_length(
+    arena: &crate::core::arena::NodeArena,
+    node_id: crate::core::arena::NodeId,
+) -> usize {
+    use crate::core::nodes::NodeValue;
+
+    let node = arena.get(node_id);
+    let mut length = 0;
+
+    let mut child_opt = node.first_child;
+    while let Some(child_id) = child_opt {
+        let child = arena.get(child_id);
+
+        match &child.value {
+            NodeValue::Text(text) => {
+                length += crate::text::unicode_width::width(text.as_ref()) as usize;
+            }
+            NodeValue::Code(code) => {
+                length += crate::text::unicode_width::width(&code.literal) as usize;
+            }
+            NodeValue::SoftBreak => {
+                length += 1;
+            }
+            _ => {
+                length += calculate_child_content_length(arena, child_id);
+            }
+        }
+
+        child_opt = child.next;
+    }
+
+    length
 }
 
 /// Get the 1-based item number of a node within its parent list
