@@ -203,8 +203,7 @@ pub mod colors {
         }
 
         // Hex colors
-        if value.starts_with('#') {
-            let hex = &value[1..];
+        if let Some(hex) = value.strip_prefix('#') {
             return hex.len() == 3 || hex.len() == 4 || hex.len() == 6 || hex.len() == 8;
         }
 
@@ -256,7 +255,7 @@ pub mod units {
         let value = value.trim();
         let numeric_part: String = value
             .chars()
-            .take_while(|c| c.is_digit(10) || *c == '.' || *c == '-')
+            .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
             .collect();
         numeric_part.parse().ok()
     }

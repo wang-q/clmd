@@ -115,7 +115,7 @@ fn parse_entry(
     // Expect @
     if chars.peek() != Some(&'@') {
         // Skip unknown content
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             if c == '@' {
                 break;
             }
@@ -247,7 +247,7 @@ fn parse_value(chars: &mut std::iter::Peekable<std::str::Chars>) -> ClmdResult<S
         chars.next(); // consume {
         let mut depth = 1;
 
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             match c {
                 '{' => {
                     depth += 1;

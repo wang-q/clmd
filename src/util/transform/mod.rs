@@ -268,8 +268,8 @@ impl TableOfContentsBuilder {
     /// Build the transform.
     pub fn build(self) -> Transform {
         Transform::TableOfContents {
-            min_level: self.min_level.max(1).min(6),
-            max_level: self.max_level.max(1).min(6),
+            min_level: self.min_level.clamp(1, 6),
+            max_level: self.max_level.clamp(1, 6),
             title: self.title,
         }
     }
@@ -436,7 +436,7 @@ pub mod transforms {
             .map(|(_level, text, _id)| {
                 let link = NodeValue::Link(Box::new(NodeLink {
                     url: format!("#header-{}", text.to_lowercase().replace(' ', "-")),
-                    title: text.clone().into(),
+                    title: text.clone(),
                 }));
                 let link_node = arena.alloc(crate::core::arena::Node::with_value(link));
 

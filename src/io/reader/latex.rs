@@ -127,7 +127,7 @@ impl<'a, 'b> LatexParser<'a, 'b> {
 
             // Skip LaTeX comments (% to end of line)
             if let Some(&'%') = self.chars.peek() {
-                while let Some(c) = self.chars.next() {
+                for c in self.chars.by_ref() {
                     if c == '\n' {
                         break;
                     }
@@ -658,7 +658,7 @@ impl<'a, 'b> LatexParser<'a, 'b> {
         let mut content = String::new();
         let mut depth = 1;
 
-        while let Some(c) = self.chars.next() {
+        for c in self.chars.by_ref() {
             match c {
                 '{' => {
                     depth += 1;
@@ -687,7 +687,7 @@ impl<'a, 'b> LatexParser<'a, 'b> {
         self.chars.next();
 
         let mut depth = 1;
-        while let Some(c) = self.chars.next() {
+        for c in self.chars.by_ref() {
             match c {
                 '{' => depth += 1,
                 '}' => {
@@ -708,7 +708,7 @@ impl<'a, 'b> LatexParser<'a, 'b> {
         self.chars.next();
 
         let mut depth = 1;
-        while let Some(c) = self.chars.next() {
+        for c in self.chars.by_ref() {
             match c {
                 '[' => depth += 1,
                 ']' => {

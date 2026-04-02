@@ -566,9 +566,9 @@ fn extract_yaml_front_matter(matches: &ArgMatches) -> anyhow::Result<()> {
     let key_filter = matches.get_one::<String>("key").map(|s| s.as_str());
 
     // Parse YAML front matter from the input
-    let front_matter = if input.starts_with("---") {
-        if let Some(end) = input[3..].find("---") {
-            let yaml_content = &input[3..3 + end];
+    let front_matter = if let Some(stripped) = input.strip_prefix("---") {
+        if let Some(end) = stripped.find("---") {
+            let yaml_content = &stripped[..end];
             yaml_content.trim()
         } else {
             ""

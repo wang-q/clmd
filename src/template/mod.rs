@@ -434,7 +434,7 @@ impl Template {
         delim: char,
     ) -> Result<String, TemplateError> {
         let mut result = String::new();
-        while let Some(ch) = chars.next() {
+        for ch in chars.by_ref() {
             if ch == delim {
                 return Ok(result);
             }
@@ -563,14 +563,12 @@ impl Template {
                                 Vec::new()
                             };
                             return Ok((then_branch, else_branch));
+                        } else if in_else {
+                            else_content.push('$');
+                            else_content.push_str(&keyword);
                         } else {
-                            if in_else {
-                                else_content.push('$');
-                                else_content.push_str(&keyword);
-                            } else {
-                                then_content.push('$');
-                                then_content.push_str(&keyword);
-                            }
+                            then_content.push('$');
+                            then_content.push_str(&keyword);
                         }
                     }
                     "else" => {
@@ -580,14 +578,12 @@ impl Template {
                             if chars.peek() == Some(&'$') {
                                 chars.next();
                             }
+                        } else if in_else {
+                            else_content.push('$');
+                            else_content.push_str(&keyword);
                         } else {
-                            if in_else {
-                                else_content.push('$');
-                                else_content.push_str(&keyword);
-                            } else {
-                                then_content.push('$');
-                                then_content.push_str(&keyword);
-                            }
+                            then_content.push('$');
+                            then_content.push_str(&keyword);
                         }
                     }
                     "if" | "ifnot" => {
@@ -610,12 +606,10 @@ impl Template {
                         }
                     }
                 }
+            } else if in_else {
+                else_content.push(ch);
             } else {
-                if in_else {
-                    else_content.push(ch);
-                } else {
-                    then_content.push(ch);
-                }
+                then_content.push(ch);
             }
         }
 
@@ -670,9 +664,9 @@ impl Template {
             }
         }
 
-        Err(TemplateError::SyntaxError(format!(
-            "Unclosed block, expected $endif$ or $endfor$"
-        )))
+        Err(TemplateError::SyntaxError(
+            "Unclosed block, expected $endif$ or $endfor$".to_string(),
+        ))
     }
 
     /// Evaluate a condition.

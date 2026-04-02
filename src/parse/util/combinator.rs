@@ -459,12 +459,10 @@ where
 /// assert_eq!(result.1.offset, 0);
 /// ```ignore
 pub fn peek<T: Clone + 'static>(parser: BoxedParser<T>) -> BoxedParser<Option<T>> {
-    Box::new(
-        move |input: &str, pos: Position| match parser(input, pos) {
-            Ok((result, _)) => Ok((Some(result), pos)),
-            Err(_) => Ok((None, pos)),
-        },
-    )
+    Box::new(move |input: &str, pos: Position| match parser(input, pos) {
+        Ok((result, _)) => Ok((Some(result), pos)),
+        Err(_) => Ok((None, pos)),
+    })
 }
 
 /// Not followed by - succeed only if the second parser fails.

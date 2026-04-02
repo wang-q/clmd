@@ -225,8 +225,8 @@ impl UUID {
         let s = s.trim();
 
         // Handle URN prefix
-        let s = if s.starts_with("urn:uuid:") {
-            &s[9..]
+        let s = if let Some(stripped) = s.strip_prefix("urn:uuid:") {
+            stripped
         } else {
             s
         };

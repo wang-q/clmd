@@ -31,9 +31,10 @@ pub const DEFAULT_SLIDE_LEVEL: u8 = 1;
 /// Slide level configuration.
 ///
 /// Determines which heading level starts a new slide.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SlideLevel {
     /// Level 1 headings start new slides.
+    #[default]
     H1,
     /// Level 2 headings start new slides.
     H2,
@@ -66,12 +67,6 @@ impl SlideLevel {
     /// Check if a heading at the given level starts a new slide.
     pub fn is_slide_start(self, heading_level: u8) -> bool {
         heading_level <= self.as_u8()
-    }
-}
-
-impl Default for SlideLevel {
-    fn default() -> Self {
-        SlideLevel::H1
     }
 }
 

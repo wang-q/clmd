@@ -388,9 +388,8 @@ fn is_external_url(url: &str) -> bool {
 
 fn is_valid_url(url: &str) -> bool {
     // Basic URL validation
-    if url.starts_with("mailto:") {
+    if let Some(email_part) = url.strip_prefix("mailto:") {
         // Simple email validation
-        let email_part = &url[7..];
         email_part.contains('@') && !email_part.contains(' ')
     } else {
         // Check for common URL issues

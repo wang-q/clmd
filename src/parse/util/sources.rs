@@ -424,7 +424,7 @@ impl Sources {
     }
 
     /// Move to the next source.
-    pub fn next(&mut self) -> Option<&Source> {
+    pub fn advance(&mut self) -> Option<&Source> {
         if let Some(current) = self.current {
             let next = current + 1;
             if next < self.sources.len() {
@@ -686,7 +686,7 @@ mod tests {
         let current = sources.current().unwrap();
         assert_eq!(current.content(), "first");
 
-        sources.next();
+        sources.advance();
         let current = sources.current().unwrap();
         assert_eq!(current.content(), "second");
     }

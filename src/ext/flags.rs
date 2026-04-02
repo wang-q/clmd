@@ -194,7 +194,7 @@ impl ExtensionKind {
     }
 
     /// Parse an extension from a string.
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "table" | "tables" => Some(ExtensionKind::Table),
             "tasklist" | "tasklists" => Some(ExtensionKind::Tasklist),
@@ -245,9 +245,9 @@ mod tests {
 
     #[test]
     fn test_extension_kind_from_str() {
-        assert_eq!(ExtensionKind::from_str("table"), Some(ExtensionKind::Table));
-        assert_eq!(ExtensionKind::from_str("TABLE"), Some(ExtensionKind::Table));
-        assert_eq!(ExtensionKind::from_str("unknown"), None);
+        assert_eq!(ExtensionKind::parse("table"), Some(ExtensionKind::Table));
+        assert_eq!(ExtensionKind::parse("TABLE"), Some(ExtensionKind::Table));
+        assert_eq!(ExtensionKind::parse("unknown"), None);
     }
 
     #[test]

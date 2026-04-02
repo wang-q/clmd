@@ -243,7 +243,7 @@ fn render_slide_content(
                         let item_child = arena.get(item_child_id);
                         item_child_opt = item_child.next;
                     }
-                    output.push_str("\n");
+                    output.push('\n');
                 }
                 child_opt = child.next;
             }

@@ -26,7 +26,7 @@ use crate::core::nodes::NodeValue;
 use std::collections::HashSet;
 
 /// Maximum recursion depth for tree traversal to prevent stack overflow.
-/// 
+///
 /// This limit is set to 1000, which should be sufficient for most documents
 /// while preventing stack overflow from malicious or deeply nested input.
 /// For context, a depth of 1000 would mean ~1000 nested blockquotes/lists,

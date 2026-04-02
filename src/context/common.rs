@@ -205,11 +205,12 @@ impl LogLevel {
 }
 
 /// Verbosity level for context operations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Verbosity {
     /// Quiet mode - only errors.
     Quiet,
     /// Normal mode - errors and warnings.
+    #[default]
     Normal,
     /// Info mode - errors, warnings, and info.
     Info,
@@ -226,12 +227,6 @@ impl Verbosity {
             Verbosity::Info => 1,
             Verbosity::Debug => 2,
         }
-    }
-}
-
-impl Default for Verbosity {
-    fn default() -> Self {
-        Verbosity::Normal
     }
 }
 

@@ -661,11 +661,12 @@ impl MediaBag {
             hasher.update(item.contents());
             let hash = format!("{:x}", hasher.finalize());
 
-            if seen_hashes.contains_key(&hash) {
+            if let std::collections::hash_map::Entry::Vacant(e) = seen_hashes.entry(hash)
+            {
+                e.insert(path.clone());
+            } else {
                 // This is a duplicate
                 to_remove.push(path.clone());
-            } else {
-                seen_hashes.insert(hash, path.clone());
             }
         }
 
