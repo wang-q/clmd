@@ -465,7 +465,8 @@ impl<'a> HtmlRenderer<'a> {
             }
             NodeValue::List(..) => {
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
+                    write!(self.output, "</{}>", tag)
+                        .expect("write to String cannot fail");
                     self.lit("\n");
                 }
                 // Pop tight status from stack
@@ -473,7 +474,8 @@ impl<'a> HtmlRenderer<'a> {
             }
             NodeValue::Item(..) => {
                 if let Some(tag) = self.tag_stack.pop() {
-                    self.lit(&format!("</{}>", tag));
+                    write!(self.output, "</{}>", tag)
+                        .expect("write to String cannot fail");
                     self.lit("\n");
                 }
                 // Pop child counter for this item
@@ -485,14 +487,16 @@ impl<'a> HtmlRenderer<'a> {
                 // In tight lists, paragraphs are not wrapped in <p> tags
                 if !self.in_tight_list() {
                     if let Some(tag) = self.tag_stack.pop() {
-                        self.lit(&format!("</{}>", tag));
+                        write!(self.output, "</{}>", tag)
+                            .expect("write to String cannot fail");
                         self.lit("\n");
                     }
                 }
             }
             NodeValue::Heading(NodeHeading { level, .. }) => {
-                self.lit(&format!("</h{}>", level));
-                self.lit("\n");
+                writeln!(self.output, "</h{}>", level)
+                    .expect("write to String cannot fail");
+                self.last_out = '\n';
                 self.tag_stack.pop();
             }
             NodeValue::ThematicBreak => {}

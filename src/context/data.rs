@@ -573,7 +573,7 @@ mod tests {
         assert!(manager.is_ok());
 
         let mut manager = manager.unwrap();
-        assert!(manager.system_data_dir().as_os_str().len() > 0);
+        assert!(!manager.system_data_dir().as_os_str().is_empty());
 
         // Test cache operations
         manager.clear_cache();

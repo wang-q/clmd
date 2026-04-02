@@ -683,7 +683,7 @@ mod tests {
         let tokens = tokenize("test");
         assert!(tokens
             .last()
-            .map_or(false, |t| matches!(t.token_type, TokenType::EOF)));
+            .is_some_and(|t| matches!(t.token_type, TokenType::EOF)));
     }
 
     #[test]

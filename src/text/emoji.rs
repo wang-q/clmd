@@ -371,7 +371,7 @@ mod tests {
     fn test_default_mapper_not_empty() {
         let mapper = EmojiMapper::new();
         assert!(!mapper.is_empty());
-        assert!(mapper.len() > 0);
+        assert!(!mapper.is_empty());
     }
 
     #[test]

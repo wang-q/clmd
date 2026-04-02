@@ -11,7 +11,7 @@
 //!
 //! The simplest way to use this library is with [`markdown_to_html`]:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let html = markdown_to_html("Hello, **world**!", &Options::default());
@@ -22,7 +22,7 @@
 //!
 //! For more control, you can parse the input into an AST, manipulate it, and then format it:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{parse_document, format_html, Options};
 //! use clmd::core::nodes::NodeValue;
 //!
@@ -43,7 +43,7 @@
 //!
 //! You can enable GFM extensions and configure rendering:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -60,7 +60,8 @@
 //!
 //! ```ignore
 //! use clmd::parse::parse_document_with_limits;
-//! use clmd::{Options, ParserLimits};
+//! use clmd::Options;
+//! use clmd::core::ParserLimits;
 //!
 //! let options = Options::default();
 //! let limits = ParserLimits {
@@ -79,7 +80,7 @@
 //!
 //! clmd supports multiple output formats:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{markdown_to_html, markdown_to_commonmark, Options};
 //!
 //! let markdown = "# Hello\n\n**Bold** text";
@@ -98,7 +99,7 @@
 //!
 //! You can iterate over the AST to process nodes:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{parse_document, Options};
 //! use clmd::core::traverse::{Traverse, Query};
 //! use clmd::core::nodes::NodeValue;
@@ -123,7 +124,7 @@
 //!
 //! Enable GitHub Flavored Markdown extensions:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
@@ -158,7 +159,7 @@
 //!
 //! Convert HTML back to Markdown:
 //!
-//! ```ignore
+//! ```no_run
 //! use clmd::from::html_to_markdown;
 //!
 //! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
@@ -274,7 +275,7 @@ pub mod text;
 ///
 /// let options = Options::default();
 /// let html = markdown_to_html("Hello **world**!", &options);
-/// ```ignore
+/// ```
 pub mod prelude;
 
 /// Markdown extensions management using bitflags.

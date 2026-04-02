@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn test_formatting_phase_ordering() {
         // Test that phases are sorted correctly
-        let mut phases = vec![
+        let mut phases = [
             FormattingPhase::Document,
             FormattingPhase::Collect,
             FormattingPhase::DocumentTop,

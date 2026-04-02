@@ -290,6 +290,9 @@ impl From<SafeHtml> for String {
     }
 }
 
+/// Maximum allowed URL length to prevent DoS attacks
+const MAX_URL_LENGTH: usize = 8192;
+
 /// Check if a URL is safe to use in HTML output
 ///
 /// This function checks for potentially dangerous URL schemes like
@@ -314,11 +317,16 @@ impl From<SafeHtml> for String {
 /// assert!(is_safe_url("http://example.com"));
 /// assert!(!is_safe_url("javascript:alert('xss')"));
 /// assert!(!is_safe_url("blob:https://example.com/uuid"));
-/// ```ignore
+/// ```
 pub fn is_safe_url(url: &str) -> bool {
     // Trim whitespace and check for empty URL
     let url = url.trim();
     if url.is_empty() {
+        return false;
+    }
+
+    // Check URL length to prevent DoS attacks
+    if url.len() > MAX_URL_LENGTH {
         return false;
     }
 
@@ -606,5 +614,25 @@ mod tests {
         assert!(!is_safe_url("data:"));
         assert!(!is_safe_url("data:image/"));
         assert!(!is_safe_url("data:image/svg+xml,<svg>"));
+    }
+
+    #[test]
+    fn test_is_safe_url_length_limit() {
+        // URLs within limit should be safe
+        assert!(is_safe_url("https://example.com"));
+
+        // URL at exact limit should be safe
+        let exact_limit_url =
+            format!("https://example.com/{}", "a".repeat(MAX_URL_LENGTH - 24));
+        assert!(is_safe_url(&exact_limit_url));
+
+        // URL exceeding limit should be blocked
+        let too_long_url = format!("https://example.com/{}", "a".repeat(MAX_URL_LENGTH));
+        assert!(!is_safe_url(&too_long_url));
+
+        // Very long URL should be blocked
+        let very_long_url =
+            format!("https://example.com/{}", "a".repeat(MAX_URL_LENGTH * 2));
+        assert!(!is_safe_url(&very_long_url));
     }
 }

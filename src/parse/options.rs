@@ -1044,9 +1044,11 @@ mod tests {
 
     #[test]
     fn test_extension_wikilinks_both_enabled() {
-        let mut ext = Extension::default();
-        ext.wikilinks_title_before_pipe = true;
-        ext.wikilinks_title_after_pipe = true;
+        let ext = Extension {
+            wikilinks_title_before_pipe: true,
+            wikilinks_title_after_pipe: true,
+            ..Default::default()
+        };
         // When both are enabled, UrlFirst takes precedence
         assert_eq!(ext.wikilinks(), Some(WikiLinksMode::UrlFirst));
     }

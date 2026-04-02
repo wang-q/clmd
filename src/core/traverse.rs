@@ -33,6 +33,15 @@ use std::collections::HashSet;
 /// which is extremely rare in practice.
 const MAX_TRAVERSE_DEPTH: usize = 1000;
 
+/// Traversal order for generic traversal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraverseOrder {
+    /// Pre-order: visit node before children
+    PreOrder,
+    /// Post-order: visit children before node
+    PostOrder,
+}
+
 /// Context for tree traversal with cycle detection and depth tracking.
 #[derive(Debug)]
 pub struct TraverseContext {
@@ -211,6 +220,65 @@ impl Traverse for NodeArena {
 }
 
 impl NodeArena {
+    /// Generic recursive traversal implementation.
+    ///
+    /// This method consolidates the common traversal logic to reduce code duplication.
+    /// It handles depth limits, cycle detection, and delegates to the callback at appropriate times.
+    fn traverse_recursive_generic<F>(
+        &self,
+        node_id: NodeId,
+        depth: usize,
+        visited: &mut HashSet<NodeId>,
+        order: TraverseOrder,
+        f: &mut F,
+    ) where
+        F: FnMut(&NodeValue, Option<EventType>),
+    {
+        if depth > MAX_TRAVERSE_DEPTH {
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
+                MAX_TRAVERSE_DEPTH
+            );
+            return;
+        }
+
+        if node_id == INVALID_NODE_ID {
+            return;
+        }
+
+        // Check for circular reference
+        if visited.contains(&node_id) {
+            eprintln!(
+                "Warning: Circular reference detected at node {}. Stopping traversal.",
+                node_id
+            );
+            return;
+        }
+
+        if let Some(node) = self.try_get(node_id) {
+            visited.insert(node_id);
+
+            // Pre-order: visit node before children
+            if order == TraverseOrder::PreOrder {
+                f(&node.value, None);
+            }
+
+            // Traverse children using the linked list structure
+            let mut child_id = node.first_child;
+            while let Some(child) = child_id {
+                self.traverse_recursive_generic(child, depth + 1, visited, order, f);
+                child_id = self.try_get(child).and_then(|n| n.next);
+            }
+
+            // Post-order: visit node after children
+            if order == TraverseOrder::PostOrder {
+                f(&node.value, None);
+            }
+
+            visited.remove(&node_id);
+        }
+    }
+
     fn traverse_pre_order_recursive<F>(
         &self,
         node_id: NodeId,
@@ -220,38 +288,13 @@ impl NodeArena {
     ) where
         F: FnMut(&NodeValue),
     {
-        if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
-                MAX_TRAVERSE_DEPTH
-            );
-        }
-
-        if node_id == INVALID_NODE_ID {
-            return;
-        }
-
-        // Check for circular reference
-        if visited.contains(&node_id) {
-            panic!(
-                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
-                node_id
-            );
-        }
-
-        if let Some(node) = self.try_get(node_id) {
-            visited.insert(node_id);
-            f(&node.value);
-
-            // Traverse children using the linked list structure
-            let mut child_id = node.first_child;
-            while let Some(child) = child_id {
-                self.traverse_pre_order_recursive(child, depth + 1, visited, f);
-                child_id = self.try_get(child).and_then(|n| n.next);
-            }
-
-            visited.remove(&node_id);
-        }
+        self.traverse_recursive_generic(
+            node_id,
+            depth,
+            visited,
+            TraverseOrder::PreOrder,
+            &mut |value, _| f(value),
+        );
     }
 
     fn traverse_post_order_recursive<F>(
@@ -263,38 +306,13 @@ impl NodeArena {
     ) where
         F: FnMut(&NodeValue),
     {
-        if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
-                MAX_TRAVERSE_DEPTH
-            );
-        }
-
-        if node_id == INVALID_NODE_ID {
-            return;
-        }
-
-        // Check for circular reference
-        if visited.contains(&node_id) {
-            panic!(
-                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
-                node_id
-            );
-        }
-
-        if let Some(node) = self.try_get(node_id) {
-            visited.insert(node_id);
-
-            // Traverse children using the linked list structure
-            let mut child_id = node.first_child;
-            while let Some(child) = child_id {
-                self.traverse_post_order_recursive(child, depth + 1, visited, f);
-                child_id = self.try_get(child).and_then(|n| n.next);
-            }
-
-            f(&node.value);
-            visited.remove(&node_id);
-        }
+        self.traverse_recursive_generic(
+            node_id,
+            depth,
+            visited,
+            TraverseOrder::PostOrder,
+            &mut |value, _| f(value),
+        );
     }
 
     fn traverse_with_events_recursive<F>(
@@ -307,10 +325,11 @@ impl NodeArena {
         F: FnMut(&NodeValue, EventType),
     {
         if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
                 MAX_TRAVERSE_DEPTH
             );
+            return;
         }
 
         if node_id == INVALID_NODE_ID {
@@ -319,10 +338,11 @@ impl NodeArena {
 
         // Check for circular reference
         if visited.contains(&node_id) {
-            panic!(
-                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+            eprintln!(
+                "Warning: Circular reference detected at node {}. Stopping traversal.",
                 node_id
             );
+            return;
         }
 
         if let Some(node) = self.try_get(node_id) {
@@ -351,10 +371,11 @@ impl NodeArena {
         F: FnMut(&mut NodeValue),
     {
         if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
                 MAX_TRAVERSE_DEPTH
             );
+            return;
         }
 
         if node_id == INVALID_NODE_ID {
@@ -363,10 +384,11 @@ impl NodeArena {
 
         // Check for circular reference
         if visited.contains(&node_id) {
-            panic!(
-                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+            eprintln!(
+                "Warning: Circular reference detected at node {}. Stopping traversal.",
                 node_id
             );
+            return;
         }
 
         // Collect child IDs first to avoid borrow issues
@@ -405,10 +427,11 @@ impl NodeArena {
         F: FnMut(&mut NodeValue),
     {
         if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
                 MAX_TRAVERSE_DEPTH
             );
+            return;
         }
 
         if node_id == INVALID_NODE_ID {
@@ -417,10 +440,11 @@ impl NodeArena {
 
         // Check for circular reference
         if visited.contains(&node_id) {
-            panic!(
-                "Circular reference detected at node {}. This indicates a corrupted tree structure.",
+            eprintln!(
+                "Warning: Circular reference detected at node {}. Stopping traversal.",
                 node_id
             );
+            return;
         }
 
         // Collect child IDs first to avoid borrow issues
@@ -548,10 +572,11 @@ impl NodeArena {
         F: Fn(&NodeValue) -> bool,
     {
         if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
                 MAX_TRAVERSE_DEPTH
             );
+            return None;
         }
 
         if node_id == INVALID_NODE_ID {
@@ -588,10 +613,11 @@ impl NodeArena {
         F: Fn(&NodeValue) -> bool,
     {
         if depth > MAX_TRAVERSE_DEPTH {
-            panic!(
-                "Tree traversal depth exceeded maximum of {}. This may indicate a deeply nested or circular document structure.",
+            eprintln!(
+                "Warning: Tree traversal depth exceeded maximum of {}. Stopping traversal.",
                 MAX_TRAVERSE_DEPTH
             );
+            return;
         }
 
         if node_id == INVALID_NODE_ID {

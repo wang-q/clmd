@@ -271,6 +271,15 @@ pub enum ClmdError {
     /// Sandbox security error.
     #[error("Sandbox error: {0}")]
     Sandbox(String),
+
+    /// Input too large error.
+    #[error("Input too large: {size} bytes (max: {max_size})")]
+    InputTooLarge {
+        /// Actual input size.
+        size: usize,
+        /// Maximum allowed size.
+        max_size: usize,
+    },
 }
 
 impl ClmdError {
@@ -450,7 +459,10 @@ impl ClmdError {
 
     /// Check if this is a limit exceeded error.
     pub fn is_limit_exceeded(&self) -> bool {
-        matches!(self, Self::LimitExceeded { .. })
+        matches!(
+            self,
+            Self::LimitExceeded { .. } | Self::InputTooLarge { .. }
+        )
     }
 
     /// Check if this is a circular reference error.
@@ -540,6 +552,7 @@ impl ClmdError {
             Self::Warning(_) => 0, // Warnings don't cause non-zero exit
             Self::Sandbox(_) => 77, // Permission denied
             Self::Other(_) => 1,
+            Self::InputTooLarge { .. } => 93, // Same as LimitExceeded
         }
     }
 }
@@ -743,7 +756,33 @@ impl From<ClmdError> for ParseError {
                 limit,
                 actual,
             },
+            ClmdError::InputTooLarge { size, max_size } => {
+                Self::InputTooLarge { size, max_size }
+            }
             _ => Self::IoError(err.to_string()),
+        }
+    }
+}
+
+impl From<ParseError> for ClmdError {
+    fn from(err: ParseError) -> Self {
+        match err {
+            ParseError::ParseError { position, message } => {
+                Self::Parse { position, message }
+            }
+            ParseError::IoError(msg) => Self::Io(msg),
+            ParseError::LimitExceeded {
+                kind,
+                limit,
+                actual,
+            } => Self::LimitExceeded {
+                kind,
+                limit,
+                actual,
+            },
+            ParseError::InputTooLarge { size, max_size } => {
+                Self::InputTooLarge { size, max_size }
+            }
         }
     }
 }
