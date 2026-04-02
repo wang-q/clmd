@@ -239,6 +239,8 @@ pub struct MainFormatterContext<'a> {
     format_control: format_control::FormatControlProcessor,
     /// Content buffer for format-off regions
     format_off_buffer: Option<String>,
+    /// Whether delegation was requested by the current handler
+    delegation_requested: bool,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -283,6 +285,7 @@ impl<'a> MainFormatterContext<'a> {
             skip_children: false,
             format_control,
             format_off_buffer: None,
+            delegation_requested: false,
         };
         context.build_handler_map();
         context.collect_nodes();
@@ -505,6 +508,13 @@ impl<'a> MainFormatterContext<'a> {
 
                 self.handler_stack.pop();
                 self.current_node = None;
+
+                // Check if delegation was requested
+                if self.delegation_requested {
+                    self.delegation_requested = false;
+                    // Call the next handler for this node type
+                    self.render_with_handler_index(node_id, markdown, handler_index + 1);
+                }
             } else {
                 // No more handlers, render children
                 self.render_children(node_id, markdown);
@@ -588,15 +598,13 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         // Handler delegation is used when a formatter wants to pass rendering
         // to the next handler registered for the same node type.
         //
-        // In the current implementation, we track that delegation was requested
-        // by recording it in the handler stack. The actual rendering of the
-        // next handler happens on the next render call.
-        //
-        // This is a simplified implementation. For full multi-handler support,
-        // the render() method would need to be modified to iterate through
-        // all handlers for a node type.
-        //
-        // For now, this method serves as a hook for future extensibility.
+        // This implementation uses the handler_stack to track the current
+        // handler index and calls the next handler if available.
+        if let Some((node_type, current_index)) = self.handler_stack.last().copied() {
+            // The actual delegation happens in render_with_handler_index
+            // by calling the next handler index
+            self.delegation_requested = true;
+        }
     }
 
     fn get_formatter_options(&self) -> &options::FormatterOptions {

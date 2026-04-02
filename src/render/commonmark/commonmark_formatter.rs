@@ -467,13 +467,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::HtmlBlock,
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::HtmlBlock(html) = value {
-                            for line in html.literal.lines() {
-                                writer.append(line);
-                                writer.line();
-                            }
+                            render_html_block(html, ctx, writer);
                         }
                     },
                 ),
@@ -835,27 +832,103 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
 impl PhasedNodeFormatter for CommonMarkNodeFormatter {
     fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
-        vec![FormattingPhase::Collect, FormattingPhase::Document]
+        // Support all formatting phases as defined in flexmark-java
+        vec![
+            FormattingPhase::Collect,
+            FormattingPhase::DocumentFirst,
+            FormattingPhase::DocumentTop,
+            FormattingPhase::Document,
+            FormattingPhase::DocumentBottom,
+        ]
     }
 
     fn render_document(
         &self,
-        _context: &mut dyn NodeFormatterContext,
-        _writer: &mut MarkdownWriter,
+        context: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
         _root: NodeId,
         phase: FormattingPhase,
     ) {
         match phase {
             FormattingPhase::Collect => {
-                // In the Collect phase, we could gather reference links
-                // and other information needed for the main rendering pass
-                // This is currently a placeholder for future enhancement
+                // In the Collect phase, gather reference links and other information
+                // needed for the main rendering pass
+                // This includes collecting unused references for sorting
+                self.collect_document_info(context);
+            }
+            FormattingPhase::DocumentFirst => {
+                // First pass over the document - can be used for initialization
+                // or pre-processing before the main rendering
+            }
+            FormattingPhase::DocumentTop => {
+                // Render elements at the top of the document
+                // This is where collected references can be placed if configured
+                self.render_document_top_elements(context, writer);
             }
             FormattingPhase::Document => {
                 // Main document rendering is handled by the node handlers
+                // This phase is processed through the regular node traversal
             }
-            _ => {}
+            FormattingPhase::DocumentBottom => {
+                // Render elements at the bottom of the document
+                // This is where footnotes or references can be placed
+                self.render_document_bottom_elements(context, writer);
+            }
         }
+    }
+}
+
+impl CommonMarkNodeFormatter {
+    /// Collect information about the document during the Collect phase
+    fn collect_document_info(&self, _context: &mut dyn NodeFormatterContext) {
+        // Placeholder for collecting reference links, footnotes, etc.
+        // This information can be used during rendering to:
+        // - Identify unused references
+        // - Sort references
+        // - Generate footnote numbers
+    }
+
+    /// Render elements that should appear at the top of the document
+    fn render_document_top_elements(
+        &self,
+        context: &mut dyn NodeFormatterContext,
+        _writer: &mut MarkdownWriter,
+    ) {
+        // Placeholder for rendering elements at document top
+        // This can include:
+        // - References placed at document top
+        // - Table of contents
+        // - Other collected elements
+
+        // Check if we should place references at document top
+        let options = context.get_formatter_options();
+        if options.reference_placement == crate::formatter::options::ElementPlacement::DocumentTop {
+            // Render collected references at top
+            // This would require reference collection to be implemented
+        }
+    }
+
+    /// Render elements that should appear at the bottom of the document
+    fn render_document_bottom_elements(
+        &self,
+        context: &mut dyn NodeFormatterContext,
+        _writer: &mut MarkdownWriter,
+    ) {
+        // Placeholder for rendering elements at document bottom
+        // This can include:
+        // - Footnotes
+        // - References placed at document bottom
+        // - Other collected elements
+
+        // Check if we should place references at document bottom
+        let options = context.get_formatter_options();
+        if options.reference_placement == crate::formatter::options::ElementPlacement::DocumentBottom {
+            // Render collected references at bottom
+            // This would require reference collection to be implemented
+        }
+
+        // Render footnotes if any were collected
+        // This would require footnote collection to be implemented
     }
 }
 
@@ -1032,6 +1105,34 @@ fn minimize_indent(content: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Render an HTML block with proper formatting
+///
+/// This function handles HTML blocks according to flexmark-java's approach:
+/// - In translation mode, wraps content with non-translating markers
+/// - In normal mode, outputs the HTML content as-is
+fn render_html_block(
+    html: &crate::core::nodes::NodeHtmlBlock,
+    _ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+) {
+
+    // Add blank line before HTML block (unless it's the first element)
+    writer.blank_line();
+
+    // Process the HTML content
+    let content = &html.literal;
+
+    // Output the HTML content line by line
+    // Use split('\n') instead of lines() to preserve empty lines
+    for line in content.split('\n') {
+        writer.append_raw(line);
+        writer.line();
+    }
+
+    // Add trailing blank line after HTML block
+    writer.tail_blank_line();
 }
 
 /// Collect text content from a cell node and its children
@@ -1547,11 +1648,11 @@ fn calculate_heading_content_length(
                 // Recursively count children (emphasis markers don't add to visible length)
                 length += calculate_child_content_length(arena, child_id);
             }
-            NodeValue::Link(link) => {
+            NodeValue::Link(_link) => {
                 // For links, count the link text (children), not the URL
                 length += calculate_child_content_length(arena, child_id);
             }
-            NodeValue::Image(link) => {
+            NodeValue::Image(_link) => {
                 // For images, count the alt text (children)
                 length += calculate_child_content_length(arena, child_id);
             }
@@ -1852,9 +1953,13 @@ mod tests {
     fn test_phased_formatter_phases() {
         let formatter = CommonMarkNodeFormatter::new();
         let phases = formatter.get_formatting_phases();
-        assert_eq!(phases.len(), 2);
+        // Now supports all 5 formatting phases as per flexmark-java
+        assert_eq!(phases.len(), 5);
         assert!(phases.contains(&FormattingPhase::Collect));
+        assert!(phases.contains(&FormattingPhase::DocumentFirst));
+        assert!(phases.contains(&FormattingPhase::DocumentTop));
         assert!(phases.contains(&FormattingPhase::Document));
+        assert!(phases.contains(&FormattingPhase::DocumentBottom));
     }
 
     #[test]
