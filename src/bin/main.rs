@@ -30,7 +30,8 @@ fn main() -> anyhow::Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Enable safe mode (filter dangerous HTML)"),
         )
-        .subcommand(cmd::convert::make_subcommand())
+        .subcommand(cmd::to::make_subcommand())
+        .subcommand(cmd::from::make_subcommand())
         .subcommand(cmd::extract::make_subcommand())
         .subcommand(cmd::stats::make_subcommand())
         .subcommand(cmd::toc::make_subcommand())
@@ -41,7 +42,7 @@ fn main() -> anyhow::Result<()> {
         .after_help(
             r###"Subcommand groups:
 
-* Conversion: convert (to, from)
+* Conversion: to, from
 * Formatting: fmt
 * Extraction: extract (links, images, headings, code, tables, footnotes, yaml-front-matter, task-items)
 * Analysis: stats, validate
@@ -54,8 +55,9 @@ Configuration:
     - ~/.config/clmd/config.toml
 
 Examples:
-  clmd convert to html README.md
-  clmd convert to latex input.md -o output.tex
+  clmd to html README.md
+  clmd to latex input.md -o output.tex
+  clmd from html input.html -o output.md
   clmd extract links input.md
   clmd extract tables input.md --format csv
   clmd stats input.md --readability
@@ -64,7 +66,7 @@ Examples:
   clmd complete bash > /etc/bash_completion.d/clmd
   clmd fmt input.md
   clmd toc input.md
-  clmd -c /path/to/config.toml convert to html input.md
+  clmd -c /path/to/config.toml to html input.md
 "###,
         );
 
@@ -118,7 +120,8 @@ Examples:
     }
 
     match matches.subcommand() {
-        Some(("convert", sub_matches)) => cmd::convert::execute(sub_matches, &options),
+        Some(("to", sub_matches)) => cmd::to::execute(sub_matches, &options),
+        Some(("from", sub_matches)) => cmd::from::execute(sub_matches, &options),
         Some(("extract", sub_matches)) => cmd::extract::execute(sub_matches, &options),
         Some(("stats", sub_matches)) => cmd::stats::execute(sub_matches, &options),
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),

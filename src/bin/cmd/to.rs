@@ -1,36 +1,13 @@
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use std::io::Read;
 use std::path::Path;
 
 use crate::cmd::utils;
 use clmd::context::PureContext;
-use clmd::io::reader::ReaderRegistry;
 use clmd::io::writer::WriterRegistry;
-use clmd::options::{ReaderOptions, WriterOptions};
+use clmd::options::WriterOptions;
 
-/// Make the convert subcommand.
+/// Make the `to` subcommand.
 pub fn make_subcommand() -> Command {
-    Command::new("convert")
-        .about("Convert between Markdown and other formats")
-        .subcommand_required(true)
-        .subcommand(make_to_subcommand())
-        .subcommand(make_from_subcommand())
-}
-
-/// Execute the convert subcommand.
-pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<()> {
-    match matches.subcommand() {
-        Some(("to", sub_matches)) => execute_to(sub_matches, options),
-        Some(("from", sub_matches)) => execute_from(sub_matches, options),
-        _ => unreachable!(),
-    }
-}
-
-// ============================================================================
-// to subcommand - unified output format conversion
-// ============================================================================
-
-fn make_to_subcommand() -> Command {
     Command::new("to")
         .about("Convert Markdown to various output formats")
         .arg(
@@ -82,15 +59,16 @@ fn make_to_subcommand() -> Command {
   commonmark  - CommonMark (Markdown) format
 
 Examples:
-  clmd convert to html input.md -o output.html
-  clmd convert to latex input.md -o output.tex
-  clmd convert to pdf input.md
-  cat input.md | clmd convert to html
+  clmd to html input.md -o output.html
+  clmd to latex input.md -o output.tex
+  clmd to pdf input.md
+  cat input.md | clmd to html
 "###,
         )
 }
 
-fn execute_to(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<()> {
+/// Execute the `to` subcommand.
+pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<()> {
     let format = matches
         .get_one::<String>("format")
         .map(|s| s.as_str())
@@ -184,90 +162,4 @@ fn execute_to(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<(
     };
 
     utils::write_output(output_path.as_deref(), &output)
-}
-
-// ============================================================================
-// from subcommand - unified input format conversion
-// ============================================================================
-
-fn make_from_subcommand() -> Command {
-    Command::new("from")
-        .about("Convert from other formats to Markdown")
-        .arg(
-            Arg::new("format")
-                .help("Input format (html, latex, bibtex)")
-                .required(true)
-                .index(1),
-        )
-        .arg(
-            Arg::new("input")
-                .help("Input file (default: stdin)")
-                .index(2),
-        )
-        .arg(
-            Arg::new("output")
-                .short('o')
-                .long("output")
-                .help("Output file (default: stdout)"),
-        )
-        .after_help(
-            r###"Supported input formats:
-  html    - HTML format
-  latex   - LaTeX format
-  bibtex  - BibTeX format
-
-Examples:
-  clmd convert from html input.html -o output.md
-  clmd convert from latex input.tex
-  cat input.html | clmd convert from html
-"###,
-        )
-}
-
-fn execute_from(matches: &ArgMatches, _options: &clmd::Options) -> anyhow::Result<()> {
-    let format = matches
-        .get_one::<String>("format")
-        .map(|s| s.as_str())
-        .unwrap();
-    let input_path = matches.get_one::<String>("input").map(|s| s.as_str());
-
-    // For HTML, use the direct conversion function
-    let output = match format {
-        "html" | "htm" => {
-            let input = utils::read_input(input_path)?;
-            clmd::io::reader::html::html_to_markdown(&input)
-        }
-        _ => {
-            // Try to use the reader registry
-            let registry = ReaderRegistry::new();
-            let reader_options = ReaderOptions::default();
-
-            let input = if let Some(path) = input_path {
-                let path = Path::new(path);
-                std::fs::read_to_string(path).map_err(|e| {
-                    anyhow::anyhow!("Failed to read file '{}': {}", path.display(), e)
-                })?
-            } else {
-                let mut buffer = String::new();
-                std::io::stdin()
-                    .read_to_string(&mut buffer)
-                    .map_err(|e| anyhow::anyhow!("Failed to read stdin: {}", e))?;
-                buffer
-            };
-
-            if let Some(reader) = registry.get(format) {
-                let (arena, root) = reader
-                    .read(&input, &reader_options)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse {}: {}", format, e))?;
-
-                // Convert to CommonMark
-                clmd::render::commonmark::render(&arena, root, 0, 80)
-            } else {
-                return Err(anyhow::anyhow!("Unsupported input format: {}", format));
-            }
-        }
-    };
-
-    let output_path = matches.get_one::<String>("output").map(|s| s.as_str());
-    utils::write_output(output_path, &output)
 }
