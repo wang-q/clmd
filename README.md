@@ -1,5 +1,12 @@
 # clmd - CommonMark Markdown Processor
 
+[![Build](https://github.com/wang-q/clmd/actions/workflows/build.yml/badge.svg)](https://github.com/wang-q/clmd/actions)
+[![codecov](https://img.shields.io/codecov/c/github/wang-q/clmd/master)](https://app.codecov.io/gh/wang-q/clmd/tree/master)
+[![Crates.io](https://img.shields.io/crates/v/clmd.svg)](https://crates.io/crates/clmd)
+[![license](https://img.shields.io/github/license/wang-q/clmd)](https://github.com/wang-q/clmd)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://wang-q.github.io/clmd/)
+
+
 A high-performance CommonMark and GFM compatible Markdown parser written in Rust, inspired by cmark (C implementation) and commonmark.js (JavaScript implementation).
 
 ## Features
