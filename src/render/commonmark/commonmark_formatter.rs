@@ -913,13 +913,22 @@ pub fn get_backtick_sequence(content: &str) -> String {
 /// ```ignore
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    let special_chars = ['*', '_', '[', ']', '<', '>', '#', '`', '\\', '!', '|'];
+    // Note: '#' and '|' are not included here
+    // '#' only needs escaping at the beginning of a line (ATX heading)
+    // '|' only has special meaning in tables
+    let special_chars = ['*', '_', '[', ']', '<', '>', '`', '\\'];
 
-    for c in text.chars() {
-        if special_chars.contains(&c) {
+    let chars: Vec<char> = text.chars().collect();
+    for (i, c) in chars.iter().enumerate() {
+        // '!' only needs escaping when followed by '[' (image syntax)
+        if *c == '!' {
+            if i + 1 < chars.len() && chars[i + 1] == '[' {
+                result.push('\\');
+            }
+        } else if special_chars.contains(c) {
             result.push('\\');
         }
-        result.push(c);
+        result.push(*c);
     }
 
     result
@@ -930,14 +939,22 @@ pub fn escape_markdown(text: &str) -> String {
 /// This is used for table cell content where pipe characters should not be escaped.
 fn escape_markdown_for_table(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    // Note: '|' is not included here as it's used for table cell separation
-    let special_chars = ['*', '_', '[', ']', '<', '>', '#', '`', '\\', '!'];
+    // Note: '|' and '#' are not included here
+    // '|' is not included as it's used for table cell separation
+    // '#' only needs escaping at the beginning of a line (ATX heading)
+    let special_chars = ['*', '_', '[', ']', '<', '>', '`', '\\'];
 
-    for c in text.chars() {
-        if special_chars.contains(&c) {
+    let chars: Vec<char> = text.chars().collect();
+    for (i, c) in chars.iter().enumerate() {
+        // '!' only needs escaping when followed by '[' (image syntax)
+        if *c == '!' {
+            if i + 1 < chars.len() && chars[i + 1] == '[' {
+                result.push('\\');
+            }
+        } else if special_chars.contains(c) {
             result.push('\\');
         }
-        result.push(c);
+        result.push(*c);
     }
 
     result
