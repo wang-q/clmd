@@ -37,7 +37,7 @@ use std::borrow::Cow;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::url_encode;
+/// use clmd::text::uri::url_encode;
 ///
 /// assert_eq!(url_encode("hello world"), "hello%20world");
 /// assert_eq!(url_encode("foo/bar"), "foo%2Fbar");
@@ -75,7 +75,7 @@ pub fn url_encode(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::url_decode;
+/// use clmd::text::uri::url_decode;
 ///
 /// assert_eq!(url_decode("hello%20world"), "hello world");
 /// assert_eq!(url_decode("foo%2Fbar"), "foo/bar");
@@ -146,7 +146,7 @@ fn hex_digit(c: char) -> Option<u8> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::escape_uri;
+/// use clmd::text::uri::escape_uri;
 ///
 /// assert_eq!(escape_uri("hello world"), "hello%20world");
 /// assert_eq!(escape_uri("<tag>"), "%3Ctag%3E");
@@ -192,7 +192,7 @@ pub fn escape_uri(s: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::is_uri;
+/// use clmd::text::uri::is_uri;
 ///
 /// assert!(is_uri("https://example.com"));
 /// assert!(is_uri("http://example.com"));
@@ -220,7 +220,7 @@ pub fn is_uri(s: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::get_scheme;
+/// use clmd::text::uri::get_scheme;
 ///
 /// assert_eq!(get_scheme("https://example.com"), Some("https"));
 /// assert_eq!(get_scheme("mailto:test@example.com"), Some("mailto"));
@@ -233,7 +233,7 @@ pub fn get_scheme(uri: &str) -> Option<&str> {
         if scheme
             .chars()
             .next()
-            .map_or(false, |c| c.is_ascii_alphabetic())
+            .is_some_and(|c| c.is_ascii_alphabetic())
             && scheme
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
@@ -257,7 +257,7 @@ pub fn get_scheme(uri: &str) -> Option<&str> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::is_absolute_uri;
+/// use clmd::text::uri::is_absolute_uri;
 ///
 /// assert!(is_absolute_uri("https://example.com"));
 /// assert!(!is_absolute_uri("/path/to/file"));
@@ -282,7 +282,7 @@ pub fn is_absolute_uri(uri: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::is_data_uri;
+/// use clmd::text::uri::is_data_uri;
 ///
 /// assert!(is_data_uri("data:image/png;base64,iVBORw0KGgo="));
 /// assert!(!is_data_uri("https://example.com/image.png"));
@@ -304,7 +304,7 @@ pub fn is_data_uri(uri: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::parse_data_uri;
+/// use clmd::text::uri::parse_data_uri;
 ///
 /// let result = parse_data_uri("data:text/plain;base64,SGVsbG8gV29ybGQ=");
 /// assert!(result.is_some());
@@ -399,7 +399,7 @@ pub const KNOWN_SCHEMES: &[&str] = &[
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::is_known_scheme;
+/// use clmd::text::uri::is_known_scheme;
 ///
 /// assert!(is_known_scheme("https"));
 /// assert!(is_known_scheme("mailto"));
@@ -424,7 +424,7 @@ pub fn is_known_scheme(scheme: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::normalize_path;
+/// use clmd::text::uri::normalize_path;
 ///
 /// assert_eq!(normalize_path("/foo/bar/../baz"), "/foo/baz");
 /// assert_eq!(normalize_path("/foo/./bar"), "/foo/bar");
@@ -485,7 +485,7 @@ pub fn normalize_path(path: &str) -> String {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::uri::join_paths;
+/// use clmd::text::uri::join_paths;
 ///
 /// assert_eq!(join_paths("/foo/bar", "baz"), "/foo/baz");
 /// assert_eq!(join_paths("/foo/bar/", "baz"), "/foo/bar/baz");

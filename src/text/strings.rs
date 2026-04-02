@@ -411,7 +411,7 @@ fn match_entity(bytes: &[u8]) -> Option<(char, usize)> {
 
     // Numeric entity: &#123; or &#x7B;
     if bytes[1] == b'#' {
-        if bytes.len() >= 3 && bytes[2] == b'x' || bytes[2] == b'X' {
+        if bytes.len() >= 3 && (bytes[2] == b'x' || bytes[2] == b'X') {
             // Hex entity
             let mut i = 3;
             let mut value = 0u32;
@@ -503,7 +503,7 @@ pub fn is_ascii(s: &str) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::strings::split_by;
+/// use clmd::text::strings::split_by;
 ///
 /// let result: Vec<&str> = split_by("a,b,,c", |c| c == ',');
 /// assert_eq!(result, vec!["a", "b", "c"]);

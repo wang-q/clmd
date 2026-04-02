@@ -308,7 +308,7 @@ impl From<SafeHtml> for String {
 /// # Examples
 ///
 /// ```ignore
-/// use clmd::html_utils::is_safe_url;
+/// use clmd::text::html_utils::is_safe_url;
 ///
 /// assert!(is_safe_url("https://example.com"));
 /// assert!(is_safe_url("http://example.com"));

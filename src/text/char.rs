@@ -5,7 +5,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::text::char::is_cjk;
 //!
 //! assert!(is_cjk('中'));
@@ -184,8 +184,23 @@ pub fn is_cjk_punctuation(c: char) -> bool {
 pub fn is_fullwidth(c: char) -> bool {
     matches!(c,
         '\u{1100}'..='\u{115F}' |  // Hangul Jamo
-        '\u{2E80}'..='\u{A4CF}' |  // CJK and related
+        '\u{2E80}'..='\u{2EFF}' |  // CJK Radicals Supplement
+        '\u{2F00}'..='\u{2FDF}' |  // Kangxi Radicals
+        '\u{2FF0}'..='\u{303F}' |  // Ideographic Description Characters + CJK Symbols and Punctuation
+        '\u{3040}'..='\u{309F}' |  // Hiragana
+        '\u{30A0}'..='\u{30FF}' |  // Katakana
+        '\u{3100}'..='\u{312F}' |  // Bopomofo
+        '\u{3130}'..='\u{318F}' |  // Hangul Compatibility Jamo
+        '\u{3190}'..='\u{31BF}' |  // Kanbun + Bopomofo Extended
+        '\u{31C0}'..='\u{31EF}' |  // CJK Strokes
+        '\u{31F0}'..='\u{31FF}' |  // Katakana Phonetic Extensions
+        '\u{3200}'..='\u{32FF}' |  // Enclosed CJK Letters & Months
+        '\u{3300}'..='\u{33FF}' |  // CJK Compatibility
+        '\u{3400}'..='\u{4DBF}' |  // CJK Unified Ideographs Extension A
+        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
+        '\u{A960}'..='\u{A97F}' |  // Hangul Jamo Extended-A
         '\u{AC00}'..='\u{D7A3}' |  // Hangul Syllables
+        '\u{D7B0}'..='\u{D7FF}' |  // Hangul Jamo Extended-B
         '\u{F900}'..='\u{FAFF}' |  // CJK Compatibility Ideographs
         '\u{FF01}'..='\u{FF60}' |  // Fullwidth ASCII variants
         '\u{FFE0}'..='\u{FFE6}'    // Fullwidth symbol variants

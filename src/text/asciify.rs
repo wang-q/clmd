@@ -75,7 +75,7 @@ impl Transliterator {
 
     /// Check if a string contains non-ASCII characters.
     pub fn has_non_ascii(&self, input: &str) -> bool {
-        input.chars().any(|ch| !ch.is_ascii())
+        !input.is_ascii()
     }
 
     /// Get the number of mappings.
@@ -352,7 +352,7 @@ pub fn asciify(input: &str) -> String {
 /// assert!(!has_non_ascii("cafe"));
 /// ```ignore
 pub fn has_non_ascii(input: &str) -> bool {
-    input.chars().any(|ch| !ch.is_ascii())
+    !input.is_ascii()
 }
 
 /// Create a slug from a string (ASCII-only, lowercase, hyphenated).

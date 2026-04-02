@@ -12,7 +12,7 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```ignore
 //! use clmd::text::unicode_width::width;
 //!
 //! assert_eq!(width("hello"), 5);

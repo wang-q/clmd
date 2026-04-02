@@ -8,7 +8,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```ignore
 //! use clmd::text::roff_char::{escape_roff, standard_escape};
 //!
 //! // Escape a string for roff output

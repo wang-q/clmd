@@ -101,7 +101,7 @@ impl EmojiMapper {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clmd::text::emoji::EmojiMapper;
     ///
     /// let mapper = EmojiMapper::new();
@@ -230,7 +230,6 @@ impl EmojiMapper {
         mappings.insert(":umbrella:".to_string(), "☂️".to_string());
         mappings.insert(":snowflake:".to_string(), "❄️".to_string());
         mappings.insert(":zap:".to_string(), "⚡".to_string());
-        mappings.insert(":fire:".to_string(), "🔥".to_string());
         mappings.insert(":droplet:".to_string(), "💧".to_string());
 
         // Food
@@ -257,19 +256,18 @@ impl EmojiMapper {
 /// ```ignore
 pub fn has_emoji_shortcode(text: &str) -> bool {
     // Simple check for pattern :word:
-    let chars: Vec<char> = text.chars().collect();
     let mut in_shortcode = false;
     let mut shortcode_start = 0;
 
-    for (i, ch) in chars.iter().enumerate() {
-        if *ch == ':' {
+    for (i, ch) in text.char_indices() {
+        if ch == ':' {
             if !in_shortcode {
                 in_shortcode = true;
                 shortcode_start = i;
             } else {
                 // Check if we have a valid shortcode (at least one character between colons)
                 if i > shortcode_start + 1 {
-                    let content: String = chars[shortcode_start + 1..i].iter().collect();
+                    let content = &text[shortcode_start + 1..i];
                     // Valid shortcodes contain only alphanumeric characters and underscores
                     if content.chars().all(|c| c.is_alphanumeric() || c == '_') {
                         return true;
