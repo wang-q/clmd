@@ -7,133 +7,188 @@
 ```
 src/
 ├── bin/                    # 可执行文件
-│   ├── clmd.rs            # 主 CLI 入口
+│   ├── main.rs            # 主 CLI 入口
 │   └── cmd/               # 子命令实现
-│       ├── extract/       # 内容提取命令
-│       ├── from/          # 格式转换命令 (from)
-│       ├── to/            # 格式转换命令 (to)
+│       ├── complete.rs    # 自动补全命令
+│       ├── extract.rs     # 内容提取命令
 │       ├── fmt.rs         # 格式化命令
+│       ├── from.rs        # 格式转换命令 (from)
 │       ├── mod.rs         # 命令模块
 │       ├── stats.rs       # 统计命令
+│       ├── to.rs          # 格式转换命令 (to)
 │       ├── toc.rs         # 目录生成命令
-│       └── utils.rs       # 命令工具
+│       ├── transform.rs   # 转换命令
+│       ├── utils.rs       # 命令工具
+│       └── validate.rs    # 验证命令
 │
 ├── core/                   # 核心抽象层
 │   ├── mod.rs             # 核心模块导出
-│   └── monad.rs           # ClmdMonad trait 和实现
+│   ├── adapter.rs         # 适配器 trait
+│   ├── arena.rs           # AST 内存分配器
+│   ├── ast.rs             # AST 类型定义
+│   ├── error.rs           # 错误处理
+│   ├── monad.rs           # ClmdMonad trait 和实现
+│   ├── nodes.rs           # AST 节点定义
+│   ├── sandbox.rs         # 沙箱模式
+│   ├── shared.rs          # 共享工具
+│   ├── state.rs           # 状态管理
+│   └── traverse.rs        # AST 遍历
 │
-├── blocks/                 # 块级元素解析
-│   ├── mod.rs             # 块解析模块
-│   ├── parser.rs          # 块解析器
-│   ├── block_starts.rs    # 块开始检测
-│   ├── continuation.rs    # 块延续逻辑
-│   ├── finalization.rs    # 块终处理
-│   ├── block_info.rs      # 块信息
-│   ├── info.rs            # 信息字符串解析
-│   ├── helpers.rs         # 辅助函数
-│   └── tests.rs           # 块解析测试
+├── context/                # 运行时上下文
+│   ├── mod.rs             # 上下文模块
+│   ├── common.rs          # 通用类型
+│   ├── config.rs          # 配置管理
+│   ├── data.rs            # 数据文件管理
+│   ├── io.rs              # IO 上下文
+│   ├── logging.rs         # 日志系统
+│   ├── mediabag.rs        # 资源管理
+│   ├── process.rs         # 进程管理
+│   ├── pure.rs            # 纯上下文
+│   ├── uuid.rs            # UUID 工具
+│   └── version.rs         # 版本信息
 │
-├── inlines/                # 内联元素解析
-│   ├── mod.rs             # 内联解析模块
-│   ├── emphasis.rs        # 强调解析
-│   ├── links.rs           # 链接解析
-│   ├── autolinks.rs       # 自动链接
-│   ├── entities.rs        # HTML 实体
-│   ├── entities_table.rs  # 实体表
-│   ├── html_tags.rs       # HTML 标签
-│   ├── text.rs            # 文本处理
-│   └── utils.rs           # 内联工具
-│
-├── parser/                 # 解析器核心
+├── parse/                  # 解析器核心
 │   ├── mod.rs             # 解析器模块
-│   └── options.rs         # 解析选项
+│   ├── options.rs         # 解析选项
+│   ├── block/             # 块级元素解析
+│   │   ├── mod.rs
+│   │   ├── parser.rs
+│   │   ├── block_starts.rs
+│   │   ├── continuation.rs
+│   │   ├── finalization.rs
+│   │   ├── block_info.rs
+│   │   ├── info.rs
+│   │   ├── helpers.rs
+│   │   └── tests.rs
+│   ├── inline/            # 内联元素解析
+│   │   ├── mod.rs
+│   │   ├── emphasis.rs
+│   │   ├── links.rs
+│   │   ├── autolinks.rs
+│   │   ├── entities.rs
+│   │   ├── entities_table.rs
+│   │   ├── html_tags.rs
+│   │   ├── text.rs
+│   │   └── utils.rs
+│   └── util/              # 解析工具
+│       ├── char.rs
+│       ├── chunks.rs
+│       ├── combinator.rs
+│       ├── primitives.rs
+│       ├── scanners.rs
+│       ├── sources.rs
+│       └── state.rs
 │
 ├── render/                 # 渲染器
 │   ├── mod.rs             # 渲染模块
 │   ├── renderer.rs        # 渲染器 trait
-│   ├── html.rs            # HTML 渲染
-│   ├── xml.rs             # XML 渲染
-│   ├── commonmark.rs      # CommonMark 渲染
-│   ├── latex.rs           # LaTeX 渲染
-│   ├── man.rs             # Man page 渲染
-│   ├── pdf.rs             # PDF 渲染
-│   ├── docx.rs            # DOCX 渲染
-│   └── typst.rs           # Typst 渲染
+│   ├── commonmark/        # CommonMark 格式化
+│   │   ├── mod.rs
+│   │   ├── commonmark_formatter.rs
+│   │   ├── context.rs
+│   │   ├── node.rs
+│   │   ├── options.rs
+│   │   ├── phase.rs
+│   │   ├── phased.rs
+│   │   ├── purpose.rs
+│   │   ├── table.rs
+│   │   ├── utils.rs
+│   │   └── writer.rs
+│   └── format/            # 格式渲染器
+│       ├── mod.rs
+│       ├── html.rs
+│       ├── xml.rs
+│       ├── latex.rs
+│       ├── man.rs
+│       ├── pdf.rs
+│       ├── docx.rs
+│       └── typst.rs
 │
-├── readers/                # 文档读取器
-│   ├── mod.rs             # 读取器模块
-│   └── registry.rs        # 读取器注册表
-│
-├── writers/                # 文档写入器
-│   ├── mod.rs             # 写入器模块
-│   └── registry.rs        # 写入器注册表
-│
-├── filter/                 # 过滤器系统
-│   └── mod.rs             # 过滤器实现
-│
-├── pipeline/               # 转换管道
-│   └── mod.rs             # 管道实现
-│
-├── template/               # 模板系统
-│   └── mod.rs             # 模板实现
+├── io/                     # IO 系统
+│   ├── mod.rs             # IO 模块
+│   ├── format_impl.rs     # 格式实现
+│   ├── format/            # 格式工具
+│   │   ├── mod.rs
+│   │   ├── css.rs
+│   │   ├── csv.rs
+│   │   ├── mime.rs
+│   │   ├── slides.rs
+│   │   ├── tex.rs
+│   │   └── xml.rs
+│   ├── reader/            # 文档读取器
+│   │   ├── mod.rs
+│   │   ├── registry.rs    # 读取器注册表
+│   │   ├── html.rs
+│   │   ├── latex.rs
+│   │   └── bibtex.rs
+│   └── writer/            # 文档写入器
+│       ├── mod.rs
+│       ├── registry.rs    # 写入器注册表
+│       ├── docx.rs
+│       ├── epub.rs
+│       ├── beamer.rs
+│       ├── revealjs.rs
+│       ├── rtf.rs
+│       └── bibtex.rs
 │
 ├── ext/                    # 扩展功能
 │   ├── mod.rs             # 扩展模块
-│   ├── abbreviation.rs    # 缩写扩展
-│   ├── attributes.rs      # 属性扩展
-│   ├── autolink.rs        # 自动链接扩展
-│   ├── definition.rs      # 定义列表
-│   ├── footnotes.rs       # 脚注
-│   ├── shortcodes.rs      # 短代码
-│   ├── shortcodes_data.rs # 短代码数据
-│   ├── strikethrough.rs   # 删除线
-│   ├── tables.rs          # 表格
-│   ├── tagfilter.rs       # 标签过滤
-│   ├── tasklist.rs        # 任务列表
-│   ├── toc.rs             # 目录
-│   └── yaml_front_matter.rs # YAML 前页
+│   ├── flags.rs           # 扩展标志
+│   ├── gfm/               # GitHub Flavored Markdown
+│   │   ├── mod.rs
+│   │   ├── autolink.rs
+│   │   ├── strikethrough.rs
+│   │   ├── table.rs
+│   │   ├── tagfilter.rs
+│   │   └── tasklist.rs
+│   ├── metadata/          # 元数据扩展
+│   │   ├── mod.rs
+│   │   ├── toc.rs
+│   │   └── yaml_front_matter.rs
+│   ├── shortcode/         # 短代码扩展
+│   │   ├── mod.rs
+│   │   ├── parser.rs
+│   │   └── data.rs
+│   └── syntax/            # 语法扩展
+│       ├── mod.rs
+│       ├── abbreviation.rs
+│       ├── attribute.rs
+│       ├── definition.rs
+│       └── footnote.rs
 │
-├── formatter/              # Markdown 格式化
-│   ├── mod.rs             # 格式化模块
-│   ├── commonmark_formatter.rs # CommonMark 格式化
-│   ├── context.rs         # 格式化上下文
-│   ├── node.rs            # 节点处理
-│   ├── options.rs         # 格式化选项
-│   ├── phase.rs           # 格式化阶段
-│   ├── phased.rs          # 分阶段处理
-│   ├── purpose.rs         # 格式化目的
-│   ├── table.rs           # 表格格式化
-│   ├── utils.rs           # 格式化工具
-│   └── writer.rs          # 格式化写入器
+├── text/                   # 文本处理
+│   ├── mod.rs
+│   ├── asciify.rs
+│   ├── char.rs
+│   ├── cjk_spacing.rs
+│   ├── emoji.rs
+│   ├── html_utils.rs
+│   ├── roff_char.rs
+│   ├── sequence.rs
+│   ├── strings.rs
+│   ├── unicode_width.rs
+│   └── uri.rs
 │
-├── from/                   # 从其他格式转换
-│   ├── mod.rs             # 转换模块
-│   └── html.rs            # HTML 转 Markdown
+├── util/                   # 工具模块
+│   ├── mod.rs
+│   ├── filter/            # 过滤器系统
+│   │   └── mod.rs
+│   └── transform/         # 转换工具
+│       └── mod.rs
 │
-├── plugins/                # 插件系统
-│   ├── mod.rs             # 插件模块
-│   ├── owned.rs           # 拥有插件
-│   └── syntect.rs         # Syntect 语法高亮
+├── pipeline/               # 转换管道
+│   └── mod.rs
 │
-├── arena.rs                # AST 内存分配器
-├── config.rs               # 配置文件
-├── error.rs                # 错误处理
-├── from.rs                 # 转换公共 API
-├── html_utils.rs           # HTML 工具
-├── iterator.rs             # AST 遍历器
+├── plugin/                 # 插件系统
+│   ├── mod.rs
+│   ├── owned.rs
+│   └── syntect.rs
+│
+├── template/               # 模板系统
+│   └── mod.rs
+│
 ├── lib.rs                  # 库入口
-├── mediabag.rs             # 资源管理
-├── mime.rs                 # MIME 类型
-├── nodes.rs                # AST 节点定义
-├── options.rs              # 配置选项
-├── prelude.rs              # 预导入模块
-├── puncttable.rs           # 标点表
-├── render.rs               # 渲染器基类
-├── scanners.rs             # 扫描器工具
-├── sequence.rs             # 序列处理
-├── strings.rs              # 字符串处理
-├── unicode_width.rs        # Unicode 宽度
-└── uri.rs                  # URI 处理
+└── prelude.rs              # 预导入模块
 ```
 
 ## 核心架构概念
@@ -183,30 +238,55 @@ src/
 ```
 lib.rs
 ├── core/ (底层抽象)
-├── arena/ (内存管理)
-├── nodes/ (AST 节点)
-├── error/ (错误处理)
+│   ├── arena/ (内存管理)
+│   ├── nodes/ (AST 节点)
+│   ├── ast/ (AST 类型)
+│   ├── error/ (错误处理)
+│   ├── monad/ (IO 抽象)
+│   ├── traverse/ (遍历)
+│   ├── sandbox/ (沙箱)
+│   ├── state/ (状态)
+│   └── shared/ (共享工具)
 │
-├── blocks/ (块解析)
-├── inlines/ (内联解析)
-├── parser/ (解析器)
+├── context/ (运行时上下文)
+│   ├── config/ (配置)
+│   ├── data/ (数据文件)
+│   ├── io/ (IO)
+│   ├── logging/ (日志)
+│   ├── mediabag/ (资源)
+│   ├── process/ (进程)
+│   ├── pure/ (纯上下文)
+│   ├── uuid/ (UUID)
+│   └── version/ (版本)
+│
+├── parse/ (解析器)
+│   ├── block/ (块解析)
+│   ├── inline/ (内联解析)
+│   └── util/ (解析工具)
 │
 ├── render/ (渲染器)
-├── readers/ (读取器)
-├── writers/ (写入器)
+│   ├── commonmark/ (CommonMark 格式化)
+│   └── format/ (格式渲染器)
 │
-├── filter/ (过滤器)
-├── pipeline/ (管道)
-├── template/ (模板)
+├── io/ (IO 系统)
+│   ├── format/ (格式工具)
+│   ├── reader/ (读取器)
+│   └── writer/ (写入器)
 │
 ├── ext/ (扩展)
-├── formatter/ (格式化)
-├── from/ (格式转换)
-├── plugins/ (插件)
+│   ├── gfm/ (GFM 扩展)
+│   ├── metadata/ (元数据)
+│   ├── shortcode/ (短代码)
+│   └── syntax/ (语法扩展)
 │
-├── mediabag/ (资源管理)
-├── mime/ (MIME 类型)
-└── uri/ (URI 处理)
+├── text/ (文本处理)
+├── util/ (工具)
+│   ├── filter/ (过滤器)
+│   └── transform/ (转换)
+│
+├── pipeline/ (管道)
+├── plugin/ (插件)
+└── template/ (模板)
 ```
 
 ## 设计原则
@@ -219,12 +299,12 @@ lib.rs
 
 ## 与 Pandoc 的对应关系
 
-| Pandoc | clmd |
-|--------|------|
-| `PandocMonad` | `ClmdMonad` |
-| `Readers` | `readers::registry` |
-| `Writers` | `writers::registry` |
-| `Filter` | `filter::Filter` |
-| `Template` | `template::Template` |
-| `MediaBag` | `mediabag::MediaBag` |
+| Pandoc                 | clmd                                  |
+| ---------------------- | ------------------------------------- |
+| `PandocMonad`        | `core::monad::ClmdMonad`            |
+| `Readers`            | `io::reader::registry`              |
+| `Writers`            | `io::writer::registry`              |
+| `Filter`             | `util::filter`                      |
+| `Template`           | `template`                          |
+| `MediaBag`           | `context::mediabag`                 |
 | `getDefaultTemplate` | `TemplateEngine::default_template` |
