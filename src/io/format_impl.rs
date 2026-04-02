@@ -388,15 +388,165 @@ mod tests {
             "markdown".parse::<Format>().unwrap(),
             Format::Markdown
         ));
+        assert!(matches!("md".parse::<Format>().unwrap(), Format::Markdown));
+        assert!(matches!("gfm".parse::<Format>().unwrap(), Format::Gfm));
+        assert!(matches!("github".parse::<Format>().unwrap(), Format::Gfm));
         assert!(matches!("html".parse::<Format>().unwrap(), Format::Html));
+        assert!(matches!("htm".parse::<Format>().unwrap(), Format::Html));
+        assert!(matches!("xhtml".parse::<Format>().unwrap(), Format::Xhtml));
+        assert!(matches!("xml".parse::<Format>().unwrap(), Format::Xml));
+        assert!(matches!("latex".parse::<Format>().unwrap(), Format::Latex));
+        assert!(matches!("tex".parse::<Format>().unwrap(), Format::Latex));
         assert!(matches!("pdf".parse::<Format>().unwrap(), Format::Pdf));
+        assert!(matches!("docx".parse::<Format>().unwrap(), Format::Docx));
+        assert!(matches!("epub".parse::<Format>().unwrap(), Format::Epub));
+        assert!(matches!("text".parse::<Format>().unwrap(), Format::Text));
+        assert!(matches!("txt".parse::<Format>().unwrap(), Format::Text));
+        assert!(matches!("plain".parse::<Format>().unwrap(), Format::Text));
+        assert!(matches!("rtf".parse::<Format>().unwrap(), Format::Rtf));
+        assert!(matches!("odt".parse::<Format>().unwrap(), Format::Odt));
+        assert!(matches!("typst".parse::<Format>().unwrap(), Format::Typst));
+        assert!(matches!("typ".parse::<Format>().unwrap(), Format::Typst));
+        assert!(matches!("man".parse::<Format>().unwrap(), Format::Man));
+        assert!(matches!(
+            "revealjs".parse::<Format>().unwrap(),
+            Format::Revealjs
+        ));
+        assert!(matches!(
+            "reveal".parse::<Format>().unwrap(),
+            Format::Revealjs
+        ));
+        assert!(matches!(
+            "beamer".parse::<Format>().unwrap(),
+            Format::Beamer
+        ));
+        assert!(matches!(
+            "bibtex".parse::<Format>().unwrap(),
+            Format::Bibtex
+        ));
+        assert!(matches!("bib".parse::<Format>().unwrap(), Format::Bibtex));
+        assert!(matches!("csv".parse::<Format>().unwrap(), Format::Csv));
+        assert!(matches!("json".parse::<Format>().unwrap(), Format::Json));
+        assert!(matches!("yaml".parse::<Format>().unwrap(), Format::Yaml));
+        assert!(matches!("yml".parse::<Format>().unwrap(), Format::Yaml));
+        assert!(matches!("toml".parse::<Format>().unwrap(), Format::Toml));
+    }
+
+    #[test]
+    fn test_format_from_str_unknown() {
+        assert!(matches!(
+            "unknown".parse::<Format>().unwrap(),
+            Format::Unknown
+        ));
+        assert!(matches!("xyz".parse::<Format>().unwrap(), Format::Unknown));
     }
 
     #[test]
     fn test_format_display() {
         assert_eq!(Format::Markdown.to_string(), "markdown");
+        assert_eq!(Format::Gfm.to_string(), "gfm");
         assert_eq!(Format::Html.to_string(), "html");
+        assert_eq!(Format::Xhtml.to_string(), "xhtml");
+        assert_eq!(Format::Xml.to_string(), "xml");
+        assert_eq!(Format::Latex.to_string(), "latex");
         assert_eq!(Format::Pdf.to_string(), "pdf");
+        assert_eq!(Format::Docx.to_string(), "docx");
+        assert_eq!(Format::Epub.to_string(), "epub");
+        assert_eq!(Format::Text.to_string(), "text");
+        assert_eq!(Format::Rtf.to_string(), "rtf");
+        assert_eq!(Format::Odt.to_string(), "odt");
+        assert_eq!(Format::Typst.to_string(), "typst");
+        assert_eq!(Format::Man.to_string(), "man");
+        assert_eq!(Format::Revealjs.to_string(), "revealjs");
+        assert_eq!(Format::Beamer.to_string(), "beamer");
+        assert_eq!(Format::Bibtex.to_string(), "bibtex");
+        assert_eq!(Format::Csv.to_string(), "csv");
+        assert_eq!(Format::Json.to_string(), "json");
+        assert_eq!(Format::Yaml.to_string(), "yaml");
+        assert_eq!(Format::Toml.to_string(), "toml");
+        assert_eq!(Format::Unknown.to_string(), "unknown");
+    }
+
+    #[test]
+    fn test_format_is_binary() {
+        assert!(Format::Pdf.is_binary());
+        assert!(Format::Docx.is_binary());
+        assert!(Format::Epub.is_binary());
+        assert!(Format::Odt.is_binary());
+        assert!(!Format::Markdown.is_binary());
+        assert!(!Format::Html.is_binary());
+        assert!(!Format::Text.is_binary());
+    }
+
+    #[test]
+    fn test_format_is_text() {
+        assert!(Format::Markdown.is_text());
+        assert!(Format::Html.is_text());
+        assert!(Format::Text.is_text());
+        assert!(!Format::Pdf.is_text());
+        assert!(!Format::Docx.is_text());
+    }
+
+    #[test]
+    fn test_format_is_input() {
+        assert!(Format::Markdown.is_input());
+        assert!(Format::Gfm.is_input());
+        assert!(Format::Html.is_input());
+        assert!(Format::Xhtml.is_input());
+        assert!(Format::Xml.is_input());
+        assert!(Format::Latex.is_input());
+        assert!(Format::Text.is_input());
+        assert!(Format::Bibtex.is_input());
+        assert!(Format::Csv.is_input());
+        assert!(Format::Json.is_input());
+        assert!(Format::Yaml.is_input());
+        assert!(Format::Toml.is_input());
+        assert!(!Format::Pdf.is_input());
+        assert!(!Format::Docx.is_input());
+        assert!(!Format::Epub.is_input());
+    }
+
+    #[test]
+    fn test_format_is_output() {
+        assert!(Format::Markdown.is_output());
+        assert!(Format::Html.is_output());
+        assert!(Format::Pdf.is_output());
+        assert!(!Format::Unknown.is_output());
+    }
+
+    #[test]
+    fn test_format_extension() {
+        assert_eq!(Format::Markdown.extension(), "md");
+        assert_eq!(Format::Gfm.extension(), "md");
+        assert_eq!(Format::Html.extension(), "html");
+        assert_eq!(Format::Xhtml.extension(), "xhtml");
+        assert_eq!(Format::Xml.extension(), "xml");
+        assert_eq!(Format::Latex.extension(), "tex");
+        assert_eq!(Format::Pdf.extension(), "pdf");
+        assert_eq!(Format::Docx.extension(), "docx");
+        assert_eq!(Format::Epub.extension(), "epub");
+        assert_eq!(Format::Text.extension(), "txt");
+        assert_eq!(Format::Rtf.extension(), "rtf");
+        assert_eq!(Format::Odt.extension(), "odt");
+        assert_eq!(Format::Typst.extension(), "typ");
+        assert_eq!(Format::Man.extension(), "man");
+        assert_eq!(Format::Revealjs.extension(), "html");
+        assert_eq!(Format::Beamer.extension(), "tex");
+        assert_eq!(Format::Bibtex.extension(), "bib");
+        assert_eq!(Format::Csv.extension(), "csv");
+        assert_eq!(Format::Json.extension(), "json");
+        assert_eq!(Format::Yaml.extension(), "yaml");
+        assert_eq!(Format::Toml.extension(), "toml");
+        assert_eq!(Format::Unknown.extension(), "");
+    }
+
+    #[test]
+    fn test_format_mime_type() {
+        assert_eq!(Format::Markdown.mime_type(), "text/markdown");
+        assert_eq!(Format::Html.mime_type(), "text/html");
+        assert_eq!(Format::Pdf.mime_type(), "application/pdf");
+        assert_eq!(Format::Json.mime_type(), "application/json");
+        assert_eq!(Format::Unknown.mime_type(), "application/octet-stream");
     }
 
     #[test]
@@ -411,5 +561,129 @@ mod tests {
 
         let html_path = std::path::Path::new("test.html");
         assert!(matches!(registry.detect(html_path).unwrap(), Format::Html));
+    }
+
+    #[test]
+    fn test_format_registry_detect() {
+        let registry = FormatRegistry::new();
+
+        // Test various extensions
+        assert!(matches!(
+            registry.detect(std::path::Path::new("doc.md")).unwrap(),
+            Format::Markdown
+        ));
+        assert!(matches!(
+            registry
+                .detect(std::path::Path::new("doc.markdown"))
+                .unwrap(),
+            Format::Markdown
+        ));
+        assert!(matches!(
+            registry.detect(std::path::Path::new("doc.mkd")).unwrap(),
+            Format::Markdown
+        ));
+        assert!(matches!(
+            registry.detect(std::path::Path::new("page.html")).unwrap(),
+            Format::Html
+        ));
+        assert!(matches!(
+            registry.detect(std::path::Path::new("doc.pdf")).unwrap(),
+            Format::Pdf
+        ));
+        assert!(matches!(
+            registry.detect(std::path::Path::new("doc.tex")).unwrap(),
+            Format::Latex
+        ));
+
+        // Test no extension
+        assert!(registry.detect(std::path::Path::new("README")).is_none());
+
+        // Test unknown extension
+        assert!(registry.detect(std::path::Path::new("file.xyz")).is_none());
+    }
+
+    #[test]
+    fn test_format_registry_get() {
+        let registry = FormatRegistry::new();
+
+        assert!(matches!(registry.get("md").unwrap(), Format::Markdown));
+        assert!(matches!(registry.get("html").unwrap(), Format::Html));
+        assert!(matches!(registry.get("MD").unwrap(), Format::Markdown));
+        assert!(registry.get("xyz").is_none());
+    }
+
+    #[test]
+    fn test_format_registry_register() {
+        let mut registry = FormatRegistry::new();
+        registry.register("custom", Format::Markdown);
+        assert!(matches!(registry.get("custom").unwrap(), Format::Markdown));
+    }
+
+    #[test]
+    fn test_format_registry_is_supported() {
+        let registry = FormatRegistry::new();
+        assert!(registry.is_supported("markdown"));
+        assert!(registry.is_supported("html"));
+        assert!(registry.is_supported("pdf"));
+        assert!(!registry.is_supported("unknown"));
+        assert!(!registry.is_supported("xyz"));
+    }
+
+    #[test]
+    fn test_format_category() {
+        assert_eq!(
+            FormatCategory::from_format(Format::Html),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Xhtml),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Xml),
+            FormatCategory::Markup
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Pdf),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Docx),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Epub),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Odt),
+            FormatCategory::Document
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Text),
+            FormatCategory::Text
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Markdown),
+            FormatCategory::Text
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Json),
+            FormatCategory::Data
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Yaml),
+            FormatCategory::Data
+        );
+        assert_eq!(
+            FormatCategory::from_format(Format::Unknown),
+            FormatCategory::Unknown
+        );
+    }
+
+    #[test]
+    fn test_format_registry_default() {
+        let registry: FormatRegistry = Default::default();
+        assert!(registry.get("md").is_some());
     }
 }

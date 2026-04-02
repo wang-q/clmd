@@ -323,4 +323,74 @@ mod tests {
         println!("XML output: {:?}", xml);
         assert!(xml.contains("<paragraph>"));
     }
+
+    #[test]
+    fn test_render_all_formats() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
+
+        let options = Options::default();
+
+        // Test all output formats
+        let html = render(OutputFormat::Html, &arena, root, &options, 0);
+        assert!(html.contains("<p>Hello</p>"));
+
+        let xml = render(OutputFormat::Xml, &arena, root, &options, 0);
+        assert!(xml.contains("<paragraph>"));
+
+        let commonmark = render(OutputFormat::CommonMark, &arena, root, &options, 0);
+        assert!(commonmark.contains("Hello"));
+
+        let latex = render(OutputFormat::Latex, &arena, root, &options, 0);
+        assert!(latex.contains("\\par") || latex.contains("Hello"));
+
+        let man = render(OutputFormat::Man, &arena, root, &options, 0);
+        assert!(man.contains(".PP") || man.contains("Hello"));
+    }
+
+    #[test]
+    fn test_render_empty_document() {
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = Options::default();
+        let html = render_to_html(&arena, root, &options);
+        // Document with empty paragraph should produce valid HTML
+        assert!(!html.is_empty());
+    }
+
+    #[test]
+    fn test_output_format_debug() {
+        assert!(format!("{:?}", OutputFormat::Html).contains("Html"));
+        assert!(format!("{:?}", OutputFormat::Xml).contains("Xml"));
+        assert!(format!("{:?}", OutputFormat::CommonMark).contains("CommonMark"));
+        assert!(format!("{:?}", OutputFormat::Latex).contains("Latex"));
+        assert!(format!("{:?}", OutputFormat::Man).contains("Man"));
+    }
+
+    #[test]
+    fn test_renderer_trait_methods() {
+        // Test that Renderer functions exist and can be called
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Test")));
+
+        TreeOps::append_child(&mut arena, root, para);
+        TreeOps::append_child(&mut arena, para, text);
+
+        let options = Options::default();
+
+        // Test render_to_string via HtmlRenderer
+        let html = render_to_html(&arena, root, &options);
+        assert!(!html.is_empty());
+    }
 }

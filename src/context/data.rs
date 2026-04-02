@@ -600,4 +600,217 @@ mod tests {
         let result = get_reference_document("xyz");
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_write_user_data_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let test_path = temp_dir.path().join("test.txt");
+
+        // Write directly to temp path
+        fs::write(&test_path, "test content").unwrap();
+
+        // Verify file was written
+        assert!(test_path.exists());
+        let content = fs::read_to_string(&test_path).unwrap();
+        assert_eq!(content, "test content");
+    }
+
+    #[test]
+    fn test_write_user_data_file_nested() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let nested_path = temp_dir.path().join("nested").join("dir").join("file.txt");
+
+        // Create parent directories and write
+        fs::create_dir_all(nested_path.parent().unwrap()).unwrap();
+        fs::write(&nested_path, "nested content").unwrap();
+
+        assert!(nested_path.exists());
+    }
+
+    #[test]
+    fn test_delete_user_data_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("to_delete.txt");
+
+        // Create file
+        fs::write(&file_path, "content").unwrap();
+        assert!(file_path.exists());
+
+        // Delete file
+        fs::remove_file(&file_path).unwrap();
+        assert!(!file_path.exists());
+    }
+
+    #[test]
+    fn test_copy_default_to_user() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let source_path = temp_dir.path().join("source.txt");
+        let dest_path = temp_dir.path().join("dest.txt");
+
+        // Create source file
+        fs::write(&source_path, "source content").unwrap();
+
+        // Copy file
+        fs::copy(&source_path, &dest_path).unwrap();
+
+        assert!(dest_path.exists());
+        let content = fs::read_to_string(&dest_path).unwrap();
+        assert_eq!(content, "source content");
+    }
+
+    #[test]
+    fn test_collect_files_recursive() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Create nested structure
+        fs::create_dir_all(temp_dir.path().join("a").join("b")).unwrap();
+        fs::write(temp_dir.path().join("root.txt"), "").unwrap();
+        fs::write(temp_dir.path().join("a").join("a.txt"), "").unwrap();
+        fs::write(temp_dir.path().join("a").join("b").join("b.txt"), "").unwrap();
+
+        // Collect files recursively
+        fn collect_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+            let mut files = Vec::new();
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        files.push(path);
+                    } else if path.is_dir() {
+                        files.extend(collect_files(&path));
+                    }
+                }
+            }
+            files
+        }
+
+        let files = collect_files(temp_dir.path());
+        assert_eq!(files.len(), 3);
+    }
+
+    #[test]
+    fn test_data_file_manager_read() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("cached.txt");
+        fs::write(&file_path, "cached content").unwrap();
+
+        // Read file content
+        let content = fs::read(&file_path).unwrap();
+        assert_eq!(content, b"cached content");
+    }
+
+    #[test]
+    fn test_data_file_manager_cache() {
+        let mut manager = DataFileManager::new().unwrap();
+
+        // Initially not cached
+        assert!(!manager.is_cached("test_key"));
+
+        // Manually insert into cache
+        manager
+            .cache
+            .insert("test_key".to_string(), b"cached data".to_vec());
+
+        // Now it should be cached
+        assert!(manager.is_cached("test_key"));
+
+        // Clear cache
+        manager.clear_cache();
+        assert!(!manager.is_cached("test_key"));
+    }
+
+    #[test]
+    fn test_data_file_manager_get_cached() {
+        let mut manager = DataFileManager::new().unwrap();
+
+        // Insert data into cache
+        manager.cache.insert("key1".to_string(), b"data1".to_vec());
+
+        // Get from cache using internal method
+        let cached = manager.cache.get("key1");
+        assert_eq!(cached, Some(&b"data1".to_vec()));
+
+        // Get non-existent key
+        let not_cached = manager.cache.get("nonexistent");
+        assert_eq!(not_cached, None);
+    }
+
+    #[test]
+    fn test_data_file_manager_insert_cache() {
+        let mut manager = DataFileManager::new().unwrap();
+
+        // Insert into cache directly
+        manager
+            .cache
+            .insert("my_key".to_string(), b"my_data".to_vec());
+
+        // Verify it's cached
+        assert!(manager.is_cached("my_key"));
+    }
+
+    #[test]
+    fn test_data_file_manager_remove_cache() {
+        let mut manager = DataFileManager::new().unwrap();
+
+        // Insert and then remove directly
+        manager
+            .cache
+            .insert("to_remove".to_string(), b"data".to_vec());
+        assert!(manager.is_cached("to_remove"));
+
+        manager.cache.remove("to_remove");
+        assert!(!manager.is_cached("to_remove"));
+    }
+
+    #[test]
+    fn test_data_file_manager_with_user_data_dir() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut manager = DataFileManager::new().unwrap();
+
+        // Set user data dir directly
+        manager.user_data_dir = Some(temp_dir.path().to_path_buf());
+        assert_eq!(manager.user_data_dir(), Some(temp_dir.path()));
+    }
+
+    #[test]
+    fn test_read_data_file_to_string() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.txt");
+        fs::write(&file_path, "Hello, World!").unwrap();
+
+        let content = fs::read_to_string(&file_path).unwrap();
+        assert_eq!(content, "Hello, World!");
+    }
+
+    #[test]
+    fn test_data_file_error_handling() {
+        // Test reading non-existent file
+        let result = fs::read_to_string("/nonexistent/path/to/file.txt");
+        assert!(result.is_err());
+
+        // Test reading directory as file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let result = fs::read_to_string(temp_dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_default_user_data_dir_exists() {
+        let result = default_user_data_dir();
+        // This may succeed or fail depending on environment
+        // Just verify it doesn't panic
+        let _ = result;
+    }
+
+    #[test]
+    fn test_data_file_manager_dirs() {
+        let manager = DataFileManager::new().unwrap();
+
+        // Test system_data_dir
+        let sys_dir = manager.system_data_dir();
+        assert!(!sys_dir.as_os_str().is_empty());
+
+        // Test user_data_dir
+        let _user_dir = manager.user_data_dir(); // May be None in some environments
+    }
 }

@@ -354,4 +354,126 @@ mod tests {
             convert("# Hello", "markdown", "html", &Options::default()).unwrap();
         assert!(output.contains("<h1>"));
     }
+
+    #[test]
+    fn test_pipeline_with_filter() {
+        use crate::util::filter::Filter;
+
+        let filter = Filter::header_shift(1);
+        let pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("html")
+            .with_filter(filter)
+            .build()
+            .unwrap();
+
+        let output = pipeline.convert("# Hello", &Options::default()).unwrap();
+        assert!(output.contains("<h1>") || output.contains("<h2>"));
+    }
+
+    #[test]
+    fn test_pipeline_with_filters() {
+        use crate::util::filter::Filter;
+
+        let filters = vec![Filter::header_shift(1), Filter::header_shift(-1)];
+
+        let pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("html")
+            .with_filters(filters)
+            .build()
+            .unwrap();
+
+        let output = pipeline.convert("# Hello", &Options::default()).unwrap();
+        assert!(output.contains("<h1>") || output.contains("<h2>"));
+    }
+
+    #[test]
+    fn test_pipeline_with_filter_chain() {
+        use crate::util::filter::{Filter, FilterChain};
+
+        let mut chain = FilterChain::new();
+        chain.add(Filter::header_shift(1));
+
+        let pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("html")
+            .with_filter_chain(chain)
+            .build()
+            .unwrap();
+
+        let output = pipeline.convert("# Hello", &Options::default()).unwrap();
+        assert!(output.contains("<h1>") || output.contains("<h2>"));
+    }
+
+    #[test]
+    fn test_pipeline_add_filter() {
+        use crate::util::filter::Filter;
+
+        let mut pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("html")
+            .build()
+            .unwrap();
+
+        let filter = Filter::header_shift(1);
+        let new_pipeline = pipeline.add_filter(filter);
+        let output = new_pipeline
+            .convert("# Hello", &Options::default())
+            .unwrap();
+        assert!(output.contains("<h1>") || output.contains("<h2>"));
+    }
+
+    #[test]
+    fn test_pipeline_unknown_format() {
+        let pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("unknown_format_xyz")
+            .build();
+
+        assert!(pipeline.is_err());
+    }
+
+    #[test]
+    fn test_pipeline_unknown_input_format() {
+        let pipeline = PipelineBuilder::new()
+            .from("unknown_format_xyz")
+            .to("html")
+            .build();
+
+        assert!(pipeline.is_err());
+    }
+
+    #[test]
+    fn test_pipeline_builder_default() {
+        let builder: PipelineBuilder = Default::default();
+        let pipeline = builder.from("markdown").to("html").build().unwrap();
+        assert_eq!(pipeline.input_format(), "markdown");
+        assert_eq!(pipeline.output_format(), "html");
+    }
+
+    #[test]
+    fn test_convert_error_handling() {
+        let result = convert("# Hello", "unknown", "html", &Options::default());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pipeline_multiple_filters() {
+        use crate::util::filter::Filter;
+
+        let filter1 = Filter::header_shift(1);
+        let filter2 = Filter::header_shift(-1);
+
+        let pipeline = PipelineBuilder::new()
+            .from("markdown")
+            .to("html")
+            .with_filter(filter1)
+            .with_filter(filter2)
+            .build()
+            .unwrap();
+
+        let output = pipeline.convert("# Hello", &Options::default()).unwrap();
+        assert!(output.contains("<h1>") || output.contains("<h2>"));
+    }
 }

@@ -608,4 +608,150 @@ mod tests {
         let parser: BoxedParser<char> = failure("custom error");
         assert!(parser.parse("").is_err());
     }
+
+    #[test]
+    fn test_seq() {
+        let parser = seq(vec![
+            Box::new(char_lit('a')),
+            Box::new(char_lit('b')),
+            Box::new(char_lit('c')),
+        ]);
+        let result = parser.parse("abc").unwrap();
+        assert_eq!(result, 'a');
+    }
+
+    #[test]
+    fn test_seq_empty() {
+        let parser: BoxedParser<char> = seq(vec![]);
+        assert!(parser.parse("").is_err());
+    }
+
+    #[test]
+    fn test_seq_failure() {
+        let parser = seq(vec![Box::new(char_lit('a')), Box::new(char_lit('b'))]);
+        assert!(parser.parse("ax").is_err());
+    }
+
+    #[test]
+    fn test_map2() {
+        let parser = map2(Box::new(char_lit('a')), Box::new(digit), |a, d| {
+            format!("{}{}", a, d)
+        });
+        let result = parser.parse("a1").unwrap();
+        assert_eq!(result, "a1");
+    }
+
+    #[test]
+    fn test_map3() {
+        let parser = map3(
+            Box::new(char_lit('a')),
+            Box::new(digit),
+            Box::new(char_lit('b')),
+            |a, d, b| format!("{}{}{}", a, d, b),
+        );
+        let result = parser.parse("a1b").unwrap();
+        assert_eq!(result, "a1b");
+    }
+
+    #[test]
+    fn test_separated_by1() {
+        let parser = separated_by1(Box::new(digit), Box::new(char_lit(',')));
+        let result = parser.parse("1,2,3").unwrap();
+        assert_eq!(result, vec!['1', '2', '3']);
+        assert!(parser.parse("").is_err());
+        assert!(parser.parse("abc").is_err());
+    }
+
+    #[test]
+    fn test_separated_by1_single() {
+        let parser = separated_by1(Box::new(digit), Box::new(char_lit(',')));
+        let result = parser.parse("1").unwrap();
+        assert_eq!(result, vec!['1']);
+    }
+
+    #[test]
+    fn test_peek() {
+        let parser = peek(Box::new(char_lit('a')));
+        let result = parser.parse_partial("abc").unwrap();
+        assert_eq!(result.0, Some('a'));
+        assert_eq!(result.1.offset, 0);
+    }
+
+    #[test]
+    fn test_peek_failure() {
+        let parser = peek(Box::new(char_lit('a')));
+        let result = parser.parse_partial("xyz").unwrap();
+        assert_eq!(result.0, None);
+        assert_eq!(result.1.offset, 0);
+    }
+
+    #[test]
+    fn test_not_followed_by() {
+        let parser = not_followed_by(Box::new(char_lit('a')), Box::new(char_lit('b')));
+        assert!(parser.parse("ac").is_ok());
+        assert!(parser.parse("ab").is_err());
+    }
+
+    #[test]
+    fn test_choice_empty() {
+        let parser: BoxedParser<char> = choice(vec![]);
+        assert!(parser.parse("a").is_err());
+    }
+
+    #[test]
+    fn test_between_failure_open() {
+        let parser = between(
+            Box::new(char_lit('(')),
+            Box::new(char_lit(')')),
+            Box::new(digit),
+        );
+        assert!(parser.parse("1)").is_err());
+    }
+
+    #[test]
+    fn test_between_failure_close() {
+        let parser = between(
+            Box::new(char_lit('(')),
+            Box::new(char_lit(')')),
+            Box::new(digit),
+        );
+        assert!(parser.parse("(1").is_err());
+    }
+
+    #[test]
+    fn test_many_empty() {
+        let parser = many(Box::new(digit));
+        let result = parser.parse_partial("").unwrap();
+        assert_eq!(result.0, vec![]);
+    }
+
+    #[test]
+    fn test_optional_at_end() {
+        let parser = optional(Box::new(char_lit('a')));
+        let result = parser.parse_partial("a").unwrap();
+        assert_eq!(result.0, Some('a'));
+        assert_eq!(result.1.offset, 1);
+    }
+
+    #[test]
+    fn test_separated_by_trailing() {
+        let parser = separated_by(Box::new(digit), Box::new(char_lit(',')));
+        let result = parser.parse_partial("1,2,").unwrap();
+        assert_eq!(result.0, vec!['1', '2']);
+    }
+
+    #[test]
+    fn test_skip_whitespace_no_whitespace() {
+        let parser = skip_whitespace(Box::new(char_lit('a')));
+        let result = parser.parse("a").unwrap();
+        assert_eq!(result, 'a');
+    }
+
+    #[test]
+    fn test_success_does_not_consume() {
+        let parser = success(42);
+        let result = parser.parse_partial("hello").unwrap();
+        assert_eq!(result.0, 42);
+        assert_eq!(result.1.offset, 0);
+    }
 }

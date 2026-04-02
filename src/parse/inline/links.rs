@@ -611,3 +611,325 @@ pub fn move_nodes_to_link(
     // Unlink the opener text node
     TreeOps::unlink(arena, opener_inl);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_link_context_new() {
+        let refmap = FxHashMap::default();
+        let ctx = LinkContext::new("test input", 0, &refmap);
+        assert_eq!(ctx.pos, 0);
+        assert_eq!(ctx.input, "test input");
+    }
+
+    #[test]
+    fn test_link_context_peek() {
+        let refmap = FxHashMap::default();
+        let ctx = LinkContext::new("hello", 0, &refmap);
+        assert_eq!(ctx.peek(), Some('h'));
+
+        let ctx2 = LinkContext::new("hello", 4, &refmap);
+        assert_eq!(ctx2.peek(), Some('o'));
+
+        let ctx3 = LinkContext::new("hello", 5, &refmap);
+        assert_eq!(ctx3.peek(), None);
+
+        let ctx4 = LinkContext::new("", 0, &refmap);
+        assert_eq!(ctx4.peek(), None);
+    }
+
+    #[test]
+    fn test_link_context_advance() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("hello", 0, &refmap);
+        ctx.advance();
+        assert_eq!(ctx.pos, 1);
+        assert_eq!(ctx.peek(), Some('e'));
+
+        ctx.advance();
+        ctx.advance();
+        assert_eq!(ctx.pos, 3);
+        assert_eq!(ctx.peek(), Some('l'));
+    }
+
+    #[test]
+    fn test_link_context_advance_utf8() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("héllo", 0, &refmap);
+        ctx.advance();
+        assert_eq!(ctx.peek(), Some('é'));
+        ctx.advance();
+        assert_eq!(ctx.peek(), Some('l'));
+    }
+
+    #[test]
+    fn test_link_context_skip_spaces_and_newlines() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("   hello", 0, &refmap);
+        ctx.skip_spaces_and_newlines();
+        assert_eq!(ctx.pos, 3);
+        assert_eq!(ctx.peek(), Some('h'));
+
+        let mut ctx2 = LinkContext::new("\t\nhello", 0, &refmap);
+        ctx2.skip_spaces_and_newlines();
+        assert_eq!(ctx2.pos, 2);
+        assert_eq!(ctx2.peek(), Some('h'));
+    }
+
+    #[test]
+    fn test_link_context_lookup_reference() {
+        let mut refmap = FxHashMap::default();
+        refmap.insert(
+            "test".to_string(),
+            ("https://example.com".to_string(), "title".to_string()),
+        );
+
+        let ctx = LinkContext::new("", 0, &refmap);
+        assert_eq!(
+            ctx.lookup_reference("test"),
+            Some(("https://example.com".to_string(), "title".to_string()))
+        );
+        assert_eq!(ctx.lookup_reference("unknown"), None);
+    }
+
+    #[test]
+    fn test_parse_link_destination_angle_brackets() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("<https://example.com>", 0, &refmap);
+        let result = parse_link_destination(&mut ctx);
+        assert!(result.is_some());
+        let (dest, ended_with_space) = result.unwrap();
+        assert_eq!(dest, "https://example.com");
+        assert!(!ended_with_space);
+    }
+
+    #[test]
+    fn test_parse_link_destination_unbracketed() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("https://example.com)", 0, &refmap);
+        let result = parse_link_destination(&mut ctx);
+        assert!(result.is_some());
+        let (dest, _) = result.unwrap();
+        assert_eq!(dest, "https://example.com");
+    }
+
+    #[test]
+    fn test_parse_link_destination_empty() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new(")", 0, &refmap);
+        let result = parse_link_destination(&mut ctx);
+        assert!(result.is_some());
+        let (dest, _) = result.unwrap();
+        assert_eq!(dest, "");
+    }
+
+    #[test]
+    fn test_parse_link_destination_invalid() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("<incomplete", 0, &refmap);
+        let result = parse_link_destination(&mut ctx);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_link_title_double_quotes() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("\"title\")", 0, &refmap);
+        let result = parse_link_title(&mut ctx);
+        assert_eq!(result, Some("title".to_string()));
+    }
+
+    #[test]
+    fn test_parse_link_title_single_quotes() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("'title')", 0, &refmap);
+        let result = parse_link_title(&mut ctx);
+        assert_eq!(result, Some("title".to_string()));
+    }
+
+    #[test]
+    fn test_parse_link_title_parens() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("(title))", 0, &refmap);
+        let result = parse_link_title(&mut ctx);
+        assert_eq!(result, Some("title".to_string()));
+    }
+
+    #[test]
+    fn test_parse_link_title_no_title() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("not a title", 0, &refmap);
+        let result = parse_link_title(&mut ctx);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_link_title_unclosed() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("\"unclosed", 0, &refmap);
+        let result = parse_link_title(&mut ctx);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_link_label() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("[label]", 0, &refmap);
+        let len = parse_link_label(&mut ctx);
+        assert_eq!(len, 7);
+    }
+
+    #[test]
+    fn test_parse_link_label_empty() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("[]", 0, &refmap);
+        let len = parse_link_label(&mut ctx);
+        assert_eq!(len, 2);
+    }
+
+    #[test]
+    fn test_parse_link_label_no_bracket() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("not a label", 0, &refmap);
+        let len = parse_link_label(&mut ctx);
+        assert_eq!(len, 0);
+    }
+
+    #[test]
+    fn test_parse_link_label_unclosed() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("[unclosed", 0, &refmap);
+        let len = parse_link_label(&mut ctx);
+        assert_eq!(len, 0);
+    }
+
+    #[test]
+    fn test_parse_link_label_with_bracket_inside() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("[la[bel]", 0, &refmap);
+        let len = parse_link_label(&mut ctx);
+        assert_eq!(len, 0);
+    }
+
+    #[test]
+    fn test_parse_inline_link() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("(https://example.com)", 0, &refmap);
+        let result = parse_inline_link(&mut ctx);
+        assert!(result.is_some());
+        let (dest, title, _) = result.unwrap();
+        assert_eq!(dest, "https://example.com");
+        assert_eq!(title, "");
+    }
+
+    #[test]
+    fn test_parse_inline_link_with_title() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("(https://example.com \"title\")", 0, &refmap);
+        let result = parse_inline_link(&mut ctx);
+        assert!(result.is_some());
+        let (dest, title, _) = result.unwrap();
+        assert_eq!(dest, "https://example.com");
+        assert_eq!(title, "title");
+    }
+
+    #[test]
+    fn test_parse_inline_link_not_starting_with_paren() {
+        let refmap = FxHashMap::default();
+        let mut ctx = LinkContext::new("not a link", 0, &refmap);
+        let result = parse_inline_link(&mut ctx);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_reference_definition() {
+        let mut refmap = FxHashMap::default();
+        let consumed = parse_reference_definition(
+            "[label]: https://example.com \"title\"",
+            &mut refmap,
+        );
+        assert!(consumed > 0);
+        // normalize_reference converts label to uppercase
+        assert_eq!(
+            refmap.get("LABEL"),
+            Some(&("https://example.com".to_string(), "title".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_parse_reference_definition_no_title() {
+        let mut refmap = FxHashMap::default();
+        let consumed =
+            parse_reference_definition("[label]: https://example.com", &mut refmap);
+        assert!(consumed > 0);
+        // normalize_reference converts label to uppercase
+        assert_eq!(
+            refmap.get("LABEL"),
+            Some(&("https://example.com".to_string(), "".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_parse_reference_definition_empty_label() {
+        let mut refmap = FxHashMap::default();
+        let consumed =
+            parse_reference_definition("[]: https://example.com", &mut refmap);
+        assert_eq!(consumed, 0);
+        assert!(refmap.is_empty());
+    }
+
+    #[test]
+    fn test_parse_reference_definition_no_colon() {
+        let mut refmap = FxHashMap::default();
+        let consumed =
+            parse_reference_definition("[label] https://example.com", &mut refmap);
+        assert_eq!(consumed, 0);
+    }
+
+    #[test]
+    fn test_parse_reference_definition_no_destination() {
+        let mut refmap = FxHashMap::default();
+        let consumed = parse_reference_definition("[label]: ", &mut refmap);
+        assert_eq!(consumed, 0);
+    }
+
+    #[test]
+    fn test_create_link_node() {
+        let mut arena = NodeArena::new();
+        let node_id = create_link_node(
+            &mut arena,
+            false,
+            "https://example.com".to_string(),
+            "title".to_string(),
+        );
+        let node = arena.get(node_id);
+        match &node.value {
+            NodeValue::Link(link) => {
+                assert_eq!(link.url, "https://example.com");
+                assert_eq!(link.title, "title");
+            }
+            _ => panic!("Expected Link node"),
+        }
+    }
+
+    #[test]
+    fn test_create_image_node() {
+        let mut arena = NodeArena::new();
+        let node_id = create_link_node(
+            &mut arena,
+            true,
+            "https://example.com/img.png".to_string(),
+            "alt".to_string(),
+        );
+        let node = arena.get(node_id);
+        match &node.value {
+            NodeValue::Image(img) => {
+                assert_eq!(img.url, "https://example.com/img.png");
+                assert_eq!(img.title, "alt");
+            }
+            _ => panic!("Expected Image node"),
+        }
+    }
+}

@@ -1104,4 +1104,232 @@ mod tests {
         assert_eq!(invalid.len(), 1);
         assert!(invalid[0].contains("b.png"));
     }
+
+    #[test]
+    fn test_media_bag_lookup_mut() {
+        let mut bag = MediaBag::new();
+        bag.insert("image.png", "image/png", vec![0x89]);
+
+        // Modify the item
+        if let Some(item) = bag.lookup_mut("image.png") {
+            item.contents = vec![0x90];
+        }
+
+        // Verify the change
+        assert_eq!(bag.lookup("image.png").unwrap().contents(), &[0x90]);
+    }
+
+    #[test]
+    fn test_media_bag_get_alias() {
+        let mut bag = MediaBag::new();
+        bag.insert("image.png", "image/png", vec![0x89]);
+
+        // get() is an alias for lookup()
+        assert!(bag.get("image.png").is_some());
+        assert!(bag.get("nonexistent.png").is_none());
+    }
+
+    #[test]
+    fn test_media_bag_iter() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![]);
+        bag.insert("b.png", "image/png", vec![]);
+
+        let count = bag.iter().count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_media_bag_paths() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![]);
+        bag.insert("b.png", "image/png", vec![]);
+
+        let paths = bag.paths();
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&&"a.png".to_string()));
+        assert!(paths.contains(&&"b.png".to_string()));
+    }
+
+    #[test]
+    fn test_media_bag_to_vec() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![]);
+        bag.insert("b.png", "image/png", vec![]);
+
+        let items = bag.to_vec();
+        assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn test_media_bag_is_empty() {
+        let bag = MediaBag::new();
+        assert!(bag.is_empty());
+
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![]);
+        assert!(!bag.is_empty());
+    }
+
+    #[test]
+    fn test_media_bag_clear() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![]);
+        bag.insert("b.png", "image/png", vec![]);
+
+        assert_eq!(bag.len(), 2);
+        bag.clear();
+        assert!(bag.is_empty());
+    }
+
+    #[test]
+    fn test_media_bag_extend() {
+        let mut bag1 = MediaBag::new();
+        bag1.insert("a.png", "image/png", vec![]);
+
+        let items = vec![
+            (
+                "b.png".to_string(),
+                MediaItem::new("b.png", "image/png", vec![]),
+            ),
+            (
+                "c.png".to_string(),
+                MediaItem::new("c.png", "image/png", vec![]),
+            ),
+        ];
+
+        bag1.extend(items);
+        assert_eq!(bag1.len(), 3);
+    }
+
+    #[test]
+    fn test_media_bag_display() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![0; 100]);
+
+        let display = format!("{}", bag);
+        assert!(display.contains("MediaBag"));
+        assert!(display.contains("a.png"));
+        assert!(display.contains("image/png"));
+    }
+
+    #[test]
+    fn test_media_bag_canonicalize() {
+        let bag = MediaBag::new();
+
+        assert_eq!(bag.canonicalize("image.png"), "image.png");
+        assert_eq!(bag.canonicalize("path/to/image.png"), "path/to/image.png");
+        assert_eq!(bag.canonicalize("path/./image.png"), "path/image.png");
+    }
+
+    #[test]
+    fn test_media_bag_find_duplicates() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![0x89, 0x50]);
+        bag.insert("b.png", "image/png", vec![0x89, 0x50]); // Same content
+        bag.insert("c.png", "image/png", vec![0x89, 0x51]); // Different content
+
+        let duplicates = bag.find_duplicates();
+        assert_eq!(duplicates.len(), 1); // One group of duplicates
+
+        // Get the duplicate group
+        let dup_group = duplicates.values().next().unwrap();
+        assert_eq!(dup_group.len(), 2);
+        assert!(dup_group.contains(&"a.png".to_string()));
+        assert!(dup_group.contains(&"b.png".to_string()));
+    }
+
+    #[test]
+    fn test_media_bag_deduplicate() {
+        let mut bag = MediaBag::new();
+        bag.insert("a.png", "image/png", vec![0x89, 0x50]);
+        bag.insert("b.png", "image/png", vec![0x89, 0x50]); // Duplicate
+        bag.insert("c.png", "image/png", vec![0x89, 0x51]); // Unique
+
+        assert_eq!(bag.len(), 3);
+
+        let removed = bag.deduplicate();
+        assert_eq!(bag.len(), 2);
+        assert_eq!(removed.len(), 1);
+    }
+
+    #[test]
+    fn test_media_item_size() {
+        let item = MediaItem::new("test.png", "image/png", vec![0; 100]);
+        assert_eq!(item.size(), 100);
+    }
+
+    #[test]
+    fn test_media_item_path_and_mime() {
+        let item = MediaItem::new("path/to/test.png", "image/png", vec![]);
+        assert_eq!(item.path(), Path::new("path/to/test.png"));
+        assert_eq!(item.mime_type(), "image/png");
+    }
+
+    #[test]
+    fn test_media_item_contents() {
+        let contents = vec![0x89, 0x50, 0x4E, 0x47];
+        let item = MediaItem::new("test.png", "image/png", contents.clone());
+        assert_eq!(item.contents(), &contents);
+    }
+
+    #[test]
+    fn test_media_item_is_empty() {
+        let item1 = MediaItem::new("test.png", "image/png", vec![]);
+        assert!(item1.contents.is_empty());
+
+        let item2 = MediaItem::new("test.png", "image/png", vec![0x89]);
+        assert!(!item2.contents.is_empty());
+    }
+
+    #[test]
+    fn test_media_item_display() {
+        let item = MediaItem::new("test.png", "image/png", vec![0; 100]);
+        let display = format!("{}", item);
+        assert!(display.contains("test.png"));
+        assert!(display.contains("image/png"));
+        assert!(display.contains("100"));
+    }
+
+    #[test]
+    fn test_media_item_debug() {
+        let item = MediaItem::new("test.png", "image/png", vec![0; 100]);
+        let debug = format!("{:?}", item);
+        assert!(debug.contains("test.png"));
+        assert!(debug.contains("image/png"));
+    }
+
+    #[test]
+    fn test_media_bag_insert_with_hash_path() {
+        let mut bag = MediaBag::new();
+        let contents = vec![0x89, 0x50, 0x4E, 0x47];
+        let path = bag.insert_with_hash_path("test.png", "image/png", contents.clone());
+
+        // Should return the canonical path
+        assert_eq!(path, "test.png");
+        assert!(bag.contains("test.png"));
+    }
+
+    #[test]
+    fn test_media_bag_find_by_hash() {
+        let mut bag = MediaBag::new();
+        let contents = vec![0x89, 0x50];
+        bag.insert("a.png", "image/png", contents.clone());
+
+        // Calculate the hash
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(&contents);
+        let hash = format!("{:x}", hasher.finalize());
+
+        let found = bag.find_by_hash(&hash);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap(), "a.png");
+    }
+
+    #[test]
+    fn test_media_bag_default() {
+        let bag: MediaBag = Default::default();
+        assert!(bag.is_empty());
+    }
 }

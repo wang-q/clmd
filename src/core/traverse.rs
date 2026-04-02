@@ -1667,4 +1667,483 @@ mod tests {
         let siblings: Vec<_> = arena.siblings_iter(child1).collect();
         assert_eq!(siblings.len(), 1); // child2 (excluding child1 itself)
     }
+
+    #[test]
+    fn test_traverse_pre_order_mut() {
+        let (mut arena, root) = create_test_arena();
+
+        // Modify all nodes by appending "_modified" to text nodes
+        arena.traverse_pre_order_mut(root, |value| {
+            if let NodeValue::Text(text) = value {
+                *text = format!("{}_modified", text).into();
+            }
+        });
+
+        // Verify the text node was modified
+        let grandchild1 =
+            Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
+        assert!(grandchild1.is_some());
+        if let Some(node) = arena.try_get(grandchild1.unwrap()) {
+            if let NodeValue::Text(text) = &node.value {
+                assert_eq!(text.as_ref(), "test_modified");
+            } else {
+                panic!("Expected Text node");
+            }
+        }
+    }
+
+    #[test]
+    fn test_traverse_post_order_mut() {
+        let (mut arena, root) = create_test_arena();
+
+        let mut visit_order = Vec::new();
+        arena.traverse_post_order_mut(root, |value| {
+            visit_order.push(format!("{:?}", value));
+        });
+
+        // Post-order: children before parent
+        // Text should be visited before Paragraph, Paragraph before Document
+        assert!(visit_order.len() >= 4);
+    }
+
+    #[test]
+    fn test_query_all_methods() {
+        let (arena, root) = create_test_arena();
+
+        // Test any
+        assert!(Query::any(&arena, root, |v| matches!(
+            v,
+            NodeValue::Text(_)
+        )));
+        assert!(!Query::any(&arena, root, |v| matches!(
+            v,
+            NodeValue::Code(_)
+        )));
+
+        // Test all
+        assert!(Query::all(&arena, root, |v| {
+            matches!(
+                v,
+                NodeValue::Document | NodeValue::Paragraph | NodeValue::Text(_)
+            )
+        }));
+        assert!(!Query::all(&arena, root, |v| matches!(
+            v,
+            NodeValue::Text(_)
+        )));
+
+        // Test count
+        assert_eq!(
+            Query::count(&arena, root, |v| matches!(v, NodeValue::Paragraph)),
+            2
+        );
+
+        // Test find_first
+        let first = Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
+        assert!(first.is_some());
+
+        // Test find_all
+        let all = Query::find_all(&arena, root, |v| matches!(v, NodeValue::Paragraph));
+        assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_queryable_find_by_type() {
+        let (arena, root) = create_test_arena();
+
+        let paragraphs = Queryable::find_by_type(&arena, root, NodeType::Paragraph);
+        assert_eq!(paragraphs.len(), 2);
+
+        let texts = Queryable::find_by_type(&arena, root, NodeType::Text);
+        assert_eq!(texts.len(), 1);
+
+        let headings = Queryable::find_by_type(&arena, root, NodeType::Heading);
+        assert!(headings.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_extract_text() {
+        let (arena, root) = create_test_arena();
+
+        let text = Queryable::extract_text(&arena, root);
+        assert_eq!(text, "test");
+    }
+
+    #[test]
+    fn test_queryable_find_links() {
+        let (arena, root) = create_test_arena();
+
+        let links = Queryable::find_links(&arena, root);
+        assert!(links.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_find_images() {
+        let (arena, root) = create_test_arena();
+
+        let images = Queryable::find_images(&arena, root);
+        assert!(images.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_find_headings() {
+        let (arena, root) = create_test_arena();
+
+        let headings = Queryable::find_headings(&arena, root);
+        assert!(headings.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_find_code_blocks() {
+        let (arena, root) = create_test_arena();
+
+        let code_blocks = Queryable::find_code_blocks(&arena, root);
+        assert!(code_blocks.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_get_heading_structure() {
+        let (arena, root) = create_test_arena();
+
+        let structure = Queryable::get_heading_structure(&arena, root);
+        assert!(structure.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_has_blocks() {
+        let (arena, root) = create_test_arena();
+
+        assert!(Queryable::has_blocks(&arena, root));
+    }
+
+    #[test]
+    fn test_queryable_has_inlines() {
+        let (arena, root) = create_test_arena();
+
+        assert!(Queryable::has_inlines(&arena, root));
+    }
+
+    #[test]
+    fn test_walkable_bottom_up() {
+        let (mut arena, root) = create_test_arena();
+
+        let mut visit_order = Vec::new();
+        arena.walk_bottom_up(root, &mut |_id, value| {
+            visit_order.push(format!("{:?}", value));
+        });
+
+        // Bottom-up: children before parent
+        assert!(visit_order.len() >= 4);
+    }
+
+    #[test]
+    fn test_walkable_top_down() {
+        let (mut arena, root) = create_test_arena();
+
+        let mut visit_order = Vec::new();
+        arena.walk_top_down(root, &mut |_id, value| {
+            visit_order.push(format!("{:?}", value));
+        });
+
+        // Top-down: parent before children
+        assert!(visit_order.len() >= 4);
+    }
+
+    #[test]
+    fn test_walkable_with_direction() {
+        let (mut arena, root) = create_test_arena();
+
+        let mut bottom_up_order = Vec::new();
+        arena.walk_with_direction(root, WalkDirection::BottomUp, &mut |_id, value| {
+            bottom_up_order.push(format!("{:?}", value));
+        });
+
+        let mut top_down_order = Vec::new();
+        arena.walk_with_direction(root, WalkDirection::TopDown, &mut |_id, value| {
+            top_down_order.push(format!("{:?}", value));
+        });
+
+        assert_eq!(bottom_up_order.len(), top_down_order.len());
+    }
+
+    #[test]
+    fn test_node_type_matches() {
+        assert!(NodeType::Document.matches(&NodeValue::Document));
+        assert!(NodeType::Paragraph.matches(&NodeValue::Paragraph));
+        assert!(NodeType::Text.matches(&NodeValue::Text("test".into())));
+        assert!(!NodeType::Heading.matches(&NodeValue::Paragraph));
+    }
+
+    #[test]
+    fn test_node_type_is_block() {
+        assert!(NodeType::Document.is_block());
+        assert!(NodeType::Paragraph.is_block());
+        assert!(NodeType::Heading.is_block());
+        assert!(!NodeType::Text.is_block());
+        assert!(!NodeType::Link.is_block());
+    }
+
+    #[test]
+    fn test_node_type_is_inline() {
+        assert!(NodeType::Text.is_inline());
+        assert!(NodeType::Link.is_inline());
+        assert!(NodeType::Emph.is_inline());
+        assert!(!NodeType::Document.is_inline());
+        assert!(!NodeType::Paragraph.is_inline());
+    }
+
+    #[test]
+    fn test_arena_node_iterator() {
+        let (arena, root) = create_test_arena();
+
+        let mut iter = ArenaNodeIterator::new(&arena, root);
+        let mut count = 0;
+
+        while iter.next() != IteratorEventType::Done {
+            count += 1;
+        }
+
+        // Should have events for all nodes (enter + exit)
+        assert!(count >= 4);
+    }
+
+    #[test]
+    fn test_arena_node_walker() {
+        let (arena, root) = create_test_arena();
+
+        let mut walker = ArenaNodeWalker::new(&arena, root);
+        let mut enter_count = 0;
+        let mut exit_count = 0;
+
+        while let Some(event) = walker.next() {
+            if event.entering {
+                enter_count += 1;
+            } else {
+                exit_count += 1;
+            }
+        }
+
+        assert_eq!(enter_count, exit_count);
+        assert!(enter_count >= 4);
+    }
+
+    #[test]
+    fn test_traverse_context() {
+        let mut ctx = TraverseContext::with_default_depth();
+
+        // Test initial state
+        assert_eq!(ctx.depth(), 0);
+
+        // Test entering nodes
+        assert!(ctx.enter_node(1).is_ok());
+        assert_eq!(ctx.depth(), 1);
+        assert!(ctx.enter_node(2).is_ok());
+        assert_eq!(ctx.depth(), 2);
+
+        // Test exiting nodes
+        ctx.exit_node(2);
+        assert_eq!(ctx.depth(), 1);
+        ctx.exit_node(1);
+        assert_eq!(ctx.depth(), 0);
+    }
+
+    #[test]
+    fn test_traverse_context_cycle_detection() {
+        let mut ctx = TraverseContext::with_default_depth();
+
+        assert!(ctx.enter_node(1).is_ok());
+        assert!(ctx.enter_node(2).is_ok());
+
+        // Trying to enter node 1 again should fail (cycle)
+        let result = ctx.enter_node(1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_traverse_context_is_visited() {
+        let mut ctx = TraverseContext::with_default_depth();
+
+        assert!(!ctx.is_visited(1));
+        assert!(ctx.enter_node(1).is_ok());
+        assert!(ctx.is_visited(1));
+    }
+
+    #[test]
+    fn test_traverse_event_creation() {
+        let enter_event = TraverseEvent::enter(42);
+        assert_eq!(enter_event.node_id, 42);
+        assert_eq!(enter_event.event_type, EventType::Enter);
+
+        let exit_event = TraverseEvent::exit(42);
+        assert_eq!(exit_event.node_id, 42);
+        assert_eq!(exit_event.event_type, EventType::Exit);
+    }
+
+    #[test]
+    fn test_walk_direction_variants() {
+        let bottom_up = WalkDirection::BottomUp;
+        let top_down = WalkDirection::TopDown;
+
+        assert!(matches!(bottom_up, WalkDirection::BottomUp));
+        assert!(matches!(top_down, WalkDirection::TopDown));
+    }
+
+    #[test]
+    fn test_iterator_event_type_variants() {
+        let none = IteratorEventType::None;
+        let done = IteratorEventType::Done;
+        let enter = IteratorEventType::Enter;
+        let exit = IteratorEventType::Exit;
+
+        assert!(matches!(none, IteratorEventType::None));
+        assert!(matches!(done, IteratorEventType::Done));
+        assert!(matches!(enter, IteratorEventType::Enter));
+        assert!(matches!(exit, IteratorEventType::Exit));
+    }
+
+    #[test]
+    fn test_event_iterator_empty() {
+        let (arena, _root) = create_test_arena();
+
+        let events: Vec<_> = EventIterator::new(&arena, INVALID_NODE_ID).collect();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_descendant_iter_empty() {
+        let (arena, _root) = create_test_arena();
+
+        let descendants: Vec<_> = arena.descendants_iter(INVALID_NODE_ID).collect();
+        assert!(descendants.is_empty());
+    }
+
+    #[test]
+    fn test_child_iter_empty() {
+        let (arena, root) = create_test_arena();
+
+        // Find a node with no children (the text node)
+        let text_node =
+            Query::find_first(&arena, root, |v| matches!(v, NodeValue::Text(_)));
+        assert!(text_node.is_some());
+
+        let children: Vec<_> = arena.children_iter(text_node.unwrap()).collect();
+        assert!(children.is_empty());
+    }
+
+    #[test]
+    fn test_ancestor_iter_empty() {
+        let (arena, root) = create_test_arena();
+
+        // Root has no ancestors
+        let ancestors: Vec<_> = arena.ancestors_iter(root).collect();
+        assert!(ancestors.is_empty());
+    }
+
+    #[test]
+    fn test_sibling_iter_empty() {
+        let (arena, root) = create_test_arena();
+
+        // Root has no siblings
+        let siblings: Vec<_> = arena.siblings_iter(root).collect();
+        assert!(siblings.is_empty());
+    }
+
+    #[test]
+    fn test_queryable_query() {
+        let (arena, root) = create_test_arena();
+
+        let results: Vec<NodeId> = arena.query(root, &mut |_id, value| {
+            if matches!(value, NodeValue::Paragraph) {
+                Some(_id)
+            } else {
+                None
+            }
+        });
+
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_queryable_query_first() {
+        let (arena, root) = create_test_arena();
+
+        let first: Option<NodeId> = arena.query_first(root, &mut |_id, value| {
+            if matches!(value, NodeValue::Paragraph) {
+                Some(_id)
+            } else {
+                None
+            }
+        });
+
+        assert!(first.is_some());
+    }
+
+    #[test]
+    fn test_queryable_any_with_false() {
+        let (arena, root) = create_test_arena();
+
+        let result = Queryable::any(&arena, root, &mut |_id, value| {
+            matches!(value, NodeValue::Code(_))
+        });
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_queryable_all_with_true() {
+        let (arena, root) = create_test_arena();
+
+        let result = Queryable::all(&arena, root, &mut |_id, value| {
+            matches!(
+                value,
+                NodeValue::Document | NodeValue::Paragraph | NodeValue::Text(_)
+            )
+        });
+
+        assert!(result);
+    }
+
+    #[test]
+    fn test_queryable_count_with_zero() {
+        let (arena, root) = create_test_arena();
+
+        let count = Queryable::count(&arena, root, &mut |_id, value| {
+            matches!(value, NodeValue::Heading(_))
+        });
+
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_arena_node_iterator_reset() {
+        let (arena, root) = create_test_arena();
+
+        let mut iter = ArenaNodeIterator::new(&arena, root);
+
+        // Advance a bit
+        iter.next();
+        iter.next();
+
+        // Reset
+        iter.reset(root, IteratorEventType::Enter);
+        assert_eq!(iter.get_node(), Some(root));
+        assert_eq!(iter.get_event_type(), IteratorEventType::Enter);
+    }
+
+    #[test]
+    fn test_arena_node_walker_resume_at() {
+        let (arena, root) = create_test_arena();
+
+        let mut walker = ArenaNodeWalker::new(&arena, root);
+
+        // Get first event
+        let first = walker.next();
+        assert!(first.is_some());
+
+        // Resume at root
+        walker.resume_at(root, true);
+        let resumed = walker.next();
+        assert!(resumed.is_some());
+        assert!(resumed.unwrap().entering);
+    }
 }
