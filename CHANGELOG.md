@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.1 - 2026-04-02
+
 ### 🎉 Major Changes
 
 #### CLI Restructuring
