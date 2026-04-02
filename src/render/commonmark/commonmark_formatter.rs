@@ -287,7 +287,21 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      _writer: &mut MarkdownWriter| {
                         if let NodeValue::List(list) = value {
-                            ctx.set_tight_list(list.tight);
+                            // Determine effective tightness based on list_spacing option
+                            let effective_tight = match ctx.get_formatter_options().list_spacing {
+                                crate::formatter::options::ListSpacing::Tight => true,
+                                crate::formatter::options::ListSpacing::Loose => false,
+                                crate::formatter::options::ListSpacing::AsIs => list.tight,
+                                crate::formatter::options::ListSpacing::Loosen => {
+                                    // Loosen if list contains blank lines (check would need AST analysis)
+                                    list.tight
+                                }
+                                crate::formatter::options::ListSpacing::Tighten => {
+                                    // Always tighten
+                                    true
+                                }
+                            };
+                            ctx.set_tight_list(effective_tight);
                             ctx.increment_list_nesting();
                         }
                     },
@@ -405,11 +419,33 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         // Add line break after each list item
-                        // In tight lists, don't add extra blank line
+                        // In tight lists, just add a single line break
+                        // In loose lists, add a blank line
+                        // For the last item, we handle it differently based on context
+                        let _options = ctx.get_formatter_options();
+
+                        // Check if this is the last item in the list
+                        let is_last_item = ctx.get_current_node()
+                            .and_then(|id| {
+                                let arena = ctx.get_arena();
+                                Some(arena.get(id).next.is_none())
+                            })
+                            .unwrap_or(true);
+
                         if ctx.is_in_tight_list() {
-                            writer.line();
+                            // Tight list: single line break between items
+                            // Don't add blank line after last item (handled by list close)
+                            if !is_last_item {
+                                writer.line();
+                            }
                         } else {
-                            writer.blank_line();
+                            // Loose list: blank line between items
+                            // Don't add blank line after last item (handled by list close)
+                            if !is_last_item {
+                                writer.blank_line();
+                            } else {
+                                writer.line();
+                            }
                         }
                     },
                 ),
@@ -835,6 +871,20 @@ fn render_code_block(
 ) {
     let options = ctx.get_formatter_options();
 
+    if code_block.fenced {
+        render_fenced_code_block(code_block, ctx, writer, options);
+    } else {
+        render_indented_code_block(code_block, ctx, writer, options);
+    }
+}
+
+/// Render a fenced code block
+fn render_fenced_code_block(
+    code_block: &crate::core::nodes::NodeCodeBlock,
+    _ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+    options: &crate::formatter::options::FormatterOptions,
+) {
     // Determine the fence character and base length
     let fence_char = match options.fenced_code_marker_type {
         crate::formatter::options::CodeFenceMarker::Tilde => '~',
@@ -867,19 +917,25 @@ fn render_code_block(
     }
     writer.line();
 
+    // Process code content with optional indent minimization
+    let code_content = if options.fenced_code_minimize_indent {
+        minimize_indent(&code_block.literal)
+    } else {
+        code_block.literal.clone()
+    };
+
     // Use split('\n') instead of lines() to preserve empty lines in code blocks
-    let mut lines = code_block.literal.split('\n').peekable();
+    let mut lines = code_content.split('\n').peekable();
     while let Some(line) = lines.next() {
         // For non-empty lines, use append_raw to preserve leading whitespace
         if !line.is_empty() {
             writer.append_raw(line);
         }
-        // Add line break if this is not the last line
-        // For empty lines, we need to ensure a newline is added even if
-        // beginning_of_line is true, so we use a different approach
-        if lines.peek().is_some() {
+        // Add line break after every line, including the last one
+        // This ensures the closing fence is on its own line
+        if lines.peek().is_some() || !line.is_empty() {
             // Check if we need to force a newline for empty lines
-            if line.is_empty() {
+            if line.is_empty() && lines.peek().is_some() {
                 // Force output a newline by temporarily resetting beginning_of_line
                 writer.force_newline();
             } else {
@@ -896,6 +952,86 @@ fn render_code_block(
     };
     writer.append(fence_char.to_string().repeat(closing_fence_len));
     writer.blank_line();
+}
+
+/// Render an indented code block
+fn render_indented_code_block(
+    code_block: &crate::core::nodes::NodeCodeBlock,
+    _ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+    options: &crate::formatter::options::FormatterOptions,
+) {
+    // Process code content with optional indent minimization
+    let code_content = if options.indented_code_minimize_indent {
+        minimize_indent(&code_block.literal)
+    } else {
+        code_block.literal.clone()
+    };
+
+    // Use split('\n') instead of lines() to preserve empty lines in code blocks
+    let mut lines = code_content.split('\n').peekable();
+    while let Some(line) = lines.next() {
+        // Add 4-space indent for indented code blocks
+        if !line.is_empty() {
+            writer.append_raw("    ");
+            writer.append_raw(line);
+        }
+        // Add line break if this is not the last line
+        if lines.peek().is_some() {
+            if line.is_empty() {
+                writer.force_newline();
+            } else {
+                writer.line();
+            }
+        }
+    }
+    writer.blank_line();
+}
+
+/// Minimize the indentation of code block content
+///
+/// This function finds the common leading whitespace across all non-empty lines
+/// and removes it, reducing the overall indentation while preserving relative
+/// indentation within the code block.
+fn minimize_indent(content: &str) -> String {
+    let lines: Vec<&str> = content.lines().collect();
+    if lines.is_empty() {
+        return content.to_string();
+    }
+
+    // Find the minimum indentation across all non-empty lines
+    let mut min_indent: Option<usize> = None;
+
+    for line in &lines {
+        if line.is_empty() {
+            continue;
+        }
+
+        let indent = line.len() - line.trim_start().len();
+        min_indent = Some(match min_indent {
+            Some(current) => current.min(indent),
+            None => indent,
+        });
+    }
+
+    // If no minimum indent found (all lines empty), return original
+    let min_indent = match min_indent {
+        Some(indent) => indent,
+        None => return content.to_string(),
+    };
+
+    // Remove the common indentation from each line
+    lines
+        .iter()
+        .map(|line| {
+            if line.is_empty() {
+                *line
+            } else {
+                &line[min_indent.min(line.len())..]
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Collect text content from a cell node and its children

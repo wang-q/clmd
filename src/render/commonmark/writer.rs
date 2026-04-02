@@ -36,6 +36,10 @@ pub struct MarkdownWriter {
     space_after_atx_marker: bool,
     /// Whether to add space before info in code blocks
     space_before_info: bool,
+    /// Right margin for text wrapping (0 = no wrapping)
+    right_margin: usize,
+    /// Buffer for word wrapping
+    word_wrap_buffer: String,
 }
 
 impl MarkdownWriter {
@@ -54,7 +58,98 @@ impl MarkdownWriter {
             max_trailing_blank_lines: 2,
             space_after_atx_marker: true,
             space_before_info: true,
+            right_margin: 0,
+            word_wrap_buffer: String::new(),
         }
+    }
+
+    /// Set the right margin for text wrapping
+    pub fn set_right_margin(&mut self, margin: usize) -> &mut Self {
+        self.right_margin = margin;
+        self
+    }
+
+    /// Get the right margin
+    pub fn get_right_margin(&self) -> usize {
+        self.right_margin
+    }
+
+    /// Append text with word wrapping if right_margin is set
+    pub fn append_with_wrap(&mut self, text: impl AsRef<str>) -> &mut Self {
+        let text = text.as_ref();
+        if text.is_empty() {
+            return self;
+        }
+
+        // If no wrapping is configured or in pre-formatted mode, just append
+        if self.right_margin == 0 || self.pre_formatted {
+            return self.append(text);
+        }
+
+        // Add text to word wrap buffer
+        self.word_wrap_buffer.push_str(text);
+
+        // Process the buffer for wrapping
+        self.process_word_wrap_buffer();
+
+        self
+    }
+
+    /// Process the word wrap buffer and output wrapped text
+    fn process_word_wrap_buffer(&mut self) {
+        // Available width is right_margin minus prefix length
+        let available_width = self.right_margin.saturating_sub(self.current_prefix.len());
+        if available_width == 0 {
+            // No space available, just output everything
+            let buffer = std::mem::take(&mut self.word_wrap_buffer);
+            self.append(&buffer);
+            return;
+        }
+
+        loop {
+            // Find the next word boundary
+            if let Some(space_pos) = self.word_wrap_buffer.find(' ') {
+                let word_len = space_pos;
+                let remaining_start = space_pos + 1;
+
+                // Check if adding this word would exceed the margin
+                if self.column + word_len > self.right_margin && !self.beginning_of_line {
+                    // Start a new line
+                    self.line();
+                }
+
+                // Extract and output the word
+                let word: String = self.word_wrap_buffer[..space_pos].to_string();
+                self.append(&word);
+                self.append(" ");
+
+                // Update buffer - remove the word and space we just processed
+                let remaining: String = self.word_wrap_buffer[remaining_start..].to_string();
+                self.word_wrap_buffer = remaining;
+            } else {
+                // No more spaces, check if remaining text fits
+                let remaining_len = self.word_wrap_buffer.len();
+                if remaining_len > 0 {
+                    if self.column + remaining_len > self.right_margin && !self.beginning_of_line {
+                        // Start a new line
+                        self.line();
+                    }
+                    // Output remaining text
+                    let buffer = std::mem::take(&mut self.word_wrap_buffer);
+                    self.append(&buffer);
+                }
+                break;
+            }
+        }
+    }
+
+    /// Flush any remaining text in the word wrap buffer
+    pub fn flush_word_wrap_buffer(&mut self) -> &mut Self {
+        if !self.word_wrap_buffer.is_empty() {
+            self.append(&self.word_wrap_buffer.clone());
+            self.word_wrap_buffer.clear();
+        }
+        self
     }
 
     /// Create a new Markdown writer with default flags
@@ -375,6 +470,8 @@ impl MarkdownWriter {
             max_trailing_blank_lines: self.max_trailing_blank_lines,
             space_after_atx_marker: self.space_after_atx_marker,
             space_before_info: self.space_before_info,
+            right_margin: self.right_margin,
+            word_wrap_buffer: String::new(),
         }
     }
 
