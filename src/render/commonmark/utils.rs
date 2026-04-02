@@ -123,21 +123,53 @@ pub fn strip_soft_line_breaks(text: &str, replacement: &str) -> String {
 /// Check if text needs escaping in the given context
 pub fn needs_escaping(text: &str, _context: &dyn NodeFormatterContext) -> bool {
     // Check for characters that need escaping in Markdown
-    let special_chars = ['*', '_', '`', '[', ']', '#', '<', '>', '&'];
+    // Note: '{', '}', '+', '-', '.', '|' are not included as they are not special in CommonMark
+    let special_chars = ['\\', '`', '*', '_', '[', ']', '#', '<', '>', '!'];
     text.chars().any(|c| special_chars.contains(&c))
 }
 
 /// Escape Markdown special characters
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    for ch in text.chars() {
-        match ch {
-            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '#' | '+' | '-' | '.'
-            | '!' | '|' => {
+    let chars: Vec<char> = text.chars().collect();
+    for (i, ch) in chars.iter().enumerate() {
+        match *ch {
+            // Backslash and backtick always need escaping
+            '\\' | '`' => {
                 result.push('\\');
-                result.push(ch);
+                result.push(*ch);
             }
-            _ => result.push(ch),
+            // Asterisk and underscore are emphasis markers
+            '*' | '_' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Square brackets are link markers
+            '[' | ']' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Hash only needs escaping at the beginning of a line (ATX heading)
+            '#' => {
+                // For simplicity, we escape it everywhere to be safe
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Exclamation mark only needs escaping when followed by '[' (image syntax)
+            '!' => {
+                if i + 1 < chars.len() && chars[i + 1] == '[' {
+                    result.push('\\');
+                }
+                result.push(*ch);
+            }
+            // Angle brackets only need escaping in specific contexts
+            // For now, we escape them to be safe
+            '<' | '>' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Other characters don't need escaping in CommonMark
+            _ => result.push(*ch),
         }
     }
     result

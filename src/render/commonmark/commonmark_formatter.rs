@@ -345,7 +345,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                             // Apply CJK spacing if enabled
                             let final_text = if ctx.get_formatter_options().cjk_spacing {
-                                crate::text::cjk_spacing::add_cjk_spacing(&processed_text)
+                                crate::text::cjk_spacing::add_cjk_spacing(
+                                    &processed_text,
+                                )
                             } else {
                                 processed_text
                             };
@@ -920,22 +922,52 @@ pub fn get_backtick_sequence(content: &str) -> String {
 /// ```ignore
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    // Note: '#' and '|' are not included here
-    // '#' only needs escaping at the beginning of a line (ATX heading)
-    // '|' only has special meaning in tables
-    let special_chars = ['*', '_', '[', ']', '<', '>', '`', '\\'];
-
     let chars: Vec<char> = text.chars().collect();
-    for (i, c) in chars.iter().enumerate() {
-        // '!' only needs escaping when followed by '[' (image syntax)
-        if *c == '!' {
-            if i + 1 < chars.len() && chars[i + 1] == '[' {
+    for (i, ch) in chars.iter().enumerate() {
+        match *ch {
+            // Backslash and backtick always need escaping
+            '\\' | '`' => {
                 result.push('\\');
+                result.push(*ch);
             }
-        } else if special_chars.contains(c) {
-            result.push('\\');
+            // Asterisk and underscore are emphasis markers
+            '*' | '_' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Square brackets are link markers
+            '[' | ']' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Hash only needs escaping at the beginning of a line (ATX heading)
+            // For simplicity, we escape it everywhere to be safe
+            '#' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Exclamation mark only needs escaping when followed by '[' (image syntax)
+            '!' => {
+                if i + 1 < chars.len() && chars[i + 1] == '[' {
+                    result.push('\\');
+                }
+                result.push(*ch);
+            }
+            // Angle brackets only need escaping in specific contexts
+            // For now, we escape them to be safe
+            '<' | '>' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Pipe only has special meaning in tables
+            '|' => {
+                result.push('\\');
+                result.push(*ch);
+            }
+            // Other characters don't need escaping in CommonMark
+            // including: '{', '}', '+', '-', '.', '&'
+            _ => result.push(*ch),
         }
-        result.push(*c);
     }
 
     result
@@ -946,10 +978,11 @@ pub fn escape_markdown(text: &str) -> String {
 /// This is used for table cell content where pipe characters should not be escaped.
 fn escape_markdown_for_table(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    // Note: '|' and '#' are not included here
+    // Note: '|', '#', and '`' are not included here
     // '|' is not included as it's used for table cell separation
     // '#' only needs escaping at the beginning of a line (ATX heading)
-    let special_chars = ['*', '_', '[', ']', '<', '>', '`', '\\'];
+    // '`' is not included as it's used for inline code in table cells
+    let special_chars = ['*', '_', '[', ']', '<', '>', '\\'];
 
     let chars: Vec<char> = text.chars().collect();
     for (i, c) in chars.iter().enumerate() {
