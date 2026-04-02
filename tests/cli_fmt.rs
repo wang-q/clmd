@@ -349,8 +349,14 @@ fn test_fmt_list_followed_by_heading_has_blank_line() {
     // Verify there's a blank line between list and heading
     // The output should have "- item 2" followed by blank line, then "## Section"
     let lines: Vec<&str> = cm.lines().collect();
-    let item2_idx = lines.iter().position(|&l| l == "- item 2").expect("item 2 not found");
-    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+    let item2_idx = lines
+        .iter()
+        .position(|&l| l == "- item 2")
+        .expect("item 2 not found");
+    let heading_idx = lines
+        .iter()
+        .position(|&l| l == "## Section")
+        .expect("heading not found");
 
     assert!(
         heading_idx > item2_idx + 1,
@@ -386,8 +392,14 @@ fn test_fmt_code_block_followed_by_heading_has_blank_line() {
 
     // Verify there's a blank line between code block and heading
     let lines: Vec<&str> = cm.lines().collect();
-    let code_fence_idx = lines.iter().position(|&l| l == "```").expect("code fence not found");
-    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+    let code_fence_idx = lines
+        .iter()
+        .position(|&l| l == "```")
+        .expect("code fence not found");
+    let heading_idx = lines
+        .iter()
+        .position(|&l| l == "## Section")
+        .expect("heading not found");
 
     // Find the closing code fence (second occurrence)
     let closing_fence_idx = lines[code_fence_idx + 1..]
@@ -414,15 +426,29 @@ fn test_fmt_nested_list_followed_by_heading_has_blank_line() {
 
     // Verify nested list items are present
     assert!(cm.contains("- item 1"), "Should contain item 1: {}", cm);
-    assert!(cm.contains("  - nested 1"), "Should contain nested 1: {}", cm);
-    assert!(cm.contains("  - nested 2"), "Should contain nested 2: {}", cm);
+    assert!(
+        cm.contains("  - nested 1"),
+        "Should contain nested 1: {}",
+        cm
+    );
+    assert!(
+        cm.contains("  - nested 2"),
+        "Should contain nested 2: {}",
+        cm
+    );
     assert!(cm.contains("- item 2"), "Should contain item 2: {}", cm);
     assert!(cm.contains("## Section"), "Should contain heading: {}", cm);
 
     // Verify there's a blank line between list and heading
     let lines: Vec<&str> = cm.lines().collect();
-    let item2_idx = lines.iter().position(|&l| l == "- item 2").expect("item 2 not found");
-    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+    let item2_idx = lines
+        .iter()
+        .position(|&l| l == "- item 2")
+        .expect("item 2 not found");
+    let heading_idx = lines
+        .iter()
+        .position(|&l| l == "## Section")
+        .expect("heading not found");
 
     assert!(
         heading_idx > item2_idx + 1,
@@ -434,7 +460,8 @@ fn test_fmt_nested_list_followed_by_heading_has_blank_line() {
 #[test]
 fn test_fmt_multiple_lists_followed_by_heading_has_blank_line() {
     // Regression test: Multiple lists followed by heading should have blank line
-    let input = b"# Title\n- bullet 1\n- bullet 2\n\n1. ordered 1\n2. ordered 2\n## Section";
+    let input =
+        b"# Title\n- bullet 1\n- bullet 2\n\n1. ordered 1\n2. ordered 2\n## Section";
     let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
@@ -448,12 +475,19 @@ fn test_fmt_multiple_lists_followed_by_heading_has_blank_line() {
 
     // Verify there's a blank line between last list and heading
     let lines: Vec<&str> = cm.lines().collect();
-    let heading_idx = lines.iter().position(|&l| l == "## Section").expect("heading not found");
+    let heading_idx = lines
+        .iter()
+        .position(|&l| l == "## Section")
+        .expect("heading not found");
 
     // Find the last list item (could be ordered list)
     let last_list_idx = lines
         .iter()
-        .rposition(|&l| l.starts_with("- ") || l.trim().starts_with(|c: char| c.is_ascii_digit() && l.contains('.')))
+        .rposition(|&l| {
+            l.starts_with("- ")
+                || l.trim()
+                    .starts_with(|c: char| c.is_ascii_digit() && l.contains('.'))
+        })
         .expect("list item not found");
 
     assert!(

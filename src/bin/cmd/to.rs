@@ -179,7 +179,10 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
                 if let Some(writer) = registry.get_by_name(format) {
                     writer.write(&arena, root, &ctx, &writer_options)?
                 } else {
-                    return Err(anyhow::anyhow!("Unsupported output format: {}", format));
+                    return Err(anyhow::anyhow!(
+                        "Unsupported output format: {}",
+                        format
+                    ));
                 }
             }
         };

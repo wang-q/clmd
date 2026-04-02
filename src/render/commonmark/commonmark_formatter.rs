@@ -898,9 +898,7 @@ pub fn get_backtick_sequence(content: &str) -> String {
 /// ```ignore
 pub fn escape_markdown(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    let special_chars = [
-        '*', '_', '[', ']', '<', '>', '#', '`', '\\', '!', '|',
-    ];
+    let special_chars = ['*', '_', '[', ']', '<', '>', '#', '`', '\\', '!', '|'];
 
     for c in text.chars() {
         if special_chars.contains(&c) {

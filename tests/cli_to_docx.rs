@@ -29,12 +29,7 @@ fn test_to_docx_basic() {
     let output_file = NamedTempFile::new().unwrap();
 
     let output = run_with_stdin(
-        &[
-            "to",
-            "docx",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
+        &["to", "docx", "-o", output_file.path().to_str().unwrap()],
         input,
     );
 
@@ -50,10 +45,7 @@ fn test_to_docx_basic() {
 
     // Verify file starts with PK (ZIP magic bytes)
     let content = std::fs::read(output_file.path()).unwrap();
-    assert!(
-        content.len() >= 2,
-        "DOCX file should have at least 2 bytes"
-    );
+    assert!(content.len() >= 2, "DOCX file should have at least 2 bytes");
     assert_eq!(
         &content[0..2],
         b"PK",
@@ -63,16 +55,12 @@ fn test_to_docx_basic() {
 
 #[test]
 fn test_to_docx_with_headings() {
-    let input = b"# Title\n\n## Section 1\n\nContent here.\n\n## Section 2\n\nMore content.";
+    let input =
+        b"# Title\n\n## Section 1\n\nContent here.\n\n## Section 2\n\nMore content.";
     let output_file = NamedTempFile::new().unwrap();
 
     let output = run_with_stdin(
-        &[
-            "to",
-            "docx",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
+        &["to", "docx", "-o", output_file.path().to_str().unwrap()],
         input,
     );
 
@@ -93,12 +81,7 @@ fn test_to_docx_with_list() {
     let output_file = NamedTempFile::new().unwrap();
 
     let output = run_with_stdin(
-        &[
-            "to",
-            "docx",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
+        &["to", "docx", "-o", output_file.path().to_str().unwrap()],
         input,
     );
 
@@ -142,13 +125,20 @@ fn test_to_docx_from_file() {
 
 #[test]
 fn test_to_docx_auto_output_filename() {
-    // Create input file
-    let mut input_path = NamedTempFile::new().unwrap();
-    write!(input_path, "# Test Document\n\nContent.").unwrap();
+    // Create a temporary directory to avoid polluting the working directory
+    let temp_dir = tempfile::TempDir::new().unwrap();
+    let input_path = temp_dir.path().join("test_input.md");
+
+    // Create input file in the temp directory
+    {
+        let mut file = std::fs::File::create(&input_path).unwrap();
+        write!(file, "# Test Document\n\nContent.").unwrap();
+    }
 
     // Run without -o, should auto-generate output filename
     let output = clmd_bin()
-        .args(["to", "docx", input_path.path().to_str().unwrap()])
+        .args(["to", "docx", input_path.to_str().unwrap()])
+        .current_dir(temp_dir.path())
         .output()
         .expect("Failed to execute command");
 
@@ -158,15 +148,19 @@ fn test_to_docx_auto_output_filename() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Check that output file was created with .docx extension
-    let input_str = input_path.path().to_str().unwrap();
-    let expected_output = input_str.replace(".tmp", ".docx");
-    
-    // The output should be in the same directory with .docx extension
-    let _output_path = std::path::Path::new(&expected_output);
-    
-    // Note: This test may fail if the temp file naming is different
-    // The important thing is that the command succeeds
+    // Check that output file was created with .docx extension in the temp directory
+    let expected_output = temp_dir.path().join("test_input.docx");
+    assert!(
+        expected_output.exists(),
+        "Output file should be created: {:?}",
+        expected_output
+    );
+
+    // Verify it's a valid DOCX file
+    let content = std::fs::read(&expected_output).unwrap();
+    assert_eq!(&content[0..2], b"PK", "Should be a valid DOCX file");
+
+    // TempDir will be automatically cleaned up when it goes out of scope
 }
 
 #[test]
@@ -203,12 +197,7 @@ Code example here
     let output_file = NamedTempFile::new().unwrap();
 
     let output = run_with_stdin(
-        &[
-            "to",
-            "docx",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
+        &["to", "docx", "-o", output_file.path().to_str().unwrap()],
         input.as_bytes(),
     );
 
@@ -235,12 +224,7 @@ fn test_to_docx_outputs_binary_not_base64() {
     let output_file = NamedTempFile::new().unwrap();
 
     let output = run_with_stdin(
-        &[
-            "to",
-            "docx",
-            "-o",
-            output_file.path().to_str().unwrap(),
-        ],
+        &["to", "docx", "-o", output_file.path().to_str().unwrap()],
         input,
     );
 
@@ -264,7 +248,8 @@ fn test_to_docx_outputs_binary_not_base64() {
     // which is part of the DOCX structure
     let content_str = String::from_utf8_lossy(&content);
     assert!(
-        content_str.contains("[Content_Types].xml") || content_str.contains("word/document"),
+        content_str.contains("[Content_Types].xml")
+            || content_str.contains("word/document"),
         "DOCX should contain expected internal structure"
     );
 }
