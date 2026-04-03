@@ -1,75 +1,20 @@
-//! Typst renderer
+//! Typst writer.
 //!
-//! This module provides Typst output generation for CommonMark documents.
-//! Typst is a modern markup-based typesetting system.
-//!
-//! # Example
-//!
-//! ```
-//! use clmd::{parse_document, format_typst, Options};
-//!
-//! let options = Options::default();
-//! let (arena, root) = parse_document("# Hello\n\nWorld", &options);
-//! let mut typst = String::new();
-//! format_typst(&arena, root, &options, &mut typst).unwrap();
-//! assert!(typst.contains("= Hello"));
-//! ```
+//! This module provides a writer for Typst format.
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListType, NodeList, NodeValue};
-use crate::parse::options::{Options, Plugins};
+use crate::parse::options::{Options, Plugins, WriterOptions};
 use std::fmt;
 
-/// Render an AST as Typst.
-///
-/// This is a convenience function that doesn't use plugins.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_typst, Options};
-///
-/// let options = Options::default();
-/// let (arena, root) = parse_document("# Heading\n\nParagraph", &options);
-/// let mut typst = String::new();
-/// format_typst(&arena, root, &options, &mut typst).unwrap();
-/// assert!(typst.contains("= Heading"));
-/// ```ignore
-pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+/// Write a document as Typst.
+pub fn write_typst(arena: &NodeArena, root: NodeId, _options: &WriterOptions) -> ClmdResult<String> {
     let mut renderer = TypstRenderer::new(arena);
-    renderer.render(root)
+    Ok(renderer.render(root))
 }
 
 /// Format an AST as Typst with plugins.
-///
-/// This function renders the AST to Typst format, supporting all CommonMark
-/// elements and selected extensions.
-///
-/// # Arguments
-///
-/// * `arena` - The node arena containing the AST
-/// * `root` - The root node ID
-/// * `_options` - Configuration options (currently unused)
-/// * `output` - The output buffer to write to
-/// * `_plugins` - Plugins for customizing rendering (currently unused)
-///
-/// # Returns
-///
-/// A `fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_typst_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let (arena, root) = parse_document("# Hello\n\n**Bold** text", &options);
-/// let mut typst = String::new();
-/// format_typst_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
-/// assert!(typst.contains("= Hello"));
-/// assert!(typst.contains("*Bold*"));
-/// ```ignore
 pub fn format_document_with_plugins(
     arena: &NodeArena,
     root: NodeId,
@@ -170,7 +115,6 @@ fn format_node_typst(
                 output.write_str(&code_block.literal)?;
                 output.write_str("\n```\n\n")?;
             } else {
-                // Indented code block
                 output.write_str("```\n")?;
                 output.write_str(&code_block.literal)?;
                 output.write_str("\n```\n\n")?;
@@ -185,7 +129,6 @@ fn format_node_typst(
             output.write_str("\n")?;
         }
         NodeValue::Item(_) => {
-            // Items are handled by format_list_item
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 format_node_typst(arena, child_id, output, list_depth)?;
@@ -236,7 +179,6 @@ fn format_node_typst(
             output.write_str("]")?;
         }
         NodeValue::HtmlBlock(html_block) => {
-            // HTML blocks are output as raw text in Typst
             output.write_str(&html_block.literal)?;
             output.write_str("\n\n")?;
         }
@@ -244,7 +186,6 @@ fn format_node_typst(
             output.write_str(html)?;
         }
         _ => {
-            // For other nodes, just render children
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 format_node_typst(arena, child_id, output, list_depth)?;
@@ -265,12 +206,10 @@ fn format_list_item(
 ) -> fmt::Result {
     let node = arena.get(node_id);
 
-    // Write indentation
     for _ in 0..depth {
         output.write_str("  ")?;
     }
 
-    // Write list marker
     match list_type {
         ListType::Bullet => {
             output.write_str("- ")?;
@@ -280,7 +219,6 @@ fn format_list_item(
         }
     }
 
-    // Render item content
     let mut child_opt = node.first_child;
     while let Some(child_id) = child_opt {
         format_node_typst(arena, child_id, output, depth + 1)?;
@@ -392,7 +330,7 @@ mod tests {
     use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink};
 
     #[test]
-    fn test_render_heading() {
+    fn test_write_typst_heading() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
@@ -405,12 +343,13 @@ mod tests {
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, heading, text);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("= Title"));
     }
 
     #[test]
-    fn test_render_heading_levels() {
+    fn test_write_typst_heading_levels() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
@@ -429,7 +368,8 @@ mod tests {
             TreeOps::append_child(&mut arena, heading, text);
         }
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("= H1"));
         assert!(typst.contains("== H2"));
         assert!(typst.contains("=== H3"));
@@ -439,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_paragraph() {
+    fn test_write_typst_paragraph() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -448,12 +388,13 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("Hello world"));
     }
 
     #[test]
-    fn test_render_emph() {
+    fn test_write_typst_emph() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -464,12 +405,13 @@ mod tests {
         TreeOps::append_child(&mut arena, para, emph);
         TreeOps::append_child(&mut arena, emph, text);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("_italic_"));
     }
 
     #[test]
-    fn test_render_strong() {
+    fn test_write_typst_strong() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -480,12 +422,13 @@ mod tests {
         TreeOps::append_child(&mut arena, para, strong);
         TreeOps::append_child(&mut arena, strong, text);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("*bold*"));
     }
 
     #[test]
-    fn test_render_code() {
+    fn test_write_typst_code() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -497,12 +440,13 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("`code`"));
     }
 
     #[test]
-    fn test_render_code_block() {
+    fn test_write_typst_code_block() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
@@ -522,15 +466,14 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
-            .unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
         assert!(typst.contains("```rust"));
         assert!(typst.contains("fn main() {}"));
         assert!(typst.contains("```"));
     }
 
     #[test]
-    fn test_render_blockquote() {
+    fn test_write_typst_blockquote() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
@@ -544,15 +487,14 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
-            .unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
         assert!(typst.contains("#quote["));
         assert!(typst.contains("Quote"));
         assert!(typst.contains("]"));
     }
 
     #[test]
-    fn test_render_thematic_break() {
+    fn test_write_typst_thematic_break() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
@@ -564,13 +506,12 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
-            .unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
         assert!(typst.contains("#line(length: 100%)"));
     }
 
     #[test]
-    fn test_render_link() {
+    fn test_write_typst_link() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -587,8 +528,7 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
-            .unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
         assert!(typst.contains("#link(\"https://example.com\")["));
         assert!(typst.contains("link"));
         assert!(typst.contains("]"));
@@ -606,7 +546,8 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let typst = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let typst = write_typst(&arena, root, &options).unwrap();
         assert!(typst.contains("Use \\*bold\\* and \\#heading"));
     }
 
@@ -628,8 +569,7 @@ mod tests {
         let plugins = Plugins::default();
         let mut output = String::new();
 
-        format_document_with_plugins(&arena, root, &options, &mut output, &plugins)
-            .unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut output, &plugins).unwrap();
 
         assert!(output.contains("= Test"));
     }

@@ -900,12 +900,12 @@ pub fn format_typst(
 pub fn format_typst_with_plugins(
     arena: &Arena,
     root: NodeId,
-    _options: &Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
     plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    render::format::typst::format_document_with_plugins(
-        arena, root, _options, output, plugins,
+    io::writer::typst::format_document_with_plugins(
+        arena, root, options, output, plugins,
     )
 }
 

@@ -249,6 +249,7 @@ impl WriterRegistry {
         self.register(Box::new(CommonMarkWriter));
         self.register(Box::new(XmlWriter));
         self.register(Box::new(ManWriter));
+        self.register(Box::new(TypstWriter));
         self.register(Box::new(BibTeXWriter));
         self.register(Box::new(RtfWriter));
         self.register(Box::new(DocxWriter));
@@ -278,6 +279,9 @@ pub use revealjs::RevealJsWriter;
 
 pub mod man;
 pub use man::write_man;
+
+pub mod typst;
+pub use typst::write_typst;
 
 impl Clone for WriterRegistry {
     fn clone(&self) -> Self {
@@ -417,6 +421,36 @@ impl Writer for ManWriter {
 
     fn mime_type(&self) -> &'static str {
         "application/x-troff-man"
+    }
+}
+
+/// Typst document writer.
+///
+/// Renders documents to Typst format.
+#[derive(Debug, Clone, Copy)]
+pub struct TypstWriter;
+
+impl Writer for TypstWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        write_typst(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Typst
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["typ", "typst"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/typst"
     }
 }
 
