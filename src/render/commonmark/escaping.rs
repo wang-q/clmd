@@ -14,6 +14,23 @@
 use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 
+/// Escape mode for different contexts
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EscapeMode {
+    /// Normal text escaping
+    Normal,
+    /// Table cell content (preserves pipe character)
+    TableCell,
+    /// Code span content
+    CodeSpan,
+    /// Link text content
+    LinkText,
+    /// Link URL content
+    LinkUrl,
+    /// HTML attribute content
+    HtmlAttribute,
+}
+
 /// Characters that have special meaning in Markdown
 /// Only includes characters that actually need escaping in most contexts
 const MARKDOWN_SPECIAL_CHARS: &[char] = &[
@@ -243,14 +260,27 @@ fn is_in_link_url_context(_context: &dyn NodeFormatterContext) -> bool {
     false
 }
 
-/// Escape text according to the current context
+/// Escape text according to the current context and mode
 ///
 /// This function applies context-aware escaping for Markdown special characters.
 /// It handles:
 /// - Line-start special characters (like # for headings, > for blockquotes)
 /// - Inline special characters (like * and _ for emphasis)
 /// - Context-specific escaping (different rules inside code, links, etc.)
-pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
+/// - Different escape modes for different contexts (Normal, TableCell, CodeSpan, etc.)
+pub fn escape_text_with_mode(text: &str, context: &dyn NodeFormatterContext, mode: EscapeMode) -> String {
+    match mode {
+        EscapeMode::CodeSpan => escape_code_span(text),
+        EscapeMode::LinkText => escape_link_text(text),
+        EscapeMode::LinkUrl => escape_url(text),
+        EscapeMode::HtmlAttribute => escape_html_attribute(text),
+        _ => escape_text_internal(text, context, mode),
+    }
+}
+
+/// Internal function for normal and table cell escaping
+fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: EscapeMode) -> String {
+    let is_table_mode = mode == EscapeMode::TableCell;
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
     let mut at_line_start = true;
@@ -271,9 +301,6 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
             '_' => {
                 // Underscore needs special handling
                 // Only escape if it could form an emphasis marker
-                // An underscore forms an emphasis marker when:
-                // - It's surrounded by whitespace/punctuation (not inside a word)
-                // - It's at the start/end of a word
                 if is_in_code_context(context) {
                     // Inside code, no escaping needed
                     result.push('_');
@@ -306,6 +333,19 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
                 }
                 at_line_start = false;
             }
+            '|' if is_table_mode => {
+                // In table mode, preserve pipe character (don't escape)
+                result.push(*ch);
+                at_line_start = false;
+            }
+            '!' if is_table_mode => {
+                // In table mode, '!' only needs escaping when followed by '['
+                if i + 1 < chars.len() && chars[i + 1] == '[' {
+                    result.push('\\');
+                }
+                result.push(*ch);
+                at_line_start = false;
+            }
             _ => {
                 // Check if we need to escape this character
                 // First check context-aware rules, then check line-start rules
@@ -330,6 +370,91 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
     }
 
     result
+}
+
+/// Escape text according to the current context (Normal mode)
+///
+/// This is a convenience wrapper around `escape_text_with_mode` for normal text.
+pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
+    escape_text_with_mode(text, context, EscapeMode::Normal)
+}
+
+/// Escape text for table cell content
+///
+/// This is a convenience wrapper around `escape_text_with_mode` for table cells.
+/// Pipe characters (|) are preserved to maintain table structure.
+pub fn escape_markdown_for_table(text: &str, context: &dyn NodeFormatterContext) -> String {
+    escape_text_with_mode(text, context, EscapeMode::TableCell)
+}
+
+/// Escape text for table cell content (simple version without context)
+///
+/// This version is used when context is not available (e.g., in collect_cell_text_content).
+/// It performs basic escaping suitable for table cells:
+/// - Preserves pipe characters (|)
+/// - Escapes markdown special characters
+/// - Smart underscore handling (doesn't escape inside words)
+pub fn escape_markdown_for_table_simple(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+
+    for (i, c) in chars.iter().enumerate() {
+        match *c {
+            '\\' => {
+                // Always escape backslash
+                result.push('\\');
+                result.push(*c);
+            }
+            '_' => {
+                // Only escape underscore if it could form emphasis marker
+                // (not inside a word like default_template)
+                if is_underscore_in_word_simple(&chars, i) {
+                    // Underscore inside word - don't escape
+                    result.push(*c);
+                } else {
+                    // Could be emphasis marker - escape it
+                    result.push('\\');
+                    result.push(*c);
+                }
+            }
+            '*' => {
+                // Escape asterisk (could form emphasis)
+                result.push('\\');
+                result.push(*c);
+            }
+            '[' | ']' | '<' | '>' => {
+                // Escape these special characters
+                result.push('\\');
+                result.push(*c);
+            }
+            '!' => {
+                // '!' only needs escaping when followed by '[' (image syntax)
+                if i + 1 < chars.len() && chars[i + 1] == '[' {
+                    result.push('\\');
+                }
+                result.push(*c);
+            }
+            _ => {
+                // Pipe and other characters are preserved
+                result.push(*c);
+            }
+        }
+    }
+
+    result
+}
+
+/// Check if underscore is inside a word (surrounded by alphanumeric characters)
+/// Simple version for use without context
+fn is_underscore_in_word_simple(chars: &[char], pos: usize) -> bool {
+    let prev_char = if pos > 0 { chars.get(pos - 1) } else { None };
+    let next_char = chars.get(pos + 1);
+
+    // Underscore is in a word if both adjacent characters are alphanumeric
+    let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+    let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+
+    prev_is_alphanumeric && next_is_alphanumeric
 }
 
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)

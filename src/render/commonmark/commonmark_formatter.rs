@@ -17,7 +17,8 @@ use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::escaping::{
-    choose_emphasis_marker, compute_fence_length, escape_string, escape_text, escape_url,
+    choose_emphasis_marker, compute_fence_length, escape_markdown_for_table_simple, escape_string,
+    escape_text, escape_url,
 };
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
 use crate::formatter::options::{FormatterOptions, HeadingStyle};
@@ -1248,7 +1249,7 @@ fn collect_cell_text_content(
     match &node.value {
         NodeValue::Text(text) => {
             // Escape markdown special chars but not pipe
-            result.push_str(&escape_markdown_for_table(text));
+            result.push_str(&escape_markdown_for_table_simple(text));
         }
         NodeValue::Code(code) => {
             // Inline code
@@ -1407,33 +1408,6 @@ pub fn get_backtick_sequence(content: &str) -> String {
 
     let count = (max_backticks + 1).max(1);
     "`".repeat(count)
-}
-
-/// Escape special Markdown characters in text, but preserve pipe for table cells
-///
-/// This is used for table cell content where pipe characters should not be escaped.
-fn escape_markdown_for_table(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    // Note: '|', '#', and '`' are not included here
-    // '|' is not included as it's used for table cell separation
-    // '#' only needs escaping at the beginning of a line (ATX heading)
-    // '`' is not included as it's used for inline code in table cells
-    let special_chars = ['*', '_', '[', ']', '<', '>', '\\'];
-
-    let chars: Vec<char> = text.chars().collect();
-    for (i, c) in chars.iter().enumerate() {
-        // '!' only needs escaping when followed by '[' (image syntax)
-        if *c == '!' {
-            if i + 1 < chars.len() && chars[i + 1] == '[' {
-                result.push('\\');
-            }
-        } else if special_chars.contains(c) {
-            result.push('\\');
-        }
-        result.push(*c);
-    }
-
-    result
 }
 
 /// Choose the best bullet marker based on content and nesting level

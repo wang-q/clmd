@@ -299,12 +299,12 @@ lib.rs
 
 ## 与 Pandoc 的对应关系
 
-| Pandoc               | clmd                                |
-| -------------------- | ----------------------------------- |
-| `PandocMonad`        | `core::monad::ClmdMonad`            |
-| `Readers`            | `io::reader::registry`              |
-| `Writers`            | `io::writer::registry`              |
-| `Filter`             | `util::filter`                      |
-| `Template`           | `template`                          |
-| `MediaBag`           | `context::mediabag`                 |
-| `getDefaultTemplate` | `TemplateEngine::default\_template` |
+| Pandoc               | clmd                               |
+| -------------------- | ---------------------------------- |
+| `PandocMonad`        | `core::monad::ClmdMonad`           |
+| `Readers`            | `io::reader::registry`             |
+| `Writers`            | `io::writer::registry`             |
+| `Filter`             | `util::filter`                     |
+| `Template`           | `template`                         |
+| `MediaBag`           | `context::mediabag`                |
+| `getDefaultTemplate` | `TemplateEngine::default_template` |
