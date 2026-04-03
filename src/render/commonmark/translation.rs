@@ -150,6 +150,24 @@ impl TranslationHandlerImpl {
     pub fn is_post_processing(&self) -> bool {
         self.post_processing_scope
     }
+
+    /// Find a span by its original text
+    fn find_span_by_original(
+        &self,
+        text: &str,
+    ) -> Option<&super::purpose::TranslationSpan> {
+        self.span_collection
+            .get_spans()
+            .iter()
+            .find(|s| s.original_text == text)
+    }
+
+    /// Get the placeholder for a span, or return the original text if not found
+    fn get_placeholder_or_text(&self, text: &str) -> String {
+        self.find_span_by_original(text)
+            .map(|span| span.placeholder.clone())
+            .unwrap_or_else(|| text.to_string())
+    }
 }
 
 impl Default for TranslationHandlerImpl {
@@ -186,18 +204,8 @@ impl TranslationHandler for TranslationHandlerImpl {
                 span.placeholder.clone()
             }
             RenderPurpose::TranslatedSpans => {
-                // Return the placeholder
-                // Find the span with matching original text
-                if let Some(span) = self
-                    .span_collection
-                    .get_spans()
-                    .iter()
-                    .find(|s| s.original_text == text)
-                {
-                    span.placeholder.clone()
-                } else {
-                    text.to_string()
-                }
+                // Return the placeholder for the matching span
+                self.get_placeholder_or_text(text)
             }
             RenderPurpose::Translated => {
                 // Return the original text (non-translating)
@@ -215,34 +223,14 @@ impl TranslationHandler for TranslationHandlerImpl {
                 span.placeholder.clone()
             }
             RenderPurpose::TranslatedSpans => {
-                // Return the placeholder
-                if let Some(span) = self
-                    .span_collection
-                    .get_spans()
-                    .iter()
-                    .find(|s| s.original_text == text)
-                {
-                    span.placeholder.clone()
-                } else {
-                    text.to_string()
-                }
+                // Return the placeholder for the matching span
+                self.get_placeholder_or_text(text)
             }
             RenderPurpose::Translated => {
-                // Return the translated text
-                if let Some(span) = self
-                    .span_collection
-                    .get_spans()
-                    .iter()
-                    .find(|s| s.original_text == text)
-                {
-                    if let Some(ref translated) = span.translated_text {
-                        translated.clone()
-                    } else {
-                        text.to_string()
-                    }
-                } else {
-                    text.to_string()
-                }
+                // Return the translated text if available, otherwise original
+                self.find_span_by_original(text)
+                    .and_then(|span| span.translated_text.clone())
+                    .unwrap_or_else(|| text.to_string())
             }
         }
     }

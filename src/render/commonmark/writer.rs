@@ -248,14 +248,10 @@ impl MarkdownWriter {
         &self.current_prefix
     }
 
-    /// Append text to the output
-    pub fn append(&mut self, text: impl AsRef<str>) -> &mut Self {
-        let text = text.as_ref();
-        if text.is_empty() {
-            return self;
-        }
-
-        // Handle beginning of line
+    /// Handle the beginning of a line by adding prefix if needed
+    ///
+    /// Returns whether we were at the beginning of line before handling.
+    fn handle_beginning_of_line(&mut self) -> bool {
         let was_beginning_of_line = self.beginning_of_line;
         if self.beginning_of_line {
             self.output.push_str(&self.current_prefix);
@@ -264,6 +260,17 @@ impl MarkdownWriter {
             self.trailing_blank_lines = 0;
             self.line_info.mark_content_written();
         }
+        was_beginning_of_line
+    }
+
+    /// Append text to the output with format flag processing
+    pub fn append(&mut self, text: impl AsRef<str>) -> &mut Self {
+        let text = text.as_ref();
+        if text.is_empty() {
+            return self;
+        }
+
+        let was_beginning_of_line = self.handle_beginning_of_line();
 
         // Apply format flags
         let processed_text = if self.pre_formatted {
@@ -286,12 +293,7 @@ impl MarkdownWriter {
             return self;
         }
 
-        if self.beginning_of_line {
-            self.output.push_str(&self.current_prefix);
-            self.column = self.current_prefix.len();
-            self.beginning_of_line = false;
-            self.trailing_blank_lines = 0;
-        }
+        self.handle_beginning_of_line();
 
         self.output.push_str(text);
         self.column += text.len();

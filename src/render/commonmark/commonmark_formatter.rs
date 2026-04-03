@@ -522,7 +522,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             writer.append(tb.marker.to_string().repeat(3));
                         } else {
                             // Fallback to default marker
-                            writer.append("---".to_string());
+                            writer.append("---");
                         }
                         writer.line();
                     },

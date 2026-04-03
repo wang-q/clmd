@@ -9,30 +9,20 @@ use crate::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::formatter::writer::MarkdownWriter;
 
 /// Render a list
+///
+/// This function is currently a stub. List rendering is fully implemented
+/// in the main formatter. This function may be completed in the future
+/// for alternative list rendering workflows.
 pub fn render_list(
-    list: &NodeList,
-    context: &mut dyn NodeFormatterContext,
+    _list: &NodeList,
+    _context: &mut dyn NodeFormatterContext,
     _writer: &mut MarkdownWriter,
 ) {
-    let _options = context.get_formatter_options();
-
-    // Determine list properties
-    let _is_ordered = list.list_type == crate::core::nodes::ListType::Ordered;
-    let _start = list.start;
-    let is_tight = list.tight;
-
-    // Set tight list context
-    let prev_tight = context.is_in_tight_list();
-    context.set_tight_list(is_tight);
-    context.increment_list_nesting();
-
-    // Render list items
-    // Note: In a full implementation, this would iterate over child items
-    // and render them with appropriate markers
-
-    // Restore previous context
-    context.set_tight_list(prev_tight);
-    context.decrement_list_nesting();
+    // List rendering is fully implemented in commonmark_formatter.rs
+    // This stub exists for potential future use in alternative workflows
+    unimplemented!(
+        "render_list is not yet fully implemented. Use the main formatter for list rendering."
+    )
 }
 
 /// Get the bullet marker character
