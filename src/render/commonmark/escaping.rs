@@ -158,8 +158,32 @@ fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
 }
 
 /// Check if we're at the start of a line
-fn is_at_line_start(_context: &dyn NodeFormatterContext) -> bool {
-    // Simplified check - in a full implementation, we'd track position
+fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
+    // Check if we're inside a heading - if so, we're not really at line start
+    // because the heading handler adds the prefix
+    if let Some(node_id) = context.get_current_node() {
+        let arena = context.get_arena();
+        let mut current = node_id;
+        
+        // Walk up the tree to check if we're inside a heading
+        while let Some(node) = arena.try_get(current) {
+            match &node.value {
+                NodeValue::Heading(_) => {
+                    // We're inside a heading, so the # is not at line start
+                    // (the heading handler adds the # prefix)
+                    return false;
+                }
+                _ => {
+                    if let Some(parent) = node.parent {
+                        current = parent;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
     // For now, assume it might be at line start to be safe
     true
 }
@@ -230,18 +254,12 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
             }
             _ => {
                 // Check if we need to escape this character
-                let needs_escape = if at_line_start {
-                    // At line start, check if this is a special character
-                    if LINE_START_SPECIAL_CHARS.contains(ch)
-                        && !is_in_code_context(context)
-                    {
-                        true
-                    } else {
-                        // Not a line-start special char, check normal escaping rules
-                        need_to_escape(*ch, context)
-                    }
+                // First check context-aware rules, then check line-start rules
+                let needs_escape = if at_line_start && LINE_START_SPECIAL_CHARS.contains(ch) && !is_in_code_context(context) {
+                    // At line start with a special character - check if context says it needs escaping
+                    need_to_escape(*ch, context)
                 } else {
-                    // Not at line start, use normal escaping rules
+                    // Not at line start or not a line-start special char, use normal escaping rules
                     need_to_escape(*ch, context)
                 };
 

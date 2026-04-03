@@ -28,6 +28,24 @@ pub struct SpecExample {
     pub options: Vec<String>,
 }
 
+/// A single formatter test example from a spec file
+/// Formatter specs have Markdown output instead of HTML
+#[derive(Debug, Clone)]
+pub struct FormatterSpecExample {
+    /// Section name in the spec file
+    pub section: String,
+    /// Test case number
+    pub number: usize,
+    /// Input markdown text
+    pub input: String,
+    /// Expected Markdown output (not HTML)
+    pub expected_output: String,
+    /// Expected AST output (optional)
+    pub expected_ast: Option<String>,
+    /// Test options
+    pub options: Vec<String>,
+}
+
 /// Parse a spec file content and extract all test examples
 pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
     let mut examples = Vec::new();
@@ -96,6 +114,89 @@ pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
                     number,
                     input,
                     expected_html,
+                    expected_ast,
+                    options,
+                });
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    examples
+}
+
+/// Parse a formatter spec file content and extract all test examples
+/// Formatter specs have Markdown output instead of HTML
+pub fn parse_formatter_spec_file(content: &str) -> Vec<FormatterSpecExample> {
+    let mut examples = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+
+        // Look for example block start
+        if line.starts_with("```````````````````````````````` example") {
+            if let Some((section, number, options)) = parse_example_header(line) {
+                i += 1;
+
+                // Collect input until we hit a line with just "."
+                let mut input_lines = Vec::new();
+                while i < lines.len() && lines[i] != "." {
+                    input_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                // Skip the "." separator
+                i += 1;
+
+                // Collect expected output (Markdown) until we hit a line with just "."
+                let mut output_lines = Vec::new();
+                while i < lines.len() && lines[i] != "." {
+                    output_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                // Skip the "." separator
+                i += 1;
+
+                // Check if there's AST output (until the closing fence)
+                // AST is optional - if the next line is the closing fence, there's no AST
+                let mut ast_lines = Vec::new();
+                let expected_ast = if i < lines.len()
+                    && lines[i].starts_with("````````````````````````````````")
+                {
+                    // No AST section, closing fence immediately
+                    None
+                } else {
+                    // Collect AST until the closing fence
+                    while i < lines.len()
+                        && !lines[i].starts_with("````````````````````````````````")
+                    {
+                        ast_lines.push(lines[i]);
+                        i += 1;
+                    }
+                    if ast_lines.is_empty() {
+                        None
+                    } else {
+                        Some(ast_lines.join("\n"))
+                    }
+                };
+
+                // Skip the closing fence
+                i += 1;
+
+                let input = input_lines.join("\n");
+                let expected_output = output_lines.join("\n");
+
+                examples.push(FormatterSpecExample {
+                    section,
+                    number,
+                    input,
+                    expected_output,
                     expected_ast,
                     options,
                 });
