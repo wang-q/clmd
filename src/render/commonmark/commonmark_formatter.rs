@@ -124,10 +124,20 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             NodeFormattingHandler::with_close(
                 NodeValueType::Paragraph,
                 Box::new(
-                    |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
-                     _writer: &mut MarkdownWriter| {
-                        // Paragraph opening - nothing special needed
+                    |value: &NodeValue,
+                     ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        // Paragraph opening - check if we need special handling
+                        if let NodeValue::Paragraph = value {
+                            // Check if this paragraph is in a list item and needs special handling
+                            if ctx.is_parent_list_item() {
+                                // In a list item, paragraphs may need different handling
+                                // based on whether the list is tight or loose
+                                let _is_first = ctx.is_first_child();
+                                let _is_last = ctx.is_last_child();
+                                // Additional handling can be added here if needed
+                            }
+                        }
                     },
                 ),
                 Box::new(
@@ -135,11 +145,44 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         // Paragraph closing - add line break after paragraph
-                        // In tight lists, just add a single line break
-                        // In loose lists, add a blank line
-                        if ctx.is_in_tight_list() {
-                            writer.line();
+                        // Based on flexmark-java's logic:
+                        // 1. In tight lists, just add a single line break
+                        // 2. In loose lists, add a blank line
+                        // 3. For paragraphs in list items, handle spacing carefully
+                        // 4. For the last paragraph in a list item, don't add extra blank lines
+
+                        let is_in_list_item = ctx.is_parent_list_item();
+                        let is_in_tight_list = ctx.is_in_tight_list();
+                        let is_last_child = ctx.is_last_child();
+                        let has_next_sibling = ctx.has_next_sibling();
+
+                        if is_in_list_item {
+                            // Paragraph is inside a list item
+                            if is_in_tight_list {
+                                // Tight list: minimal spacing
+                                if has_next_sibling {
+                                    // More content follows, add single line
+                                    writer.line();
+                                }
+                                // If last child, let the list item handler manage spacing
+                            } else {
+                                // Loose list: blank line between paragraphs
+                                if has_next_sibling {
+                                    writer.blank_line();
+                                } else {
+                                    // Last paragraph in list item
+                                    writer.line();
+                                }
+                            }
+                        } else if is_in_tight_list {
+                            // Paragraph in tight list context but not directly in item
+                            // (e.g., nested content)
+                            if has_next_sibling {
+                                writer.line();
+                            }
                         } else {
+                            // Normal paragraph outside lists
+                            // Add blank line after paragraph
                             writer.blank_line();
                         }
                     },
@@ -183,8 +226,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         if let NodeValue::Heading(heading) = value {
                             let options = ctx.get_formatter_options();
                             let heading_style = options.heading_style;
-                            let min_setext_marker_length = options.min_setext_marker_length;
-                            let setext_equalize_marker = options.setext_heading_equalize_marker;
+                            let min_setext_marker_length =
+                                options.min_setext_marker_length;
+                            let setext_equalize_marker =
+                                options.setext_heading_equalize_marker;
 
                             // Determine heading style
                             let use_setext = match heading_style {
@@ -288,10 +333,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      _writer: &mut MarkdownWriter| {
                         if let NodeValue::List(list) = value {
                             // Determine effective tightness based on list_spacing option
-                            let effective_tight = match ctx.get_formatter_options().list_spacing {
+                            let effective_tight = match ctx
+                                .get_formatter_options()
+                                .list_spacing
+                            {
                                 crate::formatter::options::ListSpacing::Tight => true,
                                 crate::formatter::options::ListSpacing::Loose => false,
-                                crate::formatter::options::ListSpacing::AsIs => list.tight,
+                                crate::formatter::options::ListSpacing::AsIs => {
+                                    list.tight
+                                }
                                 crate::formatter::options::ListSpacing::Loosen => {
                                     // Loosen if list contains blank lines (check would need AST analysis)
                                     list.tight
@@ -327,6 +377,18 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let options = ctx.get_formatter_options();
 
+                        // Check if this item should be removed (empty item removal)
+                        if options.list_remove_empty_items {
+                            if let Some(node_id) = ctx.get_current_node() {
+                                if is_empty_list_item(ctx.get_arena(), node_id) {
+                                    // Skip rendering this empty item
+                                    // Note: We still need to handle the closing, but we can
+                                    // mark it to not output anything
+                                    return;
+                                }
+                            }
+                        }
+
                         // Get the parent list to determine the marker and nesting level
                         let (marker, nesting_level, parent_list) =
                             if let Some(parent_id) = ctx.get_current_node_parent() {
@@ -343,7 +405,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     );
 
                                     // Apply list renumbering if configured
-                                    let effective_number = if options.list_renumber_items {
+                                    let effective_number = if options.list_renumber_items
+                                    {
                                         // Renumber starting from 1
                                         item_number
                                     } else {
@@ -351,11 +414,12 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                         list.start + item_number - 1
                                     };
 
-                                    let marker = format_list_item_marker_with_number_and_options(
-                                        list,
-                                        effective_number,
-                                        options,
-                                    );
+                                    let marker =
+                                        format_list_item_marker_with_number_and_options(
+                                            list,
+                                            effective_number,
+                                            options,
+                                        );
                                     (marker, level, Some(list.clone()))
                                 } else {
                                     ("- ".to_string(), 0, None)
@@ -425,7 +489,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         let _options = ctx.get_formatter_options();
 
                         // Check if this is the last item in the list
-                        let is_last_item = ctx.get_current_node()
+                        let is_last_item = ctx
+                            .get_current_node()
                             .and_then(|id| {
                                 let arena = ctx.get_arena();
                                 Some(arena.get(id).next.is_none())
@@ -666,10 +731,29 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
+                        // Based on flexmark-java's SoftLineBreak handling:
+                        // 1. In tight lists, soft breaks become spaces
+                        // 2. If keepSoftLineBreaks is enabled, preserve the break
+                        // 3. Otherwise, convert to space (for wrapping) or line break
+                        let options = ctx.get_formatter_options();
+
                         if ctx.is_in_tight_list() {
+                            // In tight lists, soft breaks become spaces
                             writer.append(" ");
-                        } else {
+                        } else if options.keep_soft_line_breaks {
+                            // Preserve soft line breaks if configured
                             writer.line();
+                        } else {
+                            // Default: convert soft break to space for wrapping
+                            // The formatter will handle line wrapping based on right_margin
+                            let right_margin = options.right_margin;
+                            if right_margin > 0 {
+                                // With right margin set, use space for potential wrapping
+                                writer.append(" ");
+                            } else {
+                                // Without right margin, use line break
+                                writer.line();
+                            }
                         }
                     },
                 ),
@@ -678,10 +762,22 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::HardBreak,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("  ");
-                        writer.line();
+                        // Based on flexmark-java's HardLineBreak handling:
+                        // 1. If keepHardLineBreaks is enabled, preserve as \\ at end of line
+                        // 2. Otherwise, use two spaces at end of line (standard Markdown)
+                        let options = ctx.get_formatter_options();
+
+                        if options.keep_hard_line_breaks {
+                            // Use backslash style for hard breaks
+                            writer.append("\\");
+                            writer.line();
+                        } else {
+                            // Standard: two spaces at end of line
+                            writer.append("  ");
+                            writer.line();
+                        }
                     },
                 ),
             ),
@@ -902,7 +998,9 @@ impl CommonMarkNodeFormatter {
 
         // Check if we should place references at document top
         let options = context.get_formatter_options();
-        if options.reference_placement == crate::formatter::options::ElementPlacement::DocumentTop {
+        if options.reference_placement
+            == crate::formatter::options::ElementPlacement::DocumentTop
+        {
             // Render collected references at top
             // This would require reference collection to be implemented
         }
@@ -922,7 +1020,9 @@ impl CommonMarkNodeFormatter {
 
         // Check if we should place references at document bottom
         let options = context.get_formatter_options();
-        if options.reference_placement == crate::formatter::options::ElementPlacement::DocumentBottom {
+        if options.reference_placement
+            == crate::formatter::options::ElementPlacement::DocumentBottom
+        {
             // Render collected references at bottom
             // This would require reference collection to be implemented
         }
@@ -1117,7 +1217,6 @@ fn render_html_block(
     _ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
 ) {
-
     // Add blank line before HTML block (unless it's the first element)
     writer.blank_line();
 
@@ -1489,10 +1588,7 @@ fn format_list_item_marker_with_number_and_options(
 ///
 /// Returns the number of characters the marker occupies, which is used
 /// to align content in subsequent lines of list items.
-fn calculate_marker_width(
-    _list: &crate::core::nodes::NodeList,
-    marker: &str,
-) -> usize {
+fn calculate_marker_width(_list: &crate::core::nodes::NodeList, marker: &str) -> usize {
     // The marker width is the length of the marker string
     // This is used to align content with the first line after the marker
     marker.len()
@@ -1753,6 +1849,78 @@ fn get_item_number_in_list(
     } else {
         item_number
     }
+}
+
+/// Check if a list item is empty (has no content or only whitespace)
+///
+/// This is used for the listRemoveEmptyItems option.
+fn is_empty_list_item(
+    arena: &crate::core::arena::NodeArena,
+    item_node_id: crate::core::arena::NodeId,
+) -> bool {
+    use crate::core::nodes::NodeValue;
+
+    let item = arena.get(item_node_id);
+
+    // Check if the item has any children with content
+    let mut child_id = item.first_child;
+    while let Some(child) = child_id {
+        let child_node = arena.get(child);
+
+        match &child_node.value {
+            NodeValue::Text(text) => {
+                if !text.trim().is_empty() {
+                    return false;
+                }
+            }
+            NodeValue::Paragraph | NodeValue::Heading(_) => {
+                // These containers might have content in their children
+                if !is_empty_container(arena, child) {
+                    return false;
+                }
+            }
+            // Other node types are considered content
+            _ => return false,
+        }
+
+        child_id = child_node.next;
+    }
+
+    // No content found
+    true
+}
+
+/// Check if a container node is empty (has no meaningful content)
+fn is_empty_container(
+    arena: &crate::core::arena::NodeArena,
+    node_id: crate::core::arena::NodeId,
+) -> bool {
+    use crate::core::nodes::NodeValue;
+
+    let node = arena.get(node_id);
+
+    let mut child_id = node.first_child;
+    while let Some(child) = child_id {
+        let child_node = arena.get(child);
+
+        match &child_node.value {
+            NodeValue::Text(text) => {
+                if !text.trim().is_empty() {
+                    return false;
+                }
+            }
+            NodeValue::Paragraph | NodeValue::Heading(_) => {
+                if !is_empty_container(arena, child) {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        child_id = child_node.next;
+    }
+
+    true
 }
 
 #[cfg(test)]

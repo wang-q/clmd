@@ -98,7 +98,8 @@ impl MarkdownWriter {
     /// Process the word wrap buffer and output wrapped text
     fn process_word_wrap_buffer(&mut self) {
         // Available width is right_margin minus prefix length
-        let available_width = self.right_margin.saturating_sub(self.current_prefix.len());
+        let available_width =
+            self.right_margin.saturating_sub(self.current_prefix.len());
         if available_width == 0 {
             // No space available, just output everything
             let buffer = std::mem::take(&mut self.word_wrap_buffer);
@@ -113,7 +114,8 @@ impl MarkdownWriter {
                 let remaining_start = space_pos + 1;
 
                 // Check if adding this word would exceed the margin
-                if self.column + word_len > self.right_margin && !self.beginning_of_line {
+                if self.column + word_len > self.right_margin && !self.beginning_of_line
+                {
                     // Start a new line
                     self.line();
                 }
@@ -124,13 +126,16 @@ impl MarkdownWriter {
                 self.append(" ");
 
                 // Update buffer - remove the word and space we just processed
-                let remaining: String = self.word_wrap_buffer[remaining_start..].to_string();
+                let remaining: String =
+                    self.word_wrap_buffer[remaining_start..].to_string();
                 self.word_wrap_buffer = remaining;
             } else {
                 // No more spaces, check if remaining text fits
                 let remaining_len = self.word_wrap_buffer.len();
                 if remaining_len > 0 {
-                    if self.column + remaining_len > self.right_margin && !self.beginning_of_line {
+                    if self.column + remaining_len > self.right_margin
+                        && !self.beginning_of_line
+                    {
                         // Start a new line
                         self.line();
                     }
@@ -524,6 +529,66 @@ impl MarkdownWriter {
         self.format_flags
     }
 
+    /// Get the last block quote child prefix
+    ///
+    /// This method is used to handle the special case where a block quote's last child
+    /// needs a modified prefix. In flexmark-java, this handles the case where continuation
+    /// block prefixes are removed for the last child.
+    ///
+    /// For example, in a block quote with nested content, the last child's prefix
+    /// may need to be adjusted to remove continuation markers.
+    pub fn last_block_quote_child_prefix(&self, prefix: impl AsRef<str>) -> String {
+        let prefix = prefix.as_ref();
+
+        // Find the last occurrence of a block quote-like prefix character
+        // This is typically '>' for block quotes
+        if let Some(pos) = prefix.rfind('>') {
+            // Create a new prefix where the last '>' is replaced with a space
+            // This handles the case of continuation block prefix removal
+            let mut result = prefix.to_string();
+            if pos < result.len() {
+                // Replace the '>' with a space to indicate it's the last child
+                result.replace_range(pos..pos + 1, " ");
+            }
+            result
+        } else {
+            // No block quote prefix found, return as-is
+            prefix.to_string()
+        }
+    }
+
+    /// Check if the current prefix contains a block quote marker
+    pub fn has_block_quote_prefix(&self) -> bool {
+        self.current_prefix.contains('>')
+    }
+
+    /// Get the prefix stack depth
+    pub fn get_prefix_depth(&self) -> usize {
+        self.prefix_stack.len()
+    }
+
+    /// Check if there are any prefixes on the stack
+    pub fn has_prefixes(&self) -> bool {
+        !self.prefix_stack.is_empty()
+    }
+
+    /// Get a copy of the prefix stack
+    pub fn get_prefix_stack(&self) -> Vec<String> {
+        self.prefix_stack.clone()
+    }
+
+    /// Set the current prefix directly (use with caution)
+    /// This is used internally for prefix manipulation
+    fn set_prefix(&mut self, prefix: impl AsRef<str>) {
+        self.current_prefix = prefix.as_ref().to_string();
+    }
+
+    /// Add a prefix to the current prefix without pushing to stack
+    /// This is used for temporary prefix modifications
+    fn add_prefix(&mut self, prefix: impl AsRef<str>) {
+        self.current_prefix.push_str(prefix.as_ref());
+    }
+
     /// Flush the writer to an appendable with constraints
     pub fn flush_to(
         &mut self,
@@ -687,5 +752,73 @@ mod tests {
         let mut output = String::new();
         writer.flush_to(&mut output, 2, 2).unwrap();
         assert_eq!(output, "Hello\n");
+    }
+
+    #[test]
+    fn test_last_block_quote_child_prefix() {
+        let writer = MarkdownWriter::default();
+
+        // Test with block quote prefix
+        assert_eq!(writer.last_block_quote_child_prefix("> "), "  ");
+
+        // Test with nested block quote prefix
+        assert_eq!(writer.last_block_quote_child_prefix("> > "), ">   ");
+
+        // Test without block quote prefix
+        assert_eq!(writer.last_block_quote_child_prefix("    "), "    ");
+
+        // Test with multiple '>' characters
+        assert_eq!(writer.last_block_quote_child_prefix("> > > "), "> >   ");
+    }
+
+    #[test]
+    fn test_has_block_quote_prefix() {
+        let mut writer = MarkdownWriter::default();
+        assert!(!writer.has_block_quote_prefix());
+
+        writer.push_prefix("> ");
+        assert!(writer.has_block_quote_prefix());
+
+        writer.pop_prefix();
+        assert!(!writer.has_block_quote_prefix());
+    }
+
+    #[test]
+    fn test_get_prefix_depth() {
+        let mut writer = MarkdownWriter::default();
+        assert_eq!(writer.get_prefix_depth(), 0);
+
+        writer.push_prefix("> ");
+        assert_eq!(writer.get_prefix_depth(), 1);
+
+        writer.push_prefix("> ");
+        assert_eq!(writer.get_prefix_depth(), 2);
+
+        writer.pop_prefix();
+        assert_eq!(writer.get_prefix_depth(), 1);
+    }
+
+    #[test]
+    fn test_has_prefixes() {
+        let mut writer = MarkdownWriter::default();
+        assert!(!writer.has_prefixes());
+
+        writer.push_prefix("> ");
+        assert!(writer.has_prefixes());
+
+        writer.pop_prefix();
+        assert!(!writer.has_prefixes());
+    }
+
+    #[test]
+    fn test_get_prefix_stack() {
+        let mut writer = MarkdownWriter::default();
+        writer.push_prefix("> ");
+        writer.push_prefix("  ");
+
+        let stack = writer.get_prefix_stack();
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack[0], "> ");
+        assert_eq!(stack[1], "  ");
     }
 }

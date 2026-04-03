@@ -217,7 +217,8 @@ impl FormatControlProcessor {
 fn extract_comment_content(comment_text: &str) -> Option<String> {
     let trimmed = comment_text.trim();
 
-    if !trimmed.starts_with(HTML_COMMENT_OPEN) || !trimmed.ends_with(HTML_COMMENT_CLOSE) {
+    if !trimmed.starts_with(HTML_COMMENT_OPEN) || !trimmed.ends_with(HTML_COMMENT_CLOSE)
+    {
         return None;
     }
 
@@ -323,14 +324,8 @@ mod tests {
             extract_comment_content("<!--formatter:on-->"),
             Some("formatter:on".to_string())
         );
-        assert_eq!(
-            extract_comment_content("Not a comment"),
-            None
-        );
-        assert_eq!(
-            extract_comment_content("<!-- incomplete"),
-            None
-        );
+        assert_eq!(extract_comment_content("Not a comment"), None);
+        assert_eq!(extract_comment_content("<!-- incomplete"), None);
     }
 
     #[test]

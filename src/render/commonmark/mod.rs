@@ -526,7 +526,11 @@ impl<'a> MainFormatterContext<'a> {
     }
 
     /// Render a node without any formatting (for format-off regions)
-    fn render_unformatted(&mut self, node_id: NodeId, markdown: &mut writer::MarkdownWriter) {
+    fn render_unformatted(
+        &mut self,
+        node_id: NodeId,
+        markdown: &mut writer::MarkdownWriter,
+    ) {
         let node = self.arena.get(node_id);
 
         // For text nodes, output the literal text

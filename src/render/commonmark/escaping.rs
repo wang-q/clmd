@@ -22,7 +22,8 @@ const MARKDOWN_SPECIAL_CHARS: &[char] = &[
 
 /// Characters that need escaping at the start of a line
 /// These are block-level markers that would be interpreted as structural elements
-const LINE_START_SPECIAL_CHARS: &[char] = &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
+const LINE_START_SPECIAL_CHARS: &[char] =
+    &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
 
 /// Characters that need escaping in link text
 const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
@@ -230,7 +231,9 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
                 // Check if we need to escape this character
                 let needs_escape = if at_line_start {
                     // At line start, check if this is a special character
-                    if LINE_START_SPECIAL_CHARS.contains(ch) && !is_in_code_context(context) {
+                    if LINE_START_SPECIAL_CHARS.contains(ch)
+                        && !is_in_code_context(context)
+                    {
                         true
                     } else {
                         // Not a line-start special char, check normal escaping rules

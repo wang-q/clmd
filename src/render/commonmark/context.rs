@@ -170,6 +170,55 @@ pub trait NodeFormatterContext {
 
     /// Decrement the block quote nesting level
     fn decrement_block_quote_nesting(&mut self);
+
+    /// Check if the current node is the first child of its parent
+    fn is_first_child(&self) -> bool {
+        self.get_current_node().map_or(false, |node_id| {
+            self.get_arena().get(node_id).prev.is_none()
+        })
+    }
+
+    /// Check if the current node is the last child of its parent
+    fn is_last_child(&self) -> bool {
+        self.get_current_node().map_or(false, |node_id| {
+            self.get_arena().get(node_id).next.is_none()
+        })
+    }
+
+    /// Check if the current node's parent is a list item
+    fn is_parent_list_item(&self) -> bool {
+        self.get_current_node_parent().map_or(false, |parent_id| {
+            matches!(self.get_arena().get(parent_id).value, NodeValue::Item(_))
+        })
+    }
+
+    /// Check if the current node's parent is a list
+    fn is_parent_list(&self) -> bool {
+        self.get_current_node_parent().map_or(false, |parent_id| {
+            matches!(self.get_arena().get(parent_id).value, NodeValue::List(_))
+        })
+    }
+
+    /// Check if the current node's parent is a block quote
+    fn is_parent_block_quote(&self) -> bool {
+        self.get_current_node_parent().map_or(false, |parent_id| {
+            matches!(self.get_arena().get(parent_id).value, NodeValue::BlockQuote)
+        })
+    }
+
+    /// Check if the current node has a next sibling
+    fn has_next_sibling(&self) -> bool {
+        self.get_current_node().map_or(false, |node_id| {
+            self.get_arena().get(node_id).next.is_some()
+        })
+    }
+
+    /// Check if the current node has a previous sibling
+    fn has_prev_sibling(&self) -> bool {
+        self.get_current_node().map_or(false, |node_id| {
+            self.get_arena().get(node_id).prev.is_some()
+        })
+    }
 }
 
 /// A sub-context for nested formatting operations
