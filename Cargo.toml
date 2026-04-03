@@ -3,7 +3,7 @@ name = "clmd"
 version = "0.2.1"
 edition = "2021"
 description = "A 100% CommonMark and GFM compatible Markdown parser"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 repository = "https://github.com/clmd/clmd"
 keywords = ["markdown", "commonmark", "gfm", "parser"]
 categories = ["text-processing", "parser-implementations"]
@@ -54,8 +54,6 @@ comrak = "0.35"
 pulldown-cmark = "0.13"
 
 [profile.release]
-debug = true
-codegen-units = 1
 lto = true
 
 # Benchmarks
