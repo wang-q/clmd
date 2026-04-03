@@ -5,7 +5,14 @@
 [![Crates.io](https://img.shields.io/crates/v/clmd.svg)](https://crates.io/crates/clmd)
 [![license](https://img.shields.io/github/license/wang-q/clmd)](https://github.com/wang-q/clmd)
 
-A high-performance CommonMark and GFM compatible Markdown parser written in Rust, inspired by cmark (C implementation) and commonmark.js (JavaScript implementation).
+A high-performance, 100% safe Rust implementation of CommonMark and GFM compatible Markdown parser, inspired by cmark (C) and commonmark.js (JavaScript).
+
+**Key Highlights**:
+- 100% CommonMark and GFM specification compliance
+- 100% safe Rust with no `unsafe` code blocks
+- Arena-based memory management for optimal performance
+- Comprehensive error handling with precise position information
+- Extensible plugin system with syntax highlighting support
 
 ## Features
 
@@ -313,15 +320,24 @@ unsafe = false
 clmd uses a two-phase parsing approach:
 
 1. **Block Parsing**: Processes input line by line to build the document structure
+   - Identifies block-level elements (paragraphs, headings, lists, code blocks, etc.)
+   - Handles block continuation and finalization
+   - Builds the document tree structure
+
 2. **Inline Parsing**: Processes leaf block content to produce inline elements
+   - Parses emphasis, strong, links, images, code spans
+   - Handles HTML tags and entities
+   - Processes autolinks and raw HTML
 
 ### Memory Management
 
-The arena-based allocator provides:
-- O(1) node allocation
-- Cache-friendly contiguous memory layout
-- No reference counting overhead
-- Simple lifetime management
+The arena-based allocator provides significant advantages:
+
+- **O(1) Node Allocation**: Constant-time node creation without heap fragmentation
+- **Cache-Friendly Layout**: Contiguous memory layout improves cache hit rates
+- **No Reference Counting**: Eliminates Rc<RefCell> overhead and runtime checks
+- **Simple Lifetimes**: Uses NodeId (u32) instead of complex lifetime parameters
+- **Bulk Deallocation**: All nodes freed at once when arena is dropped
 
 ```rust
 use clmd::{Arena, NodeId};
@@ -406,14 +422,4 @@ This crate is 100% safe Rust - it contains no `unsafe` code.
 
 ## License
 
-MIT OR Apache-2.0
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-
-1. Code follows the existing style (`cargo fmt`)
-2. All tests pass (`cargo test`)
-3. Clippy warnings are addressed (`cargo clippy`)
-4. New features include tests
-5. Documentation is updated as needed
+MIT
