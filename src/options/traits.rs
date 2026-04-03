@@ -84,18 +84,20 @@ mod tests {
 
     #[test]
     fn test_url_rewriter_function() {
-        let rewriter: Box<dyn URLRewriter> = Box::new(|url: &str| format!("prefix:{}", url));
+        let rewriter: Box<dyn URLRewriter> =
+            Box::new(|url: &str| format!("prefix:{}", url));
         assert_eq!(rewriter.rewrite("test"), "prefix:test");
     }
 
     #[test]
     fn test_broken_link_callback_function() {
-        let callback: Box<dyn BrokenLinkCallback> = Box::new(|_ref: BrokenLinkReference| {
-            Some(ResolvedReference {
-                url: "https://example.com".to_string(),
-                title: "Example".to_string(),
-            })
-        });
+        let callback: Box<dyn BrokenLinkCallback> =
+            Box::new(|_ref: BrokenLinkReference| {
+                Some(ResolvedReference {
+                    url: "https://example.com".to_string(),
+                    title: "Example".to_string(),
+                })
+            });
 
         let broken_ref = BrokenLinkReference {
             normalized: "test",

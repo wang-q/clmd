@@ -36,10 +36,10 @@ pub use serde::{
     Config, ExtensionConfig, FormatConfig, ParseConfig, ReaderConfig, RenderConfig,
     SyntaxConfig, TransformConfig, WriterConfig,
 };
-pub use traits::{BrokenLinkCallback, BrokenLinkReference, ResolvedReference, URLRewriter};
-pub use types::{
-    InputFormat, ListStyleType, OutputFormat, WikiLinksMode, WrapOption,
+pub use traits::{
+    BrokenLinkCallback, BrokenLinkReference, ResolvedReference, URLRewriter,
 };
+pub use types::{InputFormat, ListStyleType, OutputFormat, WikiLinksMode, WrapOption};
 
 /// Type alias for ParseOptions for backward compatibility.
 pub type Parse<'c> = ParseOptions<'c>;

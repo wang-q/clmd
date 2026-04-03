@@ -421,7 +421,8 @@ impl Config {
 
         self.extensions = ExtensionConfig {
             table: other.extensions.table || self.extensions.table,
-            strikethrough: other.extensions.strikethrough || self.extensions.strikethrough,
+            strikethrough: other.extensions.strikethrough
+                || self.extensions.strikethrough,
             tasklist: other.extensions.tasklist || self.extensions.tasklist,
             footnotes: other.extensions.footnotes || self.extensions.footnotes,
             autolink: other.extensions.autolink || self.extensions.autolink,

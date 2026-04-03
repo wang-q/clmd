@@ -21,7 +21,6 @@ pub struct Extension<'c> {
     // =========================================================================
     // GFM Extensions
     // =========================================================================
-
     /// Enables the strikethrough extension from the GFM spec.
     ///
     /// ```ignore
@@ -58,7 +57,6 @@ pub struct Extension<'c> {
     // =========================================================================
     // Syntax Extensions
     // =========================================================================
-
     /// Enables superscript text using `^` delimiters.
     pub superscript: bool,
 
@@ -147,7 +145,6 @@ pub struct Extension<'c> {
     // =========================================================================
     // Callbacks (require lifetime)
     // =========================================================================
-
     /// Wraps embedded image URLs using a function or custom trait object.
     #[arbitrary(default)]
     pub image_url_rewriter: Option<Arc<dyn URLRewriter + 'c>>,

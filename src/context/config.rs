@@ -114,7 +114,8 @@ impl Config {
         options.extension.spoiler = self.extensions.spoiler;
         options.extension.greentext = self.extensions.greentext;
         options.extension.alerts = self.extensions.alerts;
-        options.extension.multiline_block_quotes = self.extensions.multiline_block_quotes;
+        options.extension.multiline_block_quotes =
+            self.extensions.multiline_block_quotes;
         options.extension.description_lists = self.extensions.description_lists;
         options.extension.shortcodes = self.extensions.shortcodes;
 

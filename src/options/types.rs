@@ -283,7 +283,10 @@ mod tests {
             OutputFormat::from_str("markdown").unwrap(),
             OutputFormat::Markdown
         );
-        assert_eq!(OutputFormat::from_str("md").unwrap(), OutputFormat::Markdown);
+        assert_eq!(
+            OutputFormat::from_str("md").unwrap(),
+            OutputFormat::Markdown
+        );
         assert_eq!(
             OutputFormat::from_str("commonmark").unwrap(),
             OutputFormat::Markdown

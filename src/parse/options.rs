@@ -16,9 +16,9 @@
 
 // Re-export all types from the unified options module
 pub use crate::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, InputFormat, ListStyleType, Options,
-    OutputFormat, ParseOptions, Plugins, RenderOptions, ResolvedReference, URLRewriter,
-    WikiLinksMode, WrapOption,
+    BrokenLinkCallback, BrokenLinkReference, Extension, InputFormat, ListStyleType,
+    Options, OutputFormat, ParseOptions, Plugins, RenderOptions, ResolvedReference,
+    URLRewriter, WikiLinksMode, WrapOption,
 };
 
 // Re-export reader/writer options
