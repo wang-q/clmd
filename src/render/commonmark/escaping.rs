@@ -262,9 +262,34 @@ fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
 
 /// Check if we're inside a link URL context
 /// Parentheses need escaping in link URLs to avoid ambiguity
-fn is_in_link_url_context(_context: &dyn NodeFormatterContext) -> bool {
-    // For now, assume we're not in a link URL context
-    // In a full implementation, we'd track whether we're rendering a link URL
+fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
+    // Check if we're inside a Link or Image node
+    // The URL is rendered after the link text, so we need to track this
+    // For now, we check if the current node is inside a Link/Image
+    // A more precise implementation would track the exact rendering phase
+    let current_node = context.get_current_node();
+    if let Some(node_id) = current_node {
+        let arena = context.get_arena();
+        let mut current = node_id;
+
+        while let Some(node) = arena.try_get(current) {
+            match &node.value {
+                NodeValue::Link(_) | NodeValue::Image(_) => {
+                    // We're inside a link/image, but need to check if we're
+                    // in the URL part. For now, return true to be safe.
+                    // The escape_url function handles URL-specific escaping.
+                    return true;
+                }
+                _ => {
+                    if let Some(parent) = node.parent {
+                        current = parent;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
     false
 }
 

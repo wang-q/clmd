@@ -705,8 +705,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     },
                 ),
             ),
-            NodeFormattingHandler::new(
+            NodeFormattingHandler::with_close(
                 NodeValueType::Strikethrough,
+                Box::new(
+                    |_value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
+                     writer: &mut MarkdownWriter| {
+                        writer.append("~~");
+                    },
+                ),
                 Box::new(
                     |_value: &NodeValue,
                      _ctx: &mut dyn NodeFormatterContext,
@@ -885,10 +892,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |value: &NodeValue,
                      _ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        eprintln!("DEBUG: TaskItem handler called");
                         if let NodeValue::TaskItem(task) = value {
-                            eprintln!("DEBUG: TaskItem symbol={:?}", task.symbol);
-                            // Use append_raw to prevent escaping of [ and ]
                             if task.symbol.is_some() {
                                 writer.append_raw("[x] ");
                             } else {

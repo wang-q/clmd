@@ -396,11 +396,12 @@ impl<'a> MainFormatterContext<'a> {
         }
 
         // Otherwise, find any node and trace back to root
-        // This is a simplified approach - iterate through all nodes
-        for i in 0..1000 {
-            // Limit to avoid infinite loops
-            if let Some(_node) = self.arena.try_get(i) {
-                let mut current = i;
+        // Use arena's actual length instead of hardcoded limit
+        let node_count = self.arena.len();
+        for i in 0..node_count {
+            let node_id = i as NodeId;
+            if let Some(_node) = self.arena.try_get(node_id) {
+                let mut current = node_id;
                 loop {
                     let n = self.arena.get(current);
                     if let Some(parent) = n.parent {
