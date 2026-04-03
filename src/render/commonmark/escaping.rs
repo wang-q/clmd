@@ -255,7 +255,7 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut at_line_start = true;
 
-    for ch in &chars {
+    for (i, ch) in chars.iter().enumerate() {
         match *ch {
             '\n' | '\r' => {
                 // Newline - reset line start flag
@@ -266,6 +266,44 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
                 // Always escape backslash
                 result.push('\\');
                 result.push('\\');
+                at_line_start = false;
+            }
+            '_' => {
+                // Underscore needs special handling
+                // Only escape if it could form an emphasis marker
+                // An underscore forms an emphasis marker when:
+                // - It's surrounded by whitespace/punctuation (not inside a word)
+                // - It's at the start/end of a word
+                if is_in_code_context(context) {
+                    // Inside code, no escaping needed
+                    result.push('_');
+                } else if is_part_of_emphasis_node(context) {
+                    // Inside emphasis node, no escaping needed
+                    result.push('_');
+                } else if is_underscore_in_word(&chars, i) {
+                    // Underscore inside a word (like default_template) - don't escape
+                    result.push('_');
+                } else {
+                    // Could be an emphasis marker - escape it
+                    result.push('\\');
+                    result.push('_');
+                }
+                at_line_start = false;
+            }
+            '*' => {
+                // Asterisk also needs context-aware handling
+                if is_in_code_context(context) || is_part_of_emphasis_node(context) {
+                    result.push('*');
+                } else {
+                    // Check if it could form emphasis
+                    let prev_char = if i > 0 { chars.get(i - 1) } else { None };
+                    let next_char = chars.get(i + 1);
+                    
+                    if could_form_emphasis(prev_char, next_char) {
+                        result.push('\\');
+                    }
+                    result.push('*');
+                }
                 at_line_start = false;
             }
             _ => {
@@ -292,6 +330,66 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
     }
 
     result
+}
+
+/// Check if underscore is inside a word (surrounded by alphanumeric characters)
+/// 
+/// Examples:
+/// - "default_template" -> true (underscore inside word)
+/// - "_text_" -> false (underscore at word boundary, forms emphasis)
+/// - "word_" -> false (underscore at end of word)
+fn is_underscore_in_word(chars: &[char], pos: usize) -> bool {
+    let prev_char = if pos > 0 { chars.get(pos - 1) } else { None };
+    let next_char = chars.get(pos + 1);
+    
+    // Underscore is in a word if both adjacent characters are alphanumeric
+    let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+    let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+    
+    prev_is_alphanumeric && next_is_alphanumeric
+}
+
+/// Check if we're inside an emphasis or strong node
+fn is_part_of_emphasis_node(context: &dyn NodeFormatterContext) -> bool {
+    if let Some(node_id) = context.get_current_node() {
+        let arena = context.get_arena();
+        let mut current = node_id;
+
+        while let Some(node) = arena.try_get(current) {
+            match &node.value {
+                NodeValue::Emph | NodeValue::Strong => return true,
+                _ => {
+                    if let Some(parent) = node.parent {
+                        current = parent;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Check if an asterisk/underscore could form an emphasis marker
+/// 
+/// According to CommonMark, emphasis markers are:
+/// - Left-flanking: preceded by whitespace/punctuation, followed by non-whitespace
+/// - Right-flanking: followed by whitespace/punctuation, preceded by non-whitespace
+fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bool {
+    let prev_is_ws_or_punct = prev_char.map(|c| c.is_whitespace() || is_punctuation(*c)).unwrap_or(true);
+    let next_is_ws_or_punct = next_char.map(|c| c.is_whitespace() || is_punctuation(*c)).unwrap_or(true);
+    let prev_is_not_ws = prev_char.map(|c| !c.is_whitespace()).unwrap_or(false);
+    let next_is_not_ws = next_char.map(|c| !c.is_whitespace()).unwrap_or(false);
+    
+    // Left-flanking: preceded by ws/punct AND followed by non-ws
+    // Right-flanking: followed by ws/punct AND preceded by non-ws
+    (prev_is_ws_or_punct && next_is_not_ws) || (next_is_ws_or_punct && prev_is_not_ws)
+}
+
+/// Check if a character is punctuation (simplified)
+fn is_punctuation(ch: char) -> bool {
+    matches!(ch, '.' | ',' | '!' | '?' | ':' | ';' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '/' | '\\' | '|' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '=' | '~' | '`')
 }
 
 /// Escape text for use in code spans
@@ -684,5 +782,20 @@ mod tests {
         // Backslash should always be escaped
         assert_eq!(escape_text("a\\b", &ctx), "a\\\\b");
         assert_eq!(escape_text("path\\to\\file", &ctx), "path\\\\to\\\\file");
+    }
+
+    #[test]
+    fn test_no_unnecessary_underscore_escaping() {
+        let ctx = MockParagraphContext;
+        // Underscore inside words should NOT be escaped
+        assert_eq!(escape_text("default_template", &ctx), "default_template");
+        assert_eq!(escape_text("TemplateEngine", &ctx), "TemplateEngine");
+        assert_eq!(escape_text("snake_case_variable", &ctx), "snake_case_variable");
+        assert_eq!(escape_text("test_123_test", &ctx), "test_123_test");
+        
+        // Underscore at word boundaries SHOULD be escaped (could form emphasis)
+        assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
+        assert_eq!(escape_text("_start", &ctx), "\\_start");
+        assert_eq!(escape_text("end_", &ctx), "end\\_");
     }
 }
