@@ -98,8 +98,16 @@ pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
             if is_in_code_context(context) {
                 return false;
             }
-            // Check if at start of line
-            is_at_line_start(context)
+            // Only escape if at start of line AND followed by space
+            // # followed directly by text (like #469) is not a heading
+            if is_at_line_start(context) {
+                // Check if followed by space - need access to text content
+                // For now, we assume it needs escaping only if at line start
+                // A more precise check would require knowing the next character
+                true
+            } else {
+                false
+            }
         }
         // Less-than can start HTML tags or autolinks
         '<' | '>' => {
@@ -326,7 +334,11 @@ fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: Es
                     let prev_char = if i > 0 { chars.get(i - 1) } else { None };
                     let next_char = chars.get(i + 1);
                     
-                    if could_form_emphasis(prev_char, next_char) {
+                    // Don't escape if this is part of a sequence of asterisks (like ** or ***)
+                    // These are likely emphasis markers and should be preserved
+                    let is_part_of_sequence = prev_char == Some(&'*') || next_char == Some(&'*');
+                    
+                    if could_form_emphasis(prev_char, next_char) && !is_part_of_sequence {
                         result.push('\\');
                     }
                     result.push('*');
@@ -342,6 +354,19 @@ fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: Es
                 // In table mode, '!' only needs escaping when followed by '['
                 if i + 1 < chars.len() && chars[i + 1] == '[' {
                     result.push('\\');
+                }
+                result.push(*ch);
+                at_line_start = false;
+            }
+            '#' => {
+                // '#' only needs escaping at line start when followed by space (heading marker)
+                // # followed directly by text (like #469) is not a heading
+                if at_line_start && !is_in_code_context(context) {
+                    let next_char = chars.get(i + 1);
+                    let followed_by_space = next_char.map(|c| c.is_whitespace()).unwrap_or(false);
+                    if followed_by_space {
+                        result.push('\\');
+                    }
                 }
                 result.push(*ch);
                 at_line_start = false;
@@ -397,46 +422,97 @@ pub fn escape_markdown_for_table(text: &str, context: &dyn NodeFormatterContext)
 pub fn escape_markdown_for_table_simple(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
 
-    for (i, c) in chars.iter().enumerate() {
-        match *c {
+    while i < chars.len() {
+        let c = chars[i];
+        match c {
             '\\' => {
                 // Always escape backslash
                 result.push('\\');
-                result.push(*c);
+                result.push(c);
+                i += 1;
+            }
+            '`' => {
+                // Found inline code - copy everything until closing backtick
+                result.push(c);
+                i += 1;
+                
+                // Find the closing backtick
+                while i < chars.len() && chars[i] != '`' {
+                    result.push(chars[i]);
+                    i += 1;
+                }
+                
+                // Add closing backtick if found
+                if i < chars.len() {
+                    result.push(chars[i]);
+                    i += 1;
+                }
             }
             '_' => {
                 // Only escape underscore if it could form emphasis marker
                 // (not inside a word like default_template)
                 if is_underscore_in_word_simple(&chars, i) {
                     // Underscore inside word - don't escape
-                    result.push(*c);
+                    result.push(c);
                 } else {
                     // Could be emphasis marker - escape it
                     result.push('\\');
-                    result.push(*c);
+                    result.push(c);
                 }
+                i += 1;
             }
             '*' => {
-                // Escape asterisk (could form emphasis)
-                result.push('\\');
-                result.push(*c);
+                // Don't escape if this is part of a sequence of asterisks (like ** or ***)
+                // These are likely emphasis markers and should be preserved
+                let prev_char = if i > 0 { chars.get(i - 1) } else { None };
+                let next_char = chars.get(i + 1);
+                let is_part_of_sequence = prev_char == Some(&'*') || next_char == Some(&'*');
+                
+                // Also check if it could form emphasis (similar to escape_text_internal)
+                let could_be_emphasis = could_form_emphasis_simple(prev_char, next_char);
+                
+                if could_be_emphasis && !is_part_of_sequence {
+                    result.push('\\');
+                }
+                result.push(c);
+                i += 1;
             }
             '[' | ']' | '<' | '>' => {
                 // Escape these special characters
                 result.push('\\');
-                result.push(*c);
+                result.push(c);
+                i += 1;
             }
             '!' => {
                 // '!' only needs escaping when followed by '[' (image syntax)
                 if i + 1 < chars.len() && chars[i + 1] == '[' {
                     result.push('\\');
                 }
-                result.push(*c);
+                result.push(c);
+                i += 1;
+            }
+            '#' => {
+                // '#' only needs escaping at the start of a line when it forms a heading
+                // A heading is: # followed by space, or multiple # followed by space
+                // In table cells, # followed directly by text (like #469) is not a heading
+                let is_at_start = i == 0 || chars.get(i - 1).map(|c| c.is_whitespace()).unwrap_or(false);
+                let followed_by_space = chars.get(i + 1).map(|c| c.is_whitespace()).unwrap_or(false);
+                let followed_by_digit = chars.get(i + 1).map(|c| c.is_ascii_digit()).unwrap_or(false);
+                
+                // Only escape if at start AND followed by space (not followed by digit)
+                if is_at_start && followed_by_space && !followed_by_digit {
+                    // This could be interpreted as an ATX heading
+                    result.push('\\');
+                }
+                result.push(c);
+                i += 1;
             }
             _ => {
                 // Pipe and other characters are preserved
-                result.push(*c);
+                result.push(c);
+                i += 1;
             }
         }
     }
@@ -455,6 +531,18 @@ fn is_underscore_in_word_simple(chars: &[char], pos: usize) -> bool {
     let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
 
     prev_is_alphanumeric && next_is_alphanumeric
+}
+
+/// Simple version of could_form_emphasis for use without context
+/// Checks if an asterisk/underscore could form an emphasis marker
+fn could_form_emphasis_simple(prev_char: Option<&char>, next_char: Option<&char>) -> bool {
+    // Simplified version: assume it could form emphasis if not surrounded by other asterisks
+    // and not in the middle of a word
+    let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+    let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
+    
+    // Could form emphasis if at word boundary or surrounded by whitespace/punctuation
+    !(prev_is_alphanumeric && next_is_alphanumeric)
 }
 
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)
@@ -512,9 +600,23 @@ fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bo
     (prev_is_ws_or_punct && next_is_not_ws) || (next_is_ws_or_punct && prev_is_not_ws)
 }
 
-/// Check if a character is punctuation (simplified)
+/// Check if a character is punctuation (including CJK punctuation)
 fn is_punctuation(ch: char) -> bool {
-    matches!(ch, '.' | ',' | '!' | '?' | ':' | ';' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '/' | '\\' | '|' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '=' | '~' | '`')
+    // ASCII punctuation
+    if matches!(ch, '.' | ',' | '!' | '?' | ':' | ';' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '/' | '\\' | '|' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '=' | '~' | '`') {
+        return true;
+    }
+    
+    // CJK punctuation marks
+    matches!(ch,
+        // CJK Symbols and Punctuation block
+        '\u{3000}'..='\u{303F}' |
+        // Fullwidth ASCII variants
+        '\u{FF01}'..='\u{FF0F}' |  // ！＂＃＄％＆＇（）＊＋，－．／
+        '\u{FF1A}'..='\u{FF20}' |  // ：；＜＝＞？＠
+        '\u{FF3B}'..='\u{FF40}' |  // ［＼］＾＿｀
+        '\u{FF5B}'..='\u{FF65}'    // ｛｜｝～｟｠｡｢｣､･
+    )
 }
 
 /// Escape text for use in code spans
