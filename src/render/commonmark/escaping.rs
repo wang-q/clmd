@@ -15,15 +15,14 @@ use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 
 /// Characters that have special meaning in Markdown
+/// Only includes characters that actually need escaping in most contexts
 const MARKDOWN_SPECIAL_CHARS: &[char] = &[
-    '\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '(', ')', '#', '+', '-', '.',
-    '!', '|',
+    '\\', '`', '*', '_', '[', ']', '<', '>', '#', '!', '|',
 ];
 
 /// Characters that need escaping at the start of a line
 /// These are block-level markers that would be interpreted as structural elements
-const LINE_START_SPECIAL_CHARS: &[char] =
-    &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
+const LINE_START_SPECIAL_CHARS: &[char] = &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
 
 /// Characters that need escaping in link text
 const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
@@ -158,21 +157,28 @@ fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
 }
 
 /// Check if we're at the start of a line
+///
+/// This function determines if the current position is at the start of a line
+/// where special characters might be interpreted as Markdown block markers.
 fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
-    // Check if we're inside a heading - if so, we're not really at line start
-    // because the heading handler adds the prefix
     if let Some(node_id) = context.get_current_node() {
         let arena = context.get_arena();
         let mut current = node_id;
 
-        // Walk up the tree to check if we're inside a heading
+        // Walk up the tree to check the context
         while let Some(node) = arena.try_get(current) {
             match &node.value {
-                NodeValue::Heading(_) => {
-                    // We're inside a heading, so the # is not at line start
-                    // (the heading handler adds the # prefix)
-                    return false;
-                }
+                // Inside a heading - the # is not at line start because
+                // the heading handler adds the # prefix
+                NodeValue::Heading(_) => return false,
+                // Inside a list item - the content is indented, not at line start
+                NodeValue::Item(_) => return false,
+                // Inside a blockquote - content is prefixed with >
+                NodeValue::BlockQuote => return false,
+                // Inside a table cell - content is within cell boundaries
+                NodeValue::TableCell => return false,
+                // Inside code blocks - no escaping needed
+                NodeValue::CodeBlock(_) => return false,
                 _ => {
                     if let Some(parent) = node.parent {
                         current = parent;
@@ -184,14 +190,24 @@ fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
         }
     }
 
-    // For now, assume it might be at line start to be safe
+    // If we're at the document level or in a paragraph at the top level,
+    // we might be at line start
     true
 }
 
 /// Check if the current position is followed by a bracket
+/// 
+/// This is a simplified implementation that assumes the exclamation mark
+/// might be followed by a bracket. In a full implementation, we'd need
+/// access to the text content to check the next character.
+/// 
+/// For now, we return false to avoid unnecessary escaping of standalone `!`.
+/// The `!` will only be escaped when it's actually part of image syntax `[...]`
+/// which is handled by the parser.
 fn is_followed_by_bracket(_context: &dyn NodeFormatterContext) -> bool {
-    // Simplified - in a full implementation, we'd check the next character
-    true
+    // Return false to avoid escaping standalone `!` characters
+    // Image syntax `![...]` is handled at the parser level, not here
+    false
 }
 
 /// Check if we're inside a table
@@ -480,5 +496,193 @@ mod tests {
         assert_eq!(escape_regex("a.b"), "a\\.b");
         assert_eq!(escape_regex("a*b"), "a\\*b");
         assert_eq!(escape_regex("[test]"), "\\[test\\]");
+    }
+
+    // Regression tests for unnecessary escaping fix
+
+    /// Mock context for testing that simulates being in a paragraph
+    struct MockParagraphContext;
+
+    impl NodeFormatterContext for MockParagraphContext {
+        fn get_markdown_writer(
+            &mut self,
+        ) -> &mut crate::formatter::writer::MarkdownWriter {
+            panic!("Not implemented")
+        }
+
+        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
+            panic!("Not implemented")
+        }
+
+        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
+            crate::formatter::phase::FormattingPhase::Document
+        }
+
+        fn delegate_render(&mut self) {}
+
+        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+            panic!("Not implemented")
+        }
+
+        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
+            crate::formatter::purpose::RenderPurpose::Format
+        }
+
+        fn get_arena(&self) -> &crate::core::arena::NodeArena {
+            panic!("Not implemented")
+        }
+
+        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
+            None
+        }
+
+        fn get_nodes_of_type(
+            &self,
+            _node_type: crate::formatter::node::NodeValueType,
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_nodes_of_types(
+            &self,
+            _node_types: &[crate::formatter::node::NodeValueType],
+        ) -> Vec<crate::core::arena::NodeId> {
+            vec![]
+        }
+
+        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
+            Box::new(|c| c == '>')
+        }
+
+        fn get_block_quote_like_prefix_chars(&self) -> &str {
+            ">"
+        }
+
+        fn transform_non_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn transform_translating(&self, text: &str) -> String {
+            text.to_string()
+        }
+
+        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
+            panic!("Not implemented")
+        }
+
+        fn is_in_tight_list(&self) -> bool {
+            false
+        }
+
+        fn set_tight_list(&mut self, _tight: bool) {}
+
+        fn get_list_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_list_nesting(&mut self) {}
+
+        fn decrement_list_nesting(&mut self) {}
+
+        fn is_in_block_quote(&self) -> bool {
+            false
+        }
+
+        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
+
+        fn get_block_quote_nesting_level(&self) -> usize {
+            0
+        }
+
+        fn increment_block_quote_nesting(&mut self) {}
+
+        fn decrement_block_quote_nesting(&mut self) {}
+
+        fn start_table_collection(
+            &mut self,
+            _alignments: Vec<crate::core::nodes::TableAlignment>,
+        ) {
+        }
+
+        fn add_table_row(&mut self) {}
+
+        fn add_table_cell(&mut self, _content: String) {}
+
+        fn take_table_data(
+            &mut self,
+        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
+        {
+            None
+        }
+
+        fn is_collecting_table(&self) -> bool {
+            false
+        }
+
+        fn set_skip_children(&mut self, _skip: bool) {}
+
+        fn render_children_to_string(
+            &mut self,
+            _node_id: crate::core::arena::NodeId,
+        ) -> String {
+            String::new()
+        }
+    }
+
+    #[test]
+    fn test_no_unnecessary_parentheses_escaping() {
+        let ctx = MockParagraphContext;
+        // Parentheses in normal text should NOT be escaped
+        assert_eq!(escape_text("(text)", &ctx), "(text)");
+        assert_eq!(escape_text("(hello world)", &ctx), "(hello world)");
+        assert_eq!(escape_text("function(arg)", &ctx), "function(arg)");
+    }
+
+    #[test]
+    fn test_no_unnecessary_curly_braces_escaping() {
+        let ctx = MockParagraphContext;
+        // Curly braces in normal text should NOT be escaped
+        assert_eq!(escape_text("{text}", &ctx), "{text}");
+        assert_eq!(escape_text("{key: value}", &ctx), "{key: value}");
+    }
+
+    #[test]
+    fn test_no_unnecessary_dot_escaping() {
+        let ctx = MockParagraphContext;
+        // Dots in normal text should NOT be escaped
+        assert_eq!(escape_text("Hello.", &ctx), "Hello.");
+        assert_eq!(escape_text("a.b.c", &ctx), "a.b.c");
+        assert_eq!(escape_text("version 1.0", &ctx), "version 1.0");
+    }
+
+    #[test]
+    fn test_no_unnecessary_plus_minus_escaping() {
+        let ctx = MockParagraphContext;
+        // Plus and minus in normal text should NOT be escaped
+        assert_eq!(escape_text("a + b", &ctx), "a + b");
+        assert_eq!(escape_text("a - b", &ctx), "a - b");
+        assert_eq!(escape_text("+5 - 3", &ctx), "+5 - 3");
+    }
+
+    #[test]
+    fn test_still_escape_necessary_chars() {
+        let ctx = MockParagraphContext;
+        // These characters should still be escaped when needed
+        assert_eq!(escape_text("*text*", &ctx), "\\*text\\*");
+        assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
+        assert_eq!(escape_text("[link]", &ctx), "\\[link\\]");
+        assert_eq!(escape_text("`code`", &ctx), "\\`code\\`");
+    }
+
+    #[test]
+    fn test_backslash_always_escaped() {
+        let ctx = MockParagraphContext;
+        // Backslash should always be escaped
+        assert_eq!(escape_text("a\\b", &ctx), "a\\\\b");
+        assert_eq!(escape_text("path\\to\\file", &ctx), "path\\\\to\\\\file");
     }
 }
