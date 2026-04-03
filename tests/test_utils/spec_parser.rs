@@ -31,6 +31,7 @@ pub struct SpecExample {
 /// A single formatter test example from a spec file
 /// Formatter specs have Markdown output instead of HTML
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FormatterSpecExample {
     /// Section name in the spec file
     pub section: String,
@@ -40,8 +41,6 @@ pub struct FormatterSpecExample {
     pub input: String,
     /// Expected Markdown output (not HTML)
     pub expected_output: String,
-    /// Expected AST output (optional)
-    pub expected_ast: Option<String>,
     /// Test options
     pub options: Vec<String>,
 }
@@ -130,6 +129,7 @@ pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
 
 /// Parse a formatter spec file content and extract all test examples
 /// Formatter specs have Markdown output instead of HTML
+#[allow(dead_code)]
 pub fn parse_formatter_spec_file(content: &str) -> Vec<FormatterSpecExample> {
     let mut examples = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -165,26 +165,18 @@ pub fn parse_formatter_spec_file(content: &str) -> Vec<FormatterSpecExample> {
 
                 // Check if there's AST output (until the closing fence)
                 // AST is optional - if the next line is the closing fence, there's no AST
-                let mut ast_lines = Vec::new();
-                let expected_ast = if i < lines.len()
-                    && lines[i].starts_with("````````````````````````````````")
+                // Skip AST section if present (until the closing fence)
+                // AST is optional - if the next line is the closing fence, there's no AST
+                if i < lines.len()
+                    && !lines[i].starts_with("````````````````````````````````")
                 {
-                    // No AST section, closing fence immediately
-                    None
-                } else {
-                    // Collect AST until the closing fence
+                    // Skip AST lines until the closing fence
                     while i < lines.len()
                         && !lines[i].starts_with("````````````````````````````````")
                     {
-                        ast_lines.push(lines[i]);
                         i += 1;
                     }
-                    if ast_lines.is_empty() {
-                        None
-                    } else {
-                        Some(ast_lines.join("\n"))
-                    }
-                };
+                }
 
                 // Skip the closing fence
                 i += 1;
@@ -197,7 +189,6 @@ pub fn parse_formatter_spec_file(content: &str) -> Vec<FormatterSpecExample> {
                     number,
                     input,
                     expected_output,
-                    expected_ast,
                     options,
                 });
             } else {

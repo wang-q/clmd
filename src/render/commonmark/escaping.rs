@@ -164,7 +164,7 @@ fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
     if let Some(node_id) = context.get_current_node() {
         let arena = context.get_arena();
         let mut current = node_id;
-        
+
         // Walk up the tree to check if we're inside a heading
         while let Some(node) = arena.try_get(current) {
             match &node.value {
@@ -183,7 +183,7 @@ fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
             }
         }
     }
-    
+
     // For now, assume it might be at line start to be safe
     true
 }
@@ -255,7 +255,10 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
             _ => {
                 // Check if we need to escape this character
                 // First check context-aware rules, then check line-start rules
-                let needs_escape = if at_line_start && LINE_START_SPECIAL_CHARS.contains(ch) && !is_in_code_context(context) {
+                let needs_escape = if at_line_start
+                    && LINE_START_SPECIAL_CHARS.contains(ch)
+                    && !is_in_code_context(context)
+                {
                     // At line start with a special character - check if context says it needs escaping
                     need_to_escape(*ch, context)
                 } else {
@@ -409,139 +412,6 @@ pub fn escape_regex(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Mock context for testing
-    struct MockContext;
-
-    impl NodeFormatterContext for MockContext {
-        fn get_markdown_writer(
-            &mut self,
-        ) -> &mut crate::formatter::writer::MarkdownWriter {
-            panic!("Not implemented")
-        }
-
-        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
-        }
-
-        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
-        }
-
-        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
-            crate::formatter::phase::FormattingPhase::Document
-        }
-
-        fn delegate_render(&mut self) {}
-
-        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
-            panic!("Not implemented")
-        }
-
-        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
-            crate::formatter::purpose::RenderPurpose::Format
-        }
-
-        fn get_arena(&self) -> &crate::core::arena::NodeArena {
-            panic!("Not implemented")
-        }
-
-        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
-            None
-        }
-
-        fn get_nodes_of_type(
-            &self,
-            _node_type: crate::formatter::node::NodeValueType,
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-
-        fn get_nodes_of_types(
-            &self,
-            _node_types: &[crate::formatter::node::NodeValueType],
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-
-        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-            Box::new(|c| c == '>')
-        }
-
-        fn get_block_quote_like_prefix_chars(&self) -> &str {
-            ">"
-        }
-
-        fn transform_non_translating(&self, text: &str) -> String {
-            text.to_string()
-        }
-
-        fn transform_translating(&self, text: &str) -> String {
-            text.to_string()
-        }
-
-        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            panic!("Not implemented")
-        }
-
-        fn is_in_tight_list(&self) -> bool {
-            false
-        }
-
-        fn set_tight_list(&mut self, _tight: bool) {}
-
-        fn get_list_nesting_level(&self) -> usize {
-            0
-        }
-
-        fn increment_list_nesting(&mut self) {}
-
-        fn decrement_list_nesting(&mut self) {}
-
-        fn is_in_block_quote(&self) -> bool {
-            false
-        }
-
-        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
-
-        fn get_block_quote_nesting_level(&self) -> usize {
-            0
-        }
-
-        fn increment_block_quote_nesting(&mut self) {}
-
-        fn decrement_block_quote_nesting(&mut self) {}
-
-        fn start_table_collection(
-            &mut self,
-            _alignments: Vec<crate::core::nodes::TableAlignment>,
-        ) {
-        }
-
-        fn add_table_row(&mut self) {}
-
-        fn add_table_cell(&mut self, _content: String) {}
-
-        fn take_table_data(
-            &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
-        {
-            None
-        }
-
-        fn is_collecting_table(&self) -> bool {
-            false
-        }
-
-        fn set_skip_children(&mut self, _skip: bool) {}
-
-        fn render_children_to_string(
-            &mut self,
-            _node_id: crate::core::arena::NodeId,
-        ) -> String {
-            String::new()
-        }
-    }
 
     #[test]
     fn test_is_markdown_special_char() {

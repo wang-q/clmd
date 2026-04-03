@@ -3,7 +3,6 @@
 //! These tests are migrated from flexmark-java's formatter test suite.
 //! They test the CommonMark formatter with various options and configurations.
 
-use clmd::core::arena::NodeArena;
 use clmd::parse::options::Options as ParseOptions;
 use clmd::parse::parse_document;
 use clmd::render::commonmark::options::{
@@ -24,10 +23,16 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
         "atx-space-as-is" => options.space_after_atx_marker = false,
         "atx-space-add" => options.space_after_atx_marker = true,
         "atx-space-remove" => options.space_after_atx_marker = false,
-        "atx-trailing-as-is" => options.atx_heading_trailing_marker = TrailingMarker::AsIs,
+        "atx-trailing-as-is" => {
+            options.atx_heading_trailing_marker = TrailingMarker::AsIs
+        }
         "atx-trailing-add" => options.atx_heading_trailing_marker = TrailingMarker::Add,
-        "atx-trailing-equalize" => options.atx_heading_trailing_marker = TrailingMarker::Equalize,
-        "atx-trailing-remove" => options.atx_heading_trailing_marker = TrailingMarker::Remove,
+        "atx-trailing-equalize" => {
+            options.atx_heading_trailing_marker = TrailingMarker::Equalize
+        }
+        "atx-trailing-remove" => {
+            options.atx_heading_trailing_marker = TrailingMarker::Remove
+        }
 
         // Setext heading options
         "setext-no-equalize" => options.setext_heading_equalize_marker = false,
@@ -60,8 +65,12 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
         "remove-empty-items" => options.list_remove_empty_items = true,
 
         // Code fence options
-        "fenced-code-marker-backtick" => options.fenced_code_marker_type = CodeFenceMarker::BackTick,
-        "fenced-code-marker-tilde" => options.fenced_code_marker_type = CodeFenceMarker::Tilde,
+        "fenced-code-marker-backtick" => {
+            options.fenced_code_marker_type = CodeFenceMarker::BackTick
+        }
+        "fenced-code-marker-tilde" => {
+            options.fenced_code_marker_type = CodeFenceMarker::Tilde
+        }
         "fenced-code-match-closing" => options.fenced_code_match_closing_marker = true,
         "fenced-code-spaced-info" => options.fenced_code_space_before_info = true,
         "fenced-code-minimize" => options.fenced_code_minimize_indent = true,
@@ -69,11 +78,15 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
 
         // Block quote options
         "no-block-quote-blank-lines" => options.block_quote_blank_lines = false,
-        "block-quote-compact" => options.block_quote_markers = BlockQuoteMarker::AddCompact,
+        "block-quote-compact" => {
+            options.block_quote_markers = BlockQuoteMarker::AddCompact
+        }
         "block-quote-compact-with-space" => {
             options.block_quote_markers = BlockQuoteMarker::AddCompactWithSpace
         }
-        "block-quote-spaced" => options.block_quote_markers = BlockQuoteMarker::AddSpaced,
+        "block-quote-spaced" => {
+            options.block_quote_markers = BlockQuoteMarker::AddSpaced
+        }
 
         // Thematic break options
         "thematic-break" => {
@@ -81,7 +94,9 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
         }
 
         // Reference placement options
-        "references-document-top" => options.reference_placement = ElementPlacement::DocumentTop,
+        "references-document-top" => {
+            options.reference_placement = ElementPlacement::DocumentTop
+        }
         "references-document-bottom" => {
             options.reference_placement = ElementPlacement::DocumentBottom
         }
@@ -120,9 +135,9 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
         "formatter-tags-enabled" => options.formatter_tags_enabled = true,
 
         // Parse options (not formatter options, but we track them)
-        "parse-github" => {} // Parser option
-        "parse-fixed-indent" => {} // Parser option
-        "format-github" => {} // Format style
+        "parse-github" => {}        // Parser option
+        "parse-fixed-indent" => {}  // Parser option
+        "format-github" => {}       // Format style
         "format-fixed-indent" => {} // Format style
 
         // Margin options (formatting width)
@@ -147,7 +162,7 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
 
         // List mismatch options
         "list-no-delimiter-mismatch-to-new-list" => {} // Parser option
-        "list-no-item-mismatch-to-new-list" => {} // Parser option
+        "list-no-item-mismatch-to-new-list" => {}      // Parser option
 
         _ => {
             // Unknown option - ignore for now
@@ -164,7 +179,9 @@ fn format_markdown(input: &str, options: &FormatterOptions) -> String {
 
     // Format using the formatter
     let mut formatter = Formatter::with_options(options.clone());
-    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::with_options(options.clone())));
+    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::with_options(
+        options.clone(),
+    )));
 
     formatter.render(&arena, root)
 }
@@ -198,16 +215,22 @@ fn run_formatter_example(example: &FormatterSpecExample) {
         .join("\n");
 
     assert_eq!(
-        actual_trimmed, expected_trimmed,
+        actual_trimmed,
+        expected_trimmed,
         "Test {}:{} failed\nOptions: {:?}\nInput:\n{}\n\nExpected:\n{}\n\nActual:\n{}",
-        example.section, example.number, example.options, example.input, expected, actual
+        example.section,
+        example.number,
+        example.options,
+        example.input,
+        expected,
+        actual
     );
 }
 
 /// Run formatter spec tests from a file
 fn run_formatter_spec_file(spec_file: &str) {
-    let content =
-        fs::read_to_string(spec_file).unwrap_or_else(|_| panic!("Failed to read {}", spec_file));
+    let content = fs::read_to_string(spec_file)
+        .unwrap_or_else(|_| panic!("Failed to read {}", spec_file));
 
     let examples = parse_formatter_spec_file(&content);
     println!("Found {} examples in {}", examples.len(), spec_file);

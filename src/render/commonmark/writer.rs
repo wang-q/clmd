@@ -199,7 +199,7 @@ impl MarkdownWriter {
     /// Flush any remaining text in the word wrap buffer
     pub fn flush_word_wrap_buffer(&mut self) -> &mut Self {
         if !self.word_wrap_buffer.is_empty() {
-            self.append(&self.word_wrap_buffer.clone());
+            self.append(self.word_wrap_buffer.clone());
             self.word_wrap_buffer.clear();
         }
         self

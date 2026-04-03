@@ -427,7 +427,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                             effective_number,
                                             options,
                                         );
-                                    (marker, level, Some(list.clone()))
+                                    (marker, level, Some(*list))
                                 } else {
                                     ("- ".to_string(), 0, None)
                                 }
@@ -498,9 +498,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         // Check if this is the last item in the list
                         let is_last_item = ctx
                             .get_current_node()
-                            .and_then(|id| {
+                            .map(|id| {
                                 let arena = ctx.get_arena();
-                                Some(arena.get(id).next.is_none())
+                                arena.get(id).next.is_none()
                             })
                             .unwrap_or(true);
 

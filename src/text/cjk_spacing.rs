@@ -53,10 +53,11 @@ pub fn add_cjk_spacing(text: &str) -> String {
             let next = chars[i + 1];
 
             // Don't add space if either character is already whitespace
-            if !current.is_whitespace() && !next.is_whitespace() {
-                if needs_spacing(current, next) {
-                    result.push(' ');
-                }
+            if !current.is_whitespace()
+                && !next.is_whitespace()
+                && needs_spacing(current, next)
+            {
+                result.push(' ');
             }
         }
     }
