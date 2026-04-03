@@ -67,7 +67,7 @@ impl Reader for HtmlReader {
     ) -> ClmdResult<(NodeArena, NodeId)> {
         // Convert HTML to Markdown, then parse
         let markdown = html_to_markdown(input);
-        let parser_options = crate::parse::options::Options::default();
+        let parser_options = crate::options::Options::default();
         Ok(parse::parse_document(&markdown, &parser_options))
     }
 

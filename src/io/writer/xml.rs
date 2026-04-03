@@ -7,7 +7,7 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeValue};
 use crate::io::format::xml::escape_xml;
-use crate::parse::options::{Options, Plugins, WriterOptions};
+use crate::options::{Options, Plugins, WriterOptions};
 use std::fmt;
 
 /// Write a document as XML.

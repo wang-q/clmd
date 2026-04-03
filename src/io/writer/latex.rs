@@ -5,7 +5,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
-use crate::parse::options::WriterOptions;
+use crate::options::WriterOptions;
 
 /// Render a node tree as LaTeX.
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {

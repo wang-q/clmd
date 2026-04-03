@@ -9,13 +9,11 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{parse_document, parse::options::Options};
+//! use clmd::{parse_document, options::Options};
 //!
 //! let options = Options::default();
 //! let (arena, root) = parse_document("Hello **world**!", &options);
 //! ```
-
-pub mod options;
 
 /// Block-level parsing module.
 pub mod block;
@@ -103,7 +101,7 @@ pub mod util {
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ParseResult, ParserLimits};
 use crate::parse::block::BlockParser;
-use options::Options;
+use crate::options::Options;
 
 /// Parse a Markdown document to an AST.
 ///
@@ -113,7 +111,7 @@ use options::Options;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, parse::options::Options};
+/// use clmd::{parse_document, options::Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
@@ -131,7 +129,7 @@ pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document_with_limits, parse::options::Options};
+/// use clmd::{parse_document_with_limits, options::Options};
 /// use clmd::core::error::ParserLimits;
 ///
 /// let options = Options::default();

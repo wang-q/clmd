@@ -21,7 +21,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
-use crate::parse::options::WriterOptions;
+use crate::options::WriterOptions;
 use std::io::Write;
 
 /// PDF export options

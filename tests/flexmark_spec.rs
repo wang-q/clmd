@@ -1,5 +1,5 @@
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options

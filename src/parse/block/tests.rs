@@ -3,7 +3,7 @@
 use crate::core::arena::NodeArena;
 use crate::core::nodes::NodeValue;
 use crate::parse::block::BlockParser;
-use crate::parse::options::Options;
+use crate::options::Options;
 
 #[test]
 fn test_parser_creation() {

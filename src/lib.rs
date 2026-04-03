@@ -1184,7 +1184,7 @@ mod tests {
         let html = render::html::render(
             &arena,
             root,
-            &crate::parse::options::Options::default(),
+            &crate::options::Options::default(),
         );
         assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
         assert!(
@@ -1276,7 +1276,7 @@ mod tests {
         let html = render::html::render(
             &arena,
             root,
-            &crate::parse::options::Options::default(),
+            &crate::options::Options::default(),
         );
         assert!(
             html.contains("😄"),

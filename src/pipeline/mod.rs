@@ -120,7 +120,7 @@ impl Pipeline {
         _options: &Options,
     ) -> ClmdResult<String> {
         // Step 1: Read the input
-        let reader_options = crate::parse::options::ReaderOptions::default();
+        let reader_options = crate::options::ReaderOptions::default();
         let (mut arena, root) =
             self.reader.read(input, &reader_options).map_err(|e| {
                 ClmdError::parse_error(Position::start(), format!("Read error: {}", e))
@@ -134,7 +134,7 @@ impl Pipeline {
         }
 
         // Step 3: Write the output
-        let writer_options = crate::parse::options::WriterOptions::default();
+        let writer_options = crate::options::WriterOptions::default();
         self.writer
             .write(&arena, root, ctx, &writer_options)
             .map_err(|e| ClmdError::io_error(format!("Write error: {}", e)))

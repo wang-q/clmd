@@ -4,7 +4,7 @@
 //! covered by the standard CommonMark spec tests.
 
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {

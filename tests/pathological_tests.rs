@@ -4,7 +4,7 @@
 //! or stack overflows. Based on cmark's pathological_tests.py.
 
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 use std::time::{Duration, Instant};
 
 const TIMEOUT: Duration = Duration::from_secs(5);

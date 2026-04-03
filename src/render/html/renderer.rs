@@ -5,7 +5,7 @@
 use crate::core::adapter::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
-use crate::parse::options::Options;
+use crate::options::Options;
 use std::fmt::Write;
 
 /// HTML renderer state

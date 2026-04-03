@@ -5,7 +5,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
-use crate::parse::options::WriterOptions;
+use crate::options::WriterOptions;
 
 /// Render an AST as Man page.
 pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {

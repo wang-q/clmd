@@ -8,7 +8,7 @@
 //!
 //! ```ignore
 //! use clmd::plugins::{Plugins, SyntaxHighlighterAdapter};
-//! use clmd::parse::options::Options;
+//! use clmd::options::Options;
 //!
 //! // Create a custom syntax highlighter
 //! struct MyHighlighter;

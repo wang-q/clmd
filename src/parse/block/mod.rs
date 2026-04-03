@@ -18,7 +18,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{Arena, parse_document, format_html, parse::options::Options};
+//! use clmd::{Arena, parse_document, format_html, options::Options};
 //!
 //! let mut arena = Arena::new();
 //! let options = Options::default();

@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{markdown_to_html, parse::options::Options};
+//! use clmd::{markdown_to_html, options::Options};
 //!
 //! let options = Options::default();
 //! let html = markdown_to_html("# Hello\n\nWorld", &options);
@@ -25,7 +25,7 @@
 //! ```
 
 use crate::core::arena::{NodeArena, NodeId};
-use crate::parse::options::Options;
+use crate::options::Options;
 
 pub mod commonmark;
 pub mod html;
@@ -146,7 +146,7 @@ pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String 
 ///
 /// This is a convenience function that uses the Man page renderer.
 pub fn render_to_man(arena: &NodeArena, root: NodeId, _options: u32) -> String {
-    let options = crate::parse::options::WriterOptions::default();
+    let options = crate::options::WriterOptions::default();
     crate::io::writer::man::write_man(arena, root, &options).unwrap_or_default()
 }
 
@@ -183,7 +183,7 @@ pub enum OutputFormat {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, render, OutputFormat, parse::options::Options, Arena};
+/// use clmd::{parse_document, render, OutputFormat, options::Options, Arena};
 ///
 /// let mut arena = Arena::new();
 /// let options = Options::default();

@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{parse_document, parse::options::Options};
+//! use clmd::{parse_document, options::Options};
 //! use clmd::render::html::render;
 //!
 //! let options = Options::default();
@@ -37,7 +37,7 @@ mod tests;
 
 use crate::core::adapter::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
-use crate::parse::options::Options;
+use crate::options::Options;
 
 /// Render a node tree as HTML
 ///

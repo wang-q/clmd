@@ -7,7 +7,7 @@ mod tests {
         ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList,
         NodeThematicBreak,
     };
-    use crate::parse::options::Options;
+    use crate::options::Options;
     use crate::render::html::{render, render_with_highlighter};
     use crate::text::html_utils::escape_html;
 

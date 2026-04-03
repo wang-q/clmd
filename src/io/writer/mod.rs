@@ -316,7 +316,7 @@ impl Writer for HtmlWriter {
         _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
         options: &WriterOptions,
     ) -> ClmdResult<String> {
-        let mut render_options = crate::parse::options::Options::default();
+        let mut render_options = crate::options::Options::default();
         render_options.render.sourcepos = options.output_sourcepos;
         render_options.extension.tagfilter =
             options.extensions.contains(ExtensionFlags::TAGFILTER);

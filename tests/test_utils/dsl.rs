@@ -21,7 +21,7 @@
 //! ```
 
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 use std::fmt;
 
 /// A test case result

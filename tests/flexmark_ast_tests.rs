@@ -1,5 +1,5 @@
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 
 mod test_utils;
 use test_utils::spec_parser::parse_spec_file;

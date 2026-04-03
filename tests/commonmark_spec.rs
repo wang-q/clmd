@@ -1,5 +1,5 @@
 use clmd::markdown_to_html;
-use clmd::parse::options::Options;
+use clmd::options::Options;
 use std::collections::HashMap;
 use std::fs;
 
