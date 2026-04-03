@@ -29,9 +29,9 @@ pub mod escaping;
 mod renderer;
 
 // Import submodules that extend HtmlRenderer with additional methods
-mod nodes;
 mod code;
 mod footnote;
+mod nodes;
 mod table;
 mod tests;
 

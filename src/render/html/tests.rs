@@ -3,7 +3,10 @@
 #[cfg(test)]
 mod tests {
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeThematicBreak, ListType};
+    use crate::core::nodes::{
+        ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList,
+        NodeThematicBreak,
+    };
     use crate::parse::options::Options;
     use crate::render::html::{render, render_with_highlighter};
     use crate::text::html_utils::escape_html;
@@ -18,9 +21,13 @@ mod tests {
     #[test]
     fn test_render_paragraph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Hello world")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Hello world"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
@@ -37,10 +44,14 @@ mod tests {
     #[test]
     fn test_render_emph() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
         let emph = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Emph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("emphasized")));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("emphasized"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, emph);
@@ -53,10 +64,15 @@ mod tests {
     #[test]
     fn test_render_strong() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let strong = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Strong));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("strong")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let strong =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Strong));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("strong"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, strong);
@@ -69,12 +85,16 @@ mod tests {
     #[test]
     fn test_render_code() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let code = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Code(Box::new(NodeCode {
-            num_backticks: 1,
-            literal: "code".to_string(),
-        }))));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let code = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Code(
+            Box::new(NodeCode {
+                num_backticks: 1,
+                literal: "code".to_string(),
+            }),
+        )));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
@@ -86,13 +106,18 @@ mod tests {
     #[test]
     fn test_render_heading() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let heading = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Heading(NodeHeading {
-            level: 2,
-            setext: false,
-            closed: false,
-        })));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Title")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::Heading(NodeHeading {
+                level: 2,
+                setext: false,
+                closed: false,
+            }),
+        ));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Title"),
+        ));
 
         TreeOps::append_child(&mut arena, root, heading);
         TreeOps::append_child(&mut arena, heading, text);
@@ -104,13 +129,19 @@ mod tests {
     #[test]
     fn test_render_link() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let link = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Link(Box::new(NodeLink {
-            url: "https://example.com".to_string(),
-            title: "".to_string(),
-        }))));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("link")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let link = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Link(
+            Box::new(NodeLink {
+                url: "https://example.com".to_string(),
+                title: "".to_string(),
+            }),
+        )));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("link"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -123,10 +154,15 @@ mod tests {
     #[test]
     fn test_render_blockquote() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let blockquote = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::BlockQuote));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Quote")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let blockquote =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::BlockQuote));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Quote"),
+        ));
 
         TreeOps::append_child(&mut arena, root, blockquote);
         TreeOps::append_child(&mut arena, blockquote, para);
@@ -141,9 +177,10 @@ mod tests {
     #[test]
     fn test_render_code_block() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let code_block = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::CodeBlock(Box::new(
-            NodeCodeBlock {
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let code_block = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::CodeBlock(Box::new(NodeCodeBlock {
                 fenced: true,
                 fence_char: b'`',
                 fence_length: 3,
@@ -151,8 +188,8 @@ mod tests {
                 info: "rust".to_string(),
                 literal: "fn main() {}".to_string(),
                 closed: true,
-            },
-        ))));
+            })),
+        ));
 
         TreeOps::append_child(&mut arena, root, code_block);
 
@@ -165,20 +202,28 @@ mod tests {
     #[test]
     fn test_render_bullet_list() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let list = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::List(NodeList {
-            list_type: ListType::Bullet,
-            delimiter: crate::core::nodes::ListDelimType::Period,
-            start: 1,
-            tight: true,
-            bullet_char: b'-',
-            marker_offset: 0,
-            padding: 2,
-            is_task_list: false,
-        })));
-        let item = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Item(NodeList::default())));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Item")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let list = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::List(
+            NodeList {
+                list_type: ListType::Bullet,
+                delimiter: crate::core::nodes::ListDelimType::Period,
+                start: 1,
+                tight: true,
+                bullet_char: b'-',
+                marker_offset: 0,
+                padding: 2,
+                is_task_list: false,
+            },
+        )));
+        let item = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Item(
+            NodeList::default(),
+        )));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Item"),
+        ));
 
         TreeOps::append_child(&mut arena, root, list);
         TreeOps::append_child(&mut arena, list, item);
@@ -196,10 +241,11 @@ mod tests {
     #[test]
     fn test_render_thematic_break() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let hr = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::ThematicBreak(
-            NodeThematicBreak::default(),
-        )));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let hr = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::ThematicBreak(NodeThematicBreak::default()),
+        ));
 
         TreeOps::append_child(&mut arena, root, hr);
 
@@ -277,13 +323,19 @@ mod tests {
     #[test]
     fn test_render_link_with_unsafe_url() {
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let link = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Link(Box::new(NodeLink {
-            url: "javascript:alert('xss')".to_string(),
-            title: "".to_string(),
-        }))));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("click me")));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let link = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Link(
+            Box::new(NodeLink {
+                url: "javascript:alert('xss')".to_string(),
+                title: "".to_string(),
+            }),
+        )));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("click me"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, link);
@@ -308,15 +360,19 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let mut heading = Node::with_value(crate::core::nodes::NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        }));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let mut heading =
+            Node::with_value(crate::core::nodes::NodeValue::Heading(NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            }));
         heading.source_pos = SourcePos::new(1, 1, 1, 7);
         let heading_id = arena.alloc(heading);
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Hello")));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Hello"),
+        ));
 
         TreeOps::append_child(&mut arena, root, heading_id);
         TreeOps::append_child(&mut arena, heading_id, text);
@@ -332,11 +388,14 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
         let mut para = Node::with_value(crate::core::nodes::NodeValue::Paragraph);
         para.source_pos = SourcePos::new(2, 1, 2, 10);
         let para_id = arena.alloc(para);
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Paragraph")));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Paragraph"),
+        ));
 
         TreeOps::append_child(&mut arena, root, para_id);
         TreeOps::append_child(&mut arena, para_id, text);
@@ -351,12 +410,16 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
         let mut blockquote = Node::with_value(crate::core::nodes::NodeValue::BlockQuote);
         blockquote.source_pos = SourcePos::new(1, 1, 3, 5);
         let blockquote_id = arena.alloc(blockquote);
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Quote")));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Quote"),
+        ));
 
         TreeOps::append_child(&mut arena, root, blockquote_id);
         TreeOps::append_child(&mut arena, blockquote_id, para);
@@ -372,7 +435,8 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
         let mut list = Node::with_value(crate::core::nodes::NodeValue::List(NodeList {
             list_type: ListType::Bullet,
             delimiter: crate::core::nodes::ListDelimType::Period,
@@ -385,11 +449,15 @@ mod tests {
         }));
         list.source_pos = SourcePos::new(1, 1, 3, 5);
         let list_id = arena.alloc(list);
-        let mut item = Node::with_value(crate::core::nodes::NodeValue::Item(NodeList::default()));
+        let mut item =
+            Node::with_value(crate::core::nodes::NodeValue::Item(NodeList::default()));
         item.source_pos = SourcePos::new(1, 1, 1, 5);
         let item_id = arena.alloc(item);
-        let para = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Item")));
+        let para =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Item"),
+        ));
 
         TreeOps::append_child(&mut arena, root, list_id);
         TreeOps::append_child(&mut arena, list_id, item_id);
@@ -407,9 +475,10 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let mut code_block =
-            Node::with_value(crate::core::nodes::NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let mut code_block = Node::with_value(crate::core::nodes::NodeValue::CodeBlock(
+            Box::new(NodeCodeBlock {
                 fenced: true,
                 fence_char: b'`',
                 fence_length: 3,
@@ -417,7 +486,8 @@ mod tests {
                 info: "rust".to_string(),
                 literal: "fn main() {}".to_string(),
                 closed: true,
-            })));
+            }),
+        ));
         code_block.source_pos = SourcePos::new(1, 1, 3, 3);
         let code_block_id = arena.alloc(code_block);
 
@@ -434,7 +504,8 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
         let mut hr = Node::with_value(crate::core::nodes::NodeValue::ThematicBreak(
             NodeThematicBreak::default(),
         ));
@@ -453,15 +524,19 @@ mod tests {
         let mut options = Options::default();
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
-        let mut heading = Node::with_value(crate::core::nodes::NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        }));
+        let root =
+            arena.alloc(Node::with_value(crate::core::nodes::NodeValue::Document));
+        let mut heading =
+            Node::with_value(crate::core::nodes::NodeValue::Heading(NodeHeading {
+                level: 1,
+                setext: false,
+                closed: false,
+            }));
         heading.source_pos = SourcePos::new(1, 1, 1, 7);
         let heading_id = arena.alloc(heading);
-        let text = arena.alloc(Node::with_value(crate::core::nodes::NodeValue::make_text("Hello")));
+        let text = arena.alloc(Node::with_value(
+            crate::core::nodes::NodeValue::make_text("Hello"),
+        ));
 
         TreeOps::append_child(&mut arena, root, heading_id);
         TreeOps::append_child(&mut arena, heading_id, text);

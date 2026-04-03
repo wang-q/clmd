@@ -320,11 +320,7 @@ impl Writer for HtmlWriter {
         render_options.render.sourcepos = options.output_sourcepos;
         render_options.extension.tagfilter =
             options.extensions.contains(ExtensionFlags::TAGFILTER);
-        Ok(crate::render::html::render(
-            arena,
-            root,
-            &render_options,
-        ))
+        Ok(crate::render::html::render(arena, root, &render_options))
     }
 
     fn format(&self) -> OutputFormat {
