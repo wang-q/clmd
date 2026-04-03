@@ -23,9 +23,8 @@ pub use crate::{
 // Re-export from options module
 pub use crate::options::{
     BrokenLinkCallback, BrokenLinkReference, Extension, InputFormat, ListStyleType,
-    OutputFormat, Parse, ParseOptions, ReaderOptions, Render, RenderOptions,
-    RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode, WrapOption,
-    WriterOptions,
+    OutputFormat, ParseOptions, ReaderOptions, RenderOptions, RenderPlugins,
+    ResolvedReference, URLRewriter, WikiLinksMode, WrapOption, WriterOptions,
 };
 
 // Re-export extension types

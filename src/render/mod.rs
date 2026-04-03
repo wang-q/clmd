@@ -129,7 +129,7 @@ pub fn render_to_commonmark(
 pub fn render_to_commonmark_with_options(
     arena: &NodeArena,
     root: NodeId,
-    options: options::FormatterOptions,
+    options: options::FormatOptions,
 ) -> String {
     let formatter = formatter::Formatter::with_options(options);
     formatter.render(arena, root)
@@ -207,19 +207,12 @@ pub fn render(
     }
 }
 
-// Re-export HTML renderer functions for backward compatibility
-pub use html::{
-    render as render_html, render_with_highlighter as render_html_with_highlighter,
-};
-
-// Re-export escape_html from html_utils for backward compatibility
-pub use crate::text::html_utils::escape_html;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena, TreeOps};
     use crate::core::nodes::NodeValue;
+    use crate::text::html_utils::escape_html;
 
     #[test]
     fn test_escape_html() {

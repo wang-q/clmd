@@ -245,7 +245,7 @@ pub mod io;
 /// Plugin system for extending Markdown rendering.
 pub mod plugin;
 
-/// HTML rendering for Arena-based AST (legacy).
+/// Rendering modules for HTML, CommonMark, and other output formats.
 pub mod render;
 
 /// Markdown formatter for CommonMark output.
@@ -360,12 +360,6 @@ pub use options::Plugins;
 
 /// Re-export Extension options.
 pub use options::Extension;
-
-/// Re-export ParseOptions (aliased as Parse for backward compatibility).
-pub use options::ParseOptions as Parse;
-
-/// Re-export RenderOptions (aliased as Render for backward compatibility).
-pub use options::RenderOptions as Render;
 
 /// Re-export ResolvedReference.
 pub use options::ResolvedReference;
@@ -729,7 +723,7 @@ pub fn format_commonmark_with_plugins(
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    let opts = options::format::FormatterOptions::new()
+    let opts = options::format::FormatOptions::new()
         .with_right_margin(options.render.width)
         .with_cjk_spacing(options.render.cjk_spacing);
 

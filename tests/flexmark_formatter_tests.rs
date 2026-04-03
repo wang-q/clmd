@@ -5,7 +5,7 @@
 
 use clmd::options::format::{
     Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, ElementPlacement,
-    ElementPlacementSort, FormatterOptions, HeadingStyle, ListSpacing, NumberedMarker,
+    ElementPlacementSort, FormatOptions, HeadingStyle, ListSpacing, NumberedMarker,
     TrailingMarker,
 };
 use clmd::options::Options as ParseOptions;
@@ -16,8 +16,8 @@ use std::fs;
 mod test_utils;
 use test_utils::spec_parser::{parse_formatter_spec_file, FormatterSpecExample};
 
-/// Apply spec options to FormatterOptions
-fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
+/// Apply spec options to FormatOptions
+fn apply_spec_options(options: &mut FormatOptions, option_str: &str) {
     match option_str {
         // ATX heading options
         "atx-space-as-is" => options.space_after_atx_marker = false,
@@ -172,7 +172,7 @@ fn apply_spec_options(options: &mut FormatterOptions, option_str: &str) {
 }
 
 /// Format markdown input using the given options
-fn format_markdown(input: &str, options: &FormatterOptions) -> String {
+fn format_markdown(input: &str, options: &FormatOptions) -> String {
     // Parse the input
     let parse_options = ParseOptions::default();
     let (arena, root) = parse_document(input, &parse_options);
@@ -188,7 +188,7 @@ fn format_markdown(input: &str, options: &FormatterOptions) -> String {
 
 /// Run a single formatter spec example
 fn run_formatter_example(example: &FormatterSpecExample) {
-    let mut options = FormatterOptions::default();
+    let mut options = FormatOptions::default();
 
     // Apply spec options
     for opt in &example.options {

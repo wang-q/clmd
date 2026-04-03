@@ -41,12 +41,6 @@ pub use traits::{
 };
 pub use types::{InputFormat, ListStyleType, OutputFormat, WikiLinksMode, WrapOption};
 
-/// Type alias for ParseOptions for backward compatibility.
-pub type Parse<'c> = ParseOptions<'c>;
-
-/// Type alias for RenderOptions for backward compatibility.
-pub type Render = RenderOptions;
-
 use arbitrary::Arbitrary;
 use bon::Builder;
 

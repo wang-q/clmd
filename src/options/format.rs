@@ -605,6 +605,3 @@ mod tests {
         assert!(matches!(cloned.heading_style, HeadingStyle::Atx));
     }
 }
-
-/// Type alias for backward compatibility
-pub type FormatterOptions = FormatOptions;

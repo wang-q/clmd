@@ -45,9 +45,6 @@ pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
 };
-
-/// Type alias for backward compatibility
-pub type FormatterOptions = FormatOptions;
 pub use phase::FormattingPhase;
 pub use phased::{
     ComposedPhasedFormatter, PhasedNodeFormatter, SimplePhasedFormatter,

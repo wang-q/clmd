@@ -284,8 +284,6 @@ mod tests {
 
     #[test]
     fn test_escape_markdown() {
-        // Test moved to escaping.rs module
-        // This test is kept for backward compatibility
         let escaped =
             crate::formatter::escaping::escape_text("Hello *world*", &MockContext);
         assert!(escaped.contains("\\*"));

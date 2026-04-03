@@ -685,7 +685,7 @@ impl LogMessage {
     }
 }
 
-/// Legacy error type for backward compatibility.
+/// Error type for parsing operations.
 #[derive(Error, Debug, Clone)]
 pub enum ParseError {
     /// Parse error with position.
@@ -787,7 +787,7 @@ impl From<ParseError> for ClmdError {
     }
 }
 
-/// Legacy result type for backward compatibility.
+/// Result type for parsing operations.
 pub type ParseResult<T> = Result<T, ParseError>;
 
 /// Parser limits for security and resource control.

@@ -21,6 +21,7 @@ use std::time::SystemTime;
 use crate::context::mediabag::MediaBag;
 use crate::io::format::mime::MimeType;
 
+use super::error::{LogLevel, LogMessage};
 use super::monad::Verbosity;
 
 /// Common state shared across clmd operations.
@@ -89,9 +90,6 @@ pub struct CommonState {
     /// Extension-specific data.
     pub extensions_data: HashMap<String, ExtensionData>,
 }
-
-// Re-export LogMessage and LogLevel from error module for backward compatibility
-pub use crate::core::error::{LogLevel, LogMessage};
 
 /// Track changes mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

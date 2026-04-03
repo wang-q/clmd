@@ -209,12 +209,6 @@ pub fn get_user_data_dir() -> ClmdResult<Option<PathBuf>> {
             return Ok(Some(xdg_path));
         }
 
-        // Check for legacy location (for backwards compatibility)
-        let legacy_path = home.join(".clmd");
-        if legacy_path.exists() {
-            return Ok(Some(legacy_path));
-        }
-
         // Return XDG default as the preferred location
         return Ok(Some(xdg_path));
     }
