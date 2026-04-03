@@ -163,7 +163,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
                 }
             }
             "xml" => clmd::render::renderer::render_to_xml(&arena, root, 0),
-            "latex" | "tex" => clmd::render::format::latex::render(&arena, root, 0),
+            "latex" | "tex" => clmd::io::writer::latex::render(&arena, root, 0),
             "man" => clmd::io::writer::man::render(&arena, root, 0),
             "typst" => clmd::markdown_to_typst(&input, options),
             "commonmark" | "markdown" | "md" => {

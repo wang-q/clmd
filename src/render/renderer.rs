@@ -51,7 +51,6 @@ pub trait Renderer {
 pub use super::commonmark;
 /// Re-export all renderers
 pub use super::format::html;
-pub use super::format::latex;
 
 /// Render to HTML format
 ///
@@ -120,7 +119,7 @@ pub fn render_to_commonmark_with_options(
 ///
 /// This is a convenience function that uses the LaTeX renderer.
 pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    latex::render(arena, root, options)
+    crate::io::writer::latex::render(arena, root, options)
 }
 
 /// Render to Man page format

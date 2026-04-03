@@ -248,6 +248,7 @@ impl WriterRegistry {
         self.register(Box::new(HtmlWriter));
         self.register(Box::new(CommonMarkWriter));
         self.register(Box::new(XmlWriter));
+        self.register(Box::new(LatexWriter));
         self.register(Box::new(ManWriter));
         self.register(Box::new(TypstWriter));
         self.register(Box::new(BibTeXWriter));
@@ -276,6 +277,9 @@ pub use beamer::BeamerWriter;
 
 pub mod revealjs;
 pub use revealjs::RevealJsWriter;
+
+pub mod latex;
+pub use latex::write_latex;
 
 pub mod man;
 pub use man::write_man;
@@ -394,6 +398,36 @@ impl Writer for XmlWriter {
 
     fn mime_type(&self) -> &'static str {
         "application/xml"
+    }
+}
+
+/// LaTeX document writer.
+///
+/// Renders documents to LaTeX format.
+#[derive(Debug, Clone, Copy)]
+pub struct LatexWriter;
+
+impl Writer for LatexWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        write_latex(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Latex
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["tex", "latex"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/x-latex"
     }
 }
 

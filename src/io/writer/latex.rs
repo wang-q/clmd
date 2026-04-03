@@ -1,12 +1,25 @@
-//! LaTeX renderer
+//! LaTeX writer.
+//!
+//! This module provides a writer for LaTeX format.
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListType, NodeHeading, NodeList, NodeValue};
+use crate::parse::options::WriterOptions;
 
-/// Render a node tree as LaTeX
+/// Render a node tree as LaTeX.
 pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
     let mut renderer = LatexRenderer::new(arena, options);
     renderer.render(root)
+}
+
+/// Write a document as LaTeX.
+pub fn write_latex(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions,
+) -> ClmdResult<String> {
+    Ok(render(arena, root, 0))
 }
 
 /// LaTeX renderer state
@@ -266,7 +279,7 @@ fn escape_latex(text: &str) -> String {
 mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeLink};
+    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink};
 
     #[test]
     fn test_render_paragraph() {
