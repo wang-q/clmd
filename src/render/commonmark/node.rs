@@ -6,8 +6,8 @@
 use std::rc::Rc;
 
 use crate::core::nodes::NodeValue;
-use crate::formatter::context::NodeFormatterContext;
-use crate::formatter::writer::MarkdownWriter;
+use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::writer::MarkdownWriter;
 
 /// A handler for formatting a specific node type
 ///
@@ -498,7 +498,7 @@ impl NodeFormatter for ComposedNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::formatter::writer::MarkdownWriter;
+    use crate::render::commonmark::writer::MarkdownWriter;
     use crate::options::format::FormatOptions;
 
     #[test]
@@ -915,8 +915,8 @@ mod tests {
         fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
             unimplemented!()
         }
-        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
-            crate::formatter::phase::FormattingPhase::Document
+        fn get_formatting_phase(&self) -> crate::render::commonmark::phase::FormattingPhase {
+            crate::render::commonmark::phase::FormattingPhase::Document
         }
         fn delegate_render(&mut self) {
             unimplemented!()
@@ -924,8 +924,8 @@ mod tests {
         fn get_formatter_options(&self) -> &FormatOptions {
             unimplemented!()
         }
-        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
-            crate::formatter::purpose::RenderPurpose::Format
+        fn get_render_purpose(&self) -> crate::render::commonmark::purpose::RenderPurpose {
+            crate::render::commonmark::purpose::RenderPurpose::Format
         }
         fn get_arena(&self) -> &crate::core::arena::NodeArena {
             unimplemented!()

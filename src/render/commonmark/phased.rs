@@ -4,10 +4,10 @@
 //! multi-phase rendering, inspired by flexmark-java's PhasedNodeFormatter.
 
 use crate::core::arena::NodeId;
-use crate::formatter::context::NodeFormatterContext;
-use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
-use crate::formatter::phase::FormattingPhase;
-use crate::formatter::writer::MarkdownWriter;
+use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::render::commonmark::phase::FormattingPhase;
+use crate::render::commonmark::writer::MarkdownWriter;
 
 /// A node formatter that supports multi-phase rendering
 ///
@@ -443,8 +443,8 @@ mod tests {
 
     #[test]
     fn test_phased_formatter_with_multiple_phases() {
-        use crate::formatter::node::NodeFormattingHandler;
-        use crate::formatter::node::NodeValueType;
+        use crate::render::commonmark::node::NodeFormattingHandler;
+        use crate::render::commonmark::node::NodeValueType;
 
         struct MultiPhaseFormatter;
 

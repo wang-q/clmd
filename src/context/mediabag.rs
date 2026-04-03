@@ -235,14 +235,6 @@ impl MediaBag {
         self.items.get(&canonical)
     }
 
-    /// Get a media item by path (alias for lookup).
-    ///
-    /// This is a convenience method that provides the same functionality
-    /// as `lookup` with a more idiomatic name.
-    pub fn get<P: AsRef<Path>>(&self, path: P) -> Option<&MediaItem> {
-        self.lookup(path)
-    }
-
     /// Look up a media item mutably by path.
     pub fn lookup_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut MediaItem> {
         let canonical = canonicalize_path(path.as_ref());
@@ -1117,16 +1109,6 @@ mod tests {
 
         // Verify the change
         assert_eq!(bag.lookup("image.png").unwrap().contents(), &[0x90]);
-    }
-
-    #[test]
-    fn test_media_bag_get_alias() {
-        let mut bag = MediaBag::new();
-        bag.insert("image.png", "image/png", vec![0x89]);
-
-        // get() is an alias for lookup()
-        assert!(bag.get("image.png").is_some());
-        assert!(bag.get("nonexistent.png").is_none());
     }
 
     #[test]

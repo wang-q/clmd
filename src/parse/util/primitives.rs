@@ -12,7 +12,7 @@ use crate::parse::util::{BoxedParser, ClmdError, ClmdResult, Position};
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::string;
+/// use clmd::parse::util::string;
 ///
 /// let result = string.parse("\"hello world\"").unwrap();
 /// assert_eq!(result, "hello world");
@@ -69,7 +69,7 @@ pub fn string(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::identifier;
+/// use clmd::parse::util::identifier;
 ///
 /// let result = identifier.parse("hello_world").unwrap();
 /// assert_eq!(result, "hello_world");
@@ -111,7 +111,7 @@ pub fn identifier(input: &str, pos: Position) -> ClmdResult<(String, Position)> 
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::uint;
+/// use clmd::parse::util::uint;
 ///
 /// let result = uint.parse("12345").unwrap();
 /// assert_eq!(result, 12345u64);
@@ -134,7 +134,7 @@ pub fn uint(input: &str, pos: Position) -> ClmdResult<(u64, Position)> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::int;
+/// use clmd::parse::util::int;
 ///
 /// assert_eq!(int.parse("-123").unwrap(), -123i64);
 /// assert_eq!(int.parse("456").unwrap(), 456i64);
@@ -170,7 +170,7 @@ pub fn int(input: &str, pos: Position) -> ClmdResult<(i64, Position)> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::float;
+/// use clmd::parse::util::float;
 ///
 /// let result = float.parse("3.14159").unwrap();
 /// assert!((result - 3.14159).abs() < 0.00001);
@@ -244,7 +244,7 @@ pub fn float(input: &str, pos: Position) -> ClmdResult<(f64, Position)> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::whitespace1;
+/// use clmd::parse::util::whitespace1;
 ///
 /// let result = whitespace1.parse("   hello").unwrap();
 /// assert_eq!(result.len(), 3);
@@ -274,7 +274,7 @@ pub fn whitespace1(input: &str, pos: Position) -> ClmdResult<(String, Position)>
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::until;
+/// use clmd::parse::util::until;
 ///
 /// let parser = until("-->");
 /// let result = parser.parse("Hello world-->").unwrap();
@@ -306,7 +306,7 @@ pub fn until(end: &'static str) -> BoxedParser<String> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::line_comment;
+/// use clmd::parse::util::line_comment;
 ///
 /// let parser = line_comment("//");
 /// let result = parser.parse("// This is a comment\n").unwrap();
@@ -347,7 +347,7 @@ pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::block_comment;
+/// use clmd::parse::util::block_comment;
 ///
 /// let parser = block_comment("/*", "*/");
 /// let result = parser.parse("/* comment */").unwrap();

@@ -1320,32 +1320,6 @@ pub trait Queryable {
 
     /// Check if the document contains any inline elements
     fn has_inlines(&self, root: NodeId) -> bool;
-
-    // Unified naming aliases (preferred over the above methods)
-
-    /// Check if any node matches the predicate (unified naming)
-    fn query_any<F>(&self, root: NodeId, f: &mut F) -> bool
-    where
-        F: FnMut(NodeId, &NodeValue) -> bool,
-    {
-        self.any(root, f)
-    }
-
-    /// Check if all nodes match the predicate (unified naming)
-    fn query_all<F>(&self, root: NodeId, f: &mut F) -> bool
-    where
-        F: FnMut(NodeId, &NodeValue) -> bool,
-    {
-        self.all(root, f)
-    }
-
-    /// Count nodes matching the predicate (unified naming)
-    fn query_count<F>(&self, root: NodeId, f: &mut F) -> usize
-    where
-        F: FnMut(NodeId, &NodeValue) -> bool,
-    {
-        self.count(root, f)
-    }
 }
 
 impl Queryable for NodeArena {

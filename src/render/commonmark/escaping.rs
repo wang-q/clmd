@@ -12,7 +12,7 @@
 //! - HTML: no escaping needed
 
 use crate::core::nodes::NodeValue;
-use crate::formatter::context::NodeFormatterContext;
+use crate::render::commonmark::context::NodeFormatterContext;
 
 /// Escape mode for different contexts
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -910,7 +910,7 @@ mod tests {
     impl NodeFormatterContext for MockParagraphContext {
         fn get_markdown_writer(
             &mut self,
-        ) -> &mut crate::formatter::writer::MarkdownWriter {
+        ) -> &mut crate::render::commonmark::writer::MarkdownWriter {
             panic!("Not implemented")
         }
 
@@ -922,8 +922,8 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_formatting_phase(&self) -> crate::formatter::phase::FormattingPhase {
-            crate::formatter::phase::FormattingPhase::Document
+        fn get_formatting_phase(&self) -> crate::render::commonmark::phase::FormattingPhase {
+            crate::render::commonmark::phase::FormattingPhase::Document
         }
 
         fn delegate_render(&mut self) {}
@@ -932,8 +932,8 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {
-            crate::formatter::purpose::RenderPurpose::Format
+        fn get_render_purpose(&self) -> crate::render::commonmark::purpose::RenderPurpose {
+            crate::render::commonmark::purpose::RenderPurpose::Format
         }
 
         fn get_arena(&self) -> &crate::core::arena::NodeArena {
@@ -946,14 +946,14 @@ mod tests {
 
         fn get_nodes_of_type(
             &self,
-            _node_type: crate::formatter::node::NodeValueType,
+            _node_type: crate::render::commonmark::node::NodeValueType,
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }
 
         fn get_nodes_of_types(
             &self,
-            _node_types: &[crate::formatter::node::NodeValueType],
+            _node_types: &[crate::render::commonmark::node::NodeValueType],
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }

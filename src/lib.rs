@@ -248,10 +248,6 @@ pub mod plugin;
 /// Rendering modules for HTML, CommonMark, and other output formats.
 pub mod render;
 
-/// Markdown formatter for CommonMark output.
-/// Now located in `render::commonmark`.
-pub use render::commonmark as formatter;
-
 /// Utility modules for internal use.
 pub mod util;
 
@@ -298,11 +294,6 @@ pub mod filter {
 
 /// Template system for document rendering.
 pub mod template;
-
-/// Parsing utilities.
-///
-/// This module provides low-level parsing primitives and combinators.
-pub use parse::util as parsing;
 
 // Reader and writer modules are accessed through `io::read` and `io::write` directly
 

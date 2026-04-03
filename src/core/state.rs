@@ -262,7 +262,7 @@ impl CommonState {
     /// Get media from the media bag.
     pub fn get_media(&self, path: &str) -> Option<(&str, &[u8])> {
         self.media_bag
-            .get(path)
+            .lookup(path)
             .map(|item| (item.mime_type(), item.contents()))
     }
 

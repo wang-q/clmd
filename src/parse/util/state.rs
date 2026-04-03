@@ -24,7 +24,7 @@ pub type BoxedStatefulParser<S, T> = Box<dyn StatefulParser<S, T>>;
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::{with_indentation, indent_level};
+/// use clmd::parse::util::{with_indentation, indent_level};
 ///
 /// let parser = with_indentation(indent_level(4));
 /// let result = parser.parse("    hello").unwrap();
@@ -157,7 +157,7 @@ pub fn indent_level<T>(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::parsing::{with_nesting, nested_content};
+/// use clmd::parse::util::{with_nesting, nested_content};
 ///
 /// let parser = with_nesting(nested_content('{', '}'));
 /// let result = parser.parse("{hello {world}}").unwrap();
