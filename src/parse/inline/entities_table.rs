@@ -14,25 +14,6 @@ pub fn lookup_entity(name: &str) -> Option<&'static str> {
         .map(|idx| ENTITIES[idx].1)
 }
 
-/// Check if a string starts with a valid entity name prefix
-/// This is useful for partial matching during parsing
-#[allow(dead_code)]
-pub fn is_entity_prefix(prefix: &str) -> bool {
-    ENTITIES
-        .binary_search_by(|&(key, _)| {
-            if key.starts_with(prefix) {
-                std::cmp::Ordering::Equal
-            } else {
-                key.cmp(prefix)
-            }
-        })
-        .is_ok()
-}
-
-/// Total number of HTML5 named entities
-#[allow(dead_code)]
-pub const ENTITY_COUNT: usize = 2125;
-
 /// Sorted array of all HTML5 named entities
 /// Format: (entity_name_without_ampersand, unicode_character(s))
 /// Note: This large const array is intentional for compile-time optimization
@@ -2230,25 +2211,6 @@ mod tests {
         assert_eq!(lookup_entity("amp"), Some("&"));
         assert_eq!(lookup_entity("Amp"), None);
         assert_eq!(lookup_entity("AMP"), Some("&")); // AMP is a valid entity
-    }
-
-    #[test]
-    fn test_is_entity_prefix() {
-        // Valid prefixes
-        assert!(is_entity_prefix("a"));
-        assert!(is_entity_prefix("am"));
-        assert!(is_entity_prefix("amp"));
-
-        // Invalid prefixes
-        assert!(!is_entity_prefix("xyz"));
-        assert!(!is_entity_prefix("123"));
-    }
-
-    #[test]
-    fn test_entity_count() {
-        // Verify entity count constant
-        assert_eq!(ENTITY_COUNT, 2125);
-        assert_eq!(ENTITIES.len(), 2125);
     }
 
     #[test]

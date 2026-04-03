@@ -18,7 +18,7 @@ fn md_to_html(input: &str) -> String {
 fn md_to_html_smart(input: &str) -> String {
     let mut opts = Options::default();
     opts.parse.smart = true;
-    let mut result = markdown_to_html(input, &opts);
+    let mut result = markdown_to_html(input, &opts, &Plugins::default());
     // Remove trailing newline to match CommonMark spec test format
     while result.ends_with('\n') {
         result.pop();

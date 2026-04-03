@@ -8,7 +8,7 @@ mod tests {
         NodeThematicBreak,
     };
     use crate::options::Options;
-    use crate::render::html::{render, render_with_highlighter};
+    use crate::render::html::render;
     use crate::text::html_utils::escape_html;
 
     #[test]

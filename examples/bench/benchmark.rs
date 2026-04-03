@@ -23,6 +23,7 @@
 
 use clmd::markdown_to_html as clmd_to_html;
 use clmd::options::Options as ClmdOptions;
+use clmd::Plugins;
 use comrak::{markdown_to_html as comrak_to_html, Options as ComrakOptions};
 use pulldown_cmark::{html, Parser};
 use std::env;
@@ -153,7 +154,7 @@ fn run_cross_language_bench(config: &BenchConfig) {
 
     let options = ClmdOptions::default();
     let start = Instant::now();
-    let result = clmd_to_html(&config.input, &options);
+    let result = clmd_to_html(&config.input, &options, &Plugins::default());
     let duration = start.elapsed();
 
     println!("clmd:");
@@ -171,7 +172,7 @@ fn run_cross_rust_bench(config: &BenchConfig) {
 
     let options = ClmdOptions::default();
     let start = Instant::now();
-    let clmd_result = clmd_to_html(&config.input, &options);
+    let clmd_result = clmd_to_html(&config.input, &options, &Plugins::default());
     let clmd_duration = start.elapsed();
 
     println!("clmd:");
@@ -220,7 +221,7 @@ fn run_flamegraph_bench(config: &BenchConfig) {
 
     // Run many iterations to get good profiling data
     for _ in 0..config.iterations {
-        let result = clmd_to_html(input, &options);
+        let result = clmd_to_html(input, &options, &Plugins::default());
         if config.prevent_optimization {
             std::hint::black_box(result);
         }
@@ -244,14 +245,14 @@ fn run_arena_bench(config: &BenchConfig) {
     let input = &config.input;
 
     // Warm-up run
-    clmd_to_html(input, &options);
+    clmd_to_html(input, &options, &Plugins::default());
 
     // Measure performance
     let iterations = 1000;
     let start = Instant::now();
 
     for _ in 0..iterations {
-        let result = clmd_to_html(input, &options);
+        let result = clmd_to_html(input, &options, &Plugins::default());
         if config.prevent_optimization {
             std::hint::black_box(result);
         }

@@ -45,6 +45,8 @@
 use std::fs;
 use std::path::Path;
 
+use clmd::Plugins;
+
 /// A single command test case
 #[derive(Debug, Clone)]
 pub struct CommandTest {

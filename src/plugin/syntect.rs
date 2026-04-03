@@ -119,48 +119,6 @@ impl SyntectAdapter {
             .as_ref()
             .and_then(|name| self.theme_set.themes.get(name))
     }
-
-    /// Highlight code using CSS classes.
-    // TODO: This method is currently unused but kept for future CSS class-based highlighting support
-    #[allow(dead_code)]
-    fn highlight_with_classes(&self, code: &str, lang: Option<&str>) -> fmt::Result {
-        // For CSS class mode, we need to use the HighlightLines approach
-        // and convert to HTML with classes
-        let syntax = self
-            .get_syntax(lang)
-            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
-
-        // Use a default theme for generating scopes
-        let theme = self
-            .theme_set
-            .themes
-            .get("InspiredGitHub")
-            .or_else(|| self.theme_set.themes.values().next())
-            .expect("No themes available");
-
-        let mut highlighter = HighlightLines::new(syntax, theme);
-
-        let mut output = String::new();
-
-        for line in code.lines() {
-            let highlighted = highlighter
-                .highlight_line(line, &self.syntax_set)
-                .map_err(|_| fmt::Error)?;
-
-            // Convert to HTML with CSS classes
-            let html =
-                styled_line_to_highlighted_html(&highlighted, IncludeBackground::No)
-                    .map_err(|_| fmt::Error)?;
-
-            output.push_str(&html);
-            output.push('\n');
-        }
-
-        // Write the result
-        // Note: This is a simplified approach. In practice, we might want to
-        // integrate more closely with the rendering pipeline.
-        Ok(())
-    }
 }
 
 impl SyntaxHighlighterAdapter for SyntectAdapter {

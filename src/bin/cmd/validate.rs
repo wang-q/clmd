@@ -310,8 +310,6 @@ enum Category {
     Image,
     Heading,
     Footnote,
-    #[allow(dead_code)]
-    Reference,
 }
 
 impl Category {
@@ -321,7 +319,6 @@ impl Category {
             Category::Image => "image",
             Category::Heading => "heading",
             Category::Footnote => "footnote",
-            Category::Reference => "reference",
         }
     }
 }

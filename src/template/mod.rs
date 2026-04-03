@@ -65,9 +65,6 @@ enum TemplatePart {
         variable: String,
         body: Vec<TemplatePart>,
     },
-    /// Partial template inclusion.
-    #[allow(dead_code)]
-    Partial(String),
     /// Comment block ($--$...$--$).
     Comment(String),
 }
@@ -725,11 +722,6 @@ impl Template {
                             result.push_str(&self.render_parts(body, &merged));
                         }
                     }
-                }
-                TemplatePart::Partial(name) => {
-                    // Partials are resolved by the template engine
-                    // For now, just output a placeholder
-                    result.push_str(&format!("<!-- partial: {} -->", name));
                 }
                 TemplatePart::Comment(_) => {
                     // Comments are not rendered

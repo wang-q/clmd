@@ -187,32 +187,6 @@ impl ClmdIO {
     pub fn sandbox(&self) -> Option<&crate::core::sandbox::SandboxPolicy> {
         self.sandbox.as_ref()
     }
-
-    /// Get the default resource paths.
-    #[allow(dead_code)]
-    fn get_default_resource_paths() -> Vec<PathBuf> {
-        let mut paths = vec![PathBuf::from(".")];
-
-        // Add user's data directory
-        if let Some(data_dir) = dirs::data_dir() {
-            paths.push(data_dir.join("clmd"));
-        }
-
-        // Add system-wide directories
-        #[cfg(target_os = "macos")]
-        {
-            paths.push(PathBuf::from("/usr/local/share/clmd"));
-            paths.push(PathBuf::from("/usr/share/clmd"));
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            paths.push(PathBuf::from("/usr/local/share/clmd"));
-            paths.push(PathBuf::from("/usr/share/clmd"));
-        }
-
-        paths
-    }
 }
 
 impl Default for ClmdIO {

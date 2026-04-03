@@ -479,17 +479,6 @@ impl TeXParser {
         Token::new(TokenType::Comment, comment).with_position(start_line, start_column)
     }
 
-    #[allow(dead_code)]
-    fn skip_whitespace(&mut self) {
-        while let Some(c) = self.current_char() {
-            if c == ' ' || c == '\t' || c == '\r' {
-                self.advance();
-            } else {
-                break;
-            }
-        }
-    }
-
     fn current_char(&self) -> Option<char> {
         self.input.get(self.position).copied()
     }
