@@ -424,15 +424,6 @@ impl<'a> MainFormatterContext<'a> {
         self.current_node = node_id;
     }
 
-    /// Get handlers for a node type
-    #[allow(dead_code)]
-    fn get_handlers(
-        &self,
-        node_type: node::NodeValueType,
-    ) -> Option<&Vec<node::NodeFormattingHandler>> {
-        self.handler_map.get(&node_type)
-    }
-
     /// Render a node using the appropriate handler
     pub fn render(&mut self, node_id: NodeId, markdown: &mut writer::MarkdownWriter) {
         self.render_with_handler_index(node_id, markdown, 0);
@@ -883,18 +874,12 @@ pub fn format_document_with_options(
 ///
 /// * `arena` - The NodeArena containing the AST
 /// * `root` - The root node ID
-/// * `_options` - Rendering options (currently unused, kept for API compatibility)
 /// * `wrap_width` - Maximum line width for wrapping (0 = no wrapping)
 ///
 /// # Returns
 ///
 /// The CommonMark output as a String
-pub fn render(
-    arena: &NodeArena,
-    root: NodeId,
-    _options: u32,
-    wrap_width: usize,
-) -> String {
+pub fn render(arena: &NodeArena, root: NodeId, wrap_width: usize) -> String {
     let opts = FormatOptions::new().with_right_margin(wrap_width);
     let mut formatter = Formatter::with_options(opts);
     formatter.add_node_formatter(Box::new(

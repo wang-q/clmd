@@ -94,20 +94,15 @@ pub fn render_to_html(arena: &NodeArena, root: NodeId, options: &Options) -> Str
 /// Render to XML format
 ///
 /// This is a convenience function that uses the XML renderer.
-pub fn render_to_xml(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+pub fn render_to_xml(arena: &NodeArena, root: NodeId) -> String {
     crate::io::writer::xml::render(arena, root, 0)
 }
 
 /// Render to CommonMark format
 ///
 /// This is a convenience function that uses the CommonMark renderer.
-pub fn render_to_commonmark(
-    arena: &NodeArena,
-    root: NodeId,
-    options: u32,
-    width: usize,
-) -> String {
-    commonmark::render(arena, root, options, width)
+pub fn render_to_commonmark(arena: &NodeArena, root: NodeId, width: usize) -> String {
+    commonmark::render(arena, root, width)
 }
 
 /// Render to CommonMark format with formatter options
@@ -145,7 +140,7 @@ pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String 
 /// Render to Man page format
 ///
 /// This is a convenience function that uses the Man page renderer.
-pub fn render_to_man(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+pub fn render_to_man(arena: &NodeArena, root: NodeId) -> String {
     let options = crate::options::WriterOptions::default();
     crate::io::writer::man::write_man(arena, root, &options).unwrap_or_default()
 }
@@ -200,10 +195,10 @@ pub fn render(
 ) -> String {
     match format {
         OutputFormat::Html => render_to_html(arena, root, options),
-        OutputFormat::Xml => render_to_xml(arena, root, 0),
-        OutputFormat::CommonMark => render_to_commonmark(arena, root, 0, width),
+        OutputFormat::Xml => render_to_xml(arena, root),
+        OutputFormat::CommonMark => render_to_commonmark(arena, root, width),
         OutputFormat::Latex => render_to_latex(arena, root, 0),
-        OutputFormat::Man => render_to_man(arena, root, 0),
+        OutputFormat::Man => render_to_man(arena, root),
     }
 }
 

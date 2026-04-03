@@ -161,7 +161,7 @@ fn shift_headings(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Resu
     }
 
     // Render back to CommonMark
-    let output = clmd::render::commonmark::render(&arena, root, 0, 80);
+    let output = clmd::render::commonmark::render(&arena, root, 80);
 
     if in_place {
         let path = input_path.unwrap();
@@ -209,7 +209,7 @@ fn normalize_links(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Res
     }
 
     // Render back to CommonMark
-    let output = clmd::render::commonmark::render(&arena, root, 0, 80);
+    let output = clmd::render::commonmark::render(&arena, root, 80);
 
     if in_place {
         let path = input_path.unwrap();
@@ -278,7 +278,7 @@ fn strip_elements(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Resu
     // For now, we just render and the removed nodes won't appear in output
 
     // Render back to CommonMark
-    let output = clmd::render::commonmark::render(&arena, root, 0, 80);
+    let output = clmd::render::commonmark::render(&arena, root, 80);
 
     let output_path = matches.get_one::<String>("output").map(|s| s.as_str());
     utils::write_output(output_path, &output)

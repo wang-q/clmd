@@ -9,26 +9,6 @@ use crate::options::Options;
 use crate::parse::block::BlockInfo;
 use rustc_hash::FxHashMap;
 
-/// Maximum input size: 100MB
-#[allow(dead_code)]
-const MAX_INPUT_SIZE: usize = 100 * 1024 * 1024;
-
-/// Maximum nesting depth
-#[allow(dead_code)]
-const MAX_NESTING_DEPTH: usize = 1000;
-
-/// Maximum line length: 10MB
-#[allow(dead_code)]
-const MAX_LINE_LENGTH: usize = 10_000_000;
-
-/// Maximum list items
-#[allow(dead_code)]
-const MAX_LIST_ITEMS: usize = 1_000_000;
-
-/// Maximum links
-#[allow(dead_code)]
-const MAX_LINKS: usize = 1_000_000;
-
 /// Type alias for the reference map: label -> (url, title)
 pub type RefMap = FxHashMap<String, (String, String)>;
 

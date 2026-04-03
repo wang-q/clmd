@@ -79,7 +79,7 @@ pub fn execute(matches: &ArgMatches, _options: &clmd::Options) -> anyhow::Result
                     .map_err(|e| anyhow::anyhow!("Failed to parse {}: {}", format, e))?;
 
                 // Convert to CommonMark
-                clmd::render::commonmark::render(&arena, root, 0, 80)
+                clmd::render::commonmark::render(&arena, root, 80)
             } else {
                 return Err(anyhow::anyhow!("Unsupported input format: {}", format));
             }

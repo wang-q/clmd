@@ -1204,7 +1204,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let cm = render::commonmark::render(&arena, root, 0, 0);
+        let cm = render::commonmark::render(&arena, root, 0);
         assert!(
             cm.contains(":thumbsup:"),
             "CommonMark should preserve shortcode: {}",

@@ -1401,115 +1401,6 @@ pub fn get_backtick_sequence(content: &str) -> String {
     "`".repeat(count)
 }
 
-/// Choose the best bullet marker based on content and nesting level
-///
-/// This function selects the most appropriate bullet marker character
-/// based on the list's nesting level and content.
-#[allow(dead_code)]
-fn choose_bullet_marker(
-    _list: &crate::core::nodes::NodeList,
-    nesting_level: usize,
-    options: &FormatOptions,
-) -> char {
-    use crate::options::format::BulletMarker;
-
-    match options.list_bullet_marker {
-        BulletMarker::Dash => '-',
-        BulletMarker::Asterisk => '*',
-        BulletMarker::Plus => '+',
-        BulletMarker::Any => {
-            // Rotate markers based on nesting level for better visual distinction
-            match nesting_level % 3 {
-                0 => '-',
-                1 => '*',
-                2 => '+',
-                _ => '-',
-            }
-        }
-    }
-}
-
-/// Calculate the indentation for a list item
-///
-/// Returns the appropriate indentation string based on nesting level
-/// and list type.
-#[allow(dead_code)]
-fn calculate_list_indent(
-    list: &crate::core::nodes::NodeList,
-    nesting_level: usize,
-    item_number: usize,
-    options: &FormatOptions,
-) -> String {
-    use crate::core::nodes::{ListDelimType, ListType};
-
-    let _base_indent = if options.item_content_indent {
-        // Calculate indent based on marker width
-        let marker_width = match list.list_type {
-            ListType::Bullet => 2, // "- "
-            ListType::Ordered => {
-                let marker = match list.delimiter {
-                    ListDelimType::Period => format!("{}.", item_number),
-                    ListDelimType::Paren => format!("{})", item_number),
-                };
-                marker.len() + 1 // marker + space
-            }
-        };
-        // Indent to align content with first line after marker
-        marker_width
-    } else {
-        // Fixed indent of 4 spaces
-        4
-    };
-
-    // Apply nesting level
-    let total_indent = if nesting_level == 0 {
-        0
-    } else {
-        // Each nesting level adds 4 spaces (or aligns with parent content)
-        nesting_level * 4
-    };
-
-    " ".repeat(total_indent)
-}
-
-/// Format list item marker based on list type
-///
-/// Returns the appropriate marker for a list item (e.g., "- ", "1. ", "2) ")
-#[allow(dead_code)]
-fn format_list_item_marker(list: &crate::core::nodes::NodeList) -> String {
-    use crate::core::nodes::{ListDelimType, ListType};
-
-    match list.list_type {
-        ListType::Bullet => {
-            format!("{} ", list.bullet_char as char)
-        }
-        ListType::Ordered => {
-            let marker = match list.delimiter {
-                ListDelimType::Period => format!("{}.", list.start),
-                ListDelimType::Paren => format!("{})", list.start),
-            };
-            // Add a single space after the marker
-            format!("{} ", marker)
-        }
-    }
-}
-
-/// Format list item marker with specific item number
-///
-/// This is used for ordered lists where each item has its own number.
-/// The item_number is the 1-based index of the item in the list.
-#[allow(dead_code)]
-fn format_list_item_marker_with_number(
-    list: &crate::core::nodes::NodeList,
-    item_number: usize,
-) -> String {
-    format_list_item_marker_with_number_and_options(
-        list,
-        item_number,
-        &FormatOptions::default(),
-    )
-}
-
 /// Format list item marker with specific item number and options
 ///
 /// This version respects the formatter options for marker style.
@@ -2056,50 +1947,6 @@ fn should_render_loose_paragraph(
     }
 }
 
-/// Check if a paragraph is the first block-level child of its parent
-///
-/// This is useful for determining spacing at the beginning of containers.
-#[allow(dead_code)]
-fn is_first_block_child(
-    arena: &crate::core::arena::NodeArena,
-    paragraph_id: crate::core::arena::NodeId,
-) -> bool {
-    let paragraph = arena.get(paragraph_id);
-
-    if let Some(parent_id) = paragraph.parent {
-        let parent = arena.get(parent_id);
-
-        // Check if this paragraph is the first child
-        if let Some(first_child) = parent.first_child {
-            return first_child == paragraph_id;
-        }
-    }
-
-    false
-}
-
-/// Check if a paragraph is the last block-level child of its parent
-///
-/// This is useful for determining spacing at the end of containers.
-#[allow(dead_code)]
-fn is_last_block_child(
-    arena: &crate::core::arena::NodeArena,
-    paragraph_id: crate::core::arena::NodeId,
-) -> bool {
-    let paragraph = arena.get(paragraph_id);
-
-    if let Some(parent_id) = paragraph.parent {
-        let parent = arena.get(parent_id);
-
-        // Check if this paragraph is the last child
-        if let Some(last_child) = parent.last_child {
-            return last_child == paragraph_id;
-        }
-    }
-
-    false
-}
-
 /// Render paragraph spacing based on context
 ///
 /// This is the main entry point for paragraph spacing, implementing
@@ -2188,19 +2035,6 @@ fn is_reference_label(url: &str) -> bool {
 
     // If we get here, it's likely a reference label
     true
-}
-
-/// Normalize a reference label
-///
-/// Reference labels are case-insensitive and whitespace is collapsed.
-#[allow(dead_code)]
-fn normalize_reference_label(label: &str) -> String {
-    // Collapse whitespace and convert to lowercase
-    label
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
 }
 
 /// Render a link URL, handling reference-style links
@@ -2485,59 +2319,6 @@ mod tests {
         assert_eq!(escape_url("https://example.com"), "https://example.com");
         assert_eq!(escape_url("url with space"), "url\\ with\\ space");
         assert_eq!(escape_url("(paren)"), "\\(paren\\)");
-    }
-
-    #[test]
-    fn test_format_list_item_marker_bullet() {
-        use crate::core::nodes::{ListDelimType, ListType, NodeList};
-
-        let list = NodeList {
-            list_type: ListType::Bullet,
-            marker_offset: 0,
-            padding: 0,
-            start: 1,
-            delimiter: ListDelimType::Period,
-            bullet_char: b'-',
-            tight: false,
-            is_task_list: false,
-        };
-        assert_eq!(format_list_item_marker(&list), "- ");
-
-        let list_star = NodeList {
-            bullet_char: b'*',
-            ..list
-        };
-        assert_eq!(format_list_item_marker(&list_star), "* ");
-    }
-
-    #[test]
-    fn test_format_list_item_marker_ordered() {
-        use crate::core::nodes::{ListDelimType, ListType, NodeList};
-
-        let list = NodeList {
-            list_type: ListType::Ordered,
-            marker_offset: 0,
-            padding: 0,
-            start: 1,
-            delimiter: ListDelimType::Period,
-            bullet_char: b'-',
-            tight: false,
-            is_task_list: false,
-        };
-        assert_eq!(format_list_item_marker(&list), "1. ");
-
-        let list_paren = NodeList {
-            delimiter: ListDelimType::Paren,
-            ..list
-        };
-        assert_eq!(format_list_item_marker(&list_paren), "1) ");
-
-        let list_start10 = NodeList {
-            start: 10,
-            delimiter: ListDelimType::Period,
-            ..list
-        };
-        assert_eq!(format_list_item_marker(&list_start10), "10. ");
     }
 
     #[test]

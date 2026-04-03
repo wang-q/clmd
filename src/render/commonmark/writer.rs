@@ -640,20 +640,6 @@ impl MarkdownWriter {
         self.prefix_stack.clone()
     }
 
-    /// Set the current prefix directly (use with caution)
-    /// This is used internally for prefix manipulation
-    #[allow(dead_code)]
-    fn set_prefix(&mut self, prefix: impl AsRef<str>) {
-        self.current_prefix = prefix.as_ref().to_string();
-    }
-
-    /// Add a prefix to the current prefix without pushing to stack
-    /// This is used for temporary prefix modifications
-    #[allow(dead_code)]
-    fn add_prefix(&mut self, prefix: impl AsRef<str>) {
-        self.current_prefix.push_str(prefix.as_ref());
-    }
-
     /// Flush the writer to an appendable with constraints
     pub fn flush_to(
         &mut self,

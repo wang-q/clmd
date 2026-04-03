@@ -47,10 +47,6 @@ const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
 /// Characters that need escaping in link URLs
 const URL_SPECIAL_CHARS: &[char] = &['(', ')', ' ', '\t', '\n', '\r', '<', '>', '\\'];
 
-/// Characters that need escaping in code spans
-#[allow(dead_code)]
-const CODE_SPAN_SPECIAL_CHARS: &[char] = &['`', '\\'];
-
 /// Check if a character needs escaping in the given context
 pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
     if !is_markdown_special_char(ch) {

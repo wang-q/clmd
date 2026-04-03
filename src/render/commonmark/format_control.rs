@@ -194,7 +194,7 @@ impl FormatControlProcessor {
     ///
     /// This method checks the document structure to determine if the given
     /// content should be formatted based on preceding format control comments.
-    pub fn is_formatting_region(&self, _content: &str) -> bool {
+    pub fn is_formatting_region(&self) -> bool {
         // For now, this is a simplified implementation
         // A full implementation would need to track the position in the document
         !self.formatting_off

@@ -355,7 +355,7 @@ impl Writer for CommonMarkWriter {
         } else {
             0
         };
-        Ok(crate::render::commonmark::render(arena, root, 0, width))
+        Ok(crate::render::commonmark::render(arena, root, width))
     }
 
     fn format(&self) -> OutputFormat {

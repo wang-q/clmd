@@ -162,7 +162,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
                     html
                 }
             }
-            "xml" => clmd::render::render_to_xml(&arena, root, 0),
+            "xml" => clmd::render::render_to_xml(&arena, root),
             "latex" | "tex" => clmd::io::writer::latex::render(&arena, root, 0),
             "man" => clmd::io::writer::man::render(&arena, root, 0),
             "typst" => clmd::markdown_to_typst(&input, options),
@@ -171,7 +171,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
                     .get_one::<String>("width")
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(80);
-                clmd::render::commonmark::render(&arena, root, 0, width)
+                clmd::render::commonmark::render(&arena, root, width)
             }
             _ => {
                 // Try to use the writer registry for other formats
