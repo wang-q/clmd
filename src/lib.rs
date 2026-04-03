@@ -804,40 +804,11 @@ pub fn format_xml(
 pub fn format_xml_with_plugins(
     arena: &Arena,
     root: NodeId,
-    _options: &Options,
+    options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
+    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    // For now, use a simple XML representation
-    writeln!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
-    writeln!(output, "<!DOCTYPE document SYSTEM \"CommonMark.dtd\">")?;
-    format_node_xml(arena, root, output, 0)
-}
-
-fn format_node_xml(
-    arena: &Arena,
-    node_id: NodeId,
-    output: &mut dyn std::fmt::Write,
-    depth: usize,
-) -> std::fmt::Result {
-    let node = arena.get(node_id);
-    let indent = "  ".repeat(depth);
-
-    // Use the existing xml_node_name() method for consistency and performance
-    let tag_name = node.value.xml_node_name();
-
-    writeln!(output, "{}<{}>", indent, tag_name)?;
-
-    // Process children
-    let mut child_opt = node.first_child;
-    while let Some(child_id) = child_opt {
-        format_node_xml(arena, child_id, output, depth + 1)?;
-        child_opt = arena.get(child_id).next;
-    }
-
-    writeln!(output, "{}</{}>", indent, tag_name)?;
-
-    Ok(())
+    io::writer::xml::format_document_with_plugins(arena, root, options, output, plugins)
 }
 
 /// Format an existing AST to Typst.
@@ -989,7 +960,7 @@ pub fn markdown_to_typst_with_plugins(
 
 #[cfg(test)]
 mod tests {
-    use crate::{format_html, markdown_to_html, parse_document, version, Options};
+    use crate::{format_html, io, markdown_to_html, parse_document, version, Options};
 
     #[test]
     fn test_markdown_to_html_basic() {
@@ -1267,7 +1238,7 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, shortcode);
 
-        let xml = render::format::xml::render(&arena, root, 0);
+        let xml = io::writer::xml::render(&arena, root, 0);
         assert!(
             xml.contains("<shortcode"),
             "XML should contain shortcode tag: {}",

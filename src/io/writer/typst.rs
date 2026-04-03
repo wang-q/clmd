@@ -9,7 +9,11 @@ use crate::parse::options::{Options, Plugins, WriterOptions};
 use std::fmt;
 
 /// Write a document as Typst.
-pub fn write_typst(arena: &NodeArena, root: NodeId, _options: &WriterOptions) -> ClmdResult<String> {
+pub fn write_typst(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions,
+) -> ClmdResult<String> {
     let mut renderer = TypstRenderer::new(arena);
     Ok(renderer.render(root))
 }
@@ -466,7 +470,8 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
+            .unwrap();
         assert!(typst.contains("```rust"));
         assert!(typst.contains("fn main() {}"));
         assert!(typst.contains("```"));
@@ -487,7 +492,8 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
+            .unwrap();
         assert!(typst.contains("#quote["));
         assert!(typst.contains("Quote"));
         assert!(typst.contains("]"));
@@ -506,7 +512,8 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
+            .unwrap();
         assert!(typst.contains("#line(length: 100%)"));
     }
 
@@ -528,7 +535,8 @@ mod tests {
         let options = Options::default();
         let plugins = Plugins::default();
         let mut typst = String::new();
-        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut typst, &plugins)
+            .unwrap();
         assert!(typst.contains("#link(\"https://example.com\")["));
         assert!(typst.contains("link"));
         assert!(typst.contains("]"));
@@ -569,7 +577,8 @@ mod tests {
         let plugins = Plugins::default();
         let mut output = String::new();
 
-        format_document_with_plugins(&arena, root, &options, &mut output, &plugins).unwrap();
+        format_document_with_plugins(&arena, root, &options, &mut output, &plugins)
+            .unwrap();
 
         assert!(output.contains("= Test"));
     }

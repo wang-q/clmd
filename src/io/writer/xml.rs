@@ -1,12 +1,24 @@
-//! XML renderer
+//! XML writer.
 //!
 //! This module provides XML output generation for documents parsed using the Arena-based parser.
 //! Useful for debugging and AST inspection.
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeValue};
-use crate::parse::options::{Options, Plugins};
+use crate::io::format::xml::escape_xml;
+use crate::parse::options::{Options, Plugins, WriterOptions};
 use std::fmt;
+
+/// Write a document as XML.
+pub fn write_xml(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions,
+) -> ClmdResult<String> {
+    let mut renderer = XmlRenderer::new(arena);
+    Ok(renderer.render(root))
+}
 
 /// Render an AST as XML.
 ///
@@ -55,7 +67,6 @@ fn format_node_xml(
     output.write_str("<")?;
     output.write_str(tag_name)?;
 
-    // Add source position if enabled
     if options.render.sourcepos && node.source_pos.start.line > 0 {
         write!(
             output,
@@ -67,7 +78,6 @@ fn format_node_xml(
         )?;
     }
 
-    // Add type-specific attributes
     match &node.value {
         NodeValue::List(list) => {
             match list.list_type {
@@ -113,7 +123,6 @@ fn format_node_xml(
         _ => {}
     }
 
-    // Handle leaf nodes with literal content
     if node.value.is_leaf() {
         match &node.value {
             NodeValue::Text(text) => {
@@ -177,7 +186,6 @@ fn format_node_xml(
     } else {
         output.write_str(">\n")?;
 
-        // Render children
         let mut child_opt = node.first_child;
         while let Some(child_id) = child_opt {
             format_node_xml(arena, child_id, options, output)?;
@@ -220,7 +228,6 @@ impl<'a> XmlRenderer<'a> {
         self.output.push('<');
         self.output.push_str(tag_name);
 
-        // Add type-specific attributes
         match &node.value {
             NodeValue::List(list) => match list.list_type {
                 ListType::Bullet => {
@@ -244,7 +251,6 @@ impl<'a> XmlRenderer<'a> {
             _ => {}
         }
 
-        // Handle leaf nodes
         if node.value.is_leaf() {
             match &node.value {
                 NodeValue::Text(text) => {
@@ -272,7 +278,6 @@ impl<'a> XmlRenderer<'a> {
         } else {
             self.output.push_str(">\n");
 
-            // Render children
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 self.render_node(child_id);
@@ -284,22 +289,6 @@ impl<'a> XmlRenderer<'a> {
     }
 }
 
-/// Escape XML special characters
-fn escape_xml(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            '\'' => result.push_str("&apos;"),
-            _ => result.push(c),
-        }
-    }
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,17 +297,6 @@ mod tests {
         NodeCode, NodeCodeBlock, NodeFootnoteDefinition, NodeFootnoteReference,
         NodeHeading, NodeHtmlBlock, NodeLink, NodeList, NodeTable, NodeValue,
     };
-    use crate::parse::options::Options;
-
-    #[test]
-    fn test_escape_xml() {
-        assert_eq!(escape_xml("<div>"), "&lt;div&gt;");
-        assert_eq!(escape_xml("&"), "&amp;");
-        assert_eq!(escape_xml("'test'"), "&apos;test&apos;");
-        assert_eq!(escape_xml("\"quoted\""), "&quot;quoted&quot;");
-        assert_eq!(escape_xml("normal text"), "normal text");
-        assert_eq!(escape_xml(""), "");
-    }
 
     #[test]
     fn test_render_empty_document() {
@@ -436,7 +414,6 @@ mod tests {
         TreeOps::append_child(&mut arena, para, code_node);
         TreeOps::append_child(&mut arena, root, para);
 
-        // Use format_document for full attribute support
         let options = Options::default();
         let mut output = String::new();
         format_document(&arena, root, &options, &mut output).unwrap();
@@ -757,7 +734,6 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
-        // Create nested structure: Document > List > Item > Para > Emph > Text
         let list = NodeValue::List(NodeList {
             list_type: ListType::Bullet,
             marker_offset: 0,

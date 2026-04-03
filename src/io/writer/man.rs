@@ -7,10 +7,19 @@ use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
 use crate::parse::options::WriterOptions;
 
-/// Write a document as a Man page.
-pub fn write_man(arena: &NodeArena, root: NodeId, _options: &WriterOptions) -> ClmdResult<String> {
+/// Render an AST as Man page.
+pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
     let mut renderer = ManRenderer::new(arena);
-    Ok(renderer.render(root))
+    renderer.render(root)
+}
+
+/// Write a document as a Man page.
+pub fn write_man(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions,
+) -> ClmdResult<String> {
+    Ok(render(arena, root, 0))
 }
 
 /// Man page renderer state

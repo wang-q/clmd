@@ -283,6 +283,9 @@ pub use man::write_man;
 pub mod typst;
 pub use typst::write_typst;
 
+pub mod xml;
+pub use xml::write_xml;
+
 impl Clone for WriterRegistry {
     fn clone(&self) -> Self {
         // Create a new registry with default writers
@@ -376,9 +379,9 @@ impl Writer for XmlWriter {
         arena: &NodeArena,
         root: NodeId,
         _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
-        _options: &WriterOptions,
+        options: &WriterOptions,
     ) -> ClmdResult<String> {
-        Ok(crate::render::renderer::render_to_xml(arena, root, 0))
+        write_xml(arena, root, options)
     }
 
     fn format(&self) -> OutputFormat {
