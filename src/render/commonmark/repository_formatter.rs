@@ -5,10 +5,10 @@
 //! It handles the collection, sorting, and placement of references.
 
 use super::context::NodeFormatterContext;
-use crate::options::format::{ElementPlacement, ElementPlacementSort};
 use super::phase::FormattingPhase;
 use super::writer::MarkdownWriter;
 use crate::core::arena::NodeId;
+use crate::options::format::{ElementPlacement, ElementPlacementSort};
 use std::collections::HashMap;
 
 /// A reference entry in the repository

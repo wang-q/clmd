@@ -100,8 +100,8 @@ pub mod util {
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ParseResult, ParserLimits};
-use crate::parse::block::BlockParser;
 use crate::options::Options;
+use crate::parse::block::BlockParser;
 
 /// Parse a Markdown document to an AST.
 ///

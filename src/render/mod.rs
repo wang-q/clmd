@@ -34,12 +34,12 @@ pub mod html;
 pub use crate::formatter;
 pub use crate::formatter::context;
 pub use crate::formatter::node;
-pub use crate::options::format as options;
 pub use crate::formatter::phase;
 pub use crate::formatter::phased;
 pub use crate::formatter::purpose;
 pub use crate::formatter::utils;
 pub use crate::formatter::writer;
+pub use crate::options::format as options;
 
 /// Common trait for all renderers
 ///

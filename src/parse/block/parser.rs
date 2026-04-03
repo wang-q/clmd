@@ -5,8 +5,8 @@
 use crate::core::arena::{Node, NodeArena, NodeId};
 use crate::core::error::{ParseError, ParseResult, ParserLimits};
 use crate::core::nodes::NodeValue;
-use crate::parse::block::BlockInfo;
 use crate::options::Options;
+use crate::parse::block::BlockInfo;
 use rustc_hash::FxHashMap;
 
 /// Maximum input size: 100MB

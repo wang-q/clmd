@@ -3,13 +3,13 @@
 //! These tests are migrated from flexmark-java's formatter test suite.
 //! They test the CommonMark formatter with various options and configurations.
 
-use clmd::options::Options as ParseOptions;
-use clmd::parse::parse_document;
 use clmd::options::format::{
     Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, ElementPlacement,
     ElementPlacementSort, FormatterOptions, HeadingStyle, ListSpacing, NumberedMarker,
     TrailingMarker,
 };
+use clmd::options::Options as ParseOptions;
+use clmd::parse::parse_document;
 use clmd::render::commonmark::{CommonMarkNodeFormatter, Formatter};
 use std::fs;
 

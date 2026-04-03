@@ -2,8 +2,8 @@
 
 use crate::core::arena::NodeArena;
 use crate::core::nodes::NodeValue;
-use crate::parse::block::BlockParser;
 use crate::options::Options;
+use crate::parse::block::BlockParser;
 
 #[test]
 fn test_parser_creation() {

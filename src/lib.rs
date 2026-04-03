@@ -1181,11 +1181,8 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let html = render::html::render(
-            &arena,
-            root,
-            &crate::options::Options::default(),
-        );
+        let html =
+            render::html::render(&arena, root, &crate::options::Options::default());
         assert!(html.contains("👍"), "HTML should contain emoji: {}", html);
         assert!(
             !html.contains(":thumbsup:"),
@@ -1273,11 +1270,8 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode1);
         TreeOps::append_child(&mut arena, para, shortcode2);
 
-        let html = render::html::render(
-            &arena,
-            root,
-            &crate::options::Options::default(),
-        );
+        let html =
+            render::html::render(&arena, root, &crate::options::Options::default());
         assert!(
             html.contains("😄"),
             "HTML should contain first emoji: {}",

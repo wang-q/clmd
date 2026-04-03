@@ -31,6 +31,11 @@ pub mod utils;
 pub mod writer;
 
 // Re-export commonly used types
+pub use crate::options::format::{
+    Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, DiscretionaryText,
+    ElementPlacement, ElementPlacementSort, FormatFlags, FormatOptions, HeadingStyle,
+    ListSpacing, NumberedMarker, TrailingMarker,
+};
 pub use commonmark_formatter::CommonMarkNodeFormatter;
 pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
@@ -39,11 +44,6 @@ pub use context::{
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
-};
-pub use crate::options::format::{
-    Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, DiscretionaryText,
-    ElementPlacement, ElementPlacementSort, FormatFlags, FormatOptions, HeadingStyle,
-    ListSpacing, NumberedMarker, TrailingMarker,
 };
 
 /// Type alias for backward compatibility

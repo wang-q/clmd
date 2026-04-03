@@ -6,10 +6,10 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::formatter::node::NodeValueType;
-use crate::options::format::FormatOptions;
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::purpose::RenderPurpose;
 use crate::formatter::writer::MarkdownWriter;
+use crate::options::format::FormatOptions;
 
 /// Context for node formatting operations
 ///
@@ -512,8 +512,8 @@ mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena};
     use crate::core::nodes::NodeValue;
-    use crate::options::format::FormatOptions;
     use crate::formatter::purpose::RenderPurpose;
+    use crate::options::format::FormatOptions;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {

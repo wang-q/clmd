@@ -5,8 +5,8 @@
 
 use crate::core::nodes::{NodeCodeBlock, NodeList};
 use crate::formatter::context::NodeFormatterContext;
-use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::formatter::writer::MarkdownWriter;
+use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 
 /// Render a list
 ///

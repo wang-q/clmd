@@ -21,10 +21,10 @@ use crate::formatter::escaping::{
     escape_string, escape_text, escape_url,
 };
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
-use crate::options::format::{FormatOptions, HeadingStyle};
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::phased::PhasedNodeFormatter;
 use crate::formatter::writer::MarkdownWriter;
+use crate::options::format::{FormatOptions, HeadingStyle};
 
 /// CommonMark node formatter
 ///
@@ -331,34 +331,29 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      _writer: &mut MarkdownWriter| {
                         if let NodeValue::List(list) = value {
                             // Determine effective tightness based on list_spacing option and content
-                            let effective_tight =
-                                if let Some(node_id) = ctx.get_current_node() {
-                                    calculate_effective_list_tightness(
-                                        ctx.get_arena(),
-                                        node_id,
-                                        list,
-                                        ctx.get_formatter_options(),
-                                    )
-                                } else {
-                                    // Fallback to simple option-based logic
-                                    match ctx.get_formatter_options().list_spacing {
-                                    crate::options::format::ListSpacing::Tight => {
-                                        true
-                                    }
-                                    crate::options::format::ListSpacing::Loose => {
-                                        false
-                                    }
+                            let effective_tight = if let Some(node_id) =
+                                ctx.get_current_node()
+                            {
+                                calculate_effective_list_tightness(
+                                    ctx.get_arena(),
+                                    node_id,
+                                    list,
+                                    ctx.get_formatter_options(),
+                                )
+                            } else {
+                                // Fallback to simple option-based logic
+                                match ctx.get_formatter_options().list_spacing {
+                                    crate::options::format::ListSpacing::Tight => true,
+                                    crate::options::format::ListSpacing::Loose => false,
                                     crate::options::format::ListSpacing::AsIs => {
                                         list.tight
                                     }
                                     crate::options::format::ListSpacing::Loosen => {
                                         list.tight
                                     }
-                                    crate::options::format::ListSpacing::Tighten => {
-                                        true
-                                    }
+                                    crate::options::format::ListSpacing::Tighten => true,
                                 }
-                                };
+                            };
                             ctx.set_tight_list(effective_tight);
                             ctx.increment_list_nesting();
                         }
@@ -2634,7 +2629,7 @@ mod tests {
     fn test_render_document_with_nested_lists() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
 
@@ -2743,7 +2738,7 @@ mod tests {
     fn test_render_code_block_with_backticks() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeCodeBlock, NodeValue};
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2789,7 +2784,7 @@ mod tests {
     fn test_render_heading_atx() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeHeading, NodeValue};
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2820,7 +2815,7 @@ mod tests {
     fn test_render_blockquote() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::NodeValue;
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2850,7 +2845,7 @@ mod tests {
     fn test_render_link_and_image() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeLink, NodeValue};
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2899,7 +2894,7 @@ mod tests {
     fn test_render_emphasis_and_strong() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::NodeValue;
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -3046,7 +3041,7 @@ mod tests {
     fn test_render_task_list() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::formatter::{Formatter, FormatOptions};
+        use crate::formatter::{FormatOptions, Formatter};
 
         let mut arena = NodeArena::new();
 

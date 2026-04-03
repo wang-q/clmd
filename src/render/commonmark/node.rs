@@ -498,8 +498,8 @@ impl NodeFormatter for ComposedNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::options::format::FormatOptions;
     use crate::formatter::writer::MarkdownWriter;
+    use crate::options::format::FormatOptions;
 
     #[test]
     fn test_node_value_type_from_node_value() {
