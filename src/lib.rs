@@ -207,8 +207,8 @@ pub mod from {
 /// Markdown extensions (GFM and others).
 pub mod ext;
 
-// HTML rendering for the CommonMark AST is now in render::format::html
-pub use render::format::html;
+// HTML rendering for the CommonMark AST is now in render::html
+pub use render::html;
 
 /// HTML utilities (escaping, entity decoding).
 pub mod html_utils {
@@ -1183,7 +1183,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode);
         TreeOps::append_child(&mut arena, para, text2);
 
-        let html = render::format::html::render(
+        let html = render::html::render(
             &arena,
             root,
             &crate::parse::options::Options::default(),
@@ -1275,7 +1275,7 @@ mod tests {
         TreeOps::append_child(&mut arena, para, shortcode1);
         TreeOps::append_child(&mut arena, para, shortcode2);
 
-        let html = render::format::html::render(
+        let html = render::html::render(
             &arena,
             root,
             &crate::parse::options::Options::default(),

@@ -142,7 +142,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
                     opts.render.hardbreaks = true;
                 }
 
-                let html = clmd::render::format::html::render(&arena, root, &opts);
+                let html = clmd::render::html::render(&arena, root, &opts);
 
                 if matches.get_flag("full") {
                     format!(

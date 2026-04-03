@@ -50,7 +50,7 @@ pub trait Renderer {
 
 pub use super::commonmark;
 /// Re-export all renderers
-pub use super::format::html;
+pub use super::html;
 
 /// Render to HTML format
 ///

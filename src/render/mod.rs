@@ -25,13 +25,18 @@
 //! ```
 
 pub mod commonmark;
-pub mod format;
+pub mod html;
 pub mod renderer;
 
 // Re-export renderer types
 pub use renderer::{
     render, render_to_commonmark, render_to_html, render_to_latex, render_to_man,
     render_to_xml, OutputFormat, Renderer,
+};
+
+// Re-export HTML renderer functions for backward compatibility
+pub use html::{
+    render as render_html, render_with_highlighter as render_html_with_highlighter,
 };
 
 // Re-export escape_html from html_utils for backward compatibility
