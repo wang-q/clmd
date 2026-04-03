@@ -2,6 +2,37 @@
 
 ## Unreleased - ReleaseDate
 
+### 🎉 Major Changes
+
+#### Options Module Restructuring
+- Moved `parse::options` to root `options` module with structured submodules
+- Simplified API by removing redundant `*_with_plugins` function variants
+- Unified format functions to accept `plugins` parameter directly
+
+#### Writer Registry Enhancement
+- Added LaTeX, Man page, Typst, and PDF writers to registry
+- Relocated format writers from `render/format` to `io/writer`
+
+### ✨ New Features
+
+- **TOML Config**: Added `options::serde` module for configuration file support
+
+### 🏗️ Architecture Improvements
+
+- Removed deprecated types (`ParseError`, `ParseResult`, `ClmdError::Deprecated`)
+- Removed backward compatibility aliases and legacy code
+- Reorganized module imports for better maintainability
+
+### 🐛 Bug Fixes
+
+- Removed unnecessary escaping for `>` character in markdown output
+
+### 🛠️ Technical Improvements
+
+- Moved HTML rendering to `render::html`
+- Simplified CommonMark rendering function signature
+- Relocated XML rendering to `io::writer::xml`
+
 ## 0.2.1 - 2026-04-02
 
 ### 🎉 Major Changes
