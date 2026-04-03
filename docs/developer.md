@@ -48,39 +48,42 @@ cargo build
 
 ### 核心算法参考
 
-| 功能 | cmark (C) | commonmark.js (JS) | flexmark (Java) |
-|------|-----------|-------------------|-----------------|
-| 块级解析 | blocks.c | blocks.js | BlockParser 体系 |
-| 内联解析 | inlines.c | inlines.js | InlineParser 体系 |
-| 强调处理 | inlines.c (process_emphasis) | inlines.js (processEmphasis) | Delimiter 处理 |
-| 链接处理 | inlines.c (parse_link) | inlines.js (parseLink) | LinkParser |
-| HTML 渲染 | html.c | render/html.js | NodeRenderer 体系 |
-| 表格解析 | - | - | TableBlockParser |
-| 短代码处理 | - | - | ShortCodeParser |
-| Markdown 格式化 | - | - | Formatter 体系 |
-| Typst 渲染 | - | - | - |
-| PDF 渲染 | - | - | - |
-
+| 功能            | cmark (C)                    | commonmark.js (JS)           | flexmark (Java)   |
+| --------------- | ---------------------------- | ---------------------------- | ----------------- |
+| 块级解析        | blocks.c                     | blocks.js                    | BlockParser 体系  |
+| 内联解析        | inlines.c                    | inlines.js                   | InlineParser 体系 |
+| 强调处理        | inlines.c (process_emphasis) | inlines.js (processEmphasis) | Delimiter 处理    |
+| 链接处理        | inlines.c (parse_link)       | inlines.js (parseLink)       | LinkParser        |
+| HTML 渲染       | html.c                       | render/html.js               | NodeRenderer 体系 |
+| 表格解析        | -                            | -                            | TableBlockParser  |
+| 短代码处理      | -                            | -                            | ShortCodeParser   |
+| Markdown 格式化 | -                            | -                            | Formatter 体系    |
+| Typst 渲染      | -                            | -                            | -                 |
+| PDF 渲染        | -                            | -                            | -                 |
 ### 最近完成的改进 (2026-04-01)
 
 基于 Pandoc 架构分析，已完成以下改进：
 
 #### 1. 扩展系统完善
+
 - 新增 35 个扩展变体（Fenced divs、Citations、YAML metadata、Raw attribute 等）
 - 新增扩展组合运算方法（enable_extension、disable_extension、combine_extensions 等）
 - 新增格式默认扩展（pandoc、mmd、phpextra、strict）
 
 #### 2. 错误处理改进
+
 - 新增 12 个错误类型（CircularReference、Timeout、Network、PermissionDenied 等）
 - 新增错误检查方法（is_circular_reference、is_timeout、is_warning 等）
 - 新增错误渲染系统（ErrorRenderer、ErrorCollector）
 
 #### 3. 文档遍历系统
+
 - 新增节点类型（DescriptionList、Alert、WikiLink 等）
 - 新增 NodeType 方法（is_block、is_inline）
 - 新增 Queryable trait 方法（find_links、find_images、get_heading_structure 等）
 
 #### 4. 转换管道改进
+
 - 新增转换类型（StripFootnotes、CapitalizeHeaders、AbsToRel、AutoIdent）
 - 新增转换实现（apply_strip_footnotes、apply_capitalize_headers 等）
 
@@ -89,18 +92,21 @@ cargo build
 基于 Pandoc 架构分析，新增以下核心模块：
 
 **字符处理模块 (`char`)**：
+
 - CJK 字符检测（中日韩文字范围）
 - CJK 标点符号检测
 - 全角字符检测
 - 字符串 CJK 字符统计
 
 **Roff 转义模块 (`roff_char`)**：
+
 - roff/groff 特殊字符转义
 - 标准转义序列（引号、反斜杠、省略号等）
 - Unicode 字符转义
 - 可配置的转义器
 
 **幻灯片模块 (`slides`)**：
+
 - 幻灯片级别配置（H1-H6）
 - 幻灯片放映管理
 - reveal.js HTML 输出
@@ -109,6 +115,7 @@ cargo build
 - 导航链接生成
 
 **TeX 令牌模块 (`tex`)**：
+
 - TeX/LaTeX 令牌类型
 - 完整的 category codes 支持
 - TeX 分词器
@@ -116,6 +123,7 @@ cargo build
 - 环境开始/结束检测
 
 **文档分块模块 (`chunks`)**：
+
 - 文档分块配置
 - 基于标题级别的分块
 - 导航链接生成（上一页/下一页/上级）
@@ -123,6 +131,7 @@ cargo build
 - EPUB/网站生成支持
 
 **源文件管理模块 (`sources`)**：
+
 - 多源文件输入管理（文件、字符串、URL）
 - 源位置跟踪（行号、列号、偏移量）
 - 源范围表示和合并
@@ -130,11 +139,13 @@ cargo build
 - 错误报告精确定位
 
 #### 6. Transforms 模块增强
+
 - 新增 `EastAsianLineBreaks` 转换类型
 - 实现东亚语言软换行过滤（CJK 字符间软换行移除）
 - 改进东亚语言排版支持
 
 #### 7. 实用工具模块
+
 - 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
 
 ### 待实现的功能
@@ -148,3 +159,4 @@ cargo build
 5. **数学公式**: LaTeX 数学公式支持
 6. **文档分块**: 类似 Chunks 的文档分块处理
 7. **翻译支持**: 类似 Translations 的多语言支持
+
