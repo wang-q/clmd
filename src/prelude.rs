@@ -22,13 +22,10 @@ pub use crate::{
 
 // Re-export from options module
 pub use crate::options::{
-    BrokenLinkCallback, BrokenLinkReference, Extension, ListStyleType, Parse, Render,
-    RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode,
-};
-
-// Re-export new types from parse::options
-pub use crate::parse::options::{
-    InputFormat, OutputFormat, ReaderOptions, WrapOption, WriterOptions,
+    BrokenLinkCallback, BrokenLinkReference, Extension, InputFormat, ListStyleType,
+    OutputFormat, Parse, ParseOptions, ReaderOptions, Render, RenderOptions,
+    RenderPlugins, ResolvedReference, URLRewriter, WikiLinksMode, WrapOption,
+    WriterOptions,
 };
 
 // Re-export extension types

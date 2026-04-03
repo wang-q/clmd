@@ -54,374 +54,19 @@
 //! # Pipeline transforms
 //! [[transforms]]
 //! name = "header_shift"
-//! shift = 1
+//! params = { shift = 1 }
 //! ```
+
+// Re-export all config types from the unified options::serde module
+pub use crate::options::serde::{
+    Config, ExtensionConfig, FormatConfig, ParseConfig, ReaderConfig, RenderConfig,
+    SyntaxConfig, TransformConfig, WriterConfig,
+};
 
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::ext::flags::ExtensionFlags;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-/// Configuration structure for clmd
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Config {
-    /// Default input format
-    #[serde(default)]
-    pub input_format: Option<String>,
-
-    /// Default output format
-    #[serde(default)]
-    pub output_format: Option<String>,
-
-    /// Extension options
-    #[serde(default)]
-    pub extensions: ExtensionsConfig,
-
-    /// Parse options
-    #[serde(default)]
-    pub parse: ParseConfig,
-
-    /// Render options
-    #[serde(default)]
-    pub render: RenderConfig,
-
-    /// Syntax highlighting options
-    #[serde(default)]
-    pub syntax: SyntaxConfig,
-
-    /// Reader options
-    #[serde(default)]
-    pub reader: ReaderConfig,
-
-    /// Writer options
-    #[serde(default)]
-    pub writer: WriterConfig,
-
-    /// Pipeline transforms
-    #[serde(default)]
-    pub transforms: Vec<TransformConfig>,
-
-    /// Additional options as key-value pairs
-    #[serde(default)]
-    pub options: HashMap<String, toml::Value>,
-}
-
-/// Extensions configuration
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
-pub struct ExtensionsConfig {
-    /// Enable table extension
-    #[serde(default)]
-    pub table: bool,
-
-    /// Enable strikethrough extension
-    #[serde(default)]
-    pub strikethrough: bool,
-
-    /// Enable tasklist extension
-    #[serde(default)]
-    pub tasklist: bool,
-
-    /// Enable footnotes extension
-    #[serde(default)]
-    pub footnotes: bool,
-
-    /// Enable autolink extension
-    #[serde(default)]
-    pub autolink: bool,
-
-    /// Enable tagfilter extension
-    #[serde(default)]
-    pub tagfilter: bool,
-
-    /// Enable superscript extension
-    #[serde(default)]
-    pub superscript: bool,
-
-    /// Enable subscript extension
-    #[serde(default)]
-    pub subscript: bool,
-
-    /// Enable underline extension
-    #[serde(default)]
-    pub underline: bool,
-
-    /// Enable highlight extension
-    #[serde(default)]
-    pub highlight: bool,
-
-    /// Enable insert extension
-    #[serde(default)]
-    pub insert: bool,
-
-    /// Enable math extension
-    #[serde(default)]
-    pub math: bool,
-
-    /// Enable wikilink extension
-    #[serde(default)]
-    pub wikilink: bool,
-
-    /// Enable spoiler extension
-    #[serde(default)]
-    pub spoiler: bool,
-
-    /// Enable greentext extension
-    #[serde(default)]
-    pub greentext: bool,
-
-    /// Enable alerts extension
-    #[serde(default)]
-    pub alerts: bool,
-
-    /// Enable multiline block quote extension
-    #[serde(default)]
-    pub multiline_block_quote: bool,
-
-    /// Enable description list extension
-    #[serde(default)]
-    pub description_list: bool,
-
-    /// Enable shortcode extension
-    #[serde(default)]
-    pub shortcode: bool,
-
-    /// Enable YAML front matter extension
-    #[serde(default)]
-    pub yaml_front_matter: bool,
-
-    /// Enable abbreviation extension
-    #[serde(default)]
-    pub abbreviation: bool,
-
-    /// Enable attributes extension
-    #[serde(default)]
-    pub attributes: bool,
-
-    /// Enable TOC extension
-    #[serde(default)]
-    pub toc: bool,
-
-    /// Enable emoji extension
-    #[serde(default)]
-    pub emoji: bool,
-}
-
-impl ExtensionsConfig {
-    /// Convert to ExtensionFlags bitflags
-    pub fn to_extensions(&self) -> ExtensionFlags {
-        let mut ext = ExtensionFlags::empty();
-        if self.table {
-            ext |= ExtensionFlags::TABLES;
-        }
-        if self.strikethrough {
-            ext |= ExtensionFlags::STRIKETHROUGH;
-        }
-        if self.tasklist {
-            ext |= ExtensionFlags::TASKLISTS;
-        }
-        if self.autolink {
-            ext |= ExtensionFlags::AUTOLINKS;
-        }
-        if self.footnotes {
-            ext |= ExtensionFlags::FOOTNOTES;
-        }
-        if self.description_list {
-            ext |= ExtensionFlags::DESCRIPTION_LISTS;
-        }
-        if self.tagfilter {
-            ext |= ExtensionFlags::TAGFILTER;
-        }
-        if self.superscript {
-            ext |= ExtensionFlags::SUPERSCRIPT;
-        }
-        if self.subscript {
-            ext |= ExtensionFlags::SUBSCRIPT;
-        }
-        if self.underline {
-            ext |= ExtensionFlags::UNDERLINE;
-        }
-        if self.highlight {
-            ext |= ExtensionFlags::HIGHLIGHT;
-        }
-        if self.math {
-            ext |= ExtensionFlags::MATH_DOLLARS;
-        }
-        if self.wikilink {
-            ext |= ExtensionFlags::WIKILINKS_TITLE_AFTER_PIPE;
-        }
-        if self.alerts {
-            ext |= ExtensionFlags::ALERTS;
-        }
-        if self.yaml_front_matter {
-            ext |= ExtensionFlags::YAML_FRONT_MATTER;
-        }
-        if self.abbreviation {
-            ext |= ExtensionFlags::ABBREVIATIONS;
-        }
-        if self.attributes {
-            ext |= ExtensionFlags::ATTRIBUTES;
-        }
-        if self.toc {
-            ext |= ExtensionFlags::TOC;
-        }
-        if self.emoji {
-            ext |= ExtensionFlags::SHORTCODES;
-        }
-        if self.insert {
-            ext |= ExtensionFlags::INSERT;
-        }
-        if self.spoiler {
-            ext |= ExtensionFlags::SPOILER;
-        }
-        if self.greentext {
-            ext |= ExtensionFlags::GREENTEXT;
-        }
-        if self.multiline_block_quote {
-            ext |= ExtensionFlags::MULTILINE_BLOCK_QUOTES;
-        }
-        if self.shortcode {
-            ext |= ExtensionFlags::SHORTCODES;
-        }
-        ext
-    }
-
-    /// Create from ExtensionFlags bitflags
-    pub fn from_extensions(ext: ExtensionFlags) -> Self {
-        Self {
-            table: ext.contains(ExtensionFlags::TABLES),
-            strikethrough: ext.contains(ExtensionFlags::STRIKETHROUGH),
-            tasklist: ext.contains(ExtensionFlags::TASKLISTS),
-            autolink: ext.contains(ExtensionFlags::AUTOLINKS),
-            footnotes: ext.contains(ExtensionFlags::FOOTNOTES),
-            tagfilter: ext.contains(ExtensionFlags::TAGFILTER),
-            superscript: ext.contains(ExtensionFlags::SUPERSCRIPT),
-            subscript: ext.contains(ExtensionFlags::SUBSCRIPT),
-            underline: ext.contains(ExtensionFlags::UNDERLINE),
-            highlight: ext.contains(ExtensionFlags::HIGHLIGHT),
-            insert: ext.contains(ExtensionFlags::INSERT),
-            math: ext.contains(ExtensionFlags::MATH_DOLLARS),
-            wikilink: ext.contains(ExtensionFlags::WIKILINKS_TITLE_AFTER_PIPE)
-                || ext.contains(ExtensionFlags::WIKILINKS_TITLE_BEFORE_PIPE),
-            spoiler: ext.contains(ExtensionFlags::SPOILER),
-            greentext: ext.contains(ExtensionFlags::GREENTEXT),
-            alerts: ext.contains(ExtensionFlags::ALERTS),
-            multiline_block_quote: ext.contains(ExtensionFlags::MULTILINE_BLOCK_QUOTES),
-            description_list: ext.contains(ExtensionFlags::DESCRIPTION_LISTS),
-            shortcode: ext.contains(ExtensionFlags::SHORTCODES),
-            yaml_front_matter: ext.contains(ExtensionFlags::YAML_FRONT_MATTER),
-            abbreviation: ext.contains(ExtensionFlags::ABBREVIATIONS),
-            attributes: ext.contains(ExtensionFlags::ATTRIBUTES),
-            toc: ext.contains(ExtensionFlags::TOC),
-            emoji: ext.contains(ExtensionFlags::SHORTCODES),
-        }
-    }
-}
-
-/// Parse configuration
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
-pub struct ParseConfig {
-    /// Enable smart punctuation
-    #[serde(default)]
-    pub smart: bool,
-
-    /// Enable relaxed tasklist matching
-    #[serde(default)]
-    pub relaxed_tasklist: bool,
-
-    /// Enable relaxed autolinks
-    #[serde(default)]
-    pub relaxed_autolinks: bool,
-
-    /// Maximum nesting depth (0 = unlimited)
-    #[serde(default)]
-    pub max_nesting_depth: usize,
-}
-
-/// Render configuration
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
-pub struct RenderConfig {
-    /// Enable hard line breaks
-    #[serde(default)]
-    pub hardbreaks: bool,
-
-    /// Allow unsafe URLs (javascript:, data:, etc.)
-    #[serde(default)]
-    pub r#unsafe: bool,
-
-    /// Use GitHub-style pre lang attribute
-    #[serde(default)]
-    pub github_pre_lang: bool,
-
-    /// Include full info string
-    #[serde(default)]
-    pub full_info_string: bool,
-
-    /// Source position attribute
-    #[serde(default)]
-    pub sourcepos: bool,
-
-    /// Compact HTML output
-    #[serde(default)]
-    pub compact: bool,
-
-    /// Escape HTML instead of passing through
-    #[serde(default)]
-    pub escape: bool,
-}
-
-/// Syntax highlighting configuration
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct SyntaxConfig {
-    /// Theme name for syntax highlighting
-    /// Use "css" for CSS class mode, or a theme name for inline styles
-    #[serde(default)]
-    pub theme: Option<String>,
-
-    /// Enable syntax highlighting
-    #[serde(default)]
-    pub enabled: bool,
-}
-
-/// Reader configuration
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct ReaderConfig {
-    /// Default input format
-    #[serde(default)]
-    pub default_format: String,
-
-    /// Additional reader options
-    #[serde(default)]
-    pub options: HashMap<String, toml::Value>,
-}
-
-/// Writer configuration
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct WriterConfig {
-    /// Default output format
-    #[serde(default)]
-    pub default_format: String,
-
-    /// Template file path
-    #[serde(default)]
-    pub template: Option<PathBuf>,
-
-    /// Additional writer options
-    #[serde(default)]
-    pub options: HashMap<String, toml::Value>,
-}
-
-/// Transform configuration
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct TransformConfig {
-    /// Transform name
-    pub name: String,
-
-    /// Transform parameters
-    #[serde(default)]
-    pub params: HashMap<String, toml::Value>,
-}
 
 impl Config {
     /// Load configuration from a file
@@ -469,14 +114,15 @@ impl Config {
         options.extension.spoiler = self.extensions.spoiler;
         options.extension.greentext = self.extensions.greentext;
         options.extension.alerts = self.extensions.alerts;
-        options.extension.multiline_block_quotes = self.extensions.multiline_block_quote;
-        options.extension.description_lists = self.extensions.description_list;
-        options.extension.shortcodes = self.extensions.shortcode;
+        options.extension.multiline_block_quotes = self.extensions.multiline_block_quotes;
+        options.extension.description_lists = self.extensions.description_lists;
+        options.extension.shortcodes = self.extensions.shortcodes;
 
         // Apply parse options
         options.parse.smart = self.parse.smart;
-        options.parse.relaxed_tasklist_matching = self.parse.relaxed_tasklist;
+        options.parse.relaxed_tasklist_matching = self.parse.relaxed_tasklist_matching;
         options.parse.relaxed_autolinks = self.parse.relaxed_autolinks;
+        options.parse.sourcepos = self.parse.sourcepos;
 
         // Apply render options
         options.render.hardbreaks = self.render.hardbreaks;
@@ -486,110 +132,8 @@ impl Config {
         options.render.sourcepos = self.render.sourcepos;
         options.render.compact_html = self.render.compact;
         options.render.escape = self.render.escape;
-    }
-
-    /// Merge another configuration into this one
-    pub fn merge(&mut self, other: &Config) {
-        if other.input_format.is_some() {
-            self.input_format = other.input_format.clone();
-        }
-        if other.output_format.is_some() {
-            self.output_format = other.output_format.clone();
-        }
-        // Merge extensions (other takes precedence for true values)
-        self.extensions = ExtensionsConfig {
-            table: other.extensions.table || self.extensions.table,
-            strikethrough: other.extensions.strikethrough
-                || self.extensions.strikethrough,
-            tasklist: other.extensions.tasklist || self.extensions.tasklist,
-            footnotes: other.extensions.footnotes || self.extensions.footnotes,
-            autolink: other.extensions.autolink || self.extensions.autolink,
-            tagfilter: other.extensions.tagfilter || self.extensions.tagfilter,
-            superscript: other.extensions.superscript || self.extensions.superscript,
-            subscript: other.extensions.subscript || self.extensions.subscript,
-            underline: other.extensions.underline || self.extensions.underline,
-            highlight: other.extensions.highlight || self.extensions.highlight,
-            insert: other.extensions.insert || self.extensions.insert,
-            math: other.extensions.math || self.extensions.math,
-            wikilink: other.extensions.wikilink || self.extensions.wikilink,
-            spoiler: other.extensions.spoiler || self.extensions.spoiler,
-            greentext: other.extensions.greentext || self.extensions.greentext,
-            alerts: other.extensions.alerts || self.extensions.alerts,
-            multiline_block_quote: other.extensions.multiline_block_quote
-                || self.extensions.multiline_block_quote,
-            description_list: other.extensions.description_list
-                || self.extensions.description_list,
-            shortcode: other.extensions.shortcode || self.extensions.shortcode,
-            yaml_front_matter: other.extensions.yaml_front_matter
-                || self.extensions.yaml_front_matter,
-            abbreviation: other.extensions.abbreviation || self.extensions.abbreviation,
-            attributes: other.extensions.attributes || self.extensions.attributes,
-            toc: other.extensions.toc || self.extensions.toc,
-            emoji: other.extensions.emoji || self.extensions.emoji,
-        };
-        // Merge parse options (other takes precedence for non-default values)
-        if other.parse.smart {
-            self.parse.smart = true;
-        }
-        if other.parse.relaxed_tasklist {
-            self.parse.relaxed_tasklist = true;
-        }
-        if other.parse.relaxed_autolinks {
-            self.parse.relaxed_autolinks = true;
-        }
-        if other.parse.max_nesting_depth > 0 {
-            self.parse.max_nesting_depth = other.parse.max_nesting_depth;
-        }
-
-        // Merge render options (other takes precedence for non-default values)
-        if other.render.hardbreaks {
-            self.render.hardbreaks = true;
-        }
-        if other.render.r#unsafe {
-            self.render.r#unsafe = true;
-        }
-        if other.render.github_pre_lang {
-            self.render.github_pre_lang = true;
-        }
-        if other.render.full_info_string {
-            self.render.full_info_string = true;
-        }
-        if other.render.sourcepos {
-            self.render.sourcepos = true;
-        }
-        if other.render.compact {
-            self.render.compact = true;
-        }
-        if other.render.escape {
-            self.render.escape = true;
-        }
-
-        // Merge syntax options (other takes precedence)
-        if other.syntax.theme.is_some() {
-            self.syntax.theme = other.syntax.theme.clone();
-        }
-        if other.syntax.enabled {
-            self.syntax.enabled = true;
-        }
-
-        // Merge reader options (other takes precedence for non-empty values)
-        if !other.reader.default_format.is_empty() {
-            self.reader.default_format = other.reader.default_format.clone();
-        }
-        self.reader.options.extend(other.reader.options.clone());
-
-        // Merge writer options (other takes precedence)
-        if !other.writer.default_format.is_empty() {
-            self.writer.default_format = other.writer.default_format.clone();
-        }
-        if other.writer.template.is_some() {
-            self.writer.template = other.writer.template.clone();
-        }
-        self.writer.options.extend(other.writer.options.clone());
-
-        // Merge transforms and options
-        self.transforms.extend(other.transforms.clone());
-        self.options.extend(other.options.clone());
+        options.render.width = self.render.width;
+        options.render.cjk_spacing = self.render.cjk_spacing;
     }
 
     /// Get extensions as bitflags
@@ -599,7 +143,7 @@ impl Config {
 
     /// Set extensions from bitflags
     pub fn set_extensions(&mut self, ext: ExtensionFlags) {
-        self.extensions = ExtensionsConfig::from_extensions(ext);
+        self.extensions = ExtensionConfig::from_extensions(ext);
     }
 }
 
@@ -723,7 +267,7 @@ hardbreaks = false
     #[test]
     fn test_config_apply_to_options() {
         let config = Config {
-            extensions: ExtensionsConfig {
+            extensions: ExtensionConfig {
                 table: true,
                 strikethrough: true,
                 ..Default::default()
@@ -759,7 +303,7 @@ hardbreaks = false
     #[test]
     fn test_config_merge() {
         let mut base = Config {
-            extensions: ExtensionsConfig {
+            extensions: ExtensionConfig {
                 table: true,
                 ..Default::default()
             },
@@ -767,7 +311,7 @@ hardbreaks = false
         };
 
         let override_config = Config {
-            extensions: ExtensionsConfig {
+            extensions: ExtensionConfig {
                 strikethrough: true,
                 ..Default::default()
             },
@@ -782,7 +326,7 @@ hardbreaks = false
 
     #[test]
     fn test_extensions_to_bitflags() {
-        let config = ExtensionsConfig {
+        let config = ExtensionConfig {
             table: true,
             strikethrough: true,
             ..Default::default()
@@ -797,7 +341,7 @@ hardbreaks = false
     #[test]
     fn test_extensions_from_bitflags() {
         let ext = ExtensionFlags::TABLES | ExtensionFlags::STRIKETHROUGH;
-        let config = ExtensionsConfig::from_extensions(ext);
+        let config = ExtensionConfig::from_extensions(ext);
 
         assert!(config.table);
         assert!(config.strikethrough);

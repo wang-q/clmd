@@ -232,9 +232,7 @@ pub mod html_utils {
 /// options.extension.table = true;
 /// options.parse.smart = true;
 /// ```
-pub mod options {
-    pub use crate::parse::options::*;
-}
+pub mod options;
 
 /// IO module for document reading and writing.
 ///
@@ -344,7 +342,7 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 // Options Exports (comrak-style)
 // =============================================================================
 
-/// Re-export Options from parse::options for convenient access.
+/// Re-export Options for convenient access.
 ///
 /// # Example
 ///
@@ -354,29 +352,29 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 /// let mut options = Options::default();
 /// options.extension.table = true;
 /// options.render.hardbreaks = true;
-/// ```ignore
-pub use parse::options::Options;
+/// ```
+pub use options::Options;
 
 /// Re-export Plugins for customizing rendering.
-pub use parse::options::Plugins;
+pub use options::Plugins;
 
 /// Re-export Extension options.
-pub use parse::options::Extension;
+pub use options::Extension;
 
-/// Re-export Parse options.
-pub use parse::options::Parse;
+/// Re-export ParseOptions (aliased as Parse for backward compatibility).
+pub use options::ParseOptions as Parse;
 
-/// Re-export Render options.
-pub use parse::options::Render;
+/// Re-export RenderOptions (aliased as Render for backward compatibility).
+pub use options::RenderOptions as Render;
 
 /// Re-export ResolvedReference.
-pub use parse::options::ResolvedReference;
+pub use options::ResolvedReference;
 
 /// Re-export BrokenLinkCallback.
-pub use parse::options::BrokenLinkCallback;
+pub use options::BrokenLinkCallback;
 
 /// Re-export URLRewriter trait.
-pub use parse::options::URLRewriter;
+pub use options::URLRewriter;
 
 // Error types are now exported through `core` module
 

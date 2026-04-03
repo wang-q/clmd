@@ -26,8 +26,8 @@
 //! plugins.render.set_syntax_highlighter(&MyHighlighter);
 //! ```
 
-// Re-export from parse::options for unified API
-pub use crate::parse::options::{Plugins, RenderPlugins};
+// Re-export from options module for unified API
+pub use crate::options::{Plugins, RenderPlugins};
 
 // Re-export adapter traits for convenience
 pub use crate::core::adapter::{
