@@ -74,22 +74,16 @@ fn parse_latex(input: &str, arena: &mut NodeArena) -> ClmdResult<NodeId> {
 
 /// LaTeX parser state.
 struct LatexParser<'a, 'b> {
-    #[allow(dead_code)]
-    input: &'a str,
     chars: std::iter::Peekable<std::str::Chars<'a>>,
     arena: &'b mut NodeArena,
-    #[allow(dead_code)]
-    root: NodeId,
     current_container: NodeId,
 }
 
 impl<'a, 'b> LatexParser<'a, 'b> {
     fn new(input: &'a str, arena: &'b mut NodeArena, root: NodeId) -> Self {
         Self {
-            input,
             chars: input.chars().peekable(),
             arena,
-            root,
             current_container: root,
         }
     }

@@ -3,7 +3,7 @@
 //! This module provides the main BlockParser struct and its core parsing logic.
 
 use crate::core::arena::{Node, NodeArena, NodeId};
-use crate::core::error::{ParseError, ParseResult, ParserLimits};
+use crate::core::error::{ClmdError, ClmdResult, ParserLimits};
 use crate::core::nodes::NodeValue;
 use crate::options::Options;
 use crate::parse::block::BlockInfo;
@@ -144,7 +144,7 @@ impl<'a> BlockParser<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `ParseError` if:
+    /// Returns `ClmdError` if:
     /// - Input exceeds maximum allowed size
     /// - Line length exceeds maximum allowed
     /// - Nesting depth exceeds maximum allowed
@@ -153,7 +153,7 @@ impl<'a> BlockParser<'a> {
         input: &str,
         options: Options<'a>,
         limits: ParserLimits,
-    ) -> ParseResult<NodeId> {
+    ) -> ClmdResult<NodeId> {
         Self::parse_with_limits_and_refmap(arena, input, options, limits)
             .map(|(doc, _)| doc)
     }
@@ -162,7 +162,7 @@ impl<'a> BlockParser<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `ParseError` if:
+    /// Returns `ClmdError` if:
     /// - Input exceeds maximum allowed size
     /// - Line length exceeds maximum allowed
     /// - Nesting depth exceeds maximum allowed
@@ -171,14 +171,11 @@ impl<'a> BlockParser<'a> {
         input: &str,
         options: Options<'a>,
         limits: ParserLimits,
-    ) -> ParseResult<(NodeId, RefMap)> {
+    ) -> ClmdResult<(NodeId, RefMap)> {
         // Validate input size (0 means unlimited)
         let input_size = input.len();
         if limits.max_input_size > 0 && input_size > limits.max_input_size {
-            return Err(ParseError::InputTooLarge {
-                size: input_size,
-                max_size: limits.max_input_size,
-            });
+            return Err(ClmdError::input_too_large(input_size, limits.max_input_size));
         }
 
         let mut parser = Self::new_with_limits(arena, options, limits);
@@ -190,17 +187,13 @@ impl<'a> BlockParser<'a> {
             if parser.limits.max_line_length > 0
                 && line.len() > parser.limits.max_line_length
             {
-                return Err(ParseError::ParseError {
-                    position: crate::core::error::Position::new(
-                        parser.line_number + 1,
-                        1,
-                    ),
-                    message: format!(
-                        "Line exceeds maximum length ({} > {})",
-                        line.len(),
-                        parser.limits.max_line_length
-                    ),
-                });
+                let msg = format!(
+                    "Line exceeds maximum length ({} > {})",
+                    line.len(),
+                    parser.limits.max_line_length
+                );
+                let pos = crate::core::error::Position::new(parser.line_number + 1, 1);
+                return Err(ClmdError::parse_error(pos, msg));
             }
 
             // Remove trailing '\r' if present (CRLF handling)

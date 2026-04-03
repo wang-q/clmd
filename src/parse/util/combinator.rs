@@ -3,7 +3,7 @@
 //! This module provides combinators for combining parsers, inspired by
 //! Pandoc's parsing infrastructure and functional parsing libraries.
 
-use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parse::util::{BoxedParser, ClmdError, ClmdResult, Position};
 
 /// Parse with the first successful parser.
 ///
@@ -31,7 +31,7 @@ where
             }
         }
         Err(last_error.unwrap_or_else(|| {
-            ParseError::at(pos.line, pos.column, "No parser succeeded in choice")
+            ClmdError::parse_error(pos, "No parser succeeded in choice")
         }))
     })
 }
@@ -64,7 +64,7 @@ where
             }
         }
         first_result.map(|r| Ok((r, pos))).unwrap_or_else(|| {
-            Err(ParseError::at(pos.line, pos.column, "Empty sequence"))
+            Err(ClmdError::parse_error(pos, "Empty sequence"))
         })
     })
 }
@@ -400,15 +400,11 @@ where
 /// assert!(eof.parse("").is_ok());
 /// assert!(eof.parse("a").is_err());
 /// ```ignore
-pub fn eof(input: &str, pos: Position) -> ParseResult<((), Position)> {
+pub fn eof(input: &str, pos: Position) -> ClmdResult<((), Position)> {
     if pos.offset >= input.len() {
         Ok(((), pos))
     } else {
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
-            "Expected end of input",
-        ))
+        Err(ClmdError::parse_error(pos, "Expected end of input"))
     }
 }
 
@@ -441,7 +437,7 @@ where
     T: 'static,
 {
     Box::new(move |_input: &str, pos: Position| {
-        Err(ParseError::at(pos.line, pos.column, message))
+        Err(ClmdError::parse_error(pos, message))
     })
 }
 
@@ -487,9 +483,8 @@ where
     Box::new(move |input: &str, pos: Position| {
         let (result, new_pos) = parser(input, pos)?;
         match not_followed(input, new_pos) {
-            Ok(_) => Err(ParseError::at(
-                new_pos.line,
-                new_pos.column,
+            Ok(_) => Err(ClmdError::parse_error(
+                new_pos,
                 "Unexpected following pattern",
             )),
             Err(_) => Ok((result, new_pos)),

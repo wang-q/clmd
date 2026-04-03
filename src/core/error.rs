@@ -260,10 +260,6 @@ pub enum ClmdError {
     #[error("Not supported: {0}")]
     NotSupported(String),
 
-    /// Deprecated feature error.
-    #[error("Deprecated feature: {0}")]
-    Deprecated(String),
-
     /// Warning (non-fatal error).
     #[error("Warning: {0}")]
     Warning(String),
@@ -317,6 +313,11 @@ impl ClmdError {
     /// Create an unknown writer error.
     pub fn unknown_writer<S: Into<String>>(format: S) -> Self {
         Self::UnknownWriter(format.into())
+    }
+
+    /// Create an input too large error.
+    pub fn input_too_large(size: usize, max_size: usize) -> Self {
+        Self::InputTooLarge { size, max_size }
     }
 
     /// Create an unsupported extension error.
@@ -424,11 +425,6 @@ impl ClmdError {
         Self::NotSupported(feature.into())
     }
 
-    /// Create a deprecated feature error.
-    pub fn deprecated<S: Into<String>>(feature: S) -> Self {
-        Self::Deprecated(feature.into())
-    }
-
     /// Create a warning.
     pub fn warning<S: Into<String>>(message: S) -> Self {
         Self::Warning(message.into())
@@ -505,11 +501,6 @@ impl ClmdError {
         matches!(self, Self::NotSupported(_))
     }
 
-    /// Check if this is a deprecated feature error.
-    pub fn is_deprecated(&self) -> bool {
-        matches!(self, Self::Deprecated(_))
-    }
-
     /// Check if this is a warning.
     pub fn is_warning(&self) -> bool {
         matches!(self, Self::Warning(_))
@@ -548,7 +539,6 @@ impl ClmdError {
             Self::PermissionDenied(_) => 77,
             Self::AlreadyExists(_) => 75,
             Self::NotSupported(_) => 85,
-            Self::Deprecated(_) => 2,
             Self::Warning(_) => 0, // Warnings don't cause non-zero exit
             Self::Sandbox(_) => 77, // Permission denied
             Self::Other(_) => 1,
@@ -684,111 +674,6 @@ impl LogMessage {
         self
     }
 }
-
-/// Error type for parsing operations.
-#[derive(Error, Debug, Clone)]
-pub enum ParseError {
-    /// Parse error with position.
-    #[error("Parse error at {position}: {message}")]
-    ParseError {
-        /// Position where the error occurred.
-        position: Position,
-        /// Error message.
-        message: String,
-    },
-
-    /// IO error.
-    #[error("IO error: {0}")]
-    IoError(String),
-
-    /// Limit exceeded.
-    #[error("Limit exceeded: {kind} (limit: {limit}, actual: {actual})")]
-    LimitExceeded {
-        /// Kind of limit.
-        kind: LimitKind,
-        /// Limit value.
-        limit: usize,
-        /// Actual value.
-        actual: usize,
-    },
-
-    /// Input too large.
-    #[error("Input too large: {size} bytes (max: {max_size})")]
-    InputTooLarge {
-        /// Actual input size.
-        size: usize,
-        /// Maximum allowed size.
-        max_size: usize,
-    },
-}
-
-impl ParseError {
-    /// Create a new parse error.
-    pub fn new<S: Into<String>>(position: Position, message: S) -> Self {
-        Self::ParseError {
-            position,
-            message: message.into(),
-        }
-    }
-
-    /// Create a new parse error at a specific line and column.
-    pub fn at<S: Into<String>>(line: usize, column: usize, message: S) -> Self {
-        Self::ParseError {
-            position: Position::new(line, column),
-            message: message.into(),
-        }
-    }
-}
-
-impl From<ClmdError> for ParseError {
-    fn from(err: ClmdError) -> Self {
-        match err {
-            ClmdError::Parse { position, message } => {
-                Self::ParseError { position, message }
-            }
-            ClmdError::Io(msg) => Self::IoError(msg),
-            ClmdError::LimitExceeded {
-                kind,
-                limit,
-                actual,
-            } => Self::LimitExceeded {
-                kind,
-                limit,
-                actual,
-            },
-            ClmdError::InputTooLarge { size, max_size } => {
-                Self::InputTooLarge { size, max_size }
-            }
-            _ => Self::IoError(err.to_string()),
-        }
-    }
-}
-
-impl From<ParseError> for ClmdError {
-    fn from(err: ParseError) -> Self {
-        match err {
-            ParseError::ParseError { position, message } => {
-                Self::Parse { position, message }
-            }
-            ParseError::IoError(msg) => Self::Io(msg),
-            ParseError::LimitExceeded {
-                kind,
-                limit,
-                actual,
-            } => Self::LimitExceeded {
-                kind,
-                limit,
-                actual,
-            },
-            ParseError::InputTooLarge { size, max_size } => {
-                Self::InputTooLarge { size, max_size }
-            }
-        }
-    }
-}
-
-/// Result type for parsing operations.
-pub type ParseResult<T> = Result<T, ParseError>;
 
 /// Parser limits for security and resource control.
 ///
@@ -1373,12 +1258,6 @@ mod tests {
         let io_err = io::Error::new(io::ErrorKind::NotFound, "file not found");
         let clmd_err: ClmdError = io_err.into();
         assert!(matches!(clmd_err, ClmdError::Io(_)));
-    }
-
-    #[test]
-    fn test_parse_error_legacy() {
-        let err = ParseError::new(Position::new(1, 5), "test error");
-        assert!(err.to_string().contains("Parse error at 1:5"));
     }
 
     #[test]

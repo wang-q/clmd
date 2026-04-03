@@ -51,9 +51,6 @@ pub struct Delimiter {
     pub previous: Option<Box<Delimiter>>,
     /// The inline text node containing the delimiter
     pub inl_text: NodeId,
-    /// Position in the subject
-    #[allow(dead_code)]
-    pub position: usize,
     /// Number of delimiter characters
     pub num_delims: usize,
     /// Original number of delimiter characters
@@ -272,7 +269,6 @@ fn rebuild_delimiter_stack(
         let delim = Box::new(Delimiter {
             previous: delimiters.take(),
             inl_text: node_id,
-            position: 0,
             num_delims,
             orig_delims,
             delim_char: char,
@@ -646,7 +642,6 @@ pub fn remove_delimiters_inside_link(
                 let delim = Box::new(Delimiter {
                     previous: delimiters.take(),
                     inl_text: node_id,
-                    position: 0,
                     num_delims,
                     orig_delims,
                     delim_char: char,

@@ -781,8 +781,6 @@ impl<'a> Iterator for AncestorIter<'a> {
 #[derive(Debug)]
 pub struct SiblingIter<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    parent_first_child: Option<NodeId>,
     current: Option<NodeId>,
     exclude: Option<NodeId>,
 }
@@ -833,12 +831,11 @@ impl TraverseExt for NodeArena {
 
     fn siblings_iter(&self, node_id: NodeId) -> SiblingIter<'_> {
         let parent = self.try_get(node_id).and_then(|n| n.parent);
-        let parent_first_child =
+        let first_child =
             parent.and_then(|p| self.try_get(p).and_then(|n| n.first_child));
         SiblingIter {
             arena: self,
-            parent_first_child,
-            current: parent_first_child,
+            current: first_child,
             exclude: Some(node_id),
         }
     }

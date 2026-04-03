@@ -558,7 +558,6 @@ impl<'a> Subject<'a> {
 
     /// Handle delimiter character (* or _)
     fn handle_delim(&mut self, arena: &mut NodeArena, c: char, parent: NodeId) -> bool {
-        let start_pos = self.pos;
         let (res, new_pos) = scan_delims(self.input, self.pos, c);
         self.pos = new_pos;
 
@@ -598,7 +597,6 @@ impl<'a> Subject<'a> {
             let delim = Box::new(Delimiter {
                 previous: self.delimiters.take(),
                 inl_text: text_node,
-                position: start_pos,
                 num_delims: res.num_delims,
                 orig_delims: res.num_delims,
                 delim_char: c,
@@ -1131,9 +1129,6 @@ pub fn parse_reference(
 
 // Re-export commonly used functions
 pub use entities::unescape_string;
-// normalize_reference is re-exported for public API use
-#[allow(unused_imports)]
-pub use utils::normalize_reference;
 
 #[cfg(test)]
 mod tests {

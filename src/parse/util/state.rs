@@ -3,13 +3,13 @@
 //! This module provides utilities for parsers that need to maintain state,
 //! such as tracking indentation levels, brace nesting, or custom state.
 
-use super::{ParseError, ParseResult, Position};
+use super::{ClmdError, ClmdResult, Position};
 
 /// A parser that maintains state.
-pub trait StatefulParser<S, T>: Fn(&str, Position, &mut S) -> ParseResult<T> {}
+pub trait StatefulParser<S, T>: Fn(&str, Position, &mut S) -> ClmdResult<T> {}
 
 impl<S, T, F> StatefulParser<S, T> for F where
-    F: Fn(&str, Position, &mut S) -> ParseResult<T>
+    F: Fn(&str, Position, &mut S) -> ClmdResult<T>
 {
 }
 
@@ -31,8 +31,8 @@ pub type BoxedStatefulParser<S, T> = Box<dyn StatefulParser<S, T>>;
 /// assert_eq!(result, "hello");
 /// ```ignore
 pub fn with_indentation<T>(
-    parser: impl Fn(&str, Position, &mut IndentationState) -> ParseResult<T> + 'static,
-) -> impl Fn(&str, Position) -> ParseResult<T>
+    parser: impl Fn(&str, Position, &mut IndentationState) -> ClmdResult<T> + 'static,
+) -> impl Fn(&str, Position) -> ClmdResult<T>
 where
     T: 'static,
 {
@@ -104,7 +104,7 @@ impl Default for IndentationState {
 /// Parse content at a specific indentation level.
 pub fn indent_level<T>(
     level: usize,
-) -> impl Fn(&str, Position, &mut IndentationState) -> ParseResult<(String, Position)> {
+) -> impl Fn(&str, Position, &mut IndentationState) -> ClmdResult<(String, Position)> {
     move |input: &str, pos: Position, state: &mut IndentationState| {
         let mut current_pos = pos;
         let mut indent_count = 0;
@@ -123,9 +123,8 @@ pub fn indent_level<T>(
         }
 
         if indent_count != level {
-            return Err(ParseError::at(
-                pos.line,
-                pos.column,
+            return Err(ClmdError::parse_error(
+                pos,
                 format!(
                     "Expected indentation level {}, found {}",
                     level, indent_count
@@ -165,8 +164,8 @@ pub fn indent_level<T>(
 /// assert_eq!(result, "hello {world}");
 /// ```ignore
 pub fn with_nesting<T>(
-    parser: impl Fn(&str, Position, &mut NestingState) -> ParseResult<T> + 'static,
-) -> impl Fn(&str, Position) -> ParseResult<T>
+    parser: impl Fn(&str, Position, &mut NestingState) -> ClmdResult<T> + 'static,
+) -> impl Fn(&str, Position) -> ClmdResult<T>
 where
     T: 'static,
 {
@@ -201,19 +200,25 @@ impl NestingState {
     }
 
     /// Push an opening character.
-    pub fn push(&mut self, ch: char) -> Result<(), ParseError> {
+    pub fn push(&mut self, ch: char) -> Result<(), ClmdError> {
         if self.stack.len() >= self.max_depth {
-            return Err(ParseError::at(0, 0, "Maximum nesting depth exceeded"));
+            return Err(ClmdError::parse_error(
+                Position::start(),
+                "Maximum nesting depth exceeded",
+            ));
         }
         self.stack.push(ch);
         Ok(())
     }
 
     /// Pop and check if it matches the expected closing character.
-    pub fn pop(&mut self, expected_open: char) -> Result<(), ParseError> {
+    pub fn pop(&mut self, expected_open: char) -> Result<(), ClmdError> {
         match self.stack.pop() {
             Some(open) if open == expected_open => Ok(()),
-            _ => Err(ParseError::at(0, 0, "Mismatched closing character")),
+            _ => Err(ClmdError::parse_error(
+                Position::start(),
+                "Mismatched closing character",
+            )),
         }
     }
 
@@ -249,25 +254,23 @@ impl Default for NestingState {
 pub fn nested_content(
     open: char,
     close: char,
-) -> impl Fn(&str, Position, &mut NestingState) -> ParseResult<(String, Position)> {
+) -> impl Fn(&str, Position, &mut NestingState) -> ClmdResult<(String, Position)> {
     move |input: &str, pos: Position, state: &mut NestingState| {
         let mut current_pos = pos;
 
         // Check opening delimiter
         if let Some(ch) = input[current_pos.offset..].chars().next() {
             if ch != open {
-                return Err(ParseError::at(
-                    current_pos.line,
-                    current_pos.column,
+                return Err(ClmdError::parse_error(
+                    current_pos,
                     format!("Expected '{}'", open),
                 ));
             }
             current_pos.advance(ch);
             state.push(open)?;
         } else {
-            return Err(ParseError::at(
-                current_pos.line,
-                current_pos.column,
+            return Err(ClmdError::parse_error(
+                current_pos,
                 "Unexpected end of input",
             ));
         }
@@ -295,9 +298,8 @@ pub fn nested_content(
             }
         }
 
-        Err(ParseError::at(
-            current_pos.line,
-            current_pos.column,
+        Err(ClmdError::parse_error(
+            current_pos,
             format!("Unclosed delimiter, expected '{}'", close),
         ))
     }
@@ -308,8 +310,8 @@ pub fn nested_content(
 /// This is a general-purpose stateful parser wrapper.
 pub fn with_state<S: Clone, T>(
     initial: S,
-    parser: impl Fn(&str, Position, &mut S) -> ParseResult<T>,
-) -> impl Fn(&str, Position) -> ParseResult<T> {
+    parser: impl Fn(&str, Position, &mut S) -> ClmdResult<T>,
+) -> impl Fn(&str, Position) -> ClmdResult<T> {
     move |input: &str, pos: Position| {
         let mut state = initial.clone();
         parser(input, pos, &mut state)
@@ -478,49 +480,24 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_error_creation() {
-        let err = ParseError::at(5, 10, "test error");
-        // ParseError is an enum, we need to match on it
-        match &err {
-            ParseError::ParseError { position, message } => {
-                assert_eq!(position.line, 5);
-                assert_eq!(position.column, 10);
-                assert_eq!(message, "test error");
-            }
-            _ => panic!("Expected ParseError variant"),
-        }
-
-        let display = format!("{}", err);
-        assert!(display.contains("5"));
-        assert!(display.contains("10"));
-        assert!(display.contains("test error"));
+    fn test_clmd_error_creation() {
+        let err = ClmdError::parse_error(Position::new(5, 10), "test error");
+        assert!(err.is_parse_error());
+        assert!(err.to_string().contains("5:10"));
+        assert!(err.to_string().contains("test error"));
     }
 
     #[test]
-    fn test_parse_error_new() {
-        let pos = Position::new(3, 7);
-        let err = ParseError::new(pos, "new error");
-        match &err {
-            ParseError::ParseError { position, message } => {
-                assert_eq!(position.line, 3);
-                assert_eq!(position.column, 7);
-                assert_eq!(message, "new error");
-            }
-            _ => panic!("Expected ParseError variant"),
-        }
-    }
-
-    #[test]
-    fn test_parse_result_ok() {
-        let result: ParseResult<i32> = Ok(42);
+    fn test_clmd_result_ok() {
+        let result: ClmdResult<i32> = Ok(42);
         assert!(result.is_ok());
         assert!(!result.is_err());
         assert_eq!(result.unwrap(), 42);
     }
 
     #[test]
-    fn test_parse_result_err() {
-        let result: ParseResult<i32> = Err(ParseError::at(1, 1, "error"));
+    fn test_clmd_result_err() {
+        let result: ClmdResult<i32> = Err(ClmdError::parse_error(Position::new(1, 1), "error"));
         assert!(!result.is_ok());
         assert!(result.is_err());
     }
@@ -534,7 +511,7 @@ mod tests {
                     new_pos.advance('x');
                     Ok(("found x", new_pos))
                 } else {
-                    Err(ParseError::at(pos.line, pos.column, "expected x"))
+                    Err(ClmdError::parse_error(pos, "expected x"))
                 }
             });
 

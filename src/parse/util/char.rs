@@ -2,7 +2,7 @@
 //!
 //! This module provides parsers for individual characters and character classes.
 
-use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parse::util::{BoxedParser, ClmdError, ClmdResult, Position};
 
 /// Parse a single character matching a predicate.
 ///
@@ -28,9 +28,8 @@ where
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
+        Err(ClmdError::parse_error(
+            pos,
             "Expected character matching predicate",
         ))
     })
@@ -46,17 +45,13 @@ where
 /// let result = any_char.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn any_char(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn any_char(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance(ch);
         Ok((ch, new_pos))
     } else {
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
-            "Unexpected end of input",
-        ))
+        Err(ClmdError::parse_error(pos, "Unexpected end of input"))
     }
 }
 
@@ -81,11 +76,7 @@ pub fn char_lit(expected: char) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
-            format!("Expected '{}'", expected),
-        ))
+        Err(ClmdError::parse_error(pos, format!("Expected '{}'", expected)))
     })
 }
 
@@ -99,7 +90,7 @@ pub fn char_lit(expected: char) -> BoxedParser<char> {
 /// let result = digit.parse_partial("123");
 /// assert_eq!(result.unwrap().0, '1');
 /// ```ignore
-pub fn digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn digit(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_ascii_digit() {
             let mut new_pos = pos;
@@ -107,7 +98,7 @@ pub fn digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected digit"))
+    Err(ClmdError::parse_error(pos, "Expected digit"))
 }
 
 /// Parse an alphabetic character.
@@ -120,7 +111,7 @@ pub fn digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = alpha.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn alpha(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn alpha(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_alphabetic() {
             let mut new_pos = pos;
@@ -128,7 +119,7 @@ pub fn alpha(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected letter"))
+    Err(ClmdError::parse_error(pos, "Expected letter"))
 }
 
 /// Parse an alphanumeric character.
@@ -141,7 +132,7 @@ pub fn alpha(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = alphanumeric.parse_partial("abc123");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn alphanumeric(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_alphanumeric() {
             let mut new_pos = pos;
@@ -149,9 +140,8 @@ pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<(char, Position)>
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(
-        pos.line,
-        pos.column,
+    Err(ClmdError::parse_error(
+        pos,
         "Expected alphanumeric character",
     ))
 }
@@ -166,7 +156,7 @@ pub fn alphanumeric(input: &str, pos: Position) -> ParseResult<(char, Position)>
 /// let result = whitespace.parse_partial("  hello");
 /// assert_eq!(result.unwrap().0, ' ');
 /// ```ignore
-pub fn whitespace(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn whitespace(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_whitespace() {
             let mut new_pos = pos;
@@ -174,7 +164,7 @@ pub fn whitespace(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected whitespace"))
+    Err(ClmdError::parse_error(pos, "Expected whitespace"))
 }
 
 /// Parse a newline character (\n or \r\n).
@@ -187,7 +177,7 @@ pub fn whitespace(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = newline.parse_partial("\nhello");
 /// assert!(result.is_ok());
 /// ```ignore
-pub fn newline(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn newline(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     let remaining = &input[pos.offset..];
     if remaining.starts_with("\r\n") {
         let mut new_pos = pos;
@@ -199,7 +189,7 @@ pub fn newline(input: &str, pos: Position) -> ParseResult<(char, Position)> {
         new_pos.advance('\n');
         Ok(('\n', new_pos))
     } else {
-        Err(ParseError::at(pos.line, pos.column, "Expected newline"))
+        Err(ClmdError::parse_error(pos, "Expected newline"))
     }
 }
 
@@ -223,9 +213,8 @@ pub fn not_char(forbidden: char) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
+        Err(ClmdError::parse_error(
+            pos,
             format!("Expected any character except '{}'", forbidden),
         ))
     })
@@ -251,9 +240,8 @@ pub fn none_of(forbidden: &'static [char]) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
+        Err(ClmdError::parse_error(
+            pos,
             format!("Expected character not in {:?}", forbidden),
         ))
     })
@@ -279,11 +267,7 @@ pub fn one_of(allowed: &'static [char]) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
-            format!("Expected one of {:?}", allowed),
-        ))
+        Err(ClmdError::parse_error(pos, format!("Expected one of {:?}", allowed)))
     })
 }
 
@@ -307,9 +291,8 @@ pub fn char_range(start: char, end: char) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
+        Err(ClmdError::parse_error(
+            pos,
             format!("Expected character between '{}' and '{}'", start, end),
         ))
     })
@@ -325,7 +308,7 @@ pub fn char_range(start: char, end: char) -> BoxedParser<char> {
 /// let result = upper.parse_partial("Hello");
 /// assert_eq!(result.unwrap().0, 'H');
 /// ```ignore
-pub fn upper(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn upper(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_uppercase() {
             let mut new_pos = pos;
@@ -333,11 +316,7 @@ pub fn upper(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(
-        pos.line,
-        pos.column,
-        "Expected uppercase letter",
-    ))
+    Err(ClmdError::parse_error(pos, "Expected uppercase letter"))
 }
 
 /// Parse a lowercase letter.
@@ -350,7 +329,7 @@ pub fn upper(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = lower.parse_partial("hello");
 /// assert_eq!(result.unwrap().0, 'h');
 /// ```ignore
-pub fn lower(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn lower(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_lowercase() {
             let mut new_pos = pos;
@@ -358,11 +337,7 @@ pub fn lower(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(
-        pos.line,
-        pos.column,
-        "Expected lowercase letter",
-    ))
+    Err(ClmdError::parse_error(pos, "Expected lowercase letter"))
 }
 
 /// Parse a hexadecimal digit.
@@ -375,7 +350,7 @@ pub fn lower(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = hex_digit.parse_partial("abc");
 /// assert_eq!(result.unwrap().0, 'a');
 /// ```ignore
-pub fn hex_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn hex_digit(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ch.is_ascii_hexdigit() {
             let mut new_pos = pos;
@@ -383,11 +358,7 @@ pub fn hex_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(
-        pos.line,
-        pos.column,
-        "Expected hexadecimal digit",
-    ))
+    Err(ClmdError::parse_error(pos, "Expected hexadecimal digit"))
 }
 
 /// Parse an octal digit.
@@ -400,7 +371,7 @@ pub fn hex_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = oct_digit.parse_partial("777");
 /// assert_eq!(result.unwrap().0, '7');
 /// ```ignore
-pub fn oct_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn oct_digit(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {
         if ('0'..='7').contains(&ch) {
             let mut new_pos = pos;
@@ -408,7 +379,7 @@ pub fn oct_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
             return Ok((ch, new_pos));
         }
     }
-    Err(ParseError::at(pos.line, pos.column, "Expected octal digit"))
+    Err(ClmdError::parse_error(pos, "Expected octal digit"))
 }
 
 /// Parse a tab character.
@@ -421,13 +392,13 @@ pub fn oct_digit(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = tab.parse_partial("\thello");
 /// assert_eq!(result.unwrap().0, '\t');
 /// ```ignore
-pub fn tab(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn tab(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some('\t') = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance('\t');
         Ok(('\t', new_pos))
     } else {
-        Err(ParseError::at(pos.line, pos.column, "Expected tab"))
+        Err(ClmdError::parse_error(pos, "Expected tab"))
     }
 }
 
@@ -441,13 +412,13 @@ pub fn tab(input: &str, pos: Position) -> ParseResult<(char, Position)> {
 /// let result = space.parse_partial(" hello");
 /// assert_eq!(result.unwrap().0, ' ');
 /// ```ignore
-pub fn space(input: &str, pos: Position) -> ParseResult<(char, Position)> {
+pub fn space(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(' ') = input[pos.offset..].chars().next() {
         let mut new_pos = pos;
         new_pos.advance(' ');
         Ok((' ', new_pos))
     } else {
-        Err(ParseError::at(pos.line, pos.column, "Expected space"))
+        Err(ClmdError::parse_error(pos, "Expected space"))
     }
 }
 
@@ -474,9 +445,8 @@ where
                 return Ok((ch, new_pos));
             }
         }
-        Err(ParseError::at(
-            pos.line,
-            pos.column,
+        Err(ClmdError::parse_error(
+            pos,
             "Character did not satisfy predicate",
         ))
     })

@@ -35,8 +35,7 @@ pub use arena::{
 };
 pub use ast::{Block, Document, Inline, Walkable as AstWalkable};
 pub use error::{
-    ClmdError, ClmdResult, LimitKind, ParseError, ParseResult, ParserLimits, Position,
-    Range,
+    ClmdError, ClmdResult, LimitKind, ParserLimits, Position, Range,
 };
 pub use nodes::NodeValue;
 pub use shared::stringify;

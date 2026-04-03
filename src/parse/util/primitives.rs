@@ -5,7 +5,7 @@
 
 use crate::parse::util::char::digit;
 use crate::parse::util::combinator::{many, many1};
-use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
+use crate::parse::util::{BoxedParser, ClmdError, ClmdResult, Position};
 
 /// Parse a string literal (double-quoted).
 ///
@@ -17,16 +17,12 @@ use crate::parse::util::{BoxedParser, ParseError, ParseResult, Position};
 /// let result = string.parse("\"hello world\"").unwrap();
 /// assert_eq!(result, "hello world");
 /// ```ignore
-pub fn string(input: &str, pos: Position) -> ParseResult<(String, Position)> {
+pub fn string(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
     let mut current_pos = pos;
 
     // Opening quote
     if !input[current_pos.offset..].starts_with('"') {
-        return Err(ParseError::at(
-            current_pos.line,
-            current_pos.column,
-            "Expected opening quote",
-        ));
+        return Err(ClmdError::parse_error(current_pos, "Expected opening quote"));
     }
     current_pos.advance('"');
 
@@ -52,9 +48,8 @@ pub fn string(input: &str, pos: Position) -> ParseResult<(String, Position)> {
                     result.push(unescaped);
                     current_pos.advance(escaped);
                 } else {
-                    return Err(ParseError::at(
-                        current_pos.line,
-                        current_pos.column,
+                    return Err(ClmdError::parse_error(
+                        current_pos,
                         "Unexpected end of string",
                     ));
                 }
@@ -66,11 +61,7 @@ pub fn string(input: &str, pos: Position) -> ParseResult<(String, Position)> {
         }
     }
 
-    Err(ParseError::at(
-        current_pos.line,
-        current_pos.column,
-        "Unclosed string literal",
-    ))
+    Err(ClmdError::parse_error(current_pos, "Unclosed string literal"))
 }
 
 /// Parse an identifier (starts with letter, followed by alphanumeric or _).
@@ -83,18 +74,17 @@ pub fn string(input: &str, pos: Position) -> ParseResult<(String, Position)> {
 /// let result = identifier.parse("hello_world").unwrap();
 /// assert_eq!(result, "hello_world");
 /// ```ignore
-pub fn identifier(input: &str, pos: Position) -> ParseResult<(String, Position)> {
+pub fn identifier(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
     let mut current_pos = pos;
 
     // First character must be alphabetic
     let first = input[current_pos.offset..].chars().next().ok_or_else(|| {
-        ParseError::at(current_pos.line, current_pos.column, "Expected identifier")
+        ClmdError::parse_error(current_pos, "Expected identifier")
     })?;
 
     if !first.is_alphabetic() && first != '_' {
-        return Err(ParseError::at(
-            current_pos.line,
-            current_pos.column,
+        return Err(ClmdError::parse_error(
+            current_pos,
             "Identifier must start with letter or underscore",
         ));
     }
@@ -126,7 +116,7 @@ pub fn identifier(input: &str, pos: Position) -> ParseResult<(String, Position)>
 /// let result = uint.parse("12345").unwrap();
 /// assert_eq!(result, 12345u64);
 /// ```ignore
-pub fn uint(input: &str, pos: Position) -> ParseResult<(u64, Position)> {
+pub fn uint(input: &str, pos: Position) -> ClmdResult<(u64, Position)> {
     let digits_parser = many1(Box::new(digit));
     let (digits, new_pos) = digits_parser(input, pos)?;
 
@@ -135,11 +125,7 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<(u64, Position)> {
         .parse::<u64>()
         .map(|n| Ok((n, new_pos)))
         .unwrap_or_else(|_| {
-            Err(ParseError::at(
-                new_pos.line,
-                new_pos.column,
-                "Invalid unsigned integer",
-            ))
+            Err(ClmdError::parse_error(new_pos, "Invalid unsigned integer"))
         })
 }
 
@@ -153,7 +139,7 @@ pub fn uint(input: &str, pos: Position) -> ParseResult<(u64, Position)> {
 /// assert_eq!(int.parse("-123").unwrap(), -123i64);
 /// assert_eq!(int.parse("456").unwrap(), 456i64);
 /// ```ignore
-pub fn int(input: &str, pos: Position) -> ParseResult<(i64, Position)> {
+pub fn int(input: &str, pos: Position) -> ClmdResult<(i64, Position)> {
     let mut current_pos = pos;
 
     // Optional sign
@@ -176,13 +162,7 @@ pub fn int(input: &str, pos: Position) -> ParseResult<(i64, Position)> {
             let result = if negative { -n } else { n };
             Ok((result, new_pos))
         })
-        .unwrap_or_else(|_| {
-            Err(ParseError::at(
-                new_pos.line,
-                new_pos.column,
-                "Invalid integer",
-            ))
-        })
+        .unwrap_or_else(|_| Err(ClmdError::parse_error(new_pos, "Invalid integer")))
 }
 
 /// Parse a floating-point number.
@@ -195,7 +175,7 @@ pub fn int(input: &str, pos: Position) -> ParseResult<(i64, Position)> {
 /// let result = float.parse("3.14159").unwrap();
 /// assert!((result - 3.14159).abs() < 0.00001);
 /// ```ignore
-pub fn float(input: &str, pos: Position) -> ParseResult<(f64, Position)> {
+pub fn float(input: &str, pos: Position) -> ClmdResult<(f64, Position)> {
     let mut current_pos = pos;
     let mut full_num = String::new();
 
@@ -248,18 +228,14 @@ pub fn float(input: &str, pos: Position) -> ParseResult<(f64, Position)> {
     }
 
     if full_num.is_empty() || full_num == "." || full_num == "-" || full_num == "+" {
-        return Err(ParseError::at(pos.line, pos.column, "Expected float"));
+        return Err(ClmdError::parse_error(pos, "Expected float"));
     }
 
     full_num
         .parse::<f64>()
         .map(|n| Ok((n, current_pos)))
         .unwrap_or_else(|_| {
-            Err(ParseError::at(
-                current_pos.line,
-                current_pos.column,
-                "Invalid float",
-            ))
+            Err(ClmdError::parse_error(current_pos, "Invalid float"))
         })
 }
 
@@ -273,7 +249,7 @@ pub fn float(input: &str, pos: Position) -> ParseResult<(f64, Position)> {
 /// let result = whitespace1.parse("   hello").unwrap();
 /// assert_eq!(result.len(), 3);
 /// ```ignore
-pub fn whitespace1(input: &str, pos: Position) -> ParseResult<(String, Position)> {
+pub fn whitespace1(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
     let mut current_pos = pos;
     let mut result = String::new();
 
@@ -287,7 +263,7 @@ pub fn whitespace1(input: &str, pos: Position) -> ParseResult<(String, Position)
     }
 
     if result.is_empty() {
-        return Err(ParseError::at(pos.line, pos.column, "Expected whitespace"));
+        return Err(ClmdError::parse_error(pos, "Expected whitespace"));
     }
 
     Ok((result, current_pos))
@@ -314,9 +290,8 @@ pub fn until(end: &'static str) -> BoxedParser<String> {
                 result.push(ch);
                 current_pos.advance(ch);
             } else {
-                return Err(ParseError::at(
-                    current_pos.line,
-                    current_pos.column,
+                return Err(ClmdError::parse_error(
+                    current_pos,
                     format!("Expected '{}'", end),
                 ));
             }
@@ -342,9 +317,8 @@ pub fn line_comment(prefix: &'static str) -> BoxedParser<String> {
         let mut current_pos = pos;
 
         if !input[current_pos.offset..].starts_with(prefix) {
-            return Err(ParseError::at(
-                current_pos.line,
-                current_pos.column,
+            return Err(ClmdError::parse_error(
+                current_pos,
                 format!("Expected '{}'", prefix),
             ));
         }
@@ -384,9 +358,8 @@ pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<Stri
         let mut current_pos = pos;
 
         if !input[current_pos.offset..].starts_with(start) {
-            return Err(ParseError::at(
-                current_pos.line,
-                current_pos.column,
+            return Err(ClmdError::parse_error(
+                current_pos,
                 format!("Expected '{}'", start),
             ));
         }
@@ -403,9 +376,8 @@ pub fn block_comment(start: &'static str, end: &'static str) -> BoxedParser<Stri
                 result.push(ch);
                 current_pos.advance(ch);
             } else {
-                return Err(ParseError::at(
-                    current_pos.line,
-                    current_pos.column,
+                return Err(ClmdError::parse_error(
+                    current_pos,
                     format!("Unclosed block comment, expected '{}'", end),
                 ));
             }

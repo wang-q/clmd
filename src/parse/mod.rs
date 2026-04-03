@@ -41,7 +41,7 @@ pub mod util {
     pub mod sources;
 
     // Re-export error types
-    pub use crate::core::error::{ParseError, ParseResult, Position};
+    pub use crate::core::error::{ClmdError, ClmdResult, Position};
 
     // Re-export commonly used types
     pub use chunks::Chunk;
@@ -51,55 +51,55 @@ pub mod util {
     ///
     /// The parser takes an input string and a starting position, and returns either:
     /// - Ok((value, new_position)) on success
-    /// - Err(ParseError) on failure
-    pub type BoxedParser<T> = Box<dyn Fn(&str, Position) -> ParseResult<(T, Position)>>;
+    /// - Err(ClmdError) on failure
+    pub type BoxedParser<T> = Box<dyn Fn(&str, Position) -> ClmdResult<(T, Position)>>;
 
     /// Extension trait for parser functions.
     ///
     /// This trait provides convenience methods for calling parsers.
     pub trait Parser<T> {
         /// Parse from the beginning of the input.
-        fn parse(&self, input: &str) -> ParseResult<T>;
+        fn parse(&self, input: &str) -> ClmdResult<T>;
 
         /// Parse from a specific position in the input.
-        fn parse_at(&self, input: &str, pos: Position) -> ParseResult<(T, Position)>;
+        fn parse_at(&self, input: &str, pos: Position) -> ClmdResult<(T, Position)>;
 
         /// Parse from the beginning, returning the result and new position.
-        fn parse_partial(&self, input: &str) -> ParseResult<(T, Position)>;
+        fn parse_partial(&self, input: &str) -> ClmdResult<(T, Position)>;
     }
 
     impl<T> Parser<T> for BoxedParser<T> {
-        fn parse(&self, input: &str) -> ParseResult<T> {
+        fn parse(&self, input: &str) -> ClmdResult<T> {
             self(input, Position::start()).map(|(val, _)| val)
         }
 
-        fn parse_at(&self, input: &str, pos: Position) -> ParseResult<(T, Position)> {
+        fn parse_at(&self, input: &str, pos: Position) -> ClmdResult<(T, Position)> {
             self(input, pos)
         }
 
-        fn parse_partial(&self, input: &str) -> ParseResult<(T, Position)> {
+        fn parse_partial(&self, input: &str) -> ClmdResult<(T, Position)> {
             self(input, Position::start())
         }
     }
 
     // Implement Parser for function pointers
-    impl<T> Parser<T> for fn(&str, Position) -> ParseResult<(T, Position)> {
-        fn parse(&self, input: &str) -> ParseResult<T> {
+    impl<T> Parser<T> for fn(&str, Position) -> ClmdResult<(T, Position)> {
+        fn parse(&self, input: &str) -> ClmdResult<T> {
             self(input, Position::start()).map(|(val, _)| val)
         }
 
-        fn parse_at(&self, input: &str, pos: Position) -> ParseResult<(T, Position)> {
+        fn parse_at(&self, input: &str, pos: Position) -> ClmdResult<(T, Position)> {
             self(input, pos)
         }
 
-        fn parse_partial(&self, input: &str) -> ParseResult<(T, Position)> {
+        fn parse_partial(&self, input: &str) -> ClmdResult<(T, Position)> {
             self(input, Position::start())
         }
     }
 }
 
 use crate::core::arena::{NodeArena, NodeId};
-use crate::core::error::{ParseResult, ParserLimits};
+use crate::core::error::{ClmdResult, ParserLimits};
 use crate::options::Options;
 use crate::parse::block::BlockParser;
 
@@ -140,7 +140,7 @@ pub fn parse_document_with_limits(
     md: &str,
     options: &Options,
     limits: ParserLimits,
-) -> ParseResult<(NodeArena, NodeId)> {
+) -> ClmdResult<(NodeArena, NodeId)> {
     // Use BlockParser with limits for full limit checking
     let mut node_arena = NodeArena::new();
 
