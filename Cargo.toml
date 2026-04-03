@@ -53,6 +53,18 @@ tempfile = "3.0"
 comrak = "0.35"
 pulldown-cmark = "0.13"
 
+[profile.dev]
+opt-level = 0
+debug = 1
+incremental = true
+codegen-units = 256
+
+[profile.test]
+opt-level = 0
+debug = 1
+incremental = true
+codegen-units = 256
+
 [profile.release]
 lto = true
 
