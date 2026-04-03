@@ -32,6 +32,7 @@ const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
 const URL_SPECIAL_CHARS: &[char] = &['(', ')', ' ', '\t', '\n', '\r', '<', '>', '\\'];
 
 /// Characters that need escaping in code spans
+#[allow(dead_code)]
 const CODE_SPAN_SPECIAL_CHARS: &[char] = &['`', '\\'];
 
 /// Check if a character needs escaping in the given context
@@ -196,7 +197,7 @@ fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
 
 /// Check if we're inside a link URL context
 /// Parentheses need escaping in link URLs to avoid ambiguity
-fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
+fn is_in_link_url_context(_context: &dyn NodeFormatterContext) -> bool {
     // For now, assume we're not in a link URL context
     // In a full implementation, we'd track whether we're rendering a link URL
     false

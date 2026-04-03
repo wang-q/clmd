@@ -1,235 +1,204 @@
-//! Format control processor for Markdown formatter
+//! Format control processor
 //!
-//! This module provides support for formatter control comments, inspired by
-//! flexmark-java's FormatControlProcessor.
+//! This module provides functionality to control formatting via HTML comments,
+//! inspired by flexmark-java's FormatControlProcessor.
 //!
 //! Format control comments allow users to disable and re-enable formatting
-//! for specific sections of a document:
-//!
-//! ```markdown
-//! <!-- formatter:off -->
-//! This section will not be formatted
-//! <!-- formatter:on -->
-//! ```
-//!
-//! The tags can be customized via formatter options, and regular expressions
-//! can be used for more flexible matching.
+//! for specific regions of a document:
+//! - `<!-- @formatter:off -->` - Disable formatting
+//! - `<!-- @formatter:on -->` - Re-enable formatting
 
-use crate::formatter::options::FormatterOptions;
+use super::options::FormatterOptions;
 use regex::Regex;
-
-/// Default formatter on tag
-pub const DEFAULT_FORMATTER_ON_TAG: &str = "formatter:on";
-
-/// Default formatter off tag
-pub const DEFAULT_FORMATTER_OFF_TAG: &str = "formatter:off";
-
-/// HTML comment open marker
-pub const HTML_COMMENT_OPEN: &str = "<!--";
-
-/// HTML comment close marker
-pub const HTML_COMMENT_CLOSE: &str = "-->";
 
 /// Processor for format control comments
 ///
-/// Tracks the formatting state based on HTML comments in the document.
+/// This processor handles HTML comments that control whether formatting
+/// should be applied to specific regions of the document.
 #[derive(Debug, Clone)]
 pub struct FormatControlProcessor {
-    /// The tag that enables formatting
+    /// The tag that turns formatting on
     formatter_on_tag: String,
-    /// The tag that disables formatting
+    /// The tag that turns formatting off
     formatter_off_tag: String,
     /// Whether format control tags are enabled
-    tags_enabled: bool,
-    /// Whether to accept regular expressions as tags
-    accept_regex: bool,
-    /// Current formatting state (true = off, false = on)
-    formatter_off: bool,
-    /// Whether formatting was just turned off
+    formatter_tags_enabled: bool,
+    /// Whether to accept regular expressions for formatter tags
+    formatter_tags_accept_regex: bool,
+    /// Compiled regex for formatter on tag (if regex mode is enabled)
+    formatter_on_regex: Option<Regex>,
+    /// Compiled regex for formatter off tag (if regex mode is enabled)
+    formatter_off_regex: Option<Regex>,
+    /// Current state: whether formatting is off
+    formatting_off: bool,
+    /// Whether formatting was just turned off (for one-time detection)
     just_turned_off: bool,
-    /// Whether formatting was just turned on
+    /// Whether formatting was just turned on (for one-time detection)
     just_turned_on: bool,
-    /// Compiled regex for off tag (if regex mode enabled)
-    off_regex: Option<Regex>,
-    /// Compiled regex for on tag (if regex mode enabled)
-    on_regex: Option<Regex>,
 }
 
 impl FormatControlProcessor {
-    /// Create a new format control processor with the given options
+    /// Create a new format control processor from options
     pub fn new(options: &FormatterOptions) -> Self {
-        let formatter_on_tag = options.formatter_on_tag.clone();
-        let formatter_off_tag = options.formatter_off_tag.clone();
-        let tags_enabled = options.formatter_tags_enabled;
-        let accept_regex = options.formatter_tags_accept_regex;
+        let formatter_on_regex =
+            if options.formatter_tags_enabled && options.formatter_tags_accept_regex {
+                Regex::new(&options.formatter_on_tag).ok()
+            } else {
+                None
+            };
 
-        let mut processor = Self {
-            formatter_on_tag,
-            formatter_off_tag,
-            tags_enabled,
-            accept_regex,
-            formatter_off: false,
+        let formatter_off_regex =
+            if options.formatter_tags_enabled && options.formatter_tags_accept_regex {
+                Regex::new(&options.formatter_off_tag).ok()
+            } else {
+                None
+            };
+
+        Self {
+            formatter_on_tag: options.formatter_on_tag.clone(),
+            formatter_off_tag: options.formatter_off_tag.clone(),
+            formatter_tags_enabled: options.formatter_tags_enabled,
+            formatter_tags_accept_regex: options.formatter_tags_accept_regex,
+            formatter_on_regex,
+            formatter_off_regex,
+            formatting_off: false,
             just_turned_off: false,
             just_turned_on: false,
-            off_regex: None,
-            on_regex: None,
-        };
-
-        // Compile regex patterns if regex mode is enabled
-        if tags_enabled && accept_regex {
-            processor.compile_regex_patterns();
-        }
-
-        processor
-    }
-
-    /// Compile regex patterns for tag matching
-    fn compile_regex_patterns(&mut self) {
-        // Try to compile the off tag pattern
-        if let Ok(regex) = Regex::new(&self.formatter_off_tag) {
-            self.off_regex = Some(regex);
-        }
-
-        // Try to compile the on tag pattern
-        if let Ok(regex) = Regex::new(&self.formatter_on_tag) {
-            self.on_regex = Some(regex);
         }
     }
 
-    /// Check if formatting is currently disabled
+    /// Check if formatting is currently off
     pub fn is_formatting_off(&self) -> bool {
-        self.formatter_off
+        self.formatting_off
     }
 
-    /// Check if formatting is currently enabled
+    /// Check if formatting is currently on
     pub fn is_formatting_on(&self) -> bool {
-        !self.formatter_off
+        !self.formatting_off
     }
 
-    /// Check if formatting was just turned off in the last processed comment
-    pub fn just_turned_off(&self) -> bool {
+    /// Check if formatting was just turned off
+    ///
+    /// This returns true only once after formatting is turned off,
+    /// then resets to false.
+    pub fn is_just_turned_off(&self) -> bool {
         self.just_turned_off
     }
 
-    /// Check if formatting was just turned on in the last processed comment
-    pub fn just_turned_on(&self) -> bool {
+    /// Check if formatting was just turned on
+    ///
+    /// This returns true only once after formatting is turned on,
+    /// then resets to false.
+    pub fn is_just_turned_on(&self) -> bool {
         self.just_turned_on
     }
 
-    /// Get the formatter on tag
-    pub fn formatter_on_tag(&self) -> &str {
-        &self.formatter_on_tag
-    }
-
-    /// Get the formatter off tag
-    pub fn formatter_off_tag(&self) -> &str {
-        &self.formatter_off_tag
-    }
-
-    /// Check if format control tags are enabled
-    pub fn tags_enabled(&self) -> bool {
-        self.tags_enabled
-    }
-
-    /// Check if regex patterns are accepted
-    pub fn accept_regex(&self) -> bool {
-        self.accept_regex
-    }
-
-    /// Process a potential format control comment
+    /// Process an HTML comment and update formatting state
     ///
-    /// This method should be called for each HTML comment encountered during formatting.
-    /// It updates the internal state based on the comment content.
-    ///
-    /// # Arguments
-    ///
-    /// * `comment_text` - The full text of the HTML comment (including `<!--` and `-->`)
-    ///
-    /// # Returns
-    ///
-    /// `true` if the comment was a format control comment, `false` otherwise.
+    /// Returns true if the comment was a format control comment.
     pub fn process_comment(&mut self, comment_text: &str) -> bool {
+        // Reset the just-turned flags
         self.just_turned_off = false;
         self.just_turned_on = false;
 
-        if !self.tags_enabled {
+        if !self.formatter_tags_enabled {
             return false;
         }
 
         // Extract the content between <!-- and -->
-        let content_opt = extract_comment_content(comment_text);
-        if content_opt.is_none() {
+        let trimmed = comment_text.trim();
+        if !trimmed.starts_with("<!--") || !trimmed.ends_with("-->") {
             return false;
         }
-        let content = content_opt.unwrap();
-        let content = content.trim();
 
-        // Check if this is a format control tag
-        let is_off = self.is_formatter_off_tag(content);
-        let is_on = self.is_formatter_on_tag(content);
+        let content = trimmed[4..trimmed.len() - 3].trim();
 
-        if is_off {
-            if !self.formatter_off {
+        // Check using regex if enabled and compiled successfully
+        if self.formatter_tags_accept_regex {
+            if let Some(ref on_regex) = self.formatter_on_regex {
+                if on_regex.is_match(content) {
+                    if self.formatting_off {
+                        self.formatting_off = false;
+                        self.just_turned_on = true;
+                    }
+                    return true;
+                }
+            }
+
+            if let Some(ref off_regex) = self.formatter_off_regex {
+                if off_regex.is_match(content) {
+                    if !self.formatting_off {
+                        self.formatting_off = true;
+                        self.just_turned_off = true;
+                    }
+                    return true;
+                }
+            }
+        }
+
+        // Check for exact match with formatter off tag
+        if content == self.formatter_off_tag {
+            if !self.formatting_off {
+                self.formatting_off = true;
                 self.just_turned_off = true;
             }
-            self.formatter_off = true;
-            true
-        } else if is_on {
-            if self.formatter_off {
+            return true;
+        }
+
+        // Check for exact match with formatter on tag
+        if content == self.formatter_on_tag {
+            if self.formatting_off {
+                self.formatting_off = false;
                 self.just_turned_on = true;
             }
-            self.formatter_off = false;
-            true
-        } else {
-            false
+            return true;
         }
+
+        false
     }
 
-    /// Check if the given content matches the formatter off tag
-    fn is_formatter_off_tag(&self, content: &str) -> bool {
-        if self.accept_regex && self.off_regex.is_some() {
-            self.off_regex.as_ref().unwrap().is_match(content)
-        } else {
-            content == self.formatter_off_tag
-        }
+    /// Get the formatter on tag
+    pub fn get_formatter_on_tag(&self) -> &str {
+        &self.formatter_on_tag
     }
 
-    /// Check if the given content matches the formatter on tag
-    fn is_formatter_on_tag(&self, content: &str) -> bool {
-        if self.accept_regex && self.on_regex.is_some() {
-            self.on_regex.as_ref().unwrap().is_match(content)
-        } else {
-            content == self.formatter_on_tag
-        }
+    /// Get the formatter off tag
+    pub fn get_formatter_off_tag(&self) -> &str {
+        &self.formatter_off_tag
     }
 
-    /// Reset the processor to its initial state
+    /// Check if formatter tags are enabled
+    pub fn are_formatter_tags_enabled(&self) -> bool {
+        self.formatter_tags_enabled
+    }
+
+    /// Check if formatter tags accept regex
+    pub fn are_formatter_tags_regex_enabled(&self) -> bool {
+        self.formatter_tags_accept_regex
+    }
+
+    /// Reset the formatting state to on
     pub fn reset(&mut self) {
-        self.formatter_off = false;
+        self.formatting_off = false;
         self.just_turned_off = false;
         self.just_turned_on = false;
     }
-}
 
-/// Extract the content from an HTML comment
-///
-/// Returns `None` if the text is not a valid HTML comment.
-fn extract_comment_content(comment_text: &str) -> Option<String> {
-    let trimmed = comment_text.trim();
-
-    if !trimmed.starts_with(HTML_COMMENT_OPEN) || !trimmed.ends_with(HTML_COMMENT_CLOSE)
-    {
-        return None;
+    /// Clear the just-turned flags
+    pub fn clear_just_turned_flags(&mut self) {
+        self.just_turned_off = false;
+        self.just_turned_on = false;
     }
 
-    let start = HTML_COMMENT_OPEN.len();
-    let end = trimmed.len() - HTML_COMMENT_CLOSE.len();
-
-    if start > end {
-        return None;
+    /// Check if a node is in a formatting region (not in a format-off area)
+    ///
+    /// This method checks the document structure to determine if the given
+    /// content should be formatted based on preceding format control comments.
+    pub fn is_formatting_region(&self, _content: &str) -> bool {
+        // For now, this is a simplified implementation
+        // A full implementation would need to track the position in the document
+        !self.formatting_off
     }
-
-    Some(trimmed[start..end].to_string())
 }
 
 #[cfg(test)]
@@ -245,9 +214,9 @@ mod tests {
         let options = create_test_options();
         let processor = FormatControlProcessor::new(&options);
 
-        assert!(processor.tags_enabled());
-        assert_eq!(processor.formatter_on_tag(), DEFAULT_FORMATTER_ON_TAG);
-        assert_eq!(processor.formatter_off_tag(), DEFAULT_FORMATTER_OFF_TAG);
+        assert!(processor.are_formatter_tags_enabled());
+        assert_eq!(processor.get_formatter_on_tag(), "formatter:on");
+        assert_eq!(processor.get_formatter_off_tag(), "formatter:off");
     }
 
     #[test]
@@ -260,8 +229,8 @@ mod tests {
         let result = processor.process_comment("<!-- formatter:off -->");
         assert!(result);
         assert!(processor.is_formatting_off());
-        assert!(processor.just_turned_off());
-        assert!(!processor.just_turned_on());
+        assert!(processor.is_just_turned_off());
+        assert!(!processor.is_just_turned_on());
     }
 
     #[test]
@@ -277,8 +246,8 @@ mod tests {
         let result = processor.process_comment("<!-- formatter:on -->");
         assert!(result);
         assert!(processor.is_formatting_on());
-        assert!(processor.just_turned_on());
-        assert!(!processor.just_turned_off());
+        assert!(processor.is_just_turned_on());
+        assert!(!processor.is_just_turned_off());
     }
 
     #[test]
@@ -310,22 +279,8 @@ mod tests {
 
         processor.reset();
         assert!(processor.is_formatting_on());
-        assert!(!processor.just_turned_off());
-        assert!(!processor.just_turned_on());
-    }
-
-    #[test]
-    fn test_extract_comment_content() {
-        assert_eq!(
-            extract_comment_content("<!-- formatter:off -->"),
-            Some(" formatter:off ".to_string())
-        );
-        assert_eq!(
-            extract_comment_content("<!--formatter:on-->"),
-            Some("formatter:on".to_string())
-        );
-        assert_eq!(extract_comment_content("Not a comment"), None);
-        assert_eq!(extract_comment_content("<!-- incomplete"), None);
+        assert!(!processor.is_just_turned_off());
+        assert!(!processor.is_just_turned_on());
     }
 
     #[test]

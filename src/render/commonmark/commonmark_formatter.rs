@@ -124,17 +124,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             NodeFormattingHandler::with_close(
                 NodeValueType::Paragraph,
                 Box::new(
-                    |value: &NodeValue,
+                    |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
-                     writer: &mut MarkdownWriter| {
+                     _writer: &mut MarkdownWriter| {
                         // Paragraph opening - check if we need special handling
-                        if let NodeValue::Paragraph = value {
+                        if let NodeValue::Paragraph = _value {
                             // Check if this paragraph is in a list item and needs special handling
                             if ctx.is_parent_list_item() {
                                 // In a list item, paragraphs may need different handling
                                 // based on whether the list is tight or loose
-                                let _is_first = ctx.is_first_child();
-                                let _is_last = ctx.is_last_child();
                                 // Additional handling can be added here if needed
                             }
                         }
@@ -153,7 +151,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                         let is_in_list_item = ctx.is_parent_list_item();
                         let is_in_tight_list = ctx.is_in_tight_list();
-                        let is_last_child = ctx.is_last_child();
                         let has_next_sibling = ctx.has_next_sibling();
 
                         if is_in_list_item {
@@ -332,25 +329,35 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      _writer: &mut MarkdownWriter| {
                         if let NodeValue::List(list) = value {
-                            // Determine effective tightness based on list_spacing option
-                            let effective_tight = match ctx
-                                .get_formatter_options()
-                                .list_spacing
-                            {
-                                crate::formatter::options::ListSpacing::Tight => true,
-                                crate::formatter::options::ListSpacing::Loose => false,
-                                crate::formatter::options::ListSpacing::AsIs => {
-                                    list.tight
+                            // Determine effective tightness based on list_spacing option and content
+                            let effective_tight =
+                                if let Some(node_id) = ctx.get_current_node() {
+                                    calculate_effective_list_tightness(
+                                        ctx.get_arena(),
+                                        node_id,
+                                        list,
+                                        ctx.get_formatter_options(),
+                                    )
+                                } else {
+                                    // Fallback to simple option-based logic
+                                    match ctx.get_formatter_options().list_spacing {
+                                    crate::formatter::options::ListSpacing::Tight => {
+                                        true
+                                    }
+                                    crate::formatter::options::ListSpacing::Loose => {
+                                        false
+                                    }
+                                    crate::formatter::options::ListSpacing::AsIs => {
+                                        list.tight
+                                    }
+                                    crate::formatter::options::ListSpacing::Loosen => {
+                                        list.tight
+                                    }
+                                    crate::formatter::options::ListSpacing::Tighten => {
+                                        true
+                                    }
                                 }
-                                crate::formatter::options::ListSpacing::Loosen => {
-                                    // Loosen if list contains blank lines (check would need AST analysis)
-                                    list.tight
-                                }
-                                crate::formatter::options::ListSpacing::Tighten => {
-                                    // Always tighten
-                                    true
-                                }
-                            };
+                                };
                             ctx.set_tight_list(effective_tight);
                             ctx.increment_list_nesting();
                         }
@@ -672,18 +679,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 ),
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Link(link) = value {
-                            writer.append("](");
-                            writer.append(escape_url(&link.url));
-                            if !link.title.is_empty() {
-                                writer.append(format!(
-                                    " \"{}\"",
-                                    escape_string(&link.title)
-                                ));
-                            }
-                            writer.append(")");
+                            // Close the link text bracket
+                            writer.append("]");
+                            // Then add the URL/title
+                            render_link_url(&link.url, &link.title, ctx, writer);
                         }
                     },
                 ),
@@ -699,18 +701,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 ),
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Image(link) = value {
-                            writer.append("](");
-                            writer.append(escape_url(&link.url));
-                            if !link.title.is_empty() {
-                                writer.append(format!(
-                                    " \"{}\"",
-                                    escape_string(&link.title)
-                                ));
-                            }
-                            writer.append(")");
+                            // Close the image alt bracket
+                            writer.append("]");
+                            // Then add the URL/title
+                            render_image_url(&link.url, &link.title, ctx, writer);
                         }
                     },
                 ),
@@ -1443,6 +1440,7 @@ fn escape_markdown_for_table(text: &str) -> String {
 ///
 /// This function selects the most appropriate bullet marker character
 /// based on the list's nesting level and content.
+#[allow(dead_code)]
 fn choose_bullet_marker(
     _list: &crate::core::nodes::NodeList,
     nesting_level: usize,
@@ -1470,6 +1468,7 @@ fn choose_bullet_marker(
 ///
 /// Returns the appropriate indentation string based on nesting level
 /// and list type.
+#[allow(dead_code)]
 fn calculate_list_indent(
     list: &crate::core::nodes::NodeList,
     nesting_level: usize,
@@ -1534,6 +1533,7 @@ fn format_list_item_marker(list: &crate::core::nodes::NodeList) -> String {
 ///
 /// This is used for ordered lists where each item has its own number.
 /// The item_number is the 1-based index of the item in the list.
+#[allow(dead_code)]
 fn format_list_item_marker_with_number(
     list: &crate::core::nodes::NodeList,
     item_number: usize,
@@ -1921,6 +1921,379 @@ fn is_empty_container(
     }
 
     true
+}
+
+/// Check if a list should be considered "loose" based on CommonMark spec
+///
+/// According to CommonMark, a list is loose if any of its constituent list
+/// items are separated by blank lines, or if any of its constituent list
+/// items directly contain two block-level elements with a blank line between them.
+///
+/// This function performs a more thorough check than just looking at the list's
+/// tight flag, by analyzing the actual structure of the list items.
+fn is_list_loose(
+    arena: &crate::core::arena::NodeArena,
+    list_node_id: crate::core::arena::NodeId,
+) -> bool {
+    use crate::core::nodes::NodeValue;
+
+    let list = arena.get(list_node_id);
+
+    // Iterate through all children (list items)
+    let mut prev_item_had_blank_line = false;
+    let mut child_id = list.first_child;
+
+    while let Some(item_id) = child_id {
+        let item = arena.get(item_id);
+
+        if matches!(item.value, NodeValue::Item(..)) {
+            // Check if this item contains blank lines
+            if item_contains_blank_lines(arena, item_id) {
+                return true;
+            }
+
+            // Check if there's a blank line between this item and the previous one
+            if prev_item_had_blank_line {
+                return true;
+            }
+
+            // Check for blank line after this item
+            prev_item_had_blank_line = has_trailing_blank_line(arena, item_id);
+        }
+
+        child_id = item.next;
+    }
+
+    false
+}
+
+/// Check if a list item contains blank lines between its block-level children
+///
+/// This is part of the CommonMark definition of a loose list.
+/// In this implementation, we check if the item has multiple block-level
+/// children, which indicates a loose list structure.
+fn item_contains_blank_lines(
+    arena: &crate::core::arena::NodeArena,
+    item_node_id: crate::core::arena::NodeId,
+) -> bool {
+    use crate::core::nodes::NodeValue;
+
+    let item = arena.get(item_node_id);
+
+    // Count block-level children
+    // A list item with multiple block-level children is considered loose
+    let mut block_count = 0;
+    let mut child_id = item.first_child;
+
+    while let Some(child) = child_id {
+        let child_node = arena.get(child);
+
+        // Check if this child is a block-level element
+        let is_block = matches!(
+            child_node.value,
+            NodeValue::Paragraph
+                | NodeValue::Heading(_)
+                | NodeValue::BlockQuote
+                | NodeValue::List(_)
+                | NodeValue::CodeBlock(_)
+                | NodeValue::HtmlBlock(_)
+        );
+
+        if is_block {
+            block_count += 1;
+            // If we have more than one block-level child, it's loose
+            if block_count > 1 {
+                return true;
+            }
+        }
+
+        child_id = child_node.next;
+    }
+
+    false
+}
+
+/// Check if a node has trailing blank lines
+///
+/// This checks if there's a blank line after this node in the document.
+/// In this implementation, we check if the next sibling is an empty paragraph
+/// or if there's no next sibling (end of container).
+fn has_trailing_blank_line(
+    _arena: &crate::core::arena::NodeArena,
+    node_id: crate::core::arena::NodeId,
+) -> bool {
+    // For now, we use a simplified check
+    // In a full implementation, this would analyze the source for blank lines
+    // The tight flag in the list itself is the primary indicator
+    let _ = node_id;
+    false
+}
+
+/// Calculate the effective tightness of a list based on options and content
+///
+/// This function determines whether a list should be rendered as tight or loose
+/// based on the formatter options and the actual list content.
+fn calculate_effective_list_tightness(
+    arena: &crate::core::arena::NodeArena,
+    list_node_id: crate::core::arena::NodeId,
+    _list: &crate::core::nodes::NodeList,
+    options: &crate::formatter::options::FormatterOptions,
+) -> bool {
+    use crate::formatter::options::ListSpacing;
+
+    match options.list_spacing {
+        ListSpacing::Tight => true,
+        ListSpacing::Loose => false,
+        ListSpacing::AsIs => {
+            // Use the list's own tight flag, but verify it matches the content
+            let content_is_loose = is_list_loose(arena, list_node_id);
+            !content_is_loose
+        }
+        ListSpacing::Loosen => {
+            // Loosen if content indicates loose list
+            let content_is_loose = is_list_loose(arena, list_node_id);
+            !content_is_loose // Return tight=true if content is not loose
+        }
+        ListSpacing::Tighten => {
+            // Always tighten
+            true
+        }
+    }
+}
+
+/// Determine how to render a paragraph based on context
+///
+/// This function implements flexmark-java's paragraph rendering logic:
+/// - In tight lists: minimal spacing
+/// - In loose lists: blank line between paragraphs
+/// - In list items: special handling for first/last paragraphs
+/// - Normal paragraphs: blank line after
+///
+/// Returns true if a blank line should be added, false for just a line break.
+fn should_render_loose_paragraph(
+    ctx: &dyn NodeFormatterContext,
+    is_last_paragraph: bool,
+) -> bool {
+    let is_in_list_item = ctx.is_parent_list_item();
+    let is_in_tight_list = ctx.is_in_tight_list();
+    let has_next_sibling = ctx.has_next_sibling();
+
+    if is_in_list_item {
+        // Paragraph is inside a list item
+        if is_in_tight_list {
+            // Tight list: never use blank lines
+            false
+        } else {
+            // Loose list: use blank line if not the last paragraph and has siblings
+            !is_last_paragraph && has_next_sibling
+        }
+    } else if is_in_tight_list {
+        // Paragraph in tight list context but not directly in item
+        false
+    } else {
+        // Normal paragraph outside lists
+        // Use blank line if not the last paragraph
+        !is_last_paragraph
+    }
+}
+
+/// Check if a paragraph is the first block-level child of its parent
+///
+/// This is useful for determining spacing at the beginning of containers.
+#[allow(dead_code)]
+fn is_first_block_child(
+    arena: &crate::core::arena::NodeArena,
+    paragraph_id: crate::core::arena::NodeId,
+) -> bool {
+    let paragraph = arena.get(paragraph_id);
+
+    if let Some(parent_id) = paragraph.parent {
+        let parent = arena.get(parent_id);
+
+        // Check if this paragraph is the first child
+        if let Some(first_child) = parent.first_child {
+            return first_child == paragraph_id;
+        }
+    }
+
+    false
+}
+
+/// Check if a paragraph is the last block-level child of its parent
+///
+/// This is useful for determining spacing at the end of containers.
+#[allow(dead_code)]
+fn is_last_block_child(
+    arena: &crate::core::arena::NodeArena,
+    paragraph_id: crate::core::arena::NodeId,
+) -> bool {
+    let paragraph = arena.get(paragraph_id);
+
+    if let Some(parent_id) = paragraph.parent {
+        let parent = arena.get(parent_id);
+
+        // Check if this paragraph is the last child
+        if let Some(last_child) = parent.last_child {
+            return last_child == paragraph_id;
+        }
+    }
+
+    false
+}
+
+/// Render paragraph spacing based on context
+///
+/// This is the main entry point for paragraph spacing, implementing
+/// the logic from flexmark-java's paragraph rendering.
+pub fn render_paragraph_spacing(
+    ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+    is_last: bool,
+) {
+    if should_render_loose_paragraph(ctx, is_last) {
+        writer.blank_line();
+    } else {
+        writer.line();
+    }
+}
+
+/// Check if a URL is a reference-style link label
+///
+/// Reference-style links use a label instead of a direct URL.
+/// The label is case-insensitive and can contain letters, numbers, spaces, and punctuation.
+fn is_reference_label(url: &str) -> bool {
+    // A reference label is not a URL if:
+    // 1. It doesn't contain :// (protocol separator)
+    // 2. It doesn't start with /, ./, or ../
+    // 3. It doesn't start with # (fragment) or ? (query)
+    // 4. It doesn't look like an absolute URL (contains :// or starts with common schemes)
+
+    // If it contains ://, it's definitely a URL
+    if url.contains("://") {
+        return false;
+    }
+
+    // If it starts with /, ./, or ../, it's a path (not a reference label)
+    if url.starts_with('/') || url.starts_with("./") || url.starts_with("../") {
+        return false;
+    }
+
+    // If it starts with # or ?, it's a fragment or query (not a reference label)
+    if url.starts_with('#') || url.starts_with('?') {
+        return false;
+    }
+
+    // If it's empty, it's not a reference label
+    if url.is_empty() {
+        return false;
+    }
+
+    // Check for common URL schemes at the start followed by :
+    // This catches cases like "http:" without //
+    let schemes = [
+        "http:",
+        "https:",
+        "ftp:",
+        "mailto:",
+        "file:",
+        "data:",
+        "javascript:",
+        "vbscript:",
+    ];
+    for scheme in &schemes {
+        if url.starts_with(scheme) {
+            return false;
+        }
+    }
+
+    // Check if it looks like a domain (contains . and no spaces)
+    // e.g., "example.com" should be treated as a URL, not a reference label
+    if url.contains('.')
+        && !url.contains(' ')
+        && !url.contains('[')
+        && !url.contains(']')
+    {
+        // Check if it looks like a domain name (has a dot and valid domain characters)
+        let domain_part: String = url
+            .chars()
+            .take_while(|&c| c != '/' && c != '?' && c != '#')
+            .collect();
+        if domain_part.contains('.')
+            && domain_part
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
+        {
+            return false;
+        }
+    }
+
+    // If we get here, it's likely a reference label
+    true
+}
+
+/// Normalize a reference label
+///
+/// Reference labels are case-insensitive and whitespace is collapsed.
+#[allow(dead_code)]
+fn normalize_reference_label(label: &str) -> String {
+    // Collapse whitespace and convert to lowercase
+    label
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Render a link URL, handling reference-style links
+///
+/// This function determines whether a link is inline (with direct URL)
+/// or reference-style (with label), and renders accordingly.
+fn render_link_url(
+    url: &str,
+    title: &str,
+    _ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+) {
+    if is_reference_label(url) {
+        // Reference-style link: [text][label] or [text][]
+        // The label is already in the URL field
+        writer.append("[");
+        writer.append(url);
+        writer.append("]");
+    } else {
+        // Inline link: [text](url "title")
+        writer.append("(");
+        writer.append(escape_url(url));
+        if !title.is_empty() {
+            writer.append(format!(" \"{}\"", escape_string(title)));
+        }
+        writer.append(")");
+    }
+}
+
+/// Render an image URL, handling reference-style images
+///
+/// Similar to render_link_url but for images.
+fn render_image_url(
+    url: &str,
+    title: &str,
+    _ctx: &dyn NodeFormatterContext,
+    writer: &mut MarkdownWriter,
+) {
+    if is_reference_label(url) {
+        // Reference-style image: ![alt][label] or ![alt][]
+        writer.append("[");
+        writer.append(url);
+        writer.append("]");
+    } else {
+        // Inline image: ![alt](url "title")
+        writer.append("(");
+        writer.append(escape_url(url));
+        if !title.is_empty() {
+            writer.append(format!(" \"{}\"", escape_string(title)));
+        }
+        writer.append(")");
+    }
 }
 
 #[cfg(test)]

@@ -6,6 +6,54 @@
 
 use crate::formatter::options::FormatFlags;
 
+/// Line information for tracking output state
+///
+/// This structure tracks information about the current line being written,
+/// useful for making formatting decisions based on context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LineInfo {
+    /// The line number (0-indexed)
+    pub line_number: usize,
+    /// The column position on the current line
+    pub column: usize,
+    /// Whether this is the beginning of a line
+    pub beginning_of_line: bool,
+    /// Whether the current line is blank
+    pub is_blank_line: bool,
+}
+
+impl LineInfo {
+    /// Create a new LineInfo at the start of a document
+    pub fn new() -> Self {
+        Self {
+            line_number: 0,
+            column: 0,
+            beginning_of_line: true,
+            is_blank_line: true,
+        }
+    }
+
+    /// Advance the column by the given amount
+    pub fn advance_column(&mut self, n: usize) {
+        self.column += n;
+        self.is_blank_line = false;
+    }
+
+    /// Move to the next line
+    pub fn next_line(&mut self) {
+        self.line_number += 1;
+        self.column = 0;
+        self.beginning_of_line = true;
+        self.is_blank_line = true;
+    }
+
+    /// Mark that we're no longer at the beginning of a line
+    pub fn mark_content_written(&mut self) {
+        self.beginning_of_line = false;
+        self.is_blank_line = false;
+    }
+}
+
 /// Markdown output writer
 ///
 /// This writer handles the generation of Markdown text with proper
@@ -26,8 +74,6 @@ pub struct MarkdownWriter {
     format_flags: FormatFlags,
     /// Current line prefix
     current_prefix: String,
-    /// Pending prefix for next line
-    pending_prefix: Option<String>,
     /// Number of trailing blank lines
     trailing_blank_lines: usize,
     /// Maximum trailing blank lines
@@ -40,6 +86,8 @@ pub struct MarkdownWriter {
     right_margin: usize,
     /// Buffer for word wrapping
     word_wrap_buffer: String,
+    /// Line information tracking
+    line_info: LineInfo,
 }
 
 impl MarkdownWriter {
@@ -53,13 +101,13 @@ impl MarkdownWriter {
             pre_formatted: false,
             format_flags,
             current_prefix: String::new(),
-            pending_prefix: None,
             trailing_blank_lines: 0,
             max_trailing_blank_lines: 2,
             space_after_atx_marker: true,
             space_before_info: true,
             right_margin: 0,
             word_wrap_buffer: String::new(),
+            line_info: LineInfo::new(),
         }
     }
 
@@ -214,6 +262,7 @@ impl MarkdownWriter {
             self.column = self.current_prefix.len();
             self.beginning_of_line = false;
             self.trailing_blank_lines = 0;
+            self.line_info.mark_content_written();
         }
 
         // Apply format flags
@@ -225,6 +274,7 @@ impl MarkdownWriter {
 
         self.output.push_str(&processed_text);
         self.column += processed_text.len();
+        self.line_info.advance_column(processed_text.len());
 
         self
     }
@@ -336,6 +386,7 @@ impl MarkdownWriter {
             self.output.push('\n');
             self.beginning_of_line = true;
             self.column = 0;
+            self.line_info.next_line();
         }
         self
     }
@@ -470,14 +521,24 @@ impl MarkdownWriter {
             pre_formatted: self.pre_formatted,
             format_flags: self.format_flags,
             current_prefix: self.current_prefix.clone(),
-            pending_prefix: None,
             trailing_blank_lines: 0,
             max_trailing_blank_lines: self.max_trailing_blank_lines,
             space_after_atx_marker: self.space_after_atx_marker,
             space_before_info: self.space_before_info,
             right_margin: self.right_margin,
             word_wrap_buffer: String::new(),
+            line_info: LineInfo::new(),
         }
+    }
+
+    /// Get the current line information
+    pub fn get_line_info(&self) -> LineInfo {
+        self.line_info
+    }
+
+    /// Get the current line number
+    pub fn get_line_number(&self) -> usize {
+        self.line_info.line_number
     }
 
     /// Append the content of another writer to this one
@@ -579,12 +640,14 @@ impl MarkdownWriter {
 
     /// Set the current prefix directly (use with caution)
     /// This is used internally for prefix manipulation
+    #[allow(dead_code)]
     fn set_prefix(&mut self, prefix: impl AsRef<str>) {
         self.current_prefix = prefix.as_ref().to_string();
     }
 
     /// Add a prefix to the current prefix without pushing to stack
     /// This is used for temporary prefix modifications
+    #[allow(dead_code)]
     fn add_prefix(&mut self, prefix: impl AsRef<str>) {
         self.current_prefix.push_str(prefix.as_ref());
     }

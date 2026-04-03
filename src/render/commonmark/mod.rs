@@ -25,7 +25,9 @@ pub mod options;
 pub mod phase;
 pub mod phased;
 pub mod purpose;
+pub mod repository_formatter;
 pub mod table;
+pub mod translation;
 pub mod utils;
 pub mod writer;
 
@@ -50,6 +52,10 @@ pub use phased::{
     REFERENCE_FORMATTING_PHASES, STANDARD_FORMATTING_PHASES,
 };
 pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
+pub use repository_formatter::{
+    LinkReferenceFormatter, NodeRepositoryFormatter, ReferenceEntry, ReferenceRepository,
+};
+pub use translation::{TranslationContext, TranslationHandler, TranslationHandlerImpl};
 pub use writer::MarkdownWriter;
 
 use crate::core::arena::{NodeArena, NodeId};
@@ -604,7 +610,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         //
         // This implementation uses the handler_stack to track the current
         // handler index and calls the next handler if available.
-        if let Some((node_type, current_index)) = self.handler_stack.last().copied() {
+        if self.handler_stack.last().copied().is_some() {
             // The actual delegation happens in render_with_handler_index
             // by calling the next handler index
             self.delegation_requested = true;
