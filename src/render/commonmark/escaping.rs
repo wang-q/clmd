@@ -932,7 +932,7 @@ mod tests {
 
         fn delegate_render(&mut self) {}
 
-        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+        fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
             panic!("Not implemented")
         }
 

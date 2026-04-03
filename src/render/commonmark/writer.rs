@@ -4,7 +4,7 @@
 //! proper prefix handling, indentation, and formatting control.
 //! Inspired by flexmark-java's MarkdownWriter class.
 
-use crate::formatter::options::FormatFlags;
+use crate::options::format::FormatFlags;
 
 /// Line information for tracking output state
 ///

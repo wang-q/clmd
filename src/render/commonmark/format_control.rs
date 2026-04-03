@@ -8,7 +8,7 @@
 //! - `<!-- @formatter:off -->` - Disable formatting
 //! - `<!-- @formatter:on -->` - Re-enable formatting
 
-use super::options::FormatterOptions;
+use crate::options::format::FormatOptions;
 use regex::Regex;
 
 /// Processor for format control comments
@@ -39,7 +39,7 @@ pub struct FormatControlProcessor {
 
 impl FormatControlProcessor {
     /// Create a new format control processor from options
-    pub fn new(options: &FormatterOptions) -> Self {
+    pub fn new(options: &FormatOptions) -> Self {
         let formatter_on_regex =
             if options.formatter_tags_enabled && options.formatter_tags_accept_regex {
                 Regex::new(&options.formatter_on_tag).ok()
@@ -205,8 +205,8 @@ impl FormatControlProcessor {
 mod tests {
     use super::*;
 
-    fn create_test_options() -> FormatterOptions {
-        FormatterOptions::default()
+    fn create_test_options() -> FormatOptions {
+        FormatOptions::default()
     }
 
     #[test]

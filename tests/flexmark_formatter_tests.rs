@@ -5,7 +5,7 @@
 
 use clmd::options::Options as ParseOptions;
 use clmd::parse::parse_document;
-use clmd::render::commonmark::options::{
+use clmd::options::format::{
     Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, ElementPlacement,
     ElementPlacementSort, FormatterOptions, HeadingStyle, ListSpacing, NumberedMarker,
     TrailingMarker,

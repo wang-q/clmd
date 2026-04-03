@@ -5,7 +5,7 @@
 
 use crate::core::nodes::{NodeCodeBlock, NodeList};
 use crate::formatter::context::NodeFormatterContext;
-use crate::formatter::options::{BulletMarker, CodeFenceMarker, NumberedMarker};
+use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::formatter::writer::MarkdownWriter;
 
 /// Render a list
@@ -315,7 +315,7 @@ mod tests {
 
         fn delegate_render(&mut self) {}
 
-        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+        fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
             panic!("Not implemented")
         }
 

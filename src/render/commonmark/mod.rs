@@ -21,7 +21,6 @@ pub mod context;
 pub mod escaping;
 pub mod format_control;
 pub mod node;
-pub mod options;
 pub mod phase;
 pub mod phased;
 pub mod purpose;
@@ -41,11 +40,14 @@ pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
 };
-pub use options::{
+pub use crate::options::format::{
     Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, DiscretionaryText,
-    ElementPlacement, ElementPlacementSort, FormatFlags, FormatterOptions, HeadingStyle,
+    ElementPlacement, ElementPlacementSort, FormatFlags, FormatOptions, HeadingStyle,
     ListSpacing, NumberedMarker, TrailingMarker,
 };
+
+/// Type alias for backward compatibility
+pub type FormatterOptions = FormatOptions;
 pub use phase::FormattingPhase;
 pub use phased::{
     ComposedPhasedFormatter, PhasedNodeFormatter, SimplePhasedFormatter,
@@ -68,7 +70,7 @@ use std::collections::HashMap;
 /// It coordinates multiple node formatters and manages the rendering process.
 pub struct Formatter {
     /// Formatter options
-    options: options::FormatterOptions,
+    options: FormatOptions,
     /// Node formatters
     node_formatters: node::ComposedNodeFormatter,
     /// Phased formatters
@@ -90,11 +92,11 @@ impl std::fmt::Debug for Formatter {
 impl Formatter {
     /// Create a new formatter with default options
     pub fn new() -> Self {
-        Self::with_options(options::FormatterOptions::default())
+        Self::with_options(FormatOptions::default())
     }
 
     /// Create a new formatter with specific options
-    pub fn with_options(options: options::FormatterOptions) -> Self {
+    pub fn with_options(options: FormatOptions) -> Self {
         Self {
             options,
             node_formatters: node::ComposedNodeFormatter::new(),
@@ -194,7 +196,7 @@ impl Formatter {
     }
 
     /// Get the formatter options
-    pub fn get_options(&self) -> &options::FormatterOptions {
+    pub fn get_options(&self) -> &FormatOptions {
         &self.options
     }
 }
@@ -210,7 +212,7 @@ pub struct MainFormatterContext<'a> {
     /// Reference to the node arena
     arena: &'a NodeArena,
     /// Formatter options
-    options: &'a options::FormatterOptions,
+    options: &'a FormatOptions,
     /// Node formatters
     formatters: &'a node::ComposedNodeFormatter,
     /// Current formatting phase
@@ -267,7 +269,7 @@ impl<'a> MainFormatterContext<'a> {
     /// Create a new main formatter context
     pub fn new(
         arena: &'a NodeArena,
-        options: &'a options::FormatterOptions,
+        options: &'a FormatOptions,
         formatters: &'a node::ComposedNodeFormatter,
     ) -> Self {
         let format_control = format_control::FormatControlProcessor::new(options);
@@ -301,7 +303,7 @@ impl<'a> MainFormatterContext<'a> {
     /// Create a new context with a specific render purpose
     pub fn with_purpose(
         arena: &'a NodeArena,
-        options: &'a options::FormatterOptions,
+        options: &'a FormatOptions,
         formatters: &'a node::ComposedNodeFormatter,
         purpose: purpose::RenderPurpose,
     ) -> Self {
@@ -618,7 +620,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
-    fn get_formatter_options(&self) -> &options::FormatterOptions {
+    fn get_formatter_options(&self) -> &FormatOptions {
         self.options
     }
 
@@ -791,7 +793,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
 /// Formatter builder for convenient configuration
 pub struct FormatterBuilder {
-    options: options::FormatterOptions,
+    options: FormatOptions,
     node_formatters: Vec<Box<dyn node::NodeFormatter>>,
     phased_formatters: Vec<Box<dyn phased::PhasedNodeFormatter>>,
 }
@@ -810,14 +812,14 @@ impl FormatterBuilder {
     /// Create a new formatter builder
     pub fn new() -> Self {
         Self {
-            options: options::FormatterOptions::default(),
+            options: FormatOptions::default(),
             node_formatters: Vec::new(),
             phased_formatters: Vec::new(),
         }
     }
 
     /// Set the formatter options
-    pub fn options(mut self, options: options::FormatterOptions) -> Self {
+    pub fn options(mut self, options: FormatOptions) -> Self {
         self.options = options;
         self
     }
@@ -869,7 +871,7 @@ pub fn format_document(arena: &NodeArena, root: NodeId) -> String {
 pub fn format_document_with_options(
     arena: &NodeArena,
     root: NodeId,
-    options: options::FormatterOptions,
+    options: FormatOptions,
 ) -> String {
     let formatter = Formatter::with_options(options);
     formatter.render(arena, root)
@@ -896,7 +898,7 @@ pub fn render(
     _options: u32,
     wrap_width: usize,
 ) -> String {
-    let opts = options::FormatterOptions::new().with_right_margin(wrap_width);
+    let opts = FormatOptions::new().with_right_margin(wrap_width);
     let mut formatter = Formatter::with_options(opts);
     formatter.add_node_formatter(Box::new(
         commonmark_formatter::CommonMarkNodeFormatter::new(),
@@ -915,14 +917,14 @@ mod tests {
         let formatter = Formatter::new();
         assert!(matches!(
             formatter.get_options().heading_style,
-            options::HeadingStyle::AsIs
+            HeadingStyle::AsIs
         ));
     }
 
     #[test]
     fn test_formatter_builder() {
         let formatter = FormatterBuilder::new()
-            .options(options::FormatterOptions::new().with_right_margin(80))
+            .options(FormatOptions::new().with_right_margin(80))
             .build();
 
         assert_eq!(formatter.get_options().right_margin, 80);

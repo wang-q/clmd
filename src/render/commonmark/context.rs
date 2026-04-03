@@ -6,7 +6,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::formatter::node::NodeValueType;
-use crate::formatter::options::FormatterOptions;
+use crate::options::format::FormatOptions;
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::purpose::RenderPurpose;
 use crate::formatter::writer::MarkdownWriter;
@@ -42,7 +42,7 @@ pub trait NodeFormatterContext {
     fn delegate_render(&mut self);
 
     /// Get the formatter options
-    fn get_formatter_options(&self) -> &FormatterOptions;
+    fn get_formatter_options(&self) -> &FormatOptions;
 
     /// Get the current render purpose
     fn get_render_purpose(&self) -> RenderPurpose;
@@ -310,7 +310,7 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.delegate_render();
     }
 
-    fn get_formatter_options(&self) -> &FormatterOptions {
+    fn get_formatter_options(&self) -> &FormatOptions {
         self.parent.get_formatter_options()
     }
 
@@ -512,13 +512,13 @@ mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena};
     use crate::core::nodes::NodeValue;
-    use crate::formatter::options::FormatterOptions;
+    use crate::options::format::FormatOptions;
     use crate::formatter::purpose::RenderPurpose;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
         arena: NodeArena,
-        options: FormatterOptions,
+        options: FormatOptions,
         current_node: Option<NodeId>,
         tight_list: bool,
         list_nesting: usize,
@@ -531,7 +531,7 @@ mod tests {
         fn new() -> Self {
             Self {
                 arena: NodeArena::new(),
-                options: FormatterOptions::new(),
+                options: FormatOptions::new(),
                 current_node: None,
                 tight_list: false,
                 list_nesting: 0,
@@ -563,7 +563,7 @@ mod tests {
             unimplemented!()
         }
 
-        fn get_formatter_options(&self) -> &FormatterOptions {
+        fn get_formatter_options(&self) -> &FormatOptions {
             &self.options
         }
 

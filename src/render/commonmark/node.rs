@@ -498,7 +498,7 @@ impl NodeFormatter for ComposedNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::formatter::options::FormatterOptions;
+    use crate::options::format::FormatOptions;
     use crate::formatter::writer::MarkdownWriter;
 
     #[test]
@@ -688,7 +688,7 @@ mod tests {
             writer.append("hello");
         });
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -706,7 +706,7 @@ mod tests {
             },
         );
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -717,7 +717,7 @@ mod tests {
     fn test_node_formatting_handler_format_close_without_close() {
         let handler = NodeFormattingHandler::new(NodeValueType::Text, |_, _, _| {});
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut writer = MarkdownWriter::new(options.format_flags);
         let text = NodeValue::make_text("test");
 
@@ -921,7 +921,7 @@ mod tests {
         fn delegate_render(&mut self) {
             unimplemented!()
         }
-        fn get_formatter_options(&self) -> &FormatterOptions {
+        fn get_formatter_options(&self) -> &FormatOptions {
             unimplemented!()
         }
         fn get_render_purpose(&self) -> crate::formatter::purpose::RenderPurpose {

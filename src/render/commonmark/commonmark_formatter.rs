@@ -9,7 +9,7 @@
 //! use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
 //!
 //! let formatter = CommonMarkNodeFormatter::new();
-//! let options = FormatterOptions::new().with_right_margin(80);
+//! let options = FormatOptions::new().with_right_margin(80);
 //! let formatter = CommonMarkNodeFormatter::with_options(options);
 //! ```
 
@@ -21,7 +21,7 @@ use crate::formatter::escaping::{
     escape_string, escape_text, escape_url,
 };
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
-use crate::formatter::options::{FormatterOptions, HeadingStyle};
+use crate::options::format::{FormatOptions, HeadingStyle};
 use crate::formatter::phase::FormattingPhase;
 use crate::formatter::phased::PhasedNodeFormatter;
 use crate::formatter::writer::MarkdownWriter;
@@ -58,7 +58,7 @@ use crate::formatter::writer::MarkdownWriter;
 #[derive(Debug)]
 pub struct CommonMarkNodeFormatter {
     /// Formatter options for customizing output
-    options: FormatterOptions,
+    options: FormatOptions,
 }
 
 impl CommonMarkNodeFormatter {
@@ -72,7 +72,7 @@ impl CommonMarkNodeFormatter {
     /// let formatter = CommonMarkNodeFormatter::new();
     /// ```
     pub fn new() -> Self {
-        Self::with_options(FormatterOptions::default())
+        Self::with_options(FormatOptions::default())
     }
 
     /// Create a new CommonMark formatter with custom options
@@ -86,17 +86,17 @@ impl CommonMarkNodeFormatter {
     /// ```ignore
     /// use clmd::formatter::{CommonMarkNodeFormatter, FormatterOptions};
     ///
-    /// let options = FormatterOptions::new()
+    /// let options = FormatOptions::new()
     ///     .with_right_margin(80)
     ///     .with_keep_hard_line_breaks(true);
     /// let formatter = CommonMarkNodeFormatter::with_options(options);
     /// ```
-    pub fn with_options(options: FormatterOptions) -> Self {
+    pub fn with_options(options: FormatOptions) -> Self {
         Self { options }
     }
 
     /// Get the formatter options
-    pub fn options(&self) -> &FormatterOptions {
+    pub fn options(&self) -> &FormatOptions {
         &self.options
     }
 }
@@ -264,18 +264,18 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             } else {
                                 // ATX style - handle trailing markers
                                 match options.atx_heading_trailing_marker {
-                                    crate::formatter::options::TrailingMarker::Add => {
+                                    crate::options::format::TrailingMarker::Add => {
                                         // Add trailing hashes
                                         let hashes = "#".repeat(heading.level as usize);
                                         writer.append_raw(format!(" {}", hashes));
                                     }
-                                    crate::formatter::options::TrailingMarker::Remove => {
+                                    crate::options::format::TrailingMarker::Remove => {
                                         // No trailing hashes
                                     }
-                                    crate::formatter::options::TrailingMarker::AsIs => {
+                                    crate::options::format::TrailingMarker::AsIs => {
                                         // Keep as-is (no additional handling needed)
                                     }
-                                    crate::formatter::options::TrailingMarker::Equalize => {
+                                    crate::options::format::TrailingMarker::Equalize => {
                                         // Equalize trailing marker to match opening
                                         let hashes = "#".repeat(heading.level as usize);
                                         writer.append_raw(format!(" {}", hashes));
@@ -342,19 +342,19 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 } else {
                                     // Fallback to simple option-based logic
                                     match ctx.get_formatter_options().list_spacing {
-                                    crate::formatter::options::ListSpacing::Tight => {
+                                    crate::options::format::ListSpacing::Tight => {
                                         true
                                     }
-                                    crate::formatter::options::ListSpacing::Loose => {
+                                    crate::options::format::ListSpacing::Loose => {
                                         false
                                     }
-                                    crate::formatter::options::ListSpacing::AsIs => {
+                                    crate::options::format::ListSpacing::AsIs => {
                                         list.tight
                                     }
-                                    crate::formatter::options::ListSpacing::Loosen => {
+                                    crate::options::format::ListSpacing::Loosen => {
                                         list.tight
                                     }
-                                    crate::formatter::options::ListSpacing::Tighten => {
+                                    crate::options::format::ListSpacing::Tighten => {
                                         true
                                     }
                                 }
@@ -993,7 +993,7 @@ impl CommonMarkNodeFormatter {
         // Check if we should place references at document top
         let options = context.get_formatter_options();
         if options.reference_placement
-            == crate::formatter::options::ElementPlacement::DocumentTop
+            == crate::options::format::ElementPlacement::DocumentTop
         {
             // Render collected references at top
             // This would require reference collection to be implemented
@@ -1015,7 +1015,7 @@ impl CommonMarkNodeFormatter {
         // Check if we should place references at document bottom
         let options = context.get_formatter_options();
         if options.reference_placement
-            == crate::formatter::options::ElementPlacement::DocumentBottom
+            == crate::options::format::ElementPlacement::DocumentBottom
         {
             // Render collected references at bottom
             // This would require reference collection to be implemented
@@ -1050,11 +1050,11 @@ fn render_fenced_code_block(
     code_block: &crate::core::nodes::NodeCodeBlock,
     _ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
-    options: &crate::formatter::options::FormatterOptions,
+    options: &crate::options::format::FormatOptions,
 ) {
     // Determine the fence character and base length
     let fence_char = match options.fenced_code_marker_type {
-        crate::formatter::options::CodeFenceMarker::Tilde => '~',
+        crate::options::format::CodeFenceMarker::Tilde => '~',
         _ => '`',
     };
 
@@ -1126,7 +1126,7 @@ fn render_indented_code_block(
     code_block: &crate::core::nodes::NodeCodeBlock,
     _ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
-    options: &crate::formatter::options::FormatterOptions,
+    options: &crate::options::format::FormatOptions,
 ) {
     // Process code content with optional indent minimization
     let code_content = if options.indented_code_minimize_indent {
@@ -1414,9 +1414,9 @@ pub fn get_backtick_sequence(content: &str) -> String {
 fn choose_bullet_marker(
     _list: &crate::core::nodes::NodeList,
     nesting_level: usize,
-    options: &FormatterOptions,
+    options: &FormatOptions,
 ) -> char {
-    use crate::formatter::options::BulletMarker;
+    use crate::options::format::BulletMarker;
 
     match options.list_bullet_marker {
         BulletMarker::Dash => '-',
@@ -1443,7 +1443,7 @@ fn calculate_list_indent(
     list: &crate::core::nodes::NodeList,
     nesting_level: usize,
     item_number: usize,
-    options: &FormatterOptions,
+    options: &FormatOptions,
 ) -> String {
     use crate::core::nodes::{ListDelimType, ListType};
 
@@ -1511,7 +1511,7 @@ fn format_list_item_marker_with_number(
     format_list_item_marker_with_number_and_options(
         list,
         item_number,
-        &FormatterOptions::default(),
+        &FormatOptions::default(),
     )
 }
 
@@ -1521,10 +1521,10 @@ fn format_list_item_marker_with_number(
 fn format_list_item_marker_with_number_and_options(
     list: &crate::core::nodes::NodeList,
     item_number: usize,
-    options: &FormatterOptions,
+    options: &FormatOptions,
 ) -> String {
     use crate::core::nodes::{ListDelimType, ListType};
-    use crate::formatter::options::{BulletMarker, NumberedMarker};
+    use crate::options::format::{BulletMarker, NumberedMarker};
 
     match list.list_type {
         ListType::Bullet => {
@@ -2001,9 +2001,9 @@ fn calculate_effective_list_tightness(
     arena: &crate::core::arena::NodeArena,
     list_node_id: crate::core::arena::NodeId,
     _list: &crate::core::nodes::NodeList,
-    options: &crate::formatter::options::FormatterOptions,
+    options: &crate::options::format::FormatOptions,
 ) -> bool {
-    use crate::formatter::options::ListSpacing;
+    use crate::options::format::ListSpacing;
 
     match options.list_spacing {
         ListSpacing::Tight => true,
@@ -2289,7 +2289,7 @@ mod tests {
 
         fn delegate_render(&mut self) {}
 
-        fn get_formatter_options(&self) -> &crate::formatter::options::FormatterOptions {
+        fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
             panic!("Not implemented")
         }
 
@@ -2415,7 +2415,7 @@ mod tests {
 
     #[test]
     fn test_commonmark_formatter_with_options() {
-        let options = FormatterOptions::new()
+        let options = FormatOptions::new()
             .with_right_margin(80)
             .with_keep_hard_line_breaks(true);
         let formatter = CommonMarkNodeFormatter::with_options(options);
@@ -2469,7 +2469,7 @@ mod tests {
 
     #[test]
     fn test_formatter_options_accessor() {
-        let options = FormatterOptions::new().with_right_margin(100);
+        let options = FormatOptions::new().with_right_margin(100);
         let formatter = CommonMarkNodeFormatter::with_options(options);
         assert_eq!(formatter.options().right_margin, 100);
     }
@@ -2634,7 +2634,7 @@ mod tests {
     fn test_render_document_with_nested_lists() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
 
@@ -2716,7 +2716,7 @@ mod tests {
         TreeOps::append_child(&mut arena, list, item2);
         TreeOps::append_child(&mut arena, root, list);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -2743,7 +2743,7 @@ mod tests {
     fn test_render_code_block_with_backticks() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeCodeBlock, NodeValue};
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2762,7 +2762,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, code_block);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -2789,7 +2789,7 @@ mod tests {
     fn test_render_heading_atx() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeHeading, NodeValue};
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2803,7 +2803,7 @@ mod tests {
         TreeOps::append_child(&mut arena, heading, text);
         TreeOps::append_child(&mut arena, root, heading);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -2820,7 +2820,7 @@ mod tests {
     fn test_render_blockquote() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::NodeValue;
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2833,7 +2833,7 @@ mod tests {
         TreeOps::append_child(&mut arena, blockquote, para);
         TreeOps::append_child(&mut arena, root, blockquote);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -2850,7 +2850,7 @@ mod tests {
     fn test_render_link_and_image() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{NodeLink, NodeValue};
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2877,7 +2877,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, para);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -2899,7 +2899,7 @@ mod tests {
     fn test_render_emphasis_and_strong() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::NodeValue;
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -2918,7 +2918,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, para);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
@@ -3046,7 +3046,7 @@ mod tests {
     fn test_render_task_list() {
         use crate::core::arena::{Node, NodeArena, TreeOps};
         use crate::core::nodes::{ListDelimType, ListType, NodeList, NodeValue};
-        use crate::formatter::{Formatter, FormatterOptions};
+        use crate::formatter::{Formatter, FormatOptions};
 
         let mut arena = NodeArena::new();
 
@@ -3101,7 +3101,7 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, list);
 
-        let options = FormatterOptions::new();
+        let options = FormatOptions::new();
         let mut formatter = Formatter::with_options(options);
         formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 

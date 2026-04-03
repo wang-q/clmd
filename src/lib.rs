@@ -729,7 +729,7 @@ pub fn format_commonmark_with_plugins(
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    let opts = render::commonmark::options::FormatterOptions::new()
+    let opts = options::format::FormatterOptions::new()
         .with_right_margin(options.render.width)
         .with_cjk_spacing(options.render.cjk_spacing);
 

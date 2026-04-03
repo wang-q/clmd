@@ -34,7 +34,7 @@ pub mod html;
 pub use crate::formatter;
 pub use crate::formatter::context;
 pub use crate::formatter::node;
-pub use crate::formatter::options;
+pub use crate::options::format as options;
 pub use crate::formatter::phase;
 pub use crate::formatter::phased;
 pub use crate::formatter::purpose;
@@ -118,10 +118,10 @@ pub fn render_to_commonmark(
 ///
 /// ```ignore
 /// use clmd::{parse_document, render::render_to_commonmark_with_options};
-/// use clmd::formatter::options::FormatterOptions;
+/// use clmd::options::format::FormatterOptions;
 ///
 /// let options = FormatterOptions::new()
-///     .with_heading_style(clmd::formatter::options::HeadingStyle::Atx)
+///     .with_heading_style(clmd::options::format::HeadingStyle::Atx)
 ///     .with_right_margin(80);
 /// let (arena, root) = parse_document("# Hello", &Default::default());
 /// let cm = render_to_commonmark_with_options(&arena, root, options);

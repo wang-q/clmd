@@ -5,7 +5,7 @@
 //! It handles the collection, sorting, and placement of references.
 
 use super::context::NodeFormatterContext;
-use super::options::{ElementPlacement, ElementPlacementSort};
+use crate::options::format::{ElementPlacement, ElementPlacementSort};
 use super::phase::FormattingPhase;
 use super::writer::MarkdownWriter;
 use crate::core::arena::NodeId;
