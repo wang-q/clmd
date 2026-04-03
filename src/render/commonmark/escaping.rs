@@ -106,7 +106,7 @@ pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
             }
         }
         // Less-than can start HTML tags or autolinks
-        '<' | '>' => {
+        '<' => {
             if is_in_code_context(context) {
                 return false;
             }
@@ -116,6 +116,20 @@ pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
                 return false;
             }
             true
+        }
+        // Greater-than only needs escaping in specific contexts
+        '>' => {
+            if is_in_code_context(context) {
+                return false;
+            }
+            // Don't escape inside HTML nodes
+            if let Some(NodeValue::HtmlInline(_) | NodeValue::HtmlBlock(_)) = parent_type
+            {
+                return false;
+            }
+            // In normal text, > doesn't need escaping
+            // It only has special meaning as part of HTML tags or autolinks
+            false
         }
         // Exclamation mark only needs escaping when followed by '['
         '!' => {
@@ -515,9 +529,15 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 result.push(c);
                 i += 1;
             }
-            '[' | ']' | '<' | '>' => {
+            '[' | ']' | '<' => {
                 // Escape these special characters
                 result.push('\\');
+                result.push(c);
+                i += 1;
+            }
+            '>' => {
+                // In normal text, > doesn't need escaping
+                // It only has special meaning as part of HTML tags or autolinks
                 result.push(c);
                 i += 1;
             }
@@ -1110,5 +1130,21 @@ mod tests {
         assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
         assert_eq!(escape_text("_start", &ctx), "\\_start");
         assert_eq!(escape_text("end_", &ctx), "end\\_");
+    }
+
+    #[test]
+    fn test_no_unnecessary_greater_than_escaping() {
+        let ctx = MockParagraphContext;
+        // Greater-than in normal text should NOT be escaped
+        assert_eq!(escape_text("->", &ctx), "->");
+        assert_eq!(escape_text("a -> b", &ctx), "a -> b");
+        assert_eq!(escape_text("x > y", &ctx), "x > y");
+        assert_eq!(escape_text("测试 -> 箭头", &ctx), "测试 -> 箭头");
+        assert_eq!(escape_text(">=", &ctx), ">=");
+        assert_eq!(escape_text("=>", &ctx), "=>");
+
+        // Less-than should still be escaped (can start HTML tags or autolinks)
+        assert_eq!(escape_text("<", &ctx), "\\<");
+        assert_eq!(escape_text("a < b", &ctx), "a \\< b");
     }
 }
