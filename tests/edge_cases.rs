@@ -5,10 +5,11 @@
 
 use clmd::markdown_to_html;
 use clmd::options::Options;
+use clmd::Plugins;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, &Options::default())
+    markdown_to_html(input, &Options::default(), &Plugins::default())
 }
 
 /// Test empty input handling
@@ -229,7 +230,7 @@ fn test_smart_punctuation() {
     let html_default = md_to_html(input);
     let mut opts = Options::default();
     opts.parse.smart = true;
-    let html_smart = markdown_to_html(input, &opts);
+    let html_smart = markdown_to_html(input, &opts, &Plugins::default());
 
     // Smart punctuation should convert quotes and dashes
     assert_ne!(

@@ -1,5 +1,6 @@
 use clmd::markdown_to_html;
 use clmd::options::Options;
+use clmd::Plugins;
 
 mod test_utils;
 use test_utils::spec_parser::parse_spec_file;
@@ -11,7 +12,7 @@ fn md_to_html(input: &str) -> String {
     // Replace visual tab representation (→) with actual tab character
     // The spec uses → (U+2192) to represent tabs in the test cases
     let input = input.replace('→', "\t");
-    let mut result = markdown_to_html(&input, &Options::default());
+    let mut result = markdown_to_html(&input, &Options::default(), &Plugins::default());
     // Remove trailing newline to match spec test format
     while result.ends_with('\n') {
         result.pop();

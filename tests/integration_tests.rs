@@ -3,15 +3,14 @@
 //! These tests verify end-to-end functionality of the Markdown parser.
 
 use clmd::{
-    markdown_to_commonmark, markdown_to_html, markdown_to_html_with_plugins,
-    parse_document, Options, Plugins,
+    markdown_to_commonmark, markdown_to_html, parse_document, Options, Plugins,
 };
 
 /// Test basic Markdown to HTML conversion
 #[test]
 fn test_basic_markdown_to_html() {
     let input = "# Hello\n\nWorld";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<h1>Hello</h1>"));
     assert!(html.contains("<p>World</p>"));
 }
@@ -20,7 +19,7 @@ fn test_basic_markdown_to_html() {
 #[test]
 fn test_inline_formatting() {
     let input = "**bold** and *italic* and `code`";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<strong>bold</strong>"));
     assert!(html.contains("<em>italic</em>"));
     assert!(html.contains("<code>code</code>"));
@@ -30,7 +29,7 @@ fn test_inline_formatting() {
 #[test]
 fn test_link_rendering() {
     let input = "[link text](https://example.com)";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains(r#"<a href="https://example.com">link text</a>"#));
 }
 
@@ -38,7 +37,7 @@ fn test_link_rendering() {
 #[test]
 fn test_image_rendering() {
     let input = "![alt text](https://example.com/image.png)";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(
         html.contains(r#"<img src="https://example.com/image.png" alt="alt text" />"#)
     );
@@ -48,7 +47,7 @@ fn test_image_rendering() {
 #[test]
 fn test_code_block() {
     let input = "```rust\nlet x = 1;\n```";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<pre><code class=\"language-rust\">"));
     assert!(html.contains("let x = 1;"));
 }
@@ -57,7 +56,7 @@ fn test_code_block() {
 #[test]
 fn test_blockquote() {
     let input = "> This is a quote";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<blockquote>"));
     assert!(html.contains("<p>This is a quote</p>"));
     assert!(html.contains("</blockquote>"));
@@ -67,7 +66,7 @@ fn test_blockquote() {
 #[test]
 fn test_unordered_list() {
     let input = "- Item 1\n- Item 2\n- Item 3";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<ul>"));
     assert!(html.contains("<li>Item 1</li>"));
     assert!(html.contains("<li>Item 2</li>"));
@@ -79,7 +78,7 @@ fn test_unordered_list() {
 #[test]
 fn test_ordered_list() {
     let input = "1. First\n2. Second\n3. Third";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<ol>"));
     assert!(html.contains("<li>First</li>"));
     assert!(html.contains("<li>Second</li>"));
@@ -91,7 +90,7 @@ fn test_ordered_list() {
 #[test]
 fn test_horizontal_rule() {
     let input = "---";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<hr />"));
 }
 
@@ -102,7 +101,7 @@ fn test_table_extension() {
     options.extension.table = true;
 
     let input = "| A | B |\n|---|---|\n| C | D |";
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     assert!(html.contains("<table>"));
     // Table header cells may have different formatting
     assert!(html.contains("A"));
@@ -118,7 +117,7 @@ fn test_strikethrough_extension() {
     options.extension.strikethrough = true;
 
     let input = "~~deleted~~";
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     // Note: Strikethrough extension may not be fully implemented
     // Just verify the input is processed
     assert!(html.contains("deleted"));
@@ -131,7 +130,7 @@ fn test_task_list_extension() {
     options.extension.tasklist = true;
 
     let input = "- [x] Done\n- [ ] Not done";
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     // Task list may render differently based on implementation
     assert!(html.contains("Done"));
     assert!(html.contains("Not done"));
@@ -144,7 +143,7 @@ fn test_autolink_extension() {
     options.extension.autolink = true;
 
     let input = "Visit https://example.com for more info";
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     // Note: Autolink extension may not be fully implemented
     // Just verify the input is processed
     assert!(html.contains("https://example.com"));
@@ -157,7 +156,7 @@ fn test_footnotes_extension() {
     options.extension.footnotes = true;
 
     let input = "Hello[^1]\n\n[^1]: World";
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     // Footnotes should contain the reference text
     assert!(html.contains("Hello"));
     assert!(html.contains("World"));
@@ -170,12 +169,12 @@ fn test_commonmark_roundtrip() {
     let options = Options::default();
 
     // Parse and convert to HTML
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     assert!(html.contains("<h1>Heading</h1>"));
     assert!(html.contains("<strong>bold</strong>"));
 
     // Convert to CommonMark
-    let commonmark = markdown_to_commonmark(input, &options);
+    let commonmark = markdown_to_commonmark(input, &options, &Plugins::default());
     assert!(commonmark.contains("# Heading"));
     assert!(commonmark.contains("**bold**"));
 }
@@ -184,7 +183,7 @@ fn test_commonmark_roundtrip() {
 #[test]
 fn test_empty_input() {
     let input = "";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     // Empty input should produce minimal HTML structure
     assert!(!html.contains("<h1>"));
     assert!(!html.contains("<p>"));
@@ -194,7 +193,7 @@ fn test_empty_input() {
 #[test]
 fn test_whitespace_only_input() {
     let input = "   \n\n   ";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     // Whitespace-only input should not produce content
     assert!(!html.contains("<p>"));
 }
@@ -203,7 +202,7 @@ fn test_whitespace_only_input() {
 #[test]
 fn test_special_character_escaping() {
     let input = "<script>alert('xss')</script>";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     // HTML should be escaped or handled safely
     // Note: The exact escaping behavior may vary by implementation
     assert!(html.contains("script") || html.contains("&lt;"));
@@ -233,7 +232,7 @@ This is a **test** with ~~strikethrough~~.
 Visit https://example.com for more info.
 "#;
 
-    let html = markdown_to_html(input, &options);
+    let html = markdown_to_html(input, &options, &Plugins::default());
     assert!(html.contains("<h1>Test Document</h1>"));
     assert!(html.contains("<strong>test</strong>"));
     // Strikethrough may use <s> or <del>
@@ -253,7 +252,7 @@ fn test_with_plugins() {
     let options = Options::default();
     let plugins = Plugins::default();
 
-    let html = markdown_to_html_with_plugins(input, &options, &plugins);
+    let html = markdown_to_html(input, &options, &plugins);
     assert!(html.contains("<h1>Hello</h1>"));
     assert!(html.contains("<p>World</p>"));
 }
@@ -281,12 +280,12 @@ fn test_ast_manipulation() {
 fn test_line_breaks() {
     // Hard break (two spaces at end of line)
     let input_hard = "Line 1  \nLine 2";
-    let html_hard = markdown_to_html(input_hard, &Options::default());
+    let html_hard = markdown_to_html(input_hard, &Options::default(), &Plugins::default());
     assert!(html_hard.contains("<br />"));
 
     // Soft break (single newline)
     let input_soft = "Line 1\nLine 2";
-    let html_soft = markdown_to_html(input_soft, &Options::default());
+    let html_soft = markdown_to_html(input_soft, &Options::default(), &Plugins::default());
     // Soft breaks are preserved as spaces in HTML
     assert!(
         html_soft.contains("<p>Line 1\nLine 2</p>")
@@ -298,7 +297,7 @@ fn test_line_breaks() {
 #[test]
 fn test_nested_lists() {
     let input = "- Item 1\n  - Nested 1\n  - Nested 2\n- Item 2";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<ul>"));
     // Should have nested ul elements
     let ul_count = html.matches("<ul>").count();
@@ -313,13 +312,13 @@ fn test_nested_lists() {
 fn test_code_inline_vs_block() {
     // Inline code
     let inline = "Use `print()` function";
-    let html_inline = markdown_to_html(inline, &Options::default());
+    let html_inline = markdown_to_html(inline, &Options::default(), &Plugins::default());
     assert!(html_inline.contains("<code>print()</code>"));
     assert!(!html_inline.contains("<pre>"));
 
     // Code block
     let block = "```\nprint()\n```";
-    let html_block = markdown_to_html(block, &Options::default());
+    let html_block = markdown_to_html(block, &Options::default(), &Plugins::default());
     assert!(html_block.contains("<pre>"));
     assert!(html_block.contains("<code>"));
 }
@@ -328,7 +327,7 @@ fn test_code_inline_vs_block() {
 #[test]
 fn test_heading_levels() {
     let input = "# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<h1>H1</h1>"));
     assert!(html.contains("<h2>H2</h2>"));
     assert!(html.contains("<h3>H3</h3>"));
@@ -341,7 +340,7 @@ fn test_heading_levels() {
 #[test]
 fn test_thematic_breaks() {
     for input in ["---", "***", "___"] {
-        let html = markdown_to_html(input, &Options::default());
+        let html = markdown_to_html(input, &Options::default(), &Plugins::default());
         assert!(html.contains("<hr />"), "Failed for input: {}", input);
     }
 }
@@ -350,7 +349,7 @@ fn test_thematic_breaks() {
 #[test]
 fn test_link_reference_definitions() {
     let input = "[link][ref]\n\n[ref]: https://example.com \"Title\"";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains(r#"<a href="https://example.com" title="Title">link</a>"#));
 }
 
@@ -358,7 +357,7 @@ fn test_link_reference_definitions() {
 #[test]
 fn test_emphasis_nesting() {
     let input = "***bold and italic***";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("<strong>"));
     assert!(html.contains("<em>"));
 }
@@ -367,7 +366,7 @@ fn test_emphasis_nesting() {
 #[test]
 fn test_html_entities() {
     let input = "&amp; &lt; &gt; &quot;";
-    let html = markdown_to_html(input, &Options::default());
+    let html = markdown_to_html(input, &Options::default(), &Plugins::default());
     assert!(html.contains("&amp;"));
     assert!(html.contains("&lt;"));
     assert!(html.contains("&gt;"));

@@ -3,13 +3,13 @@
 //! These tests verify the end-to-end formatting functionality
 //! using the public API.
 
-use clmd::{markdown_to_commonmark, Options};
+use clmd::{markdown_to_commonmark, Options, Plugins};
 
 #[test]
 fn test_format_heading() {
     let options = Options::default();
     let input = "# Heading 1\n\n## Heading 2\n\n### Heading 3";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("# Heading 1"),
@@ -32,7 +32,7 @@ fn test_format_heading() {
 fn test_format_paragraphs() {
     let options = Options::default();
     let input = "First paragraph.\n\nSecond paragraph.";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("First paragraph"),
@@ -50,7 +50,7 @@ fn test_format_paragraphs() {
 fn test_format_emphasis() {
     let options = Options::default();
     let input = "This is *italic* and **bold** text.";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("*italic*"),
@@ -68,7 +68,7 @@ fn test_format_emphasis() {
 fn test_format_code_inline() {
     let options = Options::default();
     let input = "Use `code` inline.";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("`code`"),
@@ -81,7 +81,7 @@ fn test_format_code_inline() {
 fn test_format_code_block() {
     let options = Options::default();
     let input = "```rust\nfn main() {}\n```";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("```rust"),
@@ -104,7 +104,7 @@ fn test_format_code_block() {
 fn test_format_list_bullet() {
     let options = Options::default();
     let input = "- Item 1\n- Item 2\n- Item 3";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("- Item 1"),
@@ -127,7 +127,7 @@ fn test_format_list_bullet() {
 fn test_format_list_ordered() {
     let options = Options::default();
     let input = "1. First\n2. Second\n3. Third";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("1."),
@@ -150,7 +150,7 @@ fn test_format_list_ordered() {
 fn test_format_nested_list() {
     let options = Options::default();
     let input = "- Item 1\n- Item 2\n  - Nested 1\n  - Nested 2";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("- Item 1"),
@@ -178,7 +178,7 @@ fn test_format_nested_list() {
 fn test_format_link() {
     let options = Options::default();
     let input = "[example](https://example.com)";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("[example](https://example.com)"),
@@ -191,7 +191,7 @@ fn test_format_link() {
 fn test_format_image() {
     let options = Options::default();
     let input = "![alt text](image.png)";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("![alt text](image.png)"),
@@ -204,7 +204,7 @@ fn test_format_image() {
 fn test_format_blockquote() {
     let options = Options::default();
     let input = "> This is a quote";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("> This is a quote"),
@@ -219,7 +219,7 @@ fn test_format_table() {
     options.extension.table = true;
 
     let input = "| Name | Age |\n|------|-----|\n| Alice | 30 |\n| Bob | 25 |";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("Name"),
@@ -254,7 +254,7 @@ fn test_format_thematic_break() {
 
     // Test that --- is preserved
     let input = "---";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
     assert!(
         output.contains("---"),
         "Should preserve --- marker: {}",
@@ -263,7 +263,7 @@ fn test_format_thematic_break() {
 
     // Test that *** is preserved
     let input2 = "***";
-    let output2 = markdown_to_commonmark(input2, &options);
+    let output2 = markdown_to_commonmark(input2, &options, &Plugins::default());
     assert!(
         output2.contains("***"),
         "Should preserve *** marker: {}",
@@ -272,7 +272,7 @@ fn test_format_thematic_break() {
 
     // Test that ___ is preserved
     let input3 = "___";
-    let output3 = markdown_to_commonmark(input3, &options);
+    let output3 = markdown_to_commonmark(input3, &options, &Plugins::default());
     assert!(
         output3.contains("___"),
         "Should preserve ___ marker: {}",
@@ -284,7 +284,7 @@ fn test_format_thematic_break() {
 fn test_format_hard_break() {
     let options = Options::default();
     let input = "Line 1  \nLine 2";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("Line 1"),
@@ -304,7 +304,7 @@ fn test_format_strikethrough() {
     options.extension.strikethrough = true;
 
     let input = "~~deleted~~";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     assert!(
         output.contains("~~deleted~~"),
@@ -348,7 +348,7 @@ fn hello() {
 > A blockquote with ~~deleted~~ text.
 "#;
 
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     // Verify all sections are present
     assert!(
@@ -406,8 +406,8 @@ fn test_format_preserves_structure() {
 
     // Test that formatting is idempotent for simple cases
     let input = "# Title\n\nParagraph with **bold**.\n\n- List item\n";
-    let first_pass = markdown_to_commonmark(input, &options);
-    let second_pass = markdown_to_commonmark(&first_pass, &options);
+    let first_pass = markdown_to_commonmark(input, &options, &Plugins::default());
+    let second_pass = markdown_to_commonmark(&first_pass, &options, &Plugins::default());
 
     // The output should be stable (or at least structurally similar)
     assert!(
@@ -428,7 +428,7 @@ fn test_format_preserves_structure() {
 fn test_format_empty_document() {
     let options = Options::default();
     let input = "";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     // Empty input should produce empty or minimal output
     assert!(
@@ -442,7 +442,7 @@ fn test_format_empty_document() {
 fn test_format_whitespace_only() {
     let options = Options::default();
     let input = "   \n\n   \n";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     // Whitespace-only input should be handled gracefully
     assert!(
@@ -455,7 +455,7 @@ fn test_format_whitespace_only() {
 fn test_format_task_list() {
     let options = Options::default();
     let input = "- [ ] Unchecked task\n- [x] Checked task\n- [X] Checked task uppercase";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     // Check that task list markers are preserved
     // Note: [X] (uppercase) is normalized to [x] (lowercase) during formatting
@@ -485,7 +485,7 @@ fn test_format_task_list() {
 fn test_format_task_list_with_content() {
     let options = Options::default();
     let input = "- [ ] Task with **bold** text\n- [x] Task with *italic* text";
-    let output = markdown_to_commonmark(input, &options);
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
 
     // Check that task list markers and formatting are preserved
     assert!(

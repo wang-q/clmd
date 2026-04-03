@@ -16,10 +16,10 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{markdown_to_html, options::Options};
+//! use clmd::{markdown_to_html, options::Options, Plugins};
 //!
 //! let options = Options::default();
-//! let html = markdown_to_html("# Hello\n\nWorld", &options);
+//! let html = markdown_to_html("# Hello\n\nWorld", &options, &Plugins::default());
 //! assert!(html.contains("<h1>Hello</h1>"));
 //! assert!(html.contains("<p>World</p>"));
 //! ```
@@ -30,15 +30,6 @@ use crate::options::Options;
 pub mod commonmark;
 pub mod html;
 
-// Re-export formatter module and its submodules from crate root
-pub use crate::formatter;
-pub use crate::formatter::context;
-pub use crate::formatter::node;
-pub use crate::formatter::phase;
-pub use crate::formatter::phased;
-pub use crate::formatter::purpose;
-pub use crate::formatter::utils;
-pub use crate::formatter::writer;
 pub use crate::options::format as options;
 
 /// Common trait for all renderers
@@ -126,7 +117,7 @@ pub fn render_to_commonmark_with_options(
     root: NodeId,
     options: options::FormatOptions,
 ) -> String {
-    let formatter = formatter::Formatter::with_options(options);
+    let formatter = commonmark::Formatter::with_options(options);
     formatter.render(arena, root)
 }
 

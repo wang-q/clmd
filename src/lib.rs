@@ -407,6 +407,7 @@ pub fn is_space_or_tab(c: char) -> bool {
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -415,51 +416,26 @@ pub fn is_space_or_tab(c: char) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_html, Options};
+/// use clmd::{markdown_to_html, Options, Plugins};
 ///
 /// // Basic usage
-/// let html = markdown_to_html("Hello, **world**!", &Options::default());
+/// let html = markdown_to_html("Hello, **world**!", &Options::default(), &Plugins::default());
 /// assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>");
 ///
 /// // With headings and lists
 /// let markdown = "# Title\n\n- Item 1\n- Item 2";
-/// let html = markdown_to_html(markdown, &Options::default());
+/// let html = markdown_to_html(markdown, &Options::default(), &Plugins::default());
 /// assert!(html.contains("<h1>"));
 /// assert!(html.contains("<ul>"));
 /// ```ignore
-pub fn markdown_to_html(md: &str, options: &Options) -> String {
-    markdown_to_html_with_plugins(md, options, &Plugins::default())
-}
-
-/// Render Markdown to HTML using plugins.
-///
-/// # Arguments
-///
-/// * `md` - The Markdown text to convert
-/// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// The HTML output as a String
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{markdown_to_html_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let html = markdown_to_html_with_plugins("Hello, **world**!", &options, &plugins);
-/// ```ignore
-pub fn markdown_to_html_with_plugins(
+pub fn markdown_to_html(
     md: &str,
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_html_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
+    format_html(&arena, root, options, &mut out, plugins).unwrap();
     out
 }
 
@@ -469,6 +445,7 @@ pub fn markdown_to_html_with_plugins(
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -477,49 +454,20 @@ pub fn markdown_to_html_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_commonmark, Options};
+/// use clmd::{markdown_to_commonmark, Options, Plugins};
 ///
 /// let options = Options::default();
-/// let cm = markdown_to_commonmark("Hello *world*", &options);
+/// let cm = markdown_to_commonmark("Hello *world*", &options, &Plugins::default());
 /// assert!(cm.contains("Hello"));
 /// ```ignore
-pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
-    let (arena, root) = parse::parse_document(md, options);
-    let mut out = String::new();
-    format_commonmark(&arena, root, options, &mut out).unwrap();
-    out
-}
-
-/// Render Markdown back to CommonMark using plugins.
-///
-/// # Arguments
-///
-/// * `md` - The Markdown text to convert
-/// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// The CommonMark output as a String
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{markdown_to_commonmark_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let cm = markdown_to_commonmark_with_plugins("Hello *world*", &options, &plugins);
-/// assert!(cm.contains("Hello"));
-/// ```ignore
-pub fn markdown_to_commonmark_with_plugins(
+pub fn markdown_to_commonmark(
     md: &str,
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_commonmark_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
+    format_commonmark(&arena, root, options, &mut out, plugins).unwrap();
     out
 }
 
@@ -531,6 +479,7 @@ pub fn markdown_to_commonmark_with_plugins(
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -539,48 +488,20 @@ pub fn markdown_to_commonmark_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_commonmark_xml, Options};
+/// use clmd::{markdown_to_commonmark_xml, Options, Plugins};
 ///
 /// let options = Options::default();
-/// let xml = markdown_to_commonmark_xml("Hello *world*", &options);
+/// let xml = markdown_to_commonmark_xml("Hello *world*", &options, &Plugins::default());
 /// assert!(xml.contains("<document>"));
 /// ```ignore
-pub fn markdown_to_commonmark_xml(md: &str, options: &Options) -> String {
-    markdown_to_commonmark_xml_with_plugins(md, options, &Plugins::default())
-}
-
-/// Render Markdown to CommonMark XML using plugins.
-///
-/// See <https://github.com/commonmark/commonmark-spec/blob/master/CommonMark.dtd>.
-///
-/// # Arguments
-///
-/// * `md` - The Markdown text to convert
-/// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// The XML output as a String
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{markdown_to_commonmark_xml_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let xml = markdown_to_commonmark_xml_with_plugins("Hello *world*", &options, &plugins);
-/// assert!(xml.contains("<document>"));
-/// ```ignore
-pub fn markdown_to_commonmark_xml_with_plugins(
+pub fn markdown_to_commonmark_xml(
     md: &str,
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_xml_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
+    format_xml(&arena, root, options, &mut out, plugins).unwrap();
     out
 }
 
@@ -594,6 +515,7 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -602,49 +524,14 @@ pub fn markdown_to_commonmark_xml_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_html, Options};
+/// use clmd::{parse_document, format_html, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut html = String::new();
-/// format_html(&arena, root, &options, &mut html).unwrap();
+/// format_html(&arena, root, &options, &mut html, &Plugins::default()).unwrap();
 /// ```ignore
 pub fn format_html(
-    arena: &Arena,
-    root: NodeId,
-    options: &Options,
-    output: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
-    let html = html::render(arena, root, options);
-    write!(output, "{}", html)
-}
-
-/// Format an existing AST to HTML with plugins.
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Configuration options
-/// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// A `std::fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_html_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let (arena, root) = parse_document("Hello *world*", &options);
-/// let mut html = String::new();
-/// format_html_with_plugins(&arena, root, &options, &mut html, &plugins).unwrap();
-/// ```ignore
-pub fn format_html_with_plugins(
     arena: &Arena,
     root: NodeId,
     options: &Options,
@@ -667,6 +554,7 @@ pub fn format_html_with_plugins(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -675,48 +563,14 @@ pub fn format_html_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_commonmark, Options};
+/// use clmd::{parse_document, format_commonmark, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut cm = String::new();
-/// format_commonmark(&arena, root, &options, &mut cm).unwrap();
+/// format_commonmark(&arena, root, &options, &mut cm, &Plugins::default()).unwrap();
 /// ```ignore
 pub fn format_commonmark(
-    arena: &Arena,
-    root: NodeId,
-    options: &Options,
-    output: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
-    format_commonmark_with_plugins(arena, root, options, output, &Plugins::default())
-}
-
-/// Format an existing AST to CommonMark with plugins.
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Configuration options
-/// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// A `std::fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_commonmark_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let (arena, root) = parse_document("Hello *world*", &options);
-/// let mut cm = String::new();
-/// format_commonmark_with_plugins(&arena, root, &options, &mut cm, &plugins).unwrap();
-/// ```ignore
-pub fn format_commonmark_with_plugins(
     arena: &Arena,
     root: NodeId,
     options: &Options,
@@ -744,6 +598,7 @@ pub fn format_commonmark_with_plugins(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -752,48 +607,14 @@ pub fn format_commonmark_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_xml, Options};
+/// use clmd::{parse_document, format_xml, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut xml = String::new();
-/// format_xml(&arena, root, &options, &mut xml).unwrap();
+/// format_xml(&arena, root, &options, &mut xml, &Plugins::default()).unwrap();
 /// ```ignore
 pub fn format_xml(
-    arena: &Arena,
-    root: NodeId,
-    options: &Options,
-    output: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
-    format_xml_with_plugins(arena, root, options, output, &Plugins::default())
-}
-
-/// Format an existing AST to XML with plugins.
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Configuration options
-/// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// A `std::fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_xml_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let (arena, root) = parse_document("Hello *world*", &options);
-/// let mut xml = String::new();
-/// format_xml_with_plugins(&arena, root, &options, &mut xml, &plugins).unwrap();
-/// ```ignore
-pub fn format_xml_with_plugins(
     arena: &Arena,
     root: NodeId,
     options: &Options,
@@ -811,6 +632,7 @@ pub fn format_xml_with_plugins(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -819,48 +641,14 @@ pub fn format_xml_with_plugins(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_typst, Options};
+/// use clmd::{parse_document, format_typst, Options, Plugins};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut typst = String::new();
-/// format_typst(&arena, root, &options, &mut typst).unwrap();
+/// format_typst(&arena, root, &options, &mut typst, &Plugins::default()).unwrap();
 /// ```ignore
 pub fn format_typst(
-    arena: &Arena,
-    root: NodeId,
-    options: &Options,
-    output: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
-    format_typst_with_plugins(arena, root, options, output, &Plugins::default())
-}
-
-/// Format an existing AST to Typst with plugins.
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Configuration options
-/// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// A `std::fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_typst_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let (arena, root) = parse_document("Hello *world*", &options);
-/// let mut typst = String::new();
-/// format_typst_with_plugins(&arena, root, &options, &mut typst, &plugins).unwrap();
-/// ```ignore
-pub fn format_typst_with_plugins(
     arena: &Arena,
     root: NodeId,
     options: &Options,
@@ -897,6 +685,7 @@ pub fn version() -> &'static str {
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
+/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -905,44 +694,19 @@ pub fn version() -> &'static str {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_typst, Options};
+/// use clmd::{markdown_to_typst, Options, Plugins};
 ///
 /// let options = Options::default();
-/// let typst = markdown_to_typst("Hello *world*", &options);
+/// let typst = markdown_to_typst("Hello *world*", &options, &Plugins::default());
 /// ```ignore
-pub fn markdown_to_typst(md: &str, options: &Options) -> String {
-    markdown_to_typst_with_plugins(md, options, &Plugins::default())
-}
-
-/// Render Markdown to Typst using plugins.
-///
-/// # Arguments
-///
-/// * `md` - The Markdown text to convert
-/// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering
-///
-/// # Returns
-///
-/// The Typst output as a String
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{markdown_to_typst_with_plugins, Options, Plugins};
-///
-/// let options = Options::default();
-/// let plugins = Plugins::default();
-/// let typst = markdown_to_typst_with_plugins("Hello *world*", &options, &plugins);
-/// ```ignore
-pub fn markdown_to_typst_with_plugins(
+pub fn markdown_to_typst(
     md: &str,
     options: &Options,
     plugins: &Plugins<'_>,
 ) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_typst_with_plugins(&arena, root, options, &mut out, plugins).unwrap();
+    format_typst(&arena, root, options, &mut out, plugins).unwrap();
     out
 }
 
@@ -952,12 +716,12 @@ pub fn markdown_to_typst_with_plugins(
 
 #[cfg(test)]
 mod tests {
-    use crate::{format_html, io, markdown_to_html, parse_document, version, Options};
+    use crate::{format_html, io, markdown_to_html, parse_document, version, Options, Plugins};
 
     #[test]
     fn test_markdown_to_html_basic() {
         let options = Options::default();
-        let html = markdown_to_html("Hello world", &options);
+        let html = markdown_to_html("Hello world", &options, &Plugins::default());
         println!("HTML output bytes: {:?}", html.as_bytes());
         assert!(html.contains("<p>Hello world</p>"));
     }
@@ -965,7 +729,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_heading() {
         let options = Options::default();
-        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options);
+        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options, &Plugins::default());
         assert!(html.contains("<h1>"));
         assert!(html.contains("<h2>"));
     }
@@ -973,7 +737,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_emphasis() {
         let options = Options::default();
-        let html = markdown_to_html("*italic* and **bold**", &options);
+        let html = markdown_to_html("*italic* and **bold**", &options, &Plugins::default());
         println!("HTML output: {:?}", html);
         assert!(html.contains("<em>italic</em>"));
         assert!(html.contains("<strong>bold</strong>"));
@@ -982,21 +746,21 @@ mod tests {
     #[test]
     fn test_markdown_to_html_link() {
         let options = Options::default();
-        let html = markdown_to_html("[link](https://example.com)", &options);
+        let html = markdown_to_html("[link](https://example.com)", &options, &Plugins::default());
         assert!(html.contains("<a href=\"https://example.com\">"));
     }
 
     #[test]
     fn test_markdown_to_html_code_inline() {
         let options = Options::default();
-        let html = markdown_to_html("Use `code` here", &options);
+        let html = markdown_to_html("Use `code` here", &options, &Plugins::default());
         assert!(html.contains("<code>code</code>"));
     }
 
     #[test]
     fn test_markdown_to_html_code_block() {
         let options = Options::default();
-        let html = markdown_to_html("```rust\nfn main() {}\n```", &options);
+        let html = markdown_to_html("```rust\nfn main() {}\n```", &options, &Plugins::default());
         assert!(html.contains("<pre>"));
         assert!(html.contains("<code"));
         assert!(html.contains("fn main() {}"));
@@ -1005,7 +769,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_blockquote() {
         let options = Options::default();
-        let html = markdown_to_html("> Quote", &options);
+        let html = markdown_to_html("> Quote", &options, &Plugins::default());
         assert!(html.contains("<blockquote>"));
         assert!(html.contains("Quote"));
     }
@@ -1013,7 +777,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_list() {
         let options = Options::default();
-        let html = markdown_to_html("- Item 1\n- Item 2", &options);
+        let html = markdown_to_html("- Item 1\n- Item 2", &options, &Plugins::default());
         assert!(html.contains("<ul>"));
         assert!(html.contains("Item 1"));
         assert!(html.contains("Item 2"));
@@ -1022,7 +786,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_ordered_list() {
         let options = Options::default();
-        let html = markdown_to_html("1. First\n2. Second", &options);
+        let html = markdown_to_html("1. First\n2. Second", &options, &Plugins::default());
         assert!(html.contains("<ol>"));
         assert!(html.contains("First"));
         assert!(html.contains("Second"));
@@ -1031,14 +795,14 @@ mod tests {
     #[test]
     fn test_markdown_to_html_thematic_break() {
         let options = Options::default();
-        let html = markdown_to_html("---", &options);
+        let html = markdown_to_html("---", &options, &Plugins::default());
         assert!(html.contains("<hr"));
     }
 
     #[test]
     fn test_markdown_to_html_image() {
         let options = Options::default();
-        let html = markdown_to_html("![alt text](image.png)", &options);
+        let html = markdown_to_html("![alt text](image.png)", &options, &Plugins::default());
         // Image rendering may vary between implementations
         // Just check that it doesn't panic and produces some output
         assert!(!html.is_empty());
@@ -1050,7 +814,7 @@ mod tests {
         let input = "# Title\n\nParagraph with text.";
         let (arena, root) = parse_document(input, &options);
         let mut html = String::new();
-        format_html(&arena, root, &options, &mut html).unwrap();
+        format_html(&arena, root, &options, &mut html, &Plugins::default()).unwrap();
         assert!(html.contains("<h1>"));
         assert!(html.contains("Paragraph"));
     }
@@ -1067,7 +831,7 @@ mod tests {
         options.extension.tagfilter = true;
 
         // Test that dangerous HTML tags are filtered
-        let html = markdown_to_html("<script>alert('xss')</script>", &options);
+        let html = markdown_to_html("<script>alert('xss')</script>", &options, &Plugins::default());
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
     }
@@ -1075,9 +839,7 @@ mod tests {
     #[cfg(feature = "syntect")]
     #[test]
     fn test_syntect_syntax_highlighting() {
-        use crate::markdown_to_html_with_plugins;
         use crate::plugin::syntect::SyntectAdapter;
-        use crate::Plugins;
 
         let options = Options::default();
         let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
@@ -1086,7 +848,7 @@ mod tests {
         plugins.render.set_syntax_highlighter(&adapter);
 
         let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
-        let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+        let html = markdown_to_html(markdown, &options, &plugins);
 
         // Should contain pre and code tags
         assert!(html.contains("<pre"));
@@ -1099,9 +861,7 @@ mod tests {
     #[cfg(feature = "syntect")]
     #[test]
     fn test_syntect_css_class_mode() {
-        use crate::markdown_to_html_with_plugins;
         use crate::plugin::syntect::SyntectAdapter;
-        use crate::Plugins;
 
         let options = Options::default();
         let adapter = SyntectAdapter::new(None); // CSS class mode
@@ -1110,7 +870,7 @@ mod tests {
         plugins.render.set_syntax_highlighter(&adapter);
 
         let markdown = "```python\nprint('hello')\n```";
-        let html = markdown_to_html_with_plugins(markdown, &options, &plugins);
+        let html = markdown_to_html(markdown, &options, &plugins);
 
         assert!(html.contains("<pre"));
         assert!(html.contains("<code"));

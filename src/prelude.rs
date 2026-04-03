@@ -7,17 +7,14 @@
 //! use clmd::prelude::*;
 //!
 //! let options = Options::default();
-//! let html = markdown_to_html("Hello **world**!", &options);
+//! let html = markdown_to_html("Hello **world**!", &options, &Plugins::default());
 //! ```
 
 pub use crate::core::nodes::NodeValue;
 pub use crate::{
-    format_commonmark, format_commonmark_with_plugins, format_html,
-    format_html_with_plugins, format_xml, format_xml_with_plugins,
-    markdown_to_commonmark, markdown_to_commonmark_with_plugins,
-    markdown_to_commonmark_xml, markdown_to_commonmark_xml_with_plugins,
-    markdown_to_html, markdown_to_html_with_plugins, parse_document, Arena, NodeId,
-    Options, Plugins,
+    format_commonmark, format_html, format_xml, markdown_to_commonmark,
+    markdown_to_commonmark_xml, markdown_to_html, markdown_to_typst, parse_document, Arena,
+    NodeId, Options, Plugins,
 };
 
 // Re-export from options module

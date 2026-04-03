@@ -76,7 +76,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
     options.extension.table = true;
     options.extension.tasklist = true;
 
-    let cm = clmd::markdown_to_commonmark(&input, &options);
+    let cm = clmd::markdown_to_commonmark(&input, &options, &clmd::Plugins::default());
 
     if in_place {
         let path = input_path.unwrap();

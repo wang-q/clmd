@@ -22,6 +22,7 @@
 
 use clmd::markdown_to_html;
 use clmd::options::Options;
+use clmd::Plugins;
 use std::fmt;
 
 /// A test case result
@@ -114,7 +115,7 @@ pub fn run_test(
     expected: &str,
     options: &Options,
 ) -> TestResult {
-    let actual = markdown_to_html(input, options);
+    let actual = markdown_to_html(input, options, &Plugins::default());
     // Normalize trailing newlines for comparison
     let actual = actual.trim_end_matches('\n').to_string();
     let expected = expected.trim_end_matches('\n').to_string();

@@ -2,10 +2,11 @@
 
 use clmd::markdown_to_html;
 use clmd::options::Options;
+use clmd::Plugins;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    let mut result = markdown_to_html(input, &Options::default());
+    let mut result = markdown_to_html(input, &Options::default(), &Plugins::default());
     // Remove trailing newline to match test expectations
     while result.ends_with('\n') {
         result.pop();

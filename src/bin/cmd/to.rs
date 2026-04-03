@@ -165,7 +165,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
             "xml" => clmd::render::render_to_xml(&arena, root),
             "latex" | "tex" => clmd::io::writer::latex::render(&arena, root, 0),
             "man" => clmd::io::writer::man::render(&arena, root, 0),
-            "typst" => clmd::markdown_to_typst(&input, options),
+            "typst" => clmd::markdown_to_typst(&input, options, &clmd::Plugins::default()),
             "commonmark" | "markdown" | "md" => {
                 let width = matches
                     .get_one::<String>("width")
