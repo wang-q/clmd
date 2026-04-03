@@ -1,4 +1,4 @@
-//! PDF renderer (placeholder implementation)
+//! PDF writer (placeholder implementation)
 //!
 //! This module provides PDF output generation.
 //!
@@ -19,7 +19,9 @@
 //! 4. Handle images and complex layouts
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
+use crate::parse::options::WriterOptions;
 use std::io::Write;
 
 /// PDF export options
@@ -62,6 +64,15 @@ pub enum PageSize {
 pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
     let mut renderer = PdfRenderer::new(arena);
     renderer.render(root)
+}
+
+/// Write a document as PDF.
+pub fn write_pdf(
+    arena: &NodeArena,
+    root: NodeId,
+    _options: &WriterOptions,
+) -> ClmdResult<String> {
+    Ok(render(arena, root, 0))
 }
 
 /// Format an AST as PDF with options

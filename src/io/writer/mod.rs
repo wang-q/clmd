@@ -251,6 +251,7 @@ impl WriterRegistry {
         self.register(Box::new(LatexWriter));
         self.register(Box::new(ManWriter));
         self.register(Box::new(TypstWriter));
+        self.register(Box::new(PdfWriter));
         self.register(Box::new(BibTeXWriter));
         self.register(Box::new(RtfWriter));
         self.register(Box::new(DocxWriter));
@@ -283,6 +284,9 @@ pub use latex::write_latex;
 
 pub mod man;
 pub use man::write_man;
+
+pub mod pdf;
+pub use pdf::write_pdf;
 
 pub mod typst;
 pub use typst::write_typst;
@@ -491,6 +495,36 @@ impl Writer for TypstWriter {
     }
 }
 
+/// PDF document writer.
+///
+/// Renders documents to PDF format (placeholder implementation).
+#[derive(Debug, Clone, Copy)]
+pub struct PdfWriter;
+
+impl Writer for PdfWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        write_pdf(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Pdf
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["pdf"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/pdf"
+    }
+}
+
 /// Write a document to a string.
 ///
 /// # Arguments
@@ -646,11 +680,11 @@ mod tests {
         assert!(registry.supports_format("html"));
         assert!(registry.supports_format("commonmark"));
         assert!(registry.supports_format("xml"));
-        assert!(!registry.supports_format("pdf"));
+        assert!(registry.supports_format("pdf"));
 
         assert!(registry.supports_extension("html"));
         assert!(registry.supports_extension("md"));
-        assert!(!registry.supports_extension("pdf"));
+        assert!(registry.supports_extension("pdf"));
     }
 
     #[test]
