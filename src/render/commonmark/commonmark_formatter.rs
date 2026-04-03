@@ -443,25 +443,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             false
                         };
 
-                        // Calculate indentation based on options
-                        let base_indent = if options.item_content_indent {
-                            // Calculate indent based on marker width for content alignment
-                            if let Some(ref list) = parent_list {
-                                calculate_marker_width(list, &marker)
-                            } else {
-                                2 // Default: marker + space
-                            }
-                        } else {
-                            // Fixed indent of 4 spaces (standard CommonMark)
-                            4
-                        };
-
                         // Calculate total indentation for nested lists
+                        // CommonMark requires 4-space indentation for nested lists
                         let total_indent = if nesting_level == 0 {
                             0
                         } else {
-                            // Each nesting level adds indentation
-                            nesting_level * base_indent
+                            // Each nesting level adds 4 spaces
+                            nesting_level * 4
                         };
 
                         let indent_str = " ".repeat(total_indent);
@@ -1954,36 +1942,42 @@ fn item_contains_blank_lines(
 
     let item = arena.get(item_node_id);
 
-    // Count block-level children
-    // A list item with multiple block-level children is considered loose
-    let mut block_count = 0;
+    // Count block-level children, but treat nested lists specially
+    // A list item is loose only if it contains multiple non-list block-level children
+    // or if there are blank lines between elements
+    let mut non_list_block_count = 0;
+    let mut has_nested_list = false;
     let mut child_id = item.first_child;
 
     while let Some(child) = child_id {
         let child_node = arena.get(child);
 
         // Check if this child is a block-level element
-        let is_block = matches!(
-            child_node.value,
-            NodeValue::Paragraph
-                | NodeValue::Heading(_)
-                | NodeValue::BlockQuote
-                | NodeValue::List(_)
-                | NodeValue::CodeBlock(_)
-                | NodeValue::HtmlBlock(_)
-        );
-
-        if is_block {
-            block_count += 1;
-            // If we have more than one block-level child, it's loose
-            if block_count > 1 {
-                return true;
+        match &child_node.value {
+            NodeValue::List(_) => {
+                // Nested lists are treated as part of the list item content
+                // They don't make the list loose on their own
+                has_nested_list = true;
             }
+            NodeValue::Paragraph
+            | NodeValue::Heading(_)
+            | NodeValue::BlockQuote
+            | NodeValue::CodeBlock(_)
+            | NodeValue::HtmlBlock(_) => {
+                non_list_block_count += 1;
+                // If we have more than one non-list block-level child, it's loose
+                if non_list_block_count > 1 {
+                    return true;
+                }
+            }
+            _ => {}
         }
 
         child_id = child_node.next;
     }
 
+    // A list item with one non-list block and a nested list is not loose
+    // (e.g., a paragraph followed by a sublist is still tight)
     false
 }
 
