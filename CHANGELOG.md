@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.2 - 2026-04-03
+
 ### 🎉 Major Changes
 
 #### Options Module Restructuring
