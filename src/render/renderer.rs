@@ -53,7 +53,6 @@ pub use super::commonmark;
 /// Re-export all renderers
 pub use super::format::html;
 pub use super::format::latex;
-pub use super::format::man;
 pub use super::format::xml;
 
 /// Render to HTML format
@@ -213,8 +212,9 @@ pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String 
 /// Render to Man page format
 ///
 /// This is a convenience function that uses the Man page renderer.
-pub fn render_to_man(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    man::render(arena, root, options)
+pub fn render_to_man(arena: &NodeArena, root: NodeId, _options: u32) -> String {
+    let options = crate::parse::options::WriterOptions::default();
+    crate::io::writer::man::write_man(arena, root, &options).unwrap_or_default()
 }
 
 /// Available output formats

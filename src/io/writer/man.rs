@@ -1,32 +1,31 @@
-//! Man page renderer
+//! Man page writer.
+//!
+//! This module provides a writer for Unix man page format (groff).
 
 use crate::core::arena::{NodeArena, NodeId};
+use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
+use crate::parse::options::WriterOptions;
 
-/// Render a node tree as a Man page (groff format)
-pub fn render(arena: &NodeArena, root: NodeId, options: u32) -> String {
-    let mut renderer = ManRenderer::new(arena, options);
-    renderer.render(root)
+/// Write a document as a Man page.
+pub fn write_man(arena: &NodeArena, root: NodeId, _options: &WriterOptions) -> ClmdResult<String> {
+    let mut renderer = ManRenderer::new(arena);
+    Ok(renderer.render(root))
 }
 
 /// Man page renderer state
 struct ManRenderer<'a> {
     arena: &'a NodeArena,
     output: String,
-    /// Whether we're at the beginning of a line
     beginning_of_line: bool,
-    /// Stack for tracking indentation levels
     indent_stack: Vec<usize>,
-    /// Track if we need to add a blank line before next block
     need_blank_line: bool,
-    /// Track if we're in a code block (verbatim mode)
     in_verbatim: bool,
-    /// Track font style: 0 = normal, 1 = bold, 2 = italic, 3 = monospace
     font_stack: Vec<u8>,
 }
 
 impl<'a> ManRenderer<'a> {
-    fn new(arena: &'a NodeArena, _options: u32) -> Self {
+    fn new(arena: &'a NodeArena) -> Self {
         ManRenderer {
             arena,
             output: String::new(),
@@ -39,18 +38,15 @@ impl<'a> ManRenderer<'a> {
     }
 
     fn render(&mut self, root: NodeId) -> String {
-        // Add man page header
         self.writeln(".TH \"MANUAL\" \"1\" \"\" \"\" \"\"");
         self.writeln("");
 
         self.render_node(root, true);
 
-        // Remove trailing whitespace and newlines
         while self.output.ends_with('\n') || self.output.ends_with(' ') {
             self.output.pop();
         }
 
-        // Ensure single trailing newline
         self.output.push('\n');
 
         self.output.clone()
@@ -72,7 +68,6 @@ impl<'a> ManRenderer<'a> {
     fn enter_node(&mut self, node_id: NodeId) {
         let node = self.arena.get(node_id);
 
-        // Add blank line before block elements if needed
         if self.need_blank_line
             && node.value.is_block()
             && !matches!(
@@ -96,7 +91,6 @@ impl<'a> ManRenderer<'a> {
             }
             NodeValue::Item(..) => {
                 self.write(".IP \"");
-                // Get the parent list to determine the marker
                 if let Some(parent_id) = node.parent {
                     let parent = self.arena.get(parent_id);
                     if let NodeValue::List(NodeList {
@@ -130,9 +124,7 @@ impl<'a> ManRenderer<'a> {
                 self.render_code_block(node_id);
                 self.need_blank_line = true;
             }
-            NodeValue::HtmlBlock(..) => {
-                // HTML blocks are ignored in man page output
-            }
+            NodeValue::HtmlBlock(..) => {}
             NodeValue::Paragraph => {
                 if !self.in_verbatim {
                     self.writeln(".PP");
@@ -173,9 +165,7 @@ impl<'a> ManRenderer<'a> {
                 self.write(&escape_man(&code.literal));
                 self.write("\\fR");
             }
-            NodeValue::HtmlInline(..) => {
-                // HTML inline is ignored in man page output
-            }
+            NodeValue::HtmlInline(..) => {}
             NodeValue::Emph => {
                 self.write("\\fI");
                 self.font_stack.push(2);
@@ -184,13 +174,8 @@ impl<'a> ManRenderer<'a> {
                 self.write("\\fB");
                 self.font_stack.push(1);
             }
-            NodeValue::Link(..) => {
-                // In man pages, links are just shown as text
-                // The URL could be shown in footnotes, but for simplicity
-                // we just render the link text
-            }
+            NodeValue::Link(..) => {}
             NodeValue::Image(..) => {
-                // Images are replaced with their alt text in man pages
                 self.write("[IMAGE: ");
             }
             _ => {}
@@ -223,9 +208,7 @@ impl<'a> ManRenderer<'a> {
             NodeValue::Strong => {
                 self.reset_font();
             }
-            NodeValue::Link(..) => {
-                // Nothing to do for link exit
-            }
+            NodeValue::Link(..) => {}
             NodeValue::Image(..) => {
                 self.write("]");
             }
@@ -247,7 +230,6 @@ impl<'a> ManRenderer<'a> {
 
             self.writeln(".EX");
 
-            // Write code content
             for line in code_block.literal.lines() {
                 self.writeln(line);
             }
@@ -264,7 +246,6 @@ impl<'a> ManRenderer<'a> {
                 1 => self.write(".SH "),
                 _ => self.write(".SS "),
             };
-            // Content will be added by child text nodes
         }
     }
 
@@ -283,11 +264,9 @@ impl<'a> ManRenderer<'a> {
     }
 
     fn write(&mut self, text: &str) {
-        // Handle special characters at beginning of line
         if self.beginning_of_line && !text.is_empty() {
             let first_char = text.chars().next().unwrap();
             if first_char == '.' || first_char == '\'' {
-                // Escape control characters at start of line
                 self.output.push_str("\\&");
             }
         }
@@ -296,11 +275,9 @@ impl<'a> ManRenderer<'a> {
     }
 
     fn writeln(&mut self, text: &str) {
-        // Handle special characters at beginning of line
         if self.beginning_of_line && !text.is_empty() {
             let first_char = text.chars().next().unwrap();
             if first_char == '.' || first_char == '\'' {
-                // Escape control characters at start of line
                 self.output.push_str("\\&");
             }
         }
@@ -332,7 +309,7 @@ mod tests {
     use crate::core::nodes::{NodeCode, NodeCodeBlock};
 
     #[test]
-    fn test_render_paragraph() {
+    fn test_write_man_paragraph() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -341,13 +318,14 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".PP"));
         assert!(man.contains("Hello world"));
     }
 
     #[test]
-    fn test_render_emph() {
+    fn test_write_man_emph() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -358,12 +336,13 @@ mod tests {
         TreeOps::append_child(&mut arena, para, emph);
         TreeOps::append_child(&mut arena, emph, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains("\\fIemphasized\\fR"));
     }
 
     #[test]
-    fn test_render_strong() {
+    fn test_write_man_strong() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -374,12 +353,13 @@ mod tests {
         TreeOps::append_child(&mut arena, para, strong);
         TreeOps::append_child(&mut arena, strong, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains("\\fBstrong\\fR"));
     }
 
     #[test]
-    fn test_render_code() {
+    fn test_write_man_code() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
@@ -391,12 +371,13 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, code);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains("\\fCcode\\fR"));
     }
 
     #[test]
-    fn test_render_heading() {
+    fn test_write_man_heading() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
@@ -407,12 +388,13 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, heading);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".SH"));
     }
 
     #[test]
-    fn test_render_heading2() {
+    fn test_write_man_heading2() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
@@ -423,12 +405,13 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, heading);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".SS"));
     }
 
     #[test]
-    fn test_render_blockquote() {
+    fn test_write_man_blockquote() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
@@ -439,13 +422,14 @@ mod tests {
         TreeOps::append_child(&mut arena, blockquote, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".RS"));
         assert!(man.contains(".RE"));
     }
 
     #[test]
-    fn test_render_code_block() {
+    fn test_write_man_code_block() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let code_block =
@@ -461,14 +445,15 @@ mod tests {
 
         TreeOps::append_child(&mut arena, root, code_block);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".EX"));
         assert!(man.contains("fn main() {}"));
         assert!(man.contains(".EE"));
     }
 
     #[test]
-    fn test_render_bullet_list() {
+    fn test_write_man_bullet_list() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
         let list = arena.alloc(Node::with_value(NodeValue::List(NodeList {
@@ -490,7 +475,8 @@ mod tests {
         TreeOps::append_child(&mut arena, item, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains(".IP"));
     }
 
@@ -510,7 +496,8 @@ mod tests {
         TreeOps::append_child(&mut arena, root, para);
         TreeOps::append_child(&mut arena, para, text);
 
-        let man = render(&arena, root, 0);
+        let options = WriterOptions::default();
+        let man = write_man(&arena, root, &options).unwrap();
         assert!(man.contains("\\&.dot"));
     }
 }

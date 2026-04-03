@@ -23,6 +23,15 @@ use crate::options::{OutputFormat, WriterOptions};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::io::Write;
 
+/// DOCX export options
+#[derive(Debug, Clone, Default)]
+pub struct DocxOptions {
+    /// Document title
+    pub title: Option<String>,
+    /// Document author
+    pub author: Option<String>,
+}
+
 /// DOCX document writer.
 #[derive(Debug, Clone, Copy)]
 pub struct DocxWriter;

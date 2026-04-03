@@ -1,7 +1,7 @@
 //! Format-specific renderers for the CommonMark AST.
 //!
 //! This module provides renderers for various output formats including HTML, XML,
-//! LaTeX, Man pages, Typst, DOCX, and PDF.
+//! LaTeX, Typst, and PDF.
 
 /// HTML renderer for Arena-based AST.
 pub mod html;
@@ -12,14 +12,8 @@ pub mod xml;
 /// LaTeX renderer for Arena-based AST.
 pub mod latex;
 
-/// Man page renderer for Arena-based AST.
-pub mod man;
-
 /// Typst renderer for Arena-based AST.
 pub mod typst;
-
-/// DOCX renderer for Arena-based AST.
-pub mod docx;
 
 /// PDF renderer for Arena-based AST.
 pub mod pdf;

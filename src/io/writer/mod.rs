@@ -248,6 +248,7 @@ impl WriterRegistry {
         self.register(Box::new(HtmlWriter));
         self.register(Box::new(CommonMarkWriter));
         self.register(Box::new(XmlWriter));
+        self.register(Box::new(ManWriter));
         self.register(Box::new(BibTeXWriter));
         self.register(Box::new(RtfWriter));
         self.register(Box::new(DocxWriter));
@@ -274,6 +275,9 @@ pub use beamer::BeamerWriter;
 
 pub mod revealjs;
 pub use revealjs::RevealJsWriter;
+
+pub mod man;
+pub use man::write_man;
 
 impl Clone for WriterRegistry {
     fn clone(&self) -> Self {
@@ -383,6 +387,36 @@ impl Writer for XmlWriter {
 
     fn mime_type(&self) -> &'static str {
         "application/xml"
+    }
+}
+
+/// Man page document writer.
+///
+/// Renders documents to Unix man page (groff) format.
+#[derive(Debug, Clone, Copy)]
+pub struct ManWriter;
+
+impl Writer for ManWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        write_man(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Man
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["man", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/x-troff-man"
     }
 }
 
