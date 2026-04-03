@@ -248,7 +248,7 @@ fn render_node(
             output.push_str("</w:p>");
         }
 
-        NodeValue::ThematicBreak => {
+        NodeValue::ThematicBreak(..) => {
             output.push_str(
                 r#"<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr></w:pPr><w:r><w:t></w:t></w:r></w:p>"#,
             );
@@ -747,7 +747,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
-        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        )));
         TreeOps::append_child(&mut arena, root, hr);
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();

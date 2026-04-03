@@ -311,7 +311,7 @@ impl<'a> BlockParser<'a> {
         let container_value = &self.arena.get(container).value;
         let is_leaf = matches!(
             container_value,
-            NodeValue::Heading(..) | NodeValue::ThematicBreak
+            NodeValue::Heading(..) | NodeValue::ThematicBreak(..)
         );
 
         // Try new block starts if not a leaf block

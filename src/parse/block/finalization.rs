@@ -34,7 +34,7 @@ impl<'a> BlockParser<'a> {
                 container_value,
                 NodeValue::BlockQuote
                     | NodeValue::Heading(..)
-                    | NodeValue::ThematicBreak
+                    | NodeValue::ThematicBreak(..)
                     | NodeValue::HtmlBlock(..)
             )
             && !(matches!(container_value, NodeValue::CodeBlock(..))

@@ -217,7 +217,17 @@ fn test_fmt_thematic_break() {
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
-    assert!(cm.contains("***"), "Should contain thematic break: {}", cm);
+    assert!(
+        cm.contains("---"),
+        "Should preserve original thematic break marker: {}",
+        cm
+    );
+
+    // Test that *** is also preserved
+    let input2 = b"***";
+    let output2 = run_with_stdin(&["fmt"], input2);
+    let cm2 = String::from_utf8(output2.stdout).unwrap();
+    assert!(cm2.contains("***"), "Should preserve *** marker: {}", cm2);
 }
 
 #[test]

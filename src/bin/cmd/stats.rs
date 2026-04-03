@@ -114,7 +114,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
             NodeValue::List(_) => stats.lists += 1,
             NodeValue::Item(_) => stats.list_items += 1,
             NodeValue::BlockQuote => stats.blockquotes += 1,
-            NodeValue::ThematicBreak => stats.thematic_breaks += 1,
+            NodeValue::ThematicBreak(..) => stats.thematic_breaks += 1,
             NodeValue::Table(_) => stats.tables += 1,
             NodeValue::TaskItem(task_item) => {
                 stats.task_items += 1;

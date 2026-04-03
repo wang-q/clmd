@@ -251,13 +251,32 @@ fn test_format_table() {
 #[test]
 fn test_format_thematic_break() {
     let options = Options::default();
+
+    // Test that --- is preserved
     let input = "---";
     let output = markdown_to_commonmark(input, &options);
-
     assert!(
-        output.contains("***"),
-        "Should contain thematic break: {}",
+        output.contains("---"),
+        "Should preserve --- marker: {}",
         output
+    );
+
+    // Test that *** is preserved
+    let input2 = "***";
+    let output2 = markdown_to_commonmark(input2, &options);
+    assert!(
+        output2.contains("***"),
+        "Should preserve *** marker: {}",
+        output2
+    );
+
+    // Test that ___ is preserved
+    let input3 = "___";
+    let output3 = markdown_to_commonmark(input3, &options);
+    assert!(
+        output3.contains("___"),
+        "Should preserve ___ marker: {}",
+        output3
     );
 }
 

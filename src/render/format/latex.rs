@@ -99,7 +99,7 @@ impl<'a> LatexRenderer<'a> {
                 self.render_heading(node_id);
                 self.need_blank_line = true;
             }
-            NodeValue::ThematicBreak => {
+            NodeValue::ThematicBreak(..) => {
                 self.writeln("\\hrule");
                 self.need_blank_line = true;
             }

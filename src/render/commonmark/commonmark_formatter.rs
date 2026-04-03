@@ -17,8 +17,8 @@ use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
 use crate::formatter::context::NodeFormatterContext;
 use crate::formatter::escaping::{
-    choose_emphasis_marker, compute_fence_length, escape_markdown_for_table_simple, escape_string,
-    escape_text, escape_url,
+    choose_emphasis_marker, compute_fence_length, escape_markdown_for_table_simple,
+    escape_string, escape_text, escape_url,
 };
 use crate::formatter::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
 use crate::formatter::options::{FormatterOptions, HeadingStyle};
@@ -398,43 +398,43 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         }
 
                         // Get the parent list to determine the marker and nesting level
-                        let (marker, nesting_level, parent_list) =
-                            if let Some(parent_id) = ctx.get_current_node_parent() {
-                                let arena = ctx.get_arena();
-                                let parent = arena.get(parent_id);
-                                if let NodeValue::List(list) = &parent.value {
-                                    // Find the nesting level by counting list ancestors
-                                    let level = count_list_ancestors(arena, parent_id);
-                                    // For ordered lists, calculate the item number based on position
-                                    let item_number = get_item_number_in_list(
-                                        arena,
-                                        parent_id,
-                                        ctx.get_current_node(),
-                                    );
+                        let (marker, nesting_level) = if let Some(parent_id) =
+                            ctx.get_current_node_parent()
+                        {
+                            let arena = ctx.get_arena();
+                            let parent = arena.get(parent_id);
+                            if let NodeValue::List(list) = &parent.value {
+                                // Find the nesting level by counting list ancestors
+                                let level = count_list_ancestors(arena, parent_id);
+                                // For ordered lists, calculate the item number based on position
+                                let item_number = get_item_number_in_list(
+                                    arena,
+                                    parent_id,
+                                    ctx.get_current_node(),
+                                );
 
-                                    // Apply list renumbering if configured
-                                    let effective_number = if options.list_renumber_items
-                                    {
-                                        // Renumber starting from 1
-                                        item_number
-                                    } else {
-                                        // Use original list start + offset
-                                        list.start + item_number - 1
-                                    };
-
-                                    let marker =
-                                        format_list_item_marker_with_number_and_options(
-                                            list,
-                                            effective_number,
-                                            options,
-                                        );
-                                    (marker, level, Some(*list))
+                                // Apply list renumbering if configured
+                                let effective_number = if options.list_renumber_items {
+                                    // Renumber starting from 1
+                                    item_number
                                 } else {
-                                    ("- ".to_string(), 0, None)
-                                }
+                                    // Use original list start + offset
+                                    list.start + item_number - 1
+                                };
+
+                                let marker =
+                                    format_list_item_marker_with_number_and_options(
+                                        list,
+                                        effective_number,
+                                        options,
+                                    );
+                                (marker, level)
                             } else {
-                                ("- ".to_string(), 0, None)
-                            };
+                                ("- ".to_string(), 0)
+                            }
+                        } else {
+                            ("- ".to_string(), 0)
+                        };
 
                         // Check if this specific item is a task list item
                         let is_task_list = if let NodeValue::Item(item_data) = value {
@@ -514,12 +514,16 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             NodeFormattingHandler::new(
                 NodeValueType::ThematicBreak,
                 Box::new(
-                    |_value: &NodeValue,
-                     ctx: &mut dyn NodeFormatterContext,
+                    |value: &NodeValue,
+                     _ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        let options = ctx.get_formatter_options();
-                        let marker = options.thematic_break_marker;
-                        writer.append(marker.to_string().repeat(3));
+                        if let NodeValue::ThematicBreak(tb) = value {
+                            // Use the original marker from the parsed document
+                            writer.append(tb.marker.to_string().repeat(3));
+                        } else {
+                            // Fallback to default marker
+                            writer.append("---".to_string());
+                        }
                         writer.line();
                     },
                 ),
@@ -1546,16 +1550,6 @@ fn format_list_item_marker_with_number_and_options(
     }
 }
 
-/// Calculate the marker width for indentation purposes
-///
-/// Returns the number of characters the marker occupies, which is used
-/// to align content in subsequent lines of list items.
-fn calculate_marker_width(_list: &crate::core::nodes::NodeList, marker: &str) -> usize {
-    // The marker width is the length of the marker string
-    // This is used to align content with the first line after the marker
-    marker.len()
-}
-
 /// Count the number of list ancestors for a given node
 ///
 /// This is used to determine the nesting level of a list item.
@@ -1946,7 +1940,6 @@ fn item_contains_blank_lines(
     // A list item is loose only if it contains multiple non-list block-level children
     // or if there are blank lines between elements
     let mut non_list_block_count = 0;
-    let mut has_nested_list = false;
     let mut child_id = item.first_child;
 
     while let Some(child) = child_id {
@@ -1957,7 +1950,6 @@ fn item_contains_blank_lines(
             NodeValue::List(_) => {
                 // Nested lists are treated as part of the list item content
                 // They don't make the list loose on their own
-                has_nested_list = true;
             }
             NodeValue::Paragraph
             | NodeValue::Heading(_)

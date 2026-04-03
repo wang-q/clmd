@@ -33,13 +33,13 @@ pub enum EscapeMode {
 
 /// Characters that have special meaning in Markdown
 /// Only includes characters that actually need escaping in most contexts
-const MARKDOWN_SPECIAL_CHARS: &[char] = &[
-    '\\', '`', '*', '_', '[', ']', '<', '>', '#', '!', '|',
-];
+const MARKDOWN_SPECIAL_CHARS: &[char] =
+    &['\\', '`', '*', '_', '[', ']', '<', '>', '#', '!', '|'];
 
 /// Characters that need escaping at the start of a line
 /// These are block-level markers that would be interpreted as structural elements
-const LINE_START_SPECIAL_CHARS: &[char] = &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
+const LINE_START_SPECIAL_CHARS: &[char] =
+    &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
 
 /// Characters that need escaping in link text
 const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
@@ -221,11 +221,11 @@ fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
 }
 
 /// Check if the current position is followed by a bracket
-/// 
+///
 /// This is a simplified implementation that assumes the exclamation mark
 /// might be followed by a bracket. In a full implementation, we'd need
 /// access to the text content to check the next character.
-/// 
+///
 /// For now, we return false to avoid unnecessary escaping of standalone `!`.
 /// The `!` will only be escaped when it's actually part of image syntax `[...]`
 /// which is handled by the parser.
@@ -276,7 +276,11 @@ fn is_in_link_url_context(_context: &dyn NodeFormatterContext) -> bool {
 /// - Inline special characters (like * and _ for emphasis)
 /// - Context-specific escaping (different rules inside code, links, etc.)
 /// - Different escape modes for different contexts (Normal, TableCell, CodeSpan, etc.)
-pub fn escape_text_with_mode(text: &str, context: &dyn NodeFormatterContext, mode: EscapeMode) -> String {
+pub fn escape_text_with_mode(
+    text: &str,
+    context: &dyn NodeFormatterContext,
+    mode: EscapeMode,
+) -> String {
     match mode {
         EscapeMode::CodeSpan => escape_code_span(text),
         EscapeMode::LinkText => escape_link_text(text),
@@ -287,7 +291,11 @@ pub fn escape_text_with_mode(text: &str, context: &dyn NodeFormatterContext, mod
 }
 
 /// Internal function for normal and table cell escaping
-fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: EscapeMode) -> String {
+fn escape_text_internal(
+    text: &str,
+    context: &dyn NodeFormatterContext,
+    mode: EscapeMode,
+) -> String {
     let is_table_mode = mode == EscapeMode::TableCell;
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
@@ -333,12 +341,14 @@ fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: Es
                     // Check if it could form emphasis
                     let prev_char = if i > 0 { chars.get(i - 1) } else { None };
                     let next_char = chars.get(i + 1);
-                    
+
                     // Don't escape if this is part of a sequence of asterisks (like ** or ***)
                     // These are likely emphasis markers and should be preserved
-                    let is_part_of_sequence = prev_char == Some(&'*') || next_char == Some(&'*');
-                    
-                    if could_form_emphasis(prev_char, next_char) && !is_part_of_sequence {
+                    let is_part_of_sequence =
+                        prev_char == Some(&'*') || next_char == Some(&'*');
+
+                    if could_form_emphasis(prev_char, next_char) && !is_part_of_sequence
+                    {
                         result.push('\\');
                     }
                     result.push('*');
@@ -363,7 +373,8 @@ fn escape_text_internal(text: &str, context: &dyn NodeFormatterContext, mode: Es
                 // # followed directly by text (like #469) is not a heading
                 if at_line_start && !is_in_code_context(context) {
                     let next_char = chars.get(i + 1);
-                    let followed_by_space = next_char.map(|c| c.is_whitespace()).unwrap_or(false);
+                    let followed_by_space =
+                        next_char.map(|c| c.is_whitespace()).unwrap_or(false);
                     if followed_by_space {
                         result.push('\\');
                     }
@@ -408,7 +419,10 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
 ///
 /// This is a convenience wrapper around `escape_text_with_mode` for table cells.
 /// Pipe characters (|) are preserved to maintain table structure.
-pub fn escape_markdown_for_table(text: &str, context: &dyn NodeFormatterContext) -> String {
+pub fn escape_markdown_for_table(
+    text: &str,
+    context: &dyn NodeFormatterContext,
+) -> String {
     escape_text_with_mode(text, context, EscapeMode::TableCell)
 }
 
@@ -437,13 +451,13 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 // Found inline code - copy everything until closing backtick
                 result.push(c);
                 i += 1;
-                
+
                 // Find the closing backtick
                 while i < chars.len() && chars[i] != '`' {
                     result.push(chars[i]);
                     i += 1;
                 }
-                
+
                 // Add closing backtick if found
                 if i < chars.len() {
                     result.push(chars[i]);
@@ -468,11 +482,12 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 // These are likely emphasis markers and should be preserved
                 let prev_char = if i > 0 { chars.get(i - 1) } else { None };
                 let next_char = chars.get(i + 1);
-                let is_part_of_sequence = prev_char == Some(&'*') || next_char == Some(&'*');
-                
+                let is_part_of_sequence =
+                    prev_char == Some(&'*') || next_char == Some(&'*');
+
                 // Also check if it could form emphasis (similar to escape_text_internal)
                 let could_be_emphasis = could_form_emphasis_simple(prev_char, next_char);
-                
+
                 if could_be_emphasis && !is_part_of_sequence {
                     result.push('\\');
                 }
@@ -497,10 +512,15 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 // '#' only needs escaping at the start of a line when it forms a heading
                 // A heading is: # followed by space, or multiple # followed by space
                 // In table cells, # followed directly by text (like #469) is not a heading
-                let is_at_start = i == 0 || chars.get(i - 1).map(|c| c.is_whitespace()).unwrap_or(false);
-                let followed_by_space = chars.get(i + 1).map(|c| c.is_whitespace()).unwrap_or(false);
-                let followed_by_digit = chars.get(i + 1).map(|c| c.is_ascii_digit()).unwrap_or(false);
-                
+                let is_at_start = i == 0
+                    || chars.get(i - 1).map(|c| c.is_whitespace()).unwrap_or(false);
+                let followed_by_space =
+                    chars.get(i + 1).map(|c| c.is_whitespace()).unwrap_or(false);
+                let followed_by_digit = chars
+                    .get(i + 1)
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false);
+
                 // Only escape if at start AND followed by space (not followed by digit)
                 if is_at_start && followed_by_space && !followed_by_digit {
                     // This could be interpreted as an ATX heading
@@ -535,18 +555,21 @@ fn is_underscore_in_word_simple(chars: &[char], pos: usize) -> bool {
 
 /// Simple version of could_form_emphasis for use without context
 /// Checks if an asterisk/underscore could form an emphasis marker
-fn could_form_emphasis_simple(prev_char: Option<&char>, next_char: Option<&char>) -> bool {
+fn could_form_emphasis_simple(
+    prev_char: Option<&char>,
+    next_char: Option<&char>,
+) -> bool {
     // Simplified version: assume it could form emphasis if not surrounded by other asterisks
     // and not in the middle of a word
     let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
     let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-    
+
     // Could form emphasis if at word boundary or surrounded by whitespace/punctuation
     !(prev_is_alphanumeric && next_is_alphanumeric)
 }
 
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)
-/// 
+///
 /// Examples:
 /// - "default_template" -> true (underscore inside word)
 /// - "_text_" -> false (underscore at word boundary, forms emphasis)
@@ -554,11 +577,11 @@ fn could_form_emphasis_simple(prev_char: Option<&char>, next_char: Option<&char>
 fn is_underscore_in_word(chars: &[char], pos: usize) -> bool {
     let prev_char = if pos > 0 { chars.get(pos - 1) } else { None };
     let next_char = chars.get(pos + 1);
-    
+
     // Underscore is in a word if both adjacent characters are alphanumeric
     let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
     let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-    
+
     prev_is_alphanumeric && next_is_alphanumeric
 }
 
@@ -585,16 +608,20 @@ fn is_part_of_emphasis_node(context: &dyn NodeFormatterContext) -> bool {
 }
 
 /// Check if an asterisk/underscore could form an emphasis marker
-/// 
+///
 /// According to CommonMark, emphasis markers are:
 /// - Left-flanking: preceded by whitespace/punctuation, followed by non-whitespace
 /// - Right-flanking: followed by whitespace/punctuation, preceded by non-whitespace
 fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bool {
-    let prev_is_ws_or_punct = prev_char.map(|c| c.is_whitespace() || is_punctuation(*c)).unwrap_or(true);
-    let next_is_ws_or_punct = next_char.map(|c| c.is_whitespace() || is_punctuation(*c)).unwrap_or(true);
+    let prev_is_ws_or_punct = prev_char
+        .map(|c| c.is_whitespace() || is_punctuation(*c))
+        .unwrap_or(true);
+    let next_is_ws_or_punct = next_char
+        .map(|c| c.is_whitespace() || is_punctuation(*c))
+        .unwrap_or(true);
     let prev_is_not_ws = prev_char.map(|c| !c.is_whitespace()).unwrap_or(false);
     let next_is_not_ws = next_char.map(|c| !c.is_whitespace()).unwrap_or(false);
-    
+
     // Left-flanking: preceded by ws/punct AND followed by non-ws
     // Right-flanking: followed by ws/punct AND preceded by non-ws
     (prev_is_ws_or_punct && next_is_not_ws) || (next_is_ws_or_punct && prev_is_not_ws)
@@ -603,10 +630,41 @@ fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bo
 /// Check if a character is punctuation (including CJK punctuation)
 fn is_punctuation(ch: char) -> bool {
     // ASCII punctuation
-    if matches!(ch, '.' | ',' | '!' | '?' | ':' | ';' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '/' | '\\' | '|' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '+' | '=' | '~' | '`') {
+    if matches!(
+        ch,
+        '.' | ','
+            | '!'
+            | '?'
+            | ':'
+            | ';'
+            | '"'
+            | '\''
+            | '('
+            | ')'
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | '<'
+            | '>'
+            | '/'
+            | '\\'
+            | '|'
+            | '@'
+            | '#'
+            | '$'
+            | '%'
+            | '^'
+            | '&'
+            | '*'
+            | '+'
+            | '='
+            | '~'
+            | '`'
+    ) {
         return true;
     }
-    
+
     // CJK punctuation marks
     matches!(ch,
         // CJK Symbols and Punctuation block
@@ -1017,9 +1075,12 @@ mod tests {
         // Underscore inside words should NOT be escaped
         assert_eq!(escape_text("default_template", &ctx), "default_template");
         assert_eq!(escape_text("TemplateEngine", &ctx), "TemplateEngine");
-        assert_eq!(escape_text("snake_case_variable", &ctx), "snake_case_variable");
+        assert_eq!(
+            escape_text("snake_case_variable", &ctx),
+            "snake_case_variable"
+        );
         assert_eq!(escape_text("test_123_test", &ctx), "test_123_test");
-        
+
         // Underscore at word boundaries SHOULD be escaped (could form emphasis)
         assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
         assert_eq!(escape_text("_start", &ctx), "\\_start");

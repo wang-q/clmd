@@ -249,7 +249,7 @@ fn render_node(
             output.push_str("</li>");
         }
 
-        NodeValue::ThematicBreak => {
+        NodeValue::ThematicBreak(..) => {
             output.push_str("<hr/>");
         }
 
@@ -770,7 +770,9 @@ mod tests {
     fn test_epub_generate_chapter_xhtml_thematic_break() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        )));
         TreeOps::append_child(&mut arena, root, hr);
 
         let xhtml = generate_chapter_xhtml(&arena, root).unwrap();

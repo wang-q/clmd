@@ -65,7 +65,7 @@ impl<'a> BlockParser<'a> {
                 // Headings can only contain one line
                 1
             }
-            NodeValue::ThematicBreak => {
+            NodeValue::ThematicBreak(..) => {
                 // Thematic breaks can only contain one line
                 1
             }

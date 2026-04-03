@@ -175,7 +175,7 @@ fn render_node(
             output.push_str("\\par\n");
         }
 
-        NodeValue::ThematicBreak => {
+        NodeValue::ThematicBreak(..) => {
             output.push_str("\n\\pard \\brdrb \\brdrs \\brdrw10 \\par\n");
         }
 
@@ -619,7 +619,9 @@ mod tests {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
 
-        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        )));
         TreeOps::append_child(&mut arena, root, hr);
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();

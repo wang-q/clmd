@@ -475,13 +475,16 @@ impl<'a> BlockParser<'a> {
         }
 
         let line = &self.current_line[self.next_nonspace..];
-        if !self.scan_thematic_break(line) {
-            return BlockStartResult::None;
-        }
+        let marker = match self.scan_thematic_break(line) {
+            Some(m) => m,
+            None => return BlockStartResult::None,
+        };
 
         self.close_unmatched_blocks();
-        let thematic_break =
-            self.add_child(NodeValue::ThematicBreak, self.next_nonspace);
+        let thematic_break = self.add_child(
+            NodeValue::ThematicBreak(crate::core::nodes::NodeThematicBreak { marker }),
+            self.next_nonspace,
+        );
         self.advance_offset(self.current_line.len() - self.offset, false);
 
         BlockStartResult::Done(thematic_break)
@@ -944,7 +947,8 @@ impl<'a> BlockParser<'a> {
     }
 
     /// Scan for thematic break
-    fn scan_thematic_break(&self, line: &str) -> bool {
+    /// Returns the marker character if a thematic break is found, None otherwise
+    fn scan_thematic_break(&self, line: &str) -> Option<char> {
         let mut chars = line.chars().peekable();
         let mut c_opt: Option<char> = None;
         let mut count = 0;
@@ -958,11 +962,11 @@ impl<'a> BlockParser<'a> {
                 break;
             }
             if c != '*' && c != '-' && c != '_' {
-                return false;
+                return None;
             }
             if let Some(prev_c) = c_opt {
                 if c != prev_c {
-                    return false;
+                    return None;
                 }
             } else {
                 c_opt = Some(c);
@@ -971,7 +975,11 @@ impl<'a> BlockParser<'a> {
             chars.next();
         }
 
-        count >= 3
+        if count >= 3 {
+            c_opt
+        } else {
+            None
+        }
     }
 
     /// Parse list marker

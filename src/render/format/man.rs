@@ -142,7 +142,7 @@ impl<'a> ManRenderer<'a> {
                 self.render_heading(node_id);
                 self.need_blank_line = true;
             }
-            NodeValue::ThematicBreak => {
+            NodeValue::ThematicBreak(..) => {
                 self.writeln(".PP");
                 self.writeln("   *   *   *");
                 self.need_blank_line = true;

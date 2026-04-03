@@ -58,7 +58,7 @@ pub enum NodeValue {
     Heading(NodeHeading),
 
     /// A thematic break (horizontal rule).
-    ThematicBreak,
+    ThematicBreak(NodeThematicBreak),
 
     /// A footnote definition.
     FootnoteDefinition(Box<NodeFootnoteDefinition>),
@@ -434,6 +434,13 @@ pub struct NodeHeading {
     pub closed: bool,
 }
 
+/// Metadata for a thematic break.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct NodeThematicBreak {
+    /// The character used for the thematic break (*, -, or _).
+    pub marker: char,
+}
+
 /// Metadata for a footnote definition.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeFootnoteDefinition {
@@ -651,7 +658,7 @@ impl NodeValue {
                 | NodeValue::HtmlBlock(..)
                 | NodeValue::Paragraph
                 | NodeValue::Heading(..)
-                | NodeValue::ThematicBreak
+                | NodeValue::ThematicBreak(..)
                 | NodeValue::Table(..)
                 | NodeValue::TableRow(..)
                 | NodeValue::TableCell
@@ -712,7 +719,7 @@ impl NodeValue {
                 | NodeValue::HtmlInline(..)
                 | NodeValue::CodeBlock(..)
                 | NodeValue::HtmlBlock(..)
-                | NodeValue::ThematicBreak
+                | NodeValue::ThematicBreak(..)
                 | NodeValue::Escaped
                 | NodeValue::Raw(..)
                 | NodeValue::FrontMatter(..)
@@ -756,7 +763,7 @@ impl NodeValue {
             NodeValue::HtmlBlock(..) => "html_block",
             NodeValue::Paragraph => "paragraph",
             NodeValue::Heading(..) => "heading",
-            NodeValue::ThematicBreak => "thematic_break",
+            NodeValue::ThematicBreak(..) => "thematic_break",
             NodeValue::Table(..) => "table",
             NodeValue::TableRow(..) => "table_row",
             NodeValue::TableCell => "table_cell",

@@ -92,10 +92,11 @@ fn test_parse_thematic_break() {
     let doc = BlockParser::parse(&mut arena, "---");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::ThematicBreak
-    ));
+    if let NodeValue::ThematicBreak(tb) = &arena.get(first_child.unwrap()).value {
+        assert_eq!(tb.marker, '-');
+    } else {
+        panic!("Expected ThematicBreak");
+    }
 }
 
 #[test]
@@ -461,10 +462,11 @@ fn test_thematic_break_dashes() {
     let doc = BlockParser::parse(&mut arena, "---");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::ThematicBreak
-    ));
+    if let NodeValue::ThematicBreak(tb) = &arena.get(first_child.unwrap()).value {
+        assert_eq!(tb.marker, '-');
+    } else {
+        panic!("Expected ThematicBreak");
+    }
 }
 
 #[test]
@@ -473,10 +475,11 @@ fn test_thematic_break_asterisks() {
     let doc = BlockParser::parse(&mut arena, "***");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::ThematicBreak
-    ));
+    if let NodeValue::ThematicBreak(tb) = &arena.get(first_child.unwrap()).value {
+        assert_eq!(tb.marker, '*');
+    } else {
+        panic!("Expected ThematicBreak");
+    }
 }
 
 #[test]
@@ -485,10 +488,11 @@ fn test_thematic_break_underscores() {
     let doc = BlockParser::parse(&mut arena, "___");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::ThematicBreak
-    ));
+    if let NodeValue::ThematicBreak(tb) = &arena.get(first_child.unwrap()).value {
+        assert_eq!(tb.marker, '_');
+    } else {
+        panic!("Expected ThematicBreak");
+    }
 }
 
 #[test]
@@ -497,10 +501,11 @@ fn test_thematic_break_with_spaces() {
     let doc = BlockParser::parse(&mut arena, "- - -");
     let first_child = arena.get(doc).first_child;
     assert!(first_child.is_some());
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::ThematicBreak
-    ));
+    if let NodeValue::ThematicBreak(tb) = &arena.get(first_child.unwrap()).value {
+        assert_eq!(tb.marker, '-');
+    } else {
+        panic!("Expected ThematicBreak");
+    }
 }
 
 #[test]

@@ -201,7 +201,7 @@ fn format_node_typst(
             }
             output.write_str("]\n\n")?;
         }
-        NodeValue::ThematicBreak => {
+        NodeValue::ThematicBreak(..) => {
             output.write_str("#line(length: 100%)\n\n")?;
         }
         NodeValue::SoftBreak => {
@@ -555,7 +555,9 @@ mod tests {
     fn test_render_thematic_break() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        )));
 
         TreeOps::append_child(&mut arena, root, hr);
 

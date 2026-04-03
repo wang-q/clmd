@@ -1187,7 +1187,7 @@ impl NodeType {
                 | (NodeType::HtmlBlock, NodeValue::HtmlBlock(_))
                 | (NodeType::Paragraph, NodeValue::Paragraph)
                 | (NodeType::Heading, NodeValue::Heading(_))
-                | (NodeType::ThematicBreak, NodeValue::ThematicBreak)
+                | (NodeType::ThematicBreak, NodeValue::ThematicBreak(_))
                 | (
                     NodeType::FootnoteDefinition,
                     NodeValue::FootnoteDefinition(_)

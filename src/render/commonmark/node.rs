@@ -224,7 +224,7 @@ impl NodeValueType {
             NodeValue::HtmlBlock(_) => NodeValueType::HtmlBlock,
             NodeValue::Paragraph => NodeValueType::Paragraph,
             NodeValue::Heading(_) => NodeValueType::Heading,
-            NodeValue::ThematicBreak => NodeValueType::ThematicBreak,
+            NodeValue::ThematicBreak(..) => NodeValueType::ThematicBreak,
             NodeValue::FootnoteDefinition(_) => NodeValueType::FootnoteDefinition,
             NodeValue::FootnoteReference(_) => NodeValueType::FootnoteReference,
             NodeValue::Table(_) => NodeValueType::Table,

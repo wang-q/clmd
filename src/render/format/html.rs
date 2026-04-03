@@ -283,7 +283,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.last_out = '>';
                 self.tag_stack.push("h");
             }
-            NodeValue::ThematicBreak => {
+            NodeValue::ThematicBreak(..) => {
                 // In tight list items, add newline before thematic break if not first child
                 if self.track_item_child() {
                     self.lit("\n");
@@ -499,7 +499,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.last_out = '\n';
                 self.tag_stack.pop();
             }
-            NodeValue::ThematicBreak => {}
+            NodeValue::ThematicBreak(..) => {}
             NodeValue::Text(..) => {}
             NodeValue::SoftBreak => {}
             NodeValue::HardBreak => {}
@@ -926,7 +926,9 @@ mod tests {
     fn test_render_thematic_break() {
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak));
+        let hr = arena.alloc(Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        )));
 
         TreeOps::append_child(&mut arena, root, hr);
 
@@ -1152,7 +1154,9 @@ mod tests {
         options.render.sourcepos = true;
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let mut hr = Node::with_value(NodeValue::ThematicBreak);
+        let mut hr = Node::with_value(NodeValue::ThematicBreak(
+            crate::core::nodes::NodeThematicBreak::default(),
+        ));
         hr.source_pos = SourcePos::new(2, 1, 2, 3);
         let hr_id = arena.alloc(hr);
 
