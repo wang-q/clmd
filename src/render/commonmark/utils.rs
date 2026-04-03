@@ -4,9 +4,9 @@
 //! inspired by flexmark-java's FormatterUtils class.
 
 use crate::core::nodes::{NodeCodeBlock, NodeList};
+use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::writer::MarkdownWriter;
-use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 
 /// Render a list
 ///
@@ -284,8 +284,10 @@ mod tests {
 
     #[test]
     fn test_escape_markdown() {
-        let escaped =
-            crate::render::commonmark::escaping::escape_text("Hello *world*", &MockContext);
+        let escaped = crate::render::commonmark::escaping::escape_text(
+            "Hello *world*",
+            &MockContext,
+        );
         assert!(escaped.contains("\\*"));
     }
 
@@ -307,7 +309,9 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_formatting_phase(&self) -> crate::render::commonmark::phase::FormattingPhase {
+        fn get_formatting_phase(
+            &self,
+        ) -> crate::render::commonmark::phase::FormattingPhase {
             crate::render::commonmark::phase::FormattingPhase::Document
         }
 
@@ -317,7 +321,9 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_render_purpose(&self) -> crate::render::commonmark::purpose::RenderPurpose {
+        fn get_render_purpose(
+            &self,
+        ) -> crate::render::commonmark::purpose::RenderPurpose {
             crate::render::commonmark::purpose::RenderPurpose::Format
         }
 

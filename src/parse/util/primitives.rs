@@ -22,7 +22,10 @@ pub fn string(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
 
     // Opening quote
     if !input[current_pos.offset..].starts_with('"') {
-        return Err(ClmdError::parse_error(current_pos, "Expected opening quote"));
+        return Err(ClmdError::parse_error(
+            current_pos,
+            "Expected opening quote",
+        ));
     }
     current_pos.advance('"');
 
@@ -61,7 +64,10 @@ pub fn string(input: &str, pos: Position) -> ClmdResult<(String, Position)> {
         }
     }
 
-    Err(ClmdError::parse_error(current_pos, "Unclosed string literal"))
+    Err(ClmdError::parse_error(
+        current_pos,
+        "Unclosed string literal",
+    ))
 }
 
 /// Parse an identifier (starts with letter, followed by alphanumeric or _).
@@ -78,9 +84,10 @@ pub fn identifier(input: &str, pos: Position) -> ClmdResult<(String, Position)> 
     let mut current_pos = pos;
 
     // First character must be alphabetic
-    let first = input[current_pos.offset..].chars().next().ok_or_else(|| {
-        ClmdError::parse_error(current_pos, "Expected identifier")
-    })?;
+    let first = input[current_pos.offset..]
+        .chars()
+        .next()
+        .ok_or_else(|| ClmdError::parse_error(current_pos, "Expected identifier"))?;
 
     if !first.is_alphabetic() && first != '_' {
         return Err(ClmdError::parse_error(
@@ -234,9 +241,7 @@ pub fn float(input: &str, pos: Position) -> ClmdResult<(f64, Position)> {
     full_num
         .parse::<f64>()
         .map(|n| Ok((n, current_pos)))
-        .unwrap_or_else(|_| {
-            Err(ClmdError::parse_error(current_pos, "Invalid float"))
-        })
+        .unwrap_or_else(|_| Err(ClmdError::parse_error(current_pos, "Invalid float")))
 }
 
 /// Parse whitespace (one or more characters).

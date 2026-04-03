@@ -5,7 +5,9 @@
 
 use crate::core::arena::NodeId;
 use crate::render::commonmark::context::NodeFormatterContext;
-use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::render::commonmark::node::{
+    NodeFormatter, NodeFormattingHandler, NodeValueType,
+};
 use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::writer::MarkdownWriter;
 

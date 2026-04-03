@@ -76,7 +76,10 @@ pub fn char_lit(expected: char) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ClmdError::parse_error(pos, format!("Expected '{}'", expected)))
+        Err(ClmdError::parse_error(
+            pos,
+            format!("Expected '{}'", expected),
+        ))
     })
 }
 
@@ -267,7 +270,10 @@ pub fn one_of(allowed: &'static [char]) -> BoxedParser<char> {
                 return Ok((ch, new_pos));
             }
         }
-        Err(ClmdError::parse_error(pos, format!("Expected one of {:?}", allowed)))
+        Err(ClmdError::parse_error(
+            pos,
+            format!("Expected one of {:?}", allowed),
+        ))
     })
 }
 

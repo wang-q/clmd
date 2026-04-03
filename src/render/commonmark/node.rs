@@ -498,8 +498,8 @@ impl NodeFormatter for ComposedNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::commonmark::writer::MarkdownWriter;
     use crate::options::format::FormatOptions;
+    use crate::render::commonmark::writer::MarkdownWriter;
 
     #[test]
     fn test_node_value_type_from_node_value() {
@@ -915,7 +915,9 @@ mod tests {
         fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
             unimplemented!()
         }
-        fn get_formatting_phase(&self) -> crate::render::commonmark::phase::FormattingPhase {
+        fn get_formatting_phase(
+            &self,
+        ) -> crate::render::commonmark::phase::FormattingPhase {
             crate::render::commonmark::phase::FormattingPhase::Document
         }
         fn delegate_render(&mut self) {
@@ -924,7 +926,9 @@ mod tests {
         fn get_formatter_options(&self) -> &FormatOptions {
             unimplemented!()
         }
-        fn get_render_purpose(&self) -> crate::render::commonmark::purpose::RenderPurpose {
+        fn get_render_purpose(
+            &self,
+        ) -> crate::render::commonmark::purpose::RenderPurpose {
             crate::render::commonmark::purpose::RenderPurpose::Format
         }
         fn get_arena(&self) -> &crate::core::arena::NodeArena {

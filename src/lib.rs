@@ -419,11 +419,7 @@ pub fn is_space_or_tab(c: char) -> bool {
 /// assert!(html.contains("<h1>"));
 /// assert!(html.contains("<ul>"));
 /// ```ignore
-pub fn markdown_to_html(
-    md: &str,
-    options: &Options,
-    plugins: &Plugins<'_>,
-) -> String {
+pub fn markdown_to_html(md: &str, options: &Options, plugins: &Plugins<'_>) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_html(&arena, root, options, &mut out, plugins).unwrap();
@@ -690,11 +686,7 @@ pub fn version() -> &'static str {
 /// let options = Options::default();
 /// let typst = markdown_to_typst("Hello *world*", &options, &Plugins::default());
 /// ```ignore
-pub fn markdown_to_typst(
-    md: &str,
-    options: &Options,
-    plugins: &Plugins<'_>,
-) -> String {
+pub fn markdown_to_typst(md: &str, options: &Options, plugins: &Plugins<'_>) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
     format_typst(&arena, root, options, &mut out, plugins).unwrap();
@@ -707,7 +699,9 @@ pub fn markdown_to_typst(
 
 #[cfg(test)]
 mod tests {
-    use crate::{format_html, io, markdown_to_html, parse_document, version, Options, Plugins};
+    use crate::{
+        format_html, io, markdown_to_html, parse_document, version, Options, Plugins,
+    };
 
     #[test]
     fn test_markdown_to_html_basic() {
@@ -720,7 +714,11 @@ mod tests {
     #[test]
     fn test_markdown_to_html_heading() {
         let options = Options::default();
-        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options, &Plugins::default());
+        let html = markdown_to_html(
+            "# Heading 1\n\n## Heading 2",
+            &options,
+            &Plugins::default(),
+        );
         assert!(html.contains("<h1>"));
         assert!(html.contains("<h2>"));
     }
@@ -728,7 +726,8 @@ mod tests {
     #[test]
     fn test_markdown_to_html_emphasis() {
         let options = Options::default();
-        let html = markdown_to_html("*italic* and **bold**", &options, &Plugins::default());
+        let html =
+            markdown_to_html("*italic* and **bold**", &options, &Plugins::default());
         println!("HTML output: {:?}", html);
         assert!(html.contains("<em>italic</em>"));
         assert!(html.contains("<strong>bold</strong>"));
@@ -737,7 +736,11 @@ mod tests {
     #[test]
     fn test_markdown_to_html_link() {
         let options = Options::default();
-        let html = markdown_to_html("[link](https://example.com)", &options, &Plugins::default());
+        let html = markdown_to_html(
+            "[link](https://example.com)",
+            &options,
+            &Plugins::default(),
+        );
         assert!(html.contains("<a href=\"https://example.com\">"));
     }
 
@@ -751,7 +754,11 @@ mod tests {
     #[test]
     fn test_markdown_to_html_code_block() {
         let options = Options::default();
-        let html = markdown_to_html("```rust\nfn main() {}\n```", &options, &Plugins::default());
+        let html = markdown_to_html(
+            "```rust\nfn main() {}\n```",
+            &options,
+            &Plugins::default(),
+        );
         assert!(html.contains("<pre>"));
         assert!(html.contains("<code"));
         assert!(html.contains("fn main() {}"));
@@ -777,7 +784,8 @@ mod tests {
     #[test]
     fn test_markdown_to_html_ordered_list() {
         let options = Options::default();
-        let html = markdown_to_html("1. First\n2. Second", &options, &Plugins::default());
+        let html =
+            markdown_to_html("1. First\n2. Second", &options, &Plugins::default());
         assert!(html.contains("<ol>"));
         assert!(html.contains("First"));
         assert!(html.contains("Second"));
@@ -793,7 +801,8 @@ mod tests {
     #[test]
     fn test_markdown_to_html_image() {
         let options = Options::default();
-        let html = markdown_to_html("![alt text](image.png)", &options, &Plugins::default());
+        let html =
+            markdown_to_html("![alt text](image.png)", &options, &Plugins::default());
         // Image rendering may vary between implementations
         // Just check that it doesn't panic and produces some output
         assert!(!html.is_empty());
@@ -822,7 +831,11 @@ mod tests {
         options.extension.tagfilter = true;
 
         // Test that dangerous HTML tags are filtered
-        let html = markdown_to_html("<script>alert('xss')</script>", &options, &Plugins::default());
+        let html = markdown_to_html(
+            "<script>alert('xss')</script>",
+            &options,
+            &Plugins::default(),
+        );
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
     }

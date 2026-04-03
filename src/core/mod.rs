@@ -34,9 +34,7 @@ pub use arena::{
     NodeArena, NodeId, PrecedingSiblingsIterator, SiblingsIterator, INVALID_NODE_ID,
 };
 pub use ast::{Block, Document, Inline, Walkable as AstWalkable};
-pub use error::{
-    ClmdError, ClmdResult, LimitKind, ParserLimits, Position, Range,
-};
+pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position, Range};
 pub use nodes::NodeValue;
 pub use shared::stringify;
 pub use traverse::{

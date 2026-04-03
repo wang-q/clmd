@@ -13,8 +13,8 @@
 pub use crate::core::nodes::NodeValue;
 pub use crate::{
     format_commonmark, format_html, format_xml, markdown_to_commonmark,
-    markdown_to_commonmark_xml, markdown_to_html, markdown_to_typst, parse_document, Arena,
-    NodeId, Options, Plugins,
+    markdown_to_commonmark_xml, markdown_to_html, markdown_to_typst, parse_document,
+    Arena, NodeId, Options, Plugins,
 };
 
 // Re-export from options module

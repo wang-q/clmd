@@ -2,9 +2,7 @@
 //!
 //! These tests verify end-to-end functionality of the Markdown parser.
 
-use clmd::{
-    markdown_to_commonmark, markdown_to_html, parse_document, Options, Plugins,
-};
+use clmd::{markdown_to_commonmark, markdown_to_html, parse_document, Options, Plugins};
 
 /// Test basic Markdown to HTML conversion
 #[test]
@@ -280,12 +278,14 @@ fn test_ast_manipulation() {
 fn test_line_breaks() {
     // Hard break (two spaces at end of line)
     let input_hard = "Line 1  \nLine 2";
-    let html_hard = markdown_to_html(input_hard, &Options::default(), &Plugins::default());
+    let html_hard =
+        markdown_to_html(input_hard, &Options::default(), &Plugins::default());
     assert!(html_hard.contains("<br />"));
 
     // Soft break (single newline)
     let input_soft = "Line 1\nLine 2";
-    let html_soft = markdown_to_html(input_soft, &Options::default(), &Plugins::default());
+    let html_soft =
+        markdown_to_html(input_soft, &Options::default(), &Plugins::default());
     // Soft breaks are preserved as spaces in HTML
     assert!(
         html_soft.contains("<p>Line 1\nLine 2</p>")

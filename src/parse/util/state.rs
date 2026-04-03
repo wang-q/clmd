@@ -497,7 +497,8 @@ mod tests {
 
     #[test]
     fn test_clmd_result_err() {
-        let result: ClmdResult<i32> = Err(ClmdError::parse_error(Position::new(1, 1), "error"));
+        let result: ClmdResult<i32> =
+            Err(ClmdError::parse_error(Position::new(1, 1), "error"));
         assert!(!result.is_ok());
         assert!(result.is_err());
     }

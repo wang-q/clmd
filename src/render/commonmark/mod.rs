@@ -1122,6 +1122,95 @@ mod tests {
     }
 
     #[test]
+    fn test_format_document_with_table_and_code_block() {
+        use crate::core::nodes::{NodeCodeBlock, NodeTable, TableAlignment};
+        use crate::render::commonmark::CommonMarkNodeFormatter;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        // Create table
+        let table =
+            arena.alloc(Node::with_value(NodeValue::Table(Box::new(NodeTable {
+                alignments: vec![TableAlignment::None, TableAlignment::None],
+                num_columns: 2,
+                num_rows: 2,
+                num_nonempty_cells: 4,
+            }))));
+
+        // Header row
+        let header_row = arena.alloc(Node::with_value(NodeValue::TableRow(true)));
+        let cell1 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell1_text = arena.alloc(Node::with_value(NodeValue::make_text("Name")));
+        TreeOps::append_child(&mut arena, cell1, cell1_text);
+        TreeOps::append_child(&mut arena, header_row, cell1);
+
+        let cell2 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell2_text = arena.alloc(Node::with_value(NodeValue::make_text("Age")));
+        TreeOps::append_child(&mut arena, cell2, cell2_text);
+        TreeOps::append_child(&mut arena, header_row, cell2);
+
+        TreeOps::append_child(&mut arena, table, header_row);
+
+        // Data row
+        let data_row = arena.alloc(Node::with_value(NodeValue::TableRow(false)));
+        let cell3 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell3_text = arena.alloc(Node::with_value(NodeValue::make_text("Alice")));
+        TreeOps::append_child(&mut arena, cell3, cell3_text);
+        TreeOps::append_child(&mut arena, data_row, cell3);
+
+        let cell4 = arena.alloc(Node::with_value(NodeValue::TableCell));
+        let cell4_text = arena.alloc(Node::with_value(NodeValue::make_text("30")));
+        TreeOps::append_child(&mut arena, cell4, cell4_text);
+        TreeOps::append_child(&mut arena, data_row, cell4);
+
+        TreeOps::append_child(&mut arena, table, data_row);
+        TreeOps::append_child(&mut arena, root, table);
+
+        // Create code block
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
+            NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: "rust".to_string(),
+                literal: "fn main() {}".to_string(),
+                closed: true,
+            },
+        ))));
+        TreeOps::append_child(&mut arena, root, code_block);
+
+        let mut formatter = Formatter::new();
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        println!("Table + code block result: {:?}", result);
+
+        // Check that table is present
+        assert!(
+            result.contains("Name") && result.contains("Age"),
+            "Table header should contain Name and Age. Result: {:?}",
+            result
+        );
+
+        // Check that code block is present
+        assert!(
+            result.contains("```rust"),
+            "Should contain code block start. Result: {:?}",
+            result
+        );
+
+        // Check that there's a blank line between table and code block
+        // The table should end with a blank line before the code block
+        assert!(
+            result.contains("30  |\n\n```rust"),
+            "Should have blank line between table and code block. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_format_document_with_heading() {
         use crate::core::nodes::NodeHeading;
         use crate::render::commonmark::CommonMarkNodeFormatter;

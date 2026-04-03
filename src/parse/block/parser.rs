@@ -175,7 +175,10 @@ impl<'a> BlockParser<'a> {
         // Validate input size (0 means unlimited)
         let input_size = input.len();
         if limits.max_input_size > 0 && input_size > limits.max_input_size {
-            return Err(ClmdError::input_too_large(input_size, limits.max_input_size));
+            return Err(ClmdError::input_too_large(
+                input_size,
+                limits.max_input_size,
+            ));
         }
 
         let mut parser = Self::new_with_limits(arena, options, limits);

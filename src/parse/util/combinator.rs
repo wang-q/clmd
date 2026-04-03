@@ -63,9 +63,9 @@ where
                 Err(e) => return Err(e),
             }
         }
-        first_result.map(|r| Ok((r, pos))).unwrap_or_else(|| {
-            Err(ClmdError::parse_error(pos, "Empty sequence"))
-        })
+        first_result
+            .map(|r| Ok((r, pos)))
+            .unwrap_or_else(|| Err(ClmdError::parse_error(pos, "Empty sequence")))
     })
 }
 

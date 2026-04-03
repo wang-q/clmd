@@ -15,16 +15,18 @@
 
 use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
+use crate::options::format::{FormatOptions, HeadingStyle};
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::{
     choose_emphasis_marker, compute_fence_length, escape_markdown_for_table_simple,
     escape_string, escape_text, escape_url,
 };
-use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler, NodeValueType};
+use crate::render::commonmark::node::{
+    NodeFormatter, NodeFormattingHandler, NodeValueType,
+};
 use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::phased::PhasedNodeFormatter;
 use crate::render::commonmark::writer::MarkdownWriter;
-use crate::options::format::{FormatOptions, HeadingStyle};
 
 /// CommonMark node formatter
 ///
@@ -1368,6 +1370,9 @@ fn render_formatted_table(
         writer.append(line);
         writer.line();
     }
+
+    // Add blank line after table to separate from following content
+    writer.blank_line();
 }
 
 /// Get the appropriate backtick sequence for inline code
@@ -2112,7 +2117,9 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_formatting_phase(&self) -> crate::render::commonmark::phase::FormattingPhase {
+        fn get_formatting_phase(
+            &self,
+        ) -> crate::render::commonmark::phase::FormattingPhase {
             crate::render::commonmark::phase::FormattingPhase::Document
         }
 
@@ -2122,7 +2129,9 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_render_purpose(&self) -> crate::render::commonmark::purpose::RenderPurpose {
+        fn get_render_purpose(
+            &self,
+        ) -> crate::render::commonmark::purpose::RenderPurpose {
             crate::render::commonmark::purpose::RenderPurpose::Format
         }
 
