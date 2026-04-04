@@ -285,7 +285,11 @@ impl WriterRegistry {
                 self.extension_map.get(k).map(|f| {
                     // Find the matching extension from the writer
                     if let Some(writer) = self.get(*f) {
-                        writer.extensions().iter().find(|e| e.to_lowercase() == *k).copied()
+                        writer
+                            .extensions()
+                            .iter()
+                            .find(|e| e.to_lowercase() == *k)
+                            .copied()
                     } else {
                         None
                     }
@@ -330,8 +334,6 @@ impl WriterRegistry {
         self.register(Box::new(PdfWriter));
         self.register(Box::new(BibTeXWriter));
         self.register(Box::new(RtfWriter));
-        self.register(Box::new(DocxWriter));
-        self.register(Box::new(EpubWriter));
         self.register(Box::new(BeamerWriter));
         self.register(Box::new(RevealJsWriter));
     }
@@ -361,8 +363,9 @@ impl Writer for HtmlWriter {
     ) -> ClmdResult<String> {
         let mut render_options = crate::options::Options::default();
         render_options.render.sourcepos = options.output_sourcepos;
-        render_options.extension.tagfilter =
-            options.extensions.contains(crate::ext::flags::ExtensionFlags::TAGFILTER);
+        render_options.extension.tagfilter = options
+            .extensions
+            .contains(crate::ext::flags::ExtensionFlags::TAGFILTER);
         Ok(crate::render::html::render(arena, root, &render_options))
     }
 
@@ -621,66 +624,6 @@ impl Writer for RtfWriter {
 
     fn mime_type(&self) -> &'static str {
         "application/rtf"
-    }
-}
-
-/// DOCX document writer.
-///
-/// Renders documents to DOCX format.
-#[derive(Debug, Clone, Copy)]
-pub struct DocxWriter;
-
-impl Writer for DocxWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::docx::DocxWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Docx
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["docx"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    }
-}
-
-/// EPUB document writer.
-///
-/// Renders documents to EPUB format.
-#[derive(Debug, Clone, Copy)]
-pub struct EpubWriter;
-
-impl Writer for EpubWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::epub::EpubWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Epub
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["epub"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/epub+zip"
     }
 }
 
@@ -974,7 +917,9 @@ mod tests {
         // The last one registered wins (RevealJs in this case)
         let path = Path::new("test.html");
         let format = registry.detect_format(path);
-        assert!(format == Some(OutputFormat::Html) || format == Some(OutputFormat::RevealJs));
+        assert!(
+            format == Some(OutputFormat::Html) || format == Some(OutputFormat::RevealJs)
+        );
 
         let path = Path::new("test.md");
         assert_eq!(registry.detect_format(path), Some(OutputFormat::Markdown));

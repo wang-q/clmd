@@ -22,11 +22,14 @@ use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::ReaderOptions;
 
 pub mod bibtex;
-pub mod latex;
 pub mod html;
+pub mod latex;
 
 mod registry;
-pub use registry::{BoxedReader, Reader, ReaderRegistry, MarkdownReader, HtmlReader, BibTeXReader, LaTeXReader};
+pub use registry::{
+    BibTeXReader, BoxedReader, HtmlReader, LaTeXReader, MarkdownReader, Reader,
+    ReaderRegistry,
+};
 
 /// Read a document from a string with format detection.
 ///
@@ -107,15 +110,15 @@ pub fn read_file(
 
 /// Detect format from file path by extension.
 fn detect_format_from_path(path: &std::path::Path) -> Option<&'static str> {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|ext| match ext.to_lowercase().as_str() {
+    path.extension().and_then(|e| e.to_str()).map(|ext| {
+        match ext.to_lowercase().as_str() {
             "md" | "markdown" | "mkd" | "mdown" => "markdown",
             "html" | "htm" => "html",
             "bib" | "bibtex" => "bibtex",
             "tex" | "latex" => "latex",
             _ => "markdown", // default to markdown
-        })
+        }
+    })
 }
 
 #[cfg(test)]
@@ -196,9 +199,15 @@ mod tests {
         let registry = ReaderRegistry::new();
 
         let markdown_reader = registry.get("markdown").unwrap();
-        assert_eq!(markdown_reader.input_format(), crate::options::InputFormat::Markdown);
+        assert_eq!(
+            markdown_reader.input_format(),
+            crate::options::InputFormat::Markdown
+        );
 
         let html_reader = registry.get("html").unwrap();
-        assert_eq!(html_reader.input_format(), crate::options::InputFormat::Html);
+        assert_eq!(
+            html_reader.input_format(),
+            crate::options::InputFormat::Html
+        );
     }
 }

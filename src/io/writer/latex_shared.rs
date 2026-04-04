@@ -461,10 +461,7 @@ pub fn escape_latex(text: &str) -> String {
 pub fn generate_preamble(state: &LatexState) -> String {
     let mut preamble = String::new();
 
-    preamble.push_str(&format!(
-        "\\documentclass{{{}}}\n\n",
-        state.document_class
-    ));
+    preamble.push_str(&format!("\\documentclass{{{}}}\n\n", state.document_class));
 
     // Standard packages
     preamble.push_str("\\usepackage[utf8]{inputenc}\n");
@@ -512,7 +509,9 @@ pub fn render_beamer(arena: &NodeArena, root: NodeId) -> String {
 mod tests {
     use super::*;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
+    };
 
     #[test]
     fn test_latex_state_new() {

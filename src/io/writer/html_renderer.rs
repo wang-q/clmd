@@ -122,15 +122,18 @@ impl<'a> HtmlRenderer<'a> {
 
     /// Write the HTML preamble (DOCTYPE, head start).
     fn write_preamble(&mut self, title: Option<&str>) {
-        self.output.push_str(r#"<!DOCTYPE html>
+        self.output.push_str(
+            r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-"#);
+"#,
+        );
 
         if let Some(t) = title {
-            self.output.push_str(&format!("    <title>{}</title>\n", escape_html(t)));
+            self.output
+                .push_str(&format!("    <title>{}</title>\n", escape_html(t)));
         }
     }
 
@@ -158,9 +161,11 @@ impl<'a> HtmlRenderer<'a> {
 
     /// Write Reveal.js setup HTML.
     fn write_revealjs_setup(&mut self) {
-        self.output.push_str(r#"<div class="reveal">
+        self.output.push_str(
+            r#"<div class="reveal">
     <div class="slides">
-"#);
+"#,
+        );
     }
 
     /// Write the standard footer.
@@ -170,7 +175,8 @@ impl<'a> HtmlRenderer<'a> {
 
     /// Write Reveal.js footer with initialization script.
     fn write_revealjs_footer(&mut self) {
-        self.output.push_str(r#"    </div>
+        self.output.push_str(
+            r#"    </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
 <script>
@@ -184,7 +190,8 @@ impl<'a> HtmlRenderer<'a> {
         margin: 0.04
     });
 </script>
-"#);
+"#,
+        );
     }
 
     /// Render the document body in standard HTML mode.
@@ -454,7 +461,8 @@ impl<'a> HtmlRenderer<'a> {
             }
 
             NodeValue::Link(link) => {
-                self.output.push_str(&format!(r#"<a href="{}">"#, escape_html(&link.url)));
+                self.output
+                    .push_str(&format!(r#"<a href="{}">"#, escape_html(&link.url)));
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
                     self.render_inline(child_id)?;
@@ -506,7 +514,6 @@ impl<'a> HtmlRenderer<'a> {
 
         Ok(())
     }
-
 }
 
 /// Escape HTML special characters.
@@ -575,7 +582,8 @@ mod tests {
 
         // Paragraph
         let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text("Hello world".into())));
+        let para_text =
+            arena.alloc(Node::with_value(NodeValue::Text("Hello world".into())));
         TreeOps::append_child(&mut arena, para, para_text);
         TreeOps::append_child(&mut arena, root, para);
 

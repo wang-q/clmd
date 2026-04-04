@@ -32,14 +32,12 @@ pub use html_renderer::*;
 pub mod latex_shared;
 pub use latex_shared::*;
 
-pub mod bibtex;
-pub mod rtf;
-pub mod docx;
-pub mod epub;
 pub mod beamer;
-pub mod revealjs;
+pub mod bibtex;
 pub mod latex;
 pub mod man;
 pub mod pdf;
+pub mod revealjs;
+pub mod rtf;
 pub mod typst;
 pub mod xml;

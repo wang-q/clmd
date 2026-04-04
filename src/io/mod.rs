@@ -12,5 +12,9 @@ pub mod writer;
 /// Format abstraction layer for document formats.
 pub mod format;
 
+/// Test utilities for IO module.
+#[cfg(test)]
+pub mod test_utils;
+
 // Internal implementations
 pub(crate) mod format_impl;

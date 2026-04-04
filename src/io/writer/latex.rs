@@ -18,7 +18,9 @@
 use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
-use crate::io::writer::latex_shared::{generate_preamble, render_latex, LatexRenderer, LatexState};
+use crate::io::writer::latex_shared::{
+    generate_preamble, render_latex, LatexRenderer, LatexState,
+};
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 
@@ -92,7 +94,9 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue};
+    use crate::core::nodes::{
+        NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue,
+    };
 
     #[test]
     fn test_render_paragraph() {

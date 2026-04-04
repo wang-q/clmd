@@ -265,7 +265,7 @@ impl Default for PipelineBuilder {
 
 /// Create a boxed reader by format name.
 fn create_reader(format: &str) -> ClmdResult<Box<dyn Reader>> {
-    use crate::io::reader::{MarkdownReader, HtmlReader, BibTeXReader, LaTeXReader};
+    use crate::io::reader::{BibTeXReader, HtmlReader, LaTeXReader, MarkdownReader};
 
     match format.to_lowercase().as_str() {
         "markdown" | "commonmark" => Ok(Box::new(MarkdownReader)),

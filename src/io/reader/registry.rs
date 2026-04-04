@@ -104,7 +104,8 @@ impl ReaderRegistry {
 
         // Register extensions
         for ext in reader.extensions() {
-            self.extension_map.insert(ext.to_lowercase(), format.to_string());
+            self.extension_map
+                .insert(ext.to_lowercase(), format.to_string());
         }
 
         // Register the reader

@@ -18,7 +18,7 @@
 use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
-use crate::io::writer::{Writer, HtmlMode, HtmlRenderer};
+use crate::io::writer::{HtmlMode, HtmlRenderer, Writer};
 use crate::options::{OutputFormat, WriterOptions};
 
 /// RevealJS document writer.
@@ -57,10 +57,10 @@ mod tests {
     use super::*;
     use crate::context::PureContext;
     use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::nodes::{ListDelimType, ListType};
     use crate::core::nodes::{
         NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeValue,
     };
-    use crate::core::nodes::{ListType, ListDelimType};
     use crate::options::WriterOptions;
 
     fn create_test_presentation() -> (NodeArena, NodeId) {
