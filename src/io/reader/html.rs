@@ -15,9 +15,10 @@
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
-use crate::io::reader::Reader;
 use crate::options::{InputFormat, ReaderOptions};
 use crate::parse;
+
+use super::Reader;
 
 /// HTML element conversion rules
 #[derive(Debug, Clone, Copy, Default)]

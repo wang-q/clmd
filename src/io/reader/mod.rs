@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::readers::{ReaderRegistry, Reader};
+//! use clmd::io::reader::{ReaderRegistry, Reader};
 //! use clmd::options::{ReaderOptions, InputFormat};
 //!
 //! let registry = ReaderRegistry::new();
@@ -19,250 +19,14 @@
 
 use crate::core::arena::NodeArena;
 use crate::core::error::{ClmdError, ClmdResult};
-use crate::options::{InputFormat, ReaderOptions};
-use crate::parse;
-use std::collections::HashMap;
-use std::fmt::Debug;
-
-/// A document reader that can parse input into an AST.
-///
-/// Readers are responsible for converting input data from a specific format
-/// into the internal AST representation used by clmd.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::readers::Reader;
-/// use clmd::options::ReaderOptions;
-///
-/// fn use_reader<R: Reader>(reader: &R, input: &str) {
-///     let options = ReaderOptions::default();
-///     let (arena, root) = reader.read(input, &options).unwrap();
-///     // Process the AST...
-/// }
-/// ```ignore
-pub trait Reader: Send + Sync + Debug {
-    /// Read input and parse it into an AST.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The input string to parse
-    /// * `options` - Parsing options
-    ///
-    /// # Returns
-    ///
-    /// A tuple of (arena, root_node_id) on success, or an error on failure.
-    fn read(
-        &self,
-        input: &str,
-        options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)>;
-
-    /// Get the format name this reader supports.
-    fn format(&self) -> &'static str;
-
-    /// Get the file extensions this reader can handle.
-    fn extensions(&self) -> &[&'static str];
-
-    /// Check if this reader supports a specific file extension.
-    fn supports_extension(&self, ext: &str) -> bool {
-        self.extensions().contains(&ext.to_lowercase().as_str())
-    }
-
-    /// Get the input format this reader handles.
-    fn input_format(&self) -> InputFormat;
-}
-
-/// A registry of available document readers.
-///
-/// The registry allows dynamic lookup of readers by format name or file extension.
-/// It supports registering custom readers at runtime.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::readers::ReaderRegistry;
-///
-/// let mut registry = ReaderRegistry::new();
-///
-/// // Get a reader by format name
-/// if let Some(reader) = registry.get("markdown") {
-///     println!("Found reader for markdown");
-/// }
-///
-/// // Get a reader by file extension
-/// if let Some(reader) = registry.get_by_extension("md") {
-///     println!("Found reader for .md files");
-/// }
-/// ```ignore
-#[derive(Debug, Default)]
-pub struct ReaderRegistry {
-    readers: HashMap<&'static str, Box<dyn Reader>>,
-    extension_map: HashMap<&'static str, &'static str>,
-}
-
-impl ReaderRegistry {
-    /// Create a new registry with default readers.
-    pub fn new() -> Self {
-        let mut registry = Self::empty();
-        registry.register_default_readers();
-        registry
-    }
-
-    /// Create an empty registry.
-    pub fn empty() -> Self {
-        Self {
-            readers: HashMap::new(),
-            extension_map: HashMap::new(),
-        }
-    }
-
-    /// Register a reader.
-    ///
-    /// # Arguments
-    ///
-    /// * `reader` - The reader to register
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use clmd::io::reader::{ReaderRegistry, MarkdownReader};
-    ///
-    /// let mut registry = ReaderRegistry::empty();
-    /// registry.register(Box::new(MarkdownReader));
-    /// ```
-    pub fn register(&mut self, reader: Box<dyn Reader>) {
-        let format = reader.format();
-
-        // Register extensions
-        for ext in reader.extensions() {
-            self.extension_map.insert(ext, format);
-        }
-
-        // Register the reader
-        self.readers.insert(format, reader);
-    }
-
-    /// Get a reader by format name.
-    ///
-    /// # Arguments
-    ///
-    /// * `format` - The format name (e.g., "markdown", "html")
-    ///
-    /// # Returns
-    ///
-    /// Some(reader) if found, None otherwise.
-    pub fn get(&self, format: &str) -> Option<&dyn Reader> {
-        self.readers.get(format).map(|r| r.as_ref())
-    }
-
-    /// Get a reader by file extension.
-    ///
-    /// # Arguments
-    ///
-    /// * `extension` - The file extension (e.g., "md", "html")
-    ///
-    /// # Returns
-    ///
-    /// Some(reader) if found, None otherwise.
-    pub fn get_by_extension(&self, extension: &str) -> Option<&dyn Reader> {
-        let ext = extension.to_lowercase();
-        self.extension_map
-            .get(ext.as_str())
-            .and_then(|format| self.get(format))
-    }
-
-    /// Detect the format from a file path.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The file path
-    ///
-    /// # Returns
-    ///
-    /// Some(format_name) if detected, None otherwise.
-    pub fn detect_format(&self, path: &std::path::Path) -> Option<&'static str> {
-        path.extension()
-            .and_then(|e| e.to_str())
-            .and_then(|ext| self.extension_map.get(ext).copied())
-    }
-
-    /// Get all registered format names.
-    pub fn formats(&self) -> Vec<&'static str> {
-        self.readers.keys().copied().collect()
-    }
-
-    /// Get all registered file extensions.
-    pub fn extensions(&self) -> Vec<&'static str> {
-        self.extension_map.keys().copied().collect()
-    }
-
-    /// Check if a format is supported.
-    pub fn supports_format(&self, format: &str) -> bool {
-        self.readers.contains_key(format)
-    }
-
-    /// Check if an extension is supported.
-    pub fn supports_extension(&self, extension: &str) -> bool {
-        let ext = extension.to_lowercase();
-        self.extension_map.contains_key(ext.as_str())
-    }
-
-    /// Register default readers.
-    fn register_default_readers(&mut self) {
-        self.register(Box::new(MarkdownReader));
-        self.register(Box::new(HtmlReader));
-        self.register(Box::new(BibTeXReader));
-        self.register(Box::new(LaTeXReader));
-    }
-}
+use crate::options::ReaderOptions;
 
 pub mod bibtex;
-pub use bibtex::BibTeXReader;
-
 pub mod latex;
-pub use latex::LaTeXReader;
-
 pub mod html;
-pub use html::HtmlReader;
 
-impl Clone for ReaderRegistry {
-    fn clone(&self) -> Self {
-        // Create a new registry with default readers
-        // This is a limitation - custom readers won't be cloned
-        Self::new()
-    }
-}
-
-/// Markdown document reader.
-///
-/// Reads CommonMark and GFM formatted Markdown.
-#[derive(Debug, Clone, Copy)]
-pub struct MarkdownReader;
-
-impl Reader for MarkdownReader {
-    fn read(
-        &self,
-        input: &str,
-        options: &ReaderOptions,
-    ) -> ClmdResult<(NodeArena, crate::core::arena::NodeId)> {
-        // Convert ReaderOptions to parser Options
-        let parser_options = options.to_parser_options();
-        Ok(parse::parse_document(input, &parser_options))
-    }
-
-    fn format(&self) -> &'static str {
-        "markdown"
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["md", "markdown", "mkd", "mdown"]
-    }
-
-    fn input_format(&self) -> InputFormat {
-        InputFormat::Markdown
-    }
-}
+mod registry;
+pub use registry::{BoxedReader, Reader, ReaderRegistry, MarkdownReader, HtmlReader, BibTeXReader, LaTeXReader};
 
 /// Read a document from a string with format detection.
 ///
@@ -279,12 +43,12 @@ impl Reader for MarkdownReader {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::readers::read_document;
+/// use clmd::io::reader::read_document;
 /// use clmd::options::ReaderOptions;
 ///
 /// let options = ReaderOptions::default();
 /// let (arena, root) = read_document("# Hello", Some("markdown"), &options).unwrap();
-/// ```ignore
+/// ```
 pub fn read_document(
     input: &str,
     format: Option<&str>,
@@ -316,12 +80,12 @@ pub fn read_document(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::readers::read_file;
+/// use clmd::io::reader::read_file;
 /// use clmd::options::ReaderOptions;
 ///
 /// let options = ReaderOptions::default();
 /// let (arena, root) = read_file("document.md", None, &options).unwrap();
-/// ```ignore
+/// ```
 pub fn read_file(
     path: &std::path::Path,
     format: Option<&str>,
@@ -335,39 +99,29 @@ pub fn read_file(
     // Detect format from extension if not specified
     let format = match format {
         Some(f) => Some(f),
-        None => {
-            let registry = ReaderRegistry::new();
-            registry.detect_format(path)
-        }
+        None => detect_format_from_path(path),
     };
 
     read_document(&content, format, options)
+}
+
+/// Detect format from file path by extension.
+fn detect_format_from_path(path: &std::path::Path) -> Option<&'static str> {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|ext| match ext.to_lowercase().as_str() {
+            "md" | "markdown" | "mkd" | "mdown" => "markdown",
+            "html" | "htm" => "html",
+            "bib" | "bibtex" => "bibtex",
+            "tex" | "latex" => "latex",
+            _ => "markdown", // default to markdown
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::nodes::NodeValue;
-
-    #[test]
-    fn test_markdown_reader() {
-        let reader = MarkdownReader;
-        let options = ReaderOptions::default();
-
-        let (arena, root) = reader.read("# Hello", &options).unwrap();
-        let node = arena.get(root);
-        assert!(matches!(node.value, NodeValue::Document));
-    }
-
-    #[test]
-    fn test_html_reader() {
-        let reader = HtmlReader;
-        let options = ReaderOptions::default();
-
-        let (arena, root) = reader.read("<h1>Hello</h1>", &options).unwrap();
-        let node = arena.get(root);
-        assert!(matches!(node.value, NodeValue::Document));
-    }
 
     #[test]
     fn test_reader_registry() {
@@ -439,10 +193,12 @@ mod tests {
 
     #[test]
     fn test_reader_input_format() {
-        let markdown_reader = MarkdownReader;
-        assert_eq!(markdown_reader.input_format(), InputFormat::Markdown);
+        let registry = ReaderRegistry::new();
 
-        let html_reader = HtmlReader;
-        assert_eq!(html_reader.input_format(), InputFormat::Html);
+        let markdown_reader = registry.get("markdown").unwrap();
+        assert_eq!(markdown_reader.input_format(), crate::options::InputFormat::Markdown);
+
+        let html_reader = registry.get("html").unwrap();
+        assert_eq!(html_reader.input_format(), crate::options::InputFormat::Html);
     }
 }

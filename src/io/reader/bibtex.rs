@@ -16,8 +16,9 @@
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
-use crate::io::reader::Reader;
 use crate::options::{InputFormat, ReaderOptions};
+
+use super::Reader;
 
 /// BibTeX document reader.
 #[derive(Debug, Clone, Copy)]

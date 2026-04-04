@@ -20,8 +20,9 @@
 use crate::core::arena::{Node, NodeArena, NodeId, TreeOps};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{NodeCodeBlock, NodeHeading, NodeValue};
-use crate::io::reader::Reader;
 use crate::options::{InputFormat, ReaderOptions};
+
+use super::Reader;
 
 /// LaTeX document reader.
 #[derive(Debug, Clone, Copy)]
