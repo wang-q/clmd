@@ -86,6 +86,33 @@ pub trait Writer: Send + Sync + std::fmt::Debug {
 
     /// Get the MIME type for this format.
     fn mime_type(&self) -> &'static str;
+
+    /// Write the AST to a file.
+    ///
+    /// This is a convenience method that writes the rendered output directly to a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - The arena containing the AST nodes
+    /// * `root` - The root node ID
+    /// * `path` - The output file path
+    /// * `ctx` - The context for IO operations
+    /// * `options` - Rendering options
+    ///
+    /// # Returns
+    ///
+    /// Ok on success, or an error on failure.
+    fn write_to_file(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        path: &std::path::Path,
+        ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<()> {
+        let content = self.write(arena, root, ctx, options)?;
+        ctx.write_file(path, content.as_bytes())
+    }
 }
 
 /// A registry of document writers.

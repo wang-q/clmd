@@ -1,27 +1,40 @@
 //! Beamer document writer.
 //!
-//! This module provides a writer for Beamer (LaTeX slides) format.
+//! This module provides a writer for Beamer (LaTeX slides) format,
+//! using the shared LaTeX rendering core with Beamer-specific extensions.
+//!
+//! The Beamer writer extends the shared LaTeX core with:
+//! - Slide structure conversion (frames)
+//! - Title slide generation
+//! - Section/subsection handling
+//! - Support for fragile frames (for code blocks)
 //!
 //! # Example
 //!
 //! ```ignore
-//! use clmd::writers::BeamerWriter;
+//! use clmd::io::writer::BeamerWriter;
 //! use clmd::options::WriterOptions;
 //! use clmd::context::PureContext;
 //!
 //! let writer = BeamerWriter;
 //! let ctx = PureContext::new();
-//! let output = writer.write(&arena, root, &ctx, &WriterOptions::default()).unwrap();
+//! let options = WriterOptions::default();
+//! let output = writer.write(&arena, root, &ctx, &options).unwrap();
 //! ```
 
 use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
+use crate::io::writer::latex_shared::{escape_latex, generate_preamble, LatexState};
+use crate::io::writer::shared::extract_title;
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 
 /// Beamer document writer.
+///
+/// Renders documents to Beamer (LaTeX slides) format with a complete
+/// document structure including frames and title slides.
 #[derive(Debug, Clone, Copy)]
 pub struct BeamerWriter;
 
@@ -35,8 +48,9 @@ impl Writer for BeamerWriter {
     ) -> ClmdResult<String> {
         let mut output = String::new();
 
-        // Beamer preamble
-        output.push_str(BEAMER_PREAMBLE);
+        // Generate Beamer preamble
+        let state = LatexState::beamer();
+        output.push_str(&generate_preamble(&state));
 
         // Document content
         output.push_str("\\begin{document}\n\n");
@@ -70,34 +84,6 @@ impl Writer for BeamerWriter {
     fn mime_type(&self) -> &'static str {
         "text/x-tex"
     }
-}
-
-/// Extract title from the first level 1 heading.
-fn extract_title(arena: &NodeArena, root: NodeId) -> Option<String> {
-    let root_node = arena.get(root);
-    let mut child_opt = root_node.first_child;
-
-    while let Some(child_id) = child_opt {
-        let child = arena.get(child_id);
-        if let NodeValue::Heading(heading) = &child.value {
-            if heading.level == 1 {
-                // Collect text from children
-                let mut title = String::new();
-                let mut text_opt = child.first_child;
-                while let Some(text_id) = text_opt {
-                    let text_node = arena.get(text_id);
-                    if let NodeValue::Text(t) = &text_node.value {
-                        title.push_str(t);
-                    }
-                    text_opt = text_node.next;
-                }
-                return Some(title);
-            }
-        }
-        child_opt = child.next;
-    }
-
-    None
 }
 
 /// Render slides from the AST.
@@ -189,7 +175,7 @@ fn render_slides(
         }
 
         NodeValue::CodeBlock(code) => {
-            // Code blocks become their own frames
+            // Code blocks become their own frames with fragile option
             output.push_str("\\begin{frame}[fragile]\n");
             output.push_str("\\begin{verbatim}\n");
             output.push_str(&code.literal);
@@ -229,8 +215,15 @@ fn render_slide_content(
             output.push_str("\n\n");
         }
 
-        NodeValue::List(_) => {
-            output.push_str("\\begin{itemize}\n");
+        NodeValue::List(list) => {
+            match list.list_type {
+                crate::core::nodes::ListType::Bullet => {
+                    output.push_str("\\begin{itemize}\n");
+                }
+                crate::core::nodes::ListType::Ordered => {
+                    output.push_str("\\begin{enumerate}\n");
+                }
+            }
 
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
@@ -248,7 +241,14 @@ fn render_slide_content(
                 child_opt = child.next;
             }
 
-            output.push_str("\\end{itemize}\n\n");
+            match list.list_type {
+                crate::core::nodes::ListType::Bullet => {
+                    output.push_str("\\end{itemize}\n\n");
+                }
+                crate::core::nodes::ListType::Ordered => {
+                    output.push_str("\\end{enumerate}\n\n");
+                }
+            }
         }
 
         NodeValue::BlockQuote => {
@@ -370,48 +370,6 @@ fn render_inline(
     Ok(())
 }
 
-/// Escape LaTeX special characters.
-fn escape_latex(text: &str) -> String {
-    let mut result = String::with_capacity(text.len() * 2);
-
-    for c in text.chars() {
-        match c {
-            '\\' => result.push_str("\\textbackslash{}"),
-            '{' => result.push_str("\\{"),
-            '}' => result.push_str("\\}"),
-            '$' => result.push_str("\\$"),
-            '&' => result.push_str("\\&"),
-            '#' => result.push_str("\\#"),
-            '^' => result.push_str("\\^{}"),
-            '_' => result.push_str("\\_"),
-            '%' => result.push_str("\\%"),
-            '~' => result.push_str("\\textasciitilde{}"),
-            '<' => result.push_str("\\textless{}"),
-            '>' => result.push_str("\\textgreater{}"),
-            '|' => result.push_str("\\textbar{}"),
-            '"' => result.push_str("\\textquotedbl{}"),
-            '\'' => result.push_str("\\textquotesingle{}"),
-            '`' => result.push_str("\\textasciigrave{}"),
-            _ => result.push(c),
-        }
-    }
-
-    result
-}
-
-/// Beamer document preamble.
-const BEAMER_PREAMBLE: &str = r#"\documentclass[aspectratio=169]{beamer}
-
-\usetheme{Madrid}
-\usecolortheme{default}
-
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{hyperref}
-\usepackage{ulem}
-
-"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -420,7 +378,6 @@ mod tests {
     use crate::core::nodes::{
         NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
     };
-    use crate::options::WriterOptions;
 
     fn create_test_presentation() -> (NodeArena, NodeId) {
         let mut arena = NodeArena::new();
@@ -868,26 +825,5 @@ mod tests {
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("\\textbf{\\emph{bold italic}}"));
-    }
-
-    #[test]
-    fn test_latex_escape() {
-        assert_eq!(escape_latex("hello"), "hello");
-        assert_eq!(escape_latex("$100"), "\\$100");
-        assert_eq!(escape_latex("10%"), "10\\%");
-        assert_eq!(escape_latex("a_b"), "a\\_b");
-        assert_eq!(escape_latex("\\"), "\\textbackslash{}");
-        assert_eq!(escape_latex("{"), "\\{");
-        assert_eq!(escape_latex("}"), "\\}");
-        assert_eq!(escape_latex("&"), "\\&");
-        assert_eq!(escape_latex("#"), "\\#");
-        assert_eq!(escape_latex("^"), "\\^{}");
-        assert_eq!(escape_latex("~"), "\\textasciitilde{}");
-        assert_eq!(escape_latex("<"), "\\textless{}");
-        assert_eq!(escape_latex(">"), "\\textgreater{}");
-        assert_eq!(escape_latex("|"), "\\textbar{}");
-        assert_eq!(escape_latex("\""), "\\textquotedbl{}");
-        assert_eq!(escape_latex("'"), "\\textquotesingle{}");
-        assert_eq!(escape_latex("`"), "\\textasciigrave{}");
     }
 }

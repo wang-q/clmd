@@ -18,6 +18,7 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
+use crate::io::writer::shared::collect_text;
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 
@@ -74,7 +75,7 @@ fn render_node(
             let mut title = String::new();
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
-                collect_text(arena, child_id, &mut title)?;
+                title.push_str(&collect_text(arena, child_id));
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }
@@ -202,34 +203,6 @@ fn render_inline(
             let mut child_opt = node.first_child;
             while let Some(child_id) = child_opt {
                 render_inline(arena, child_id, output)?;
-                let child = arena.get(child_id);
-                child_opt = child.next;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Collect text content from a node and its children.
-fn collect_text(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut String,
-) -> ClmdResult<()> {
-    let node = arena.get(node_id);
-
-    match &node.value {
-        NodeValue::Text(text) => {
-            output.push_str(text);
-        }
-        NodeValue::SoftBreak | NodeValue::HardBreak => {
-            output.push(' ');
-        }
-        _ => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                collect_text(arena, child_id, output)?;
                 let child = arena.get(child_id);
                 child_opt = child.next;
             }

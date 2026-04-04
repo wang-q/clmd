@@ -18,6 +18,7 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::core::nodes::NodeValue;
+use crate::io::writer::shared::escape_html_to;
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -205,7 +206,7 @@ fn render_node(
 
         NodeValue::CodeBlock(code) => {
             output.push_str("<pre><code>");
-            escape_html(&code.literal, output);
+            escape_html_to(&code.literal, output);
             output.push_str("</code></pre>");
         }
 
@@ -262,7 +263,7 @@ fn render_inline(
 
     match &node.value {
         NodeValue::Text(text) => {
-            escape_html(text, output);
+            escape_html_to(text, output);
         }
 
         NodeValue::SoftBreak => {
@@ -297,7 +298,7 @@ fn render_inline(
 
         NodeValue::Code(code) => {
             output.push_str("<code>");
-            escape_html(&code.literal, output);
+            escape_html_to(&code.literal, output);
             output.push_str("</code>");
         }
 
@@ -345,19 +346,6 @@ fn render_inline(
     }
 
     Ok(())
-}
-
-/// Escape HTML special characters.
-fn escape_html(text: &str, output: &mut String) {
-    for c in text.chars() {
-        match c {
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '&' => output.push_str("&amp;"),
-            '"' => output.push_str("&quot;"),
-            _ => output.push(c),
-        }
-    }
 }
 
 // Static XML content for EPUB structure
@@ -858,8 +846,8 @@ mod tests {
     #[test]
     fn test_escape_html() {
         let mut output = String::new();
-        escape_html("<>&\"'", &mut output);
-        assert_eq!(output, "&lt;&gt;&amp;&quot;'");
+        escape_html_to("<>&\"'", &mut output);
+        assert_eq!(output, "&lt;&gt;&amp;&quot;&#x27;");
     }
 
     #[test]

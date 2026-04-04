@@ -26,7 +26,9 @@ pub fn format_document_with_plugins(
     output: &mut dyn fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> fmt::Result {
-    format_node_typst(arena, root, output, 0)
+    let mut renderer = TypstRenderer::new(arena);
+    let result = renderer.render(root);
+    output.write_str(&result)
 }
 
 /// Escape special Typst characters in text.
@@ -38,199 +40,6 @@ fn escape_typst_text(text: &str) -> String {
         .replace('$', "\\$")
         .replace('<', "\\<")
         .replace('>', "\\>")
-}
-
-fn format_node_typst(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn fmt::Write,
-    list_depth: usize,
-) -> fmt::Result {
-    let node = arena.get(node_id);
-
-    match &node.value {
-        NodeValue::Document => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-        }
-        NodeValue::Paragraph => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("\n\n")?;
-        }
-        NodeValue::Text(text) => {
-            output.write_str(&escape_typst_text(text))?;
-        }
-        NodeValue::Heading(heading) => {
-            let level = heading.level as usize;
-            let prefix = match level {
-                1 => "= ",
-                2 => "== ",
-                3 => "=== ",
-                4 => "==== ",
-                5 => "===== ",
-                6 => "====== ",
-                _ => "= ",
-            };
-            output.write_str(prefix)?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("\n\n")?;
-        }
-        NodeValue::Emph => {
-            output.write_str("_")?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("_")?;
-        }
-        NodeValue::Strong => {
-            output.write_str("*")?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("*")?;
-        }
-        NodeValue::Code(code) => {
-            output.write_str("`")?;
-            output.write_str(&code.literal)?;
-            output.write_str("`")?;
-        }
-        NodeValue::CodeBlock(code_block) => {
-            if code_block.fenced {
-                output.write_str("```")?;
-                if !code_block.info.is_empty() {
-                    output.write_str(&code_block.info)?;
-                }
-                output.write_str("\n")?;
-                output.write_str(&code_block.literal)?;
-                output.write_str("\n```\n\n")?;
-            } else {
-                output.write_str("```\n")?;
-                output.write_str(&code_block.literal)?;
-                output.write_str("\n```\n\n")?;
-            }
-        }
-        NodeValue::List(NodeList { list_type, .. }) => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_list_item(arena, child_id, output, list_depth, *list_type)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("\n")?;
-        }
-        NodeValue::Item(_) => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-        }
-        NodeValue::BlockQuote => {
-            output.write_str("#quote[\n")?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("]\n\n")?;
-        }
-        NodeValue::ThematicBreak(..) => {
-            output.write_str("#line(length: 100%)\n\n")?;
-        }
-        NodeValue::SoftBreak => {
-            output.write_str(" ")?;
-        }
-        NodeValue::HardBreak => {
-            output.write_str("\\n")?;
-        }
-        NodeValue::Link(link) => {
-            output.write_str("#link(\"")?;
-            output.write_str(&link.url)?;
-            output.write_str("\")[")?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("]")?;
-        }
-        NodeValue::Image(link) => {
-            output.write_str("#image(\"")?;
-            output.write_str(&link.url)?;
-            output.write_str("\")")?;
-        }
-        NodeValue::Strikethrough => {
-            output.write_str("#strike[")?;
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-            output.write_str("]")?;
-        }
-        NodeValue::HtmlBlock(html_block) => {
-            output.write_str(&html_block.literal)?;
-            output.write_str("\n\n")?;
-        }
-        NodeValue::HtmlInline(html) => {
-            output.write_str(html)?;
-        }
-        _ => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                format_node_typst(arena, child_id, output, list_depth)?;
-                child_opt = arena.get(child_id).next;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn format_list_item(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn fmt::Write,
-    depth: usize,
-    list_type: ListType,
-) -> fmt::Result {
-    let node = arena.get(node_id);
-
-    for _ in 0..depth {
-        output.write_str("  ")?;
-    }
-
-    match list_type {
-        ListType::Bullet => {
-            output.write_str("- ")?;
-        }
-        ListType::Ordered => {
-            output.write_str("+ ")?;
-        }
-    }
-
-    let mut child_opt = node.first_child;
-    while let Some(child_id) = child_opt {
-        format_node_typst(arena, child_id, output, depth + 1)?;
-        child_opt = arena.get(child_id).next;
-    }
-
-    output.write_str("\n")?;
-    Ok(())
 }
 
 /// Typst renderer state
@@ -316,6 +125,75 @@ impl<'a> TypstRenderer<'a> {
                 self.output.push_str(&code.literal);
                 self.output.push('`');
             }
+            NodeValue::CodeBlock(code_block) => {
+                self.output.push_str("```");
+                if !code_block.info.is_empty() {
+                    self.output.push_str(&code_block.info);
+                }
+                self.output.push('\n');
+                self.output.push_str(&code_block.literal);
+                self.output.push_str("\n```\n\n");
+            }
+            NodeValue::List(NodeList { list_type, .. }) => {
+                self.render_list(node_id, 0, *list_type);
+            }
+            NodeValue::Item(_) => {
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+            }
+            NodeValue::BlockQuote => {
+                self.output.push_str("#quote[\n");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push_str("]\n\n");
+            }
+            NodeValue::ThematicBreak(..) => {
+                self.output.push_str("#line(length: 100%)\n\n");
+            }
+            NodeValue::SoftBreak => {
+                self.output.push(' ');
+            }
+            NodeValue::HardBreak => {
+                self.output.push_str("\\n");
+            }
+            NodeValue::Link(link) => {
+                self.output.push_str("#link(\"");
+                self.output.push_str(&link.url);
+                self.output.push_str("\")[");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push(']');
+            }
+            NodeValue::Image(link) => {
+                self.output.push_str("#image(\"");
+                self.output.push_str(&link.url);
+                self.output.push_str("\")");
+            }
+            NodeValue::Strikethrough => {
+                self.output.push_str("#strike[");
+                let mut child_opt = node.first_child;
+                while let Some(child_id) = child_opt {
+                    self.render_node(child_id);
+                    child_opt = self.arena.get(child_id).next;
+                }
+                self.output.push(']');
+            }
+            NodeValue::HtmlBlock(html_block) => {
+                self.output.push_str(&html_block.literal);
+                self.output.push_str("\n\n");
+            }
+            NodeValue::HtmlInline(html) => {
+                self.output.push_str(html);
+            }
             _ => {
                 let mut child_opt = node.first_child;
                 while let Some(child_id) = child_opt {
@@ -324,6 +202,32 @@ impl<'a> TypstRenderer<'a> {
                 }
             }
         }
+    }
+
+    fn render_list(&mut self, node_id: NodeId, depth: usize, list_type: ListType) {
+        let node = self.arena.get(node_id);
+
+        let mut child_opt = node.first_child;
+        while let Some(child_id) = child_opt {
+            let child = self.arena.get(child_id);
+            if matches!(child.value, NodeValue::Item(_)) {
+                for _ in 0..depth {
+                    self.output.push_str("  ");
+                }
+                match list_type {
+                    ListType::Bullet => self.output.push_str("- "),
+                    ListType::Ordered => self.output.push_str("+ "),
+                }
+                let mut item_child_opt = child.first_child;
+                while let Some(item_child_id) = item_child_opt {
+                    self.render_node(item_child_id);
+                    item_child_opt = self.arena.get(item_child_id).next;
+                }
+                self.output.push('\n');
+            }
+            child_opt = child.next;
+        }
+        self.output.push('\n');
     }
 }
 

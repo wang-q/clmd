@@ -18,6 +18,7 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::core::nodes::NodeValue;
+use crate::io::format::xml::escape_xml;
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -212,7 +213,7 @@ fn render_node(
 
             for line in code.literal.lines() {
                 output.push_str(r#"<w:r><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">"#);
-                escape_xml_text(line, output);
+                output.push_str(&escape_xml(line));
                 output.push_str("</w:t></w:r><w:br/>");
             }
 
@@ -273,7 +274,7 @@ fn render_inline(
     match &node.value {
         NodeValue::Text(text) => {
             output.push_str("<w:r><w:t xml:space=\"preserve\">");
-            escape_xml_text(text, output);
+            output.push_str(&escape_xml(text));
             output.push_str("</w:t></w:r>");
         }
 
@@ -305,7 +306,7 @@ fn render_inline(
 
         NodeValue::Code(code) => {
             output.push_str(r#"<w:r><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">"#);
-            escape_xml_text(&code.literal, output);
+            output.push_str(&escape_xml(&code.literal));
             output.push_str("</w:t></w:r>");
         }
 
@@ -375,7 +376,7 @@ fn render_inline_text(
 
     match &node.value {
         NodeValue::Text(text) => {
-            escape_xml_text(text, output);
+            output.push_str(&escape_xml(text));
         }
 
         NodeValue::SoftBreak | NodeValue::HardBreak => {
@@ -393,20 +394,6 @@ fn render_inline_text(
     }
 
     Ok(())
-}
-
-/// Escape XML special characters.
-fn escape_xml_text(text: &str, output: &mut String) {
-    for c in text.chars() {
-        match c {
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '&' => output.push_str("&amp;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&apos;"),
-            _ => output.push(c),
-        }
-    }
 }
 
 // Static XML content for DOCX structure
@@ -810,13 +797,6 @@ mod tests {
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(!output.is_empty());
-    }
-
-    #[test]
-    fn test_escape_xml_text() {
-        let mut output = String::new();
-        escape_xml_text("<>&\"'", &mut output);
-        assert_eq!(output, "&lt;&gt;&amp;&quot;&apos;");
     }
 
     #[test]

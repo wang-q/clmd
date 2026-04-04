@@ -29,6 +29,9 @@ pub use shared::*;
 pub mod html_renderer;
 pub use html_renderer::*;
 
+pub mod latex_shared;
+pub use latex_shared::*;
+
 pub mod bibtex;
 pub mod rtf;
 pub mod docx;

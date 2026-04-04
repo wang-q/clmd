@@ -22,40 +22,6 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
 use crate::options::WriterOptions;
-use std::io::Write;
-
-/// PDF export options
-#[derive(Debug, Clone)]
-pub struct PdfOptions {
-    /// Document title
-    pub title: Option<String>,
-    /// Document author
-    pub author: Option<String>,
-    /// Page size
-    pub page_size: PageSize,
-}
-
-impl Default for PdfOptions {
-    fn default() -> Self {
-        Self {
-            title: None,
-            author: None,
-            page_size: PageSize::A4,
-        }
-    }
-}
-
-/// Page size for PDF export
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PageSize {
-    /// A4 page size
-    A4,
-    /// Letter page size
-    Letter,
-    /// Legal page size
-    Legal,
-}
 
 /// Render an AST as PDF
 ///
@@ -73,117 +39,6 @@ pub fn write_pdf(
     _options: &WriterOptions,
 ) -> ClmdResult<String> {
     Ok(render(arena, root, 0))
-}
-
-/// Format an AST as PDF with options
-///
-/// This is a placeholder implementation that generates a simple text representation.
-pub fn format_document(
-    arena: &NodeArena,
-    root: NodeId,
-    _options: &PdfOptions,
-    output: &mut dyn Write,
-) -> std::io::Result<()> {
-    writeln!(output, "%PDF-1.4")?;
-    writeln!(
-        output,
-        "% Placeholder PDF - real implementation would use printpdf crate"
-    )?;
-
-    format_node_pdf(arena, root, output)?;
-
-    writeln!(output, "%%EOF")?;
-
-    Ok(())
-}
-
-fn format_node_pdf(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn Write,
-) -> std::io::Result<()> {
-    let node = arena.get(node_id);
-    let value = &node.value;
-
-    match value {
-        NodeValue::Heading(heading) => {
-            write!(output, "Heading {}: ", heading.level)?;
-            write_children_text(arena, node_id, output)?;
-            writeln!(output)?;
-        }
-        NodeValue::Paragraph => {
-            write_children_text(arena, node_id, output)?;
-            writeln!(output)?;
-            writeln!(output)?;
-        }
-        _ => {
-            write_children(arena, node_id, output)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn write_children(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn Write,
-) -> std::io::Result<()> {
-    let children = collect_children(arena, node_id);
-    for child_id in children {
-        format_node_pdf(arena, child_id, output)?;
-    }
-    Ok(())
-}
-
-fn write_children_text(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn Write,
-) -> std::io::Result<()> {
-    let children = collect_children(arena, node_id);
-    for child_id in children {
-        write_node_text(arena, child_id, output)?;
-    }
-    Ok(())
-}
-
-fn write_node_text(
-    arena: &NodeArena,
-    node_id: NodeId,
-    output: &mut dyn Write,
-) -> std::io::Result<()> {
-    let node = arena.get(node_id);
-    match &node.value {
-        NodeValue::Text(literal) => {
-            output.write_all(literal.as_bytes())?;
-        }
-        _ => {
-            write_children_text(arena, node_id, output)?;
-        }
-    }
-    Ok(())
-}
-
-fn collect_children(arena: &NodeArena, node_id: NodeId) -> Vec<NodeId> {
-    let mut children = Vec::new();
-
-    let first_opt = arena.get(node_id).first_child;
-    if let Some(first) = first_opt {
-        children.push(first);
-        let mut current = first;
-        loop {
-            let next_opt = arena.get(current).next;
-            if let Some(next) = next_opt {
-                children.push(next);
-                current = next;
-            } else {
-                break;
-            }
-        }
-    }
-
-    children
 }
 
 /// PDF renderer state
@@ -324,28 +179,12 @@ mod tests {
     }
 
     #[test]
-    fn test_pdf_format_document() {
+    fn test_pdf_write() {
         let (arena, doc) = create_test_document();
-        let options = PdfOptions::default();
-        let mut output = Vec::new();
+        let options = WriterOptions::default();
+        let output = write_pdf(&arena, doc, &options).unwrap();
 
-        format_document(&arena, doc, &options, &mut output).unwrap();
-        let output_str = String::from_utf8(output).unwrap();
-
-        assert!(output_str.contains("%PDF"));
-        assert!(output_str.contains("Test Document"));
-    }
-
-    #[test]
-    fn test_pdf_options() {
-        let options = PdfOptions {
-            title: Some("My Doc".to_string()),
-            author: Some("Author".to_string()),
-            page_size: PageSize::Letter,
-        };
-
-        assert_eq!(options.title, Some("My Doc".to_string()));
-        assert_eq!(options.author, Some("Author".to_string()));
-        assert_eq!(options.page_size, PageSize::Letter);
+        assert!(output.contains("%PDF"));
+        assert!(output.contains("Test Document"));
     }
 }

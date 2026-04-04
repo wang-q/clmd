@@ -25,6 +25,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
+use crate::io::writer::shared::extract_title;
 use crate::options::WriterOptions;
 
 /// HTML rendering mode.
@@ -108,7 +109,7 @@ impl<'a> HtmlRenderer<'a> {
 
     /// Render in Reveal.js mode.
     fn render_revealjs(&mut self, root: NodeId) -> ClmdResult<String> {
-        let title = self.extract_title(root);
+        let title = extract_title(self.arena, root);
         self.write_preamble(title.as_deref());
         self.write_revealjs_head();
         self.output.push_str("<body>\n");
@@ -506,32 +507,6 @@ impl<'a> HtmlRenderer<'a> {
         Ok(())
     }
 
-    /// Extract the title from the first h1 heading.
-    fn extract_title(&self, root: NodeId) -> Option<String> {
-        let root_node = self.arena.get(root);
-        let mut child_opt = root_node.first_child;
-
-        while let Some(child_id) = child_opt {
-            let child = self.arena.get(child_id);
-            if let NodeValue::Heading(heading) = &child.value {
-                if heading.level == 1 {
-                    let mut title = String::new();
-                    let mut text_opt = child.first_child;
-                    while let Some(text_id) = text_opt {
-                        let text_node = self.arena.get(text_id);
-                        if let NodeValue::Text(t) = &text_node.value {
-                            title.push_str(t);
-                        }
-                        text_opt = text_node.next;
-                    }
-                    return Some(title);
-                }
-            }
-            child_opt = child.next;
-        }
-
-        None
-    }
 }
 
 /// Escape HTML special characters.
