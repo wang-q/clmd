@@ -55,7 +55,6 @@ fn test_cli_to_help() {
     assert!(output.status.success());
     let help = String::from_utf8(output.stdout).unwrap();
     assert!(help.contains("html"));
-    assert!(help.contains("docx"));
     assert!(help.contains("--output"));
 }
 

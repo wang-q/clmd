@@ -163,53 +163,6 @@ pub fn parse_inline_style(css: &str) -> Option<StyleDeclaration> {
     Some(StyleDeclaration::from_css(trimmed))
 }
 
-/// CSS unit utilities.
-///
-/// This is reserved for extended CSS validation support.
-#[allow(dead_code)]
-pub mod units {
-    /// Common CSS length units.
-    pub const LENGTH_UNITS: &[&str] = &[
-        "px", "em", "rem", "%", "pt", "pc", "in", "cm", "mm", "ex", "ch", "vw", "vh",
-        "vmin", "vmax",
-    ];
-
-    /// Check if a value has a CSS unit.
-    pub fn has_unit(value: &str) -> bool {
-        let value = value.trim().to_lowercase();
-        LENGTH_UNITS.iter().any(|unit| value.ends_with(unit))
-    }
-
-    /// Extract the numeric part from a CSS length value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use clmd::io::format::css::units::extract_number;
-    ///
-    /// assert_eq!(extract_number("14px"), Some(14.0));
-    /// assert_eq!(extract_number("1.5em"), Some(1.5));
-    /// assert_eq!(extract_number("auto"), None);
-    /// ```
-    pub fn extract_number(value: &str) -> Option<f64> {
-        let value = value.trim();
-        let numeric_part: String = value
-            .chars()
-            .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
-            .collect();
-        numeric_part.parse().ok()
-    }
-
-    /// Extract the unit from a CSS length value.
-    pub fn extract_unit(value: &str) -> Option<&str> {
-        let value = value.trim().to_lowercase();
-        LENGTH_UNITS
-            .iter()
-            .find(|&&unit| value.ends_with(unit))
-            .copied()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,27 +229,6 @@ mod tests {
 
         let css = format!("{}", style);
         assert!(css.contains("color: red"));
-    }
-
-    #[test]
-    fn test_units_has_unit() {
-        assert!(units::has_unit("14px"));
-        assert!(units::has_unit("1.5em"));
-        assert!(!units::has_unit("auto"));
-    }
-
-    #[test]
-    fn test_units_extract_number() {
-        assert_eq!(units::extract_number("14px"), Some(14.0));
-        assert_eq!(units::extract_number("1.5em"), Some(1.5));
-        assert_eq!(units::extract_number("auto"), None);
-    }
-
-    #[test]
-    fn test_units_extract_unit() {
-        assert_eq!(units::extract_unit("14px"), Some("px"));
-        assert_eq!(units::extract_unit("1.5em"), Some("em"));
-        assert_eq!(units::extract_unit("auto"), None);
     }
 
     #[test]

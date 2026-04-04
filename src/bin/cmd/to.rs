@@ -2,7 +2,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use std::path::Path;
 
 use crate::cmd::utils;
-use clmd::context::{IoContext, PureContext};
+use clmd::context::PureContext;
 use clmd::io::writer::WriterRegistry;
 use clmd::options::WriterOptions;
 
@@ -12,7 +12,9 @@ pub fn make_subcommand() -> Command {
         .about("Convert Markdown to various output formats")
         .arg(
             Arg::new("format")
-                .help("Output format (html, xml, latex, man, typst, pdf, docx, epub, rtf, commonmark)")
+                .help(
+                    "Output format (html, xml, latex, man, typst, pdf, rtf, commonmark)",
+                )
                 .required(true)
                 .index(1),
         )
@@ -22,10 +24,9 @@ pub fn make_subcommand() -> Command {
                 .index(2),
         )
         .arg(
-            Arg::new("output")
-                .short('o')
-                .long("output")
-                .help("Output file (default: stdout, or auto-detect from input filename)"),
+            Arg::new("output").short('o').long("output").help(
+                "Output file (default: stdout, or auto-detect from input filename)",
+            ),
         )
         .arg(
             Arg::new("full")
@@ -52,9 +53,7 @@ pub fn make_subcommand() -> Command {
   latex       - LaTeX format
   man         - Man page format
   typst       - Typst format
-  pdf         - PDF format
-  docx        - Microsoft Word format
-  epub        - EPUB e-book format
+  pdf         - PDF format (placeholder, not yet implemented)
   rtf         - Rich Text Format
   commonmark  - CommonMark (Markdown) format
 
@@ -98,8 +97,6 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
             "man" => "man",
             "typst" => "typ",
             "pdf" => "pdf",
-            "docx" => "docx",
-            "epub" => "epub",
             "rtf" => "rtf",
             "commonmark" | "markdown" | "md" => "md",
             _ => format,
@@ -110,43 +107,20 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
         None
     };
 
-    // Check if this is a binary format that needs special handling
-    let is_binary_format = matches!(format, "docx" | "epub");
+    // Handle text formats using PureContext
+    let ctx = PureContext::new();
+    let output = match format {
+        "html" => {
+            let mut opts = options.clone();
+            if matches.get_flag("hardbreaks") {
+                opts.render.hardbreaks = true;
+            }
 
-    if is_binary_format {
-        // For binary formats, use IoContext and write_to_file directly
-        let ctx = IoContext::new();
-        let registry = WriterRegistry::new();
-        if let Some(writer) = registry.get_by_name(format) {
-            let path = output_path.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Binary format '{}' requires an output file path. Use -o option.",
-                    format
-                )
-            })?;
-            writer
-                .write_to_file(&arena, root, Path::new(&path), &ctx, &writer_options)
-                .map_err(|e| anyhow::anyhow!("Failed to write {}: {}", format, e))?;
-            println!("Successfully converted to {}", path);
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Unsupported output format: {}", format))
-        }
-    } else {
-        // Handle text formats using PureContext
-        let ctx = PureContext::new();
-        let output = match format {
-            "html" => {
-                let mut opts = options.clone();
-                if matches.get_flag("hardbreaks") {
-                    opts.render.hardbreaks = true;
-                }
+            let html = clmd::render::html::render(&arena, root, &opts);
 
-                let html = clmd::render::html::render(&arena, root, &opts);
-
-                if matches.get_flag("full") {
-                    format!(
-                        r#"<!DOCTYPE html>
+            if matches.get_flag("full") {
+                format!(
+                    r#"<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -156,39 +130,33 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
 {}
 </body>
 </html>"#,
-                        html
-                    )
-                } else {
                     html
-                }
+                )
+            } else {
+                html
             }
-            "xml" => clmd::render::render_to_xml(&arena, root),
-            "latex" | "tex" => clmd::io::writer::latex::render(&arena, root, 0),
-            "man" => clmd::io::writer::man::render(&arena, root, 0),
-            "typst" => {
-                clmd::markdown_to_typst(&input, options, &clmd::Plugins::default())
+        }
+        "xml" => clmd::render::render_to_xml(&arena, root),
+        "latex" | "tex" => clmd::io::writer::latex::render(&arena, root, 0),
+        "man" => clmd::io::writer::man::render(&arena, root, 0),
+        "typst" => clmd::markdown_to_typst(&input, options, &clmd::Plugins::default()),
+        "commonmark" | "markdown" | "md" => {
+            let width = matches
+                .get_one::<String>("width")
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(80);
+            clmd::render::commonmark::render(&arena, root, width)
+        }
+        _ => {
+            // Try to use the writer registry for other formats
+            let registry = WriterRegistry::new();
+            if let Some(writer) = registry.get_by_name(format) {
+                writer.write(&arena, root, &ctx, &writer_options)?
+            } else {
+                return Err(anyhow::anyhow!("Unsupported output format: {}", format));
             }
-            "commonmark" | "markdown" | "md" => {
-                let width = matches
-                    .get_one::<String>("width")
-                    .and_then(|s| s.parse::<usize>().ok())
-                    .unwrap_or(80);
-                clmd::render::commonmark::render(&arena, root, width)
-            }
-            _ => {
-                // Try to use the writer registry for other formats
-                let registry = WriterRegistry::new();
-                if let Some(writer) = registry.get_by_name(format) {
-                    writer.write(&arena, root, &ctx, &writer_options)?
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "Unsupported output format: {}",
-                        format
-                    ));
-                }
-            }
-        };
+        }
+    };
 
-        utils::write_output(output_path.as_deref(), &output)
-    }
+    utils::write_output(output_path.as_deref(), &output)
 }

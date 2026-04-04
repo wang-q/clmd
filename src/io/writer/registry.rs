@@ -31,8 +31,8 @@ use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{OutputFormat, WriterOptions};
 
 // Import writers from their modules
-use crate::io::writer::bibtex::BibTeXWriter;
 use crate::io::writer::beamer::BeamerWriter;
+use crate::io::writer::bibtex::BibTeXWriter;
 use crate::io::writer::revealjs::RevealJsWriter;
 use crate::io::writer::rtf::RtfWriter;
 
