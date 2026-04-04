@@ -60,20 +60,6 @@ impl Writer for DocxWriter {
     fn mime_type(&self) -> &'static str {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     }
-
-    /// Write the AST to a file.
-    fn write_to_file(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        path: &std::path::Path,
-        ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
-        _options: &WriterOptions,
-    ) -> ClmdResult<()> {
-        let docx_bytes = write_docx_binary(arena, root)?;
-        ctx.write_file(path, &docx_bytes)?;
-        Ok(())
-    }
 }
 
 /// Write DOCX as binary bytes.

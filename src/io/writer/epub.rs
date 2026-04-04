@@ -51,20 +51,6 @@ impl Writer for EpubWriter {
     fn mime_type(&self) -> &'static str {
         "application/epub+zip"
     }
-
-    /// Write the AST to a file.
-    fn write_to_file(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        path: &std::path::Path,
-        ctx: &dyn ClmdContext<Error = crate::core::error::ClmdError>,
-        _options: &WriterOptions,
-    ) -> ClmdResult<()> {
-        let epub_bytes = write_epub_binary(arena, root)?;
-        ctx.write_file(path, &epub_bytes)?;
-        Ok(())
-    }
 }
 
 /// Write EPUB as binary bytes.

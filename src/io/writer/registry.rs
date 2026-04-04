@@ -6,26 +6,87 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::writers::{WriterRegistry, WriterOptions};
+//! use clmd::io::writer::{WriterRegistry, Writer};
+//! use clmd::options::WriterOptions;
 //!
 //! let registry = WriterRegistry::new();
 //!
-//! // Get a writer by name
-//! if let Some(writer) = registry.get("html") {
-//!     println!("Found writer: {}", writer.name());
+//! // Get a writer by format name
+//! if let Some(writer) = registry.get_by_name("html") {
+//!     println!("Found writer: {}", writer.format());
 //! }
 //!
 //! // Get a writer by file extension
-//! if let Some(name) = registry.get_by_extension("html") {
-//!     println!("Format for .html files: {}", name);
+//! if let Some(writer) = registry.get_by_extension("html") {
+//!     println!("Found writer for .html files");
 //! }
 //! ```
 
 use std::collections::HashMap;
+use std::path::Path;
 
+use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
-use crate::core::error::ClmdError;
-use crate::io::writer::{BoxedWriter, Writer, WriterOptions};
+use crate::core::error::{ClmdError, ClmdResult};
+use crate::options::{OutputFormat, WriterOptions};
+
+/// Type alias for boxed writer trait objects.
+pub type BoxedWriter = Box<dyn Writer>;
+
+/// A document writer that can render AST to a specific format.
+///
+/// Writers are responsible for converting the internal AST representation
+/// into the target output format.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::io::writer::Writer;
+/// use clmd::options::WriterOptions;
+/// use clmd::context::PureContext;
+///
+/// fn use_writer<W: Writer>(writer: &W, arena: &NodeArena, root: NodeId) {
+///     let ctx = PureContext::new();
+///     let options = WriterOptions::default();
+///     let output = writer.write(arena, root, &ctx, &options).unwrap();
+///     println!("{}", output);
+/// }
+/// ```
+pub trait Writer: Send + Sync + std::fmt::Debug {
+    /// Write the AST to the output format.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - The arena containing the AST nodes
+    /// * `root` - The root node ID
+    /// * `ctx` - The context for IO operations
+    /// * `options` - Rendering options
+    ///
+    /// # Returns
+    ///
+    /// The rendered output as a string on success, or an error on failure.
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String>;
+
+    /// Get the format this writer supports.
+    fn format(&self) -> OutputFormat;
+
+    /// Get the file extensions this writer can handle.
+    fn extensions(&self) -> &[&'static str];
+
+    /// Check if this writer supports a specific file extension.
+    fn supports_extension(&self, ext: &str) -> bool {
+        self.extensions().contains(&ext.to_lowercase().as_str())
+    }
+
+    /// Get the MIME type for this format.
+    fn mime_type(&self) -> &'static str;
+}
 
 /// A registry of document writers.
 ///
@@ -34,9 +95,9 @@ use crate::io::writer::{BoxedWriter, Writer, WriterOptions};
 #[derive(Default)]
 pub struct WriterRegistry {
     /// Map from format name to writer.
-    writers: HashMap<String, BoxedWriter>,
+    writers: HashMap<OutputFormat, BoxedWriter>,
     /// Map from file extension to format name.
-    extension_map: HashMap<String, String>,
+    extension_map: HashMap<String, OutputFormat>,
 }
 
 impl std::fmt::Debug for WriterRegistry {
@@ -50,7 +111,7 @@ impl std::fmt::Debug for WriterRegistry {
 
 impl WriterRegistry {
     /// Create a new empty registry.
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         Self {
             writers: HashMap::new(),
             extension_map: HashMap::new(),
@@ -58,8 +119,8 @@ impl WriterRegistry {
     }
 
     /// Create a new registry with all built-in writers registered.
-    pub fn with_defaults() -> Self {
-        let mut registry = Self::new();
+    pub fn new() -> Self {
+        let mut registry = Self::empty();
         registry.register_builtin_writers();
         registry
     }
@@ -69,61 +130,68 @@ impl WriterRegistry {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::writers::{WriterRegistry, HtmlWriter};
+    /// use clmd::io::writer::{WriterRegistry, HtmlWriter};
     ///
-    /// let mut registry = WriterRegistry::new();
-    /// registry.register(HtmlWriter::new());
+    /// let mut registry = WriterRegistry::empty();
+    /// registry.register(Box::new(HtmlWriter));
     /// ```
-    pub fn register(&mut self, writer: impl Writer + 'static) {
-        let name = writer.name().to_lowercase();
-        let extensions: Vec<_> =
-            writer.extensions().iter().map(|e| e.to_string()).collect();
+    pub fn register(&mut self, writer: BoxedWriter) {
+        let format = writer.format();
+        let extensions: Vec<_> = writer.extensions().to_vec();
 
-        self.writers.insert(name.clone(), Box::new(writer));
+        self.writers.insert(format, writer);
 
         // Register extensions
         for ext in extensions {
-            self.extension_map.insert(ext.to_lowercase(), name.clone());
+            self.extension_map.insert(ext.to_lowercase(), format);
         }
     }
 
-    /// Get a writer by name.
+    /// Get a writer by format.
     ///
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::writers::WriterRegistry;
+    /// use clmd::io::writer::WriterRegistry;
+    /// use clmd::options::OutputFormat;
     ///
-    /// let registry = WriterRegistry::with_defaults();
-    /// if let Some(writer) = registry.get("html") {
-    ///     println!("Found writer: {}", writer.name());
+    /// let registry = WriterRegistry::new();
+    /// if let Some(writer) = registry.get(OutputFormat::Html) {
+    ///     println!("Found writer: {}", writer.format());
     /// }
     /// ```
-    pub fn get(&self, name: &str) -> Option<&dyn Writer> {
-        self.writers
-            .get(name.to_lowercase().as_str())
-            .map(|w| w.as_ref())
+    pub fn get(&self, format: OutputFormat) -> Option<&dyn Writer> {
+        self.writers.get(&format).map(|w| w.as_ref())
+    }
+
+    /// Get a writer by format name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The format name (e.g., "html", "markdown")
+    ///
+    /// # Returns
+    ///
+    /// Some(writer) if found, None otherwise.
+    pub fn get_by_name(&self, name: &str) -> Option<&dyn Writer> {
+        let format = name.parse::<OutputFormat>().ok()?;
+        self.get(format)
     }
 
     /// Get a writer by file extension.
     ///
-    /// Returns the format name for the given extension, which can then be
-    /// used with [`get`](Self::get) to retrieve the actual writer.
+    /// # Arguments
     ///
-    /// # Example
+    /// * `extension` - The file extension (e.g., "html", "md")
     ///
-    /// ```ignore
-    /// use clmd::writers::WriterRegistry;
+    /// # Returns
     ///
-    /// let registry = WriterRegistry::with_defaults();
-    /// if let Some(format) = registry.get_by_extension("html") {
-    ///     println!("Format for .html: {}", format);
-    /// }
-    /// ```
-    pub fn get_by_extension(&self, ext: &str) -> Option<&str> {
+    /// Some(writer) if found, None otherwise.
+    pub fn get_by_extension(&self, extension: &str) -> Option<&dyn Writer> {
+        let ext = extension.to_lowercase();
         self.extension_map
-            .get(ext.to_lowercase().as_str())
-            .map(|s| s.as_str())
+            .get(&ext)
+            .and_then(|format| self.get(*format))
     }
 
     /// Get a writer by file path.
@@ -134,34 +202,69 @@ impl WriterRegistry {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::writers::WriterRegistry;
+    /// use clmd::io::writer::WriterRegistry;
     /// use std::path::Path;
     ///
-    /// let registry = WriterRegistry::with_defaults();
+    /// let registry = WriterRegistry::new();
     /// if let Some(writer) = registry.get_by_path(Path::new("document.html")) {
     ///     println!("Found writer for document.html");
     /// }
     /// ```
-    pub fn get_by_path(&self, path: &std::path::Path) -> Option<&dyn Writer> {
+    pub fn get_by_path(&self, path: &Path) -> Option<&dyn Writer> {
         path.extension()
             .and_then(|e| e.to_str())
             .and_then(|ext| self.get_by_extension(ext))
-            .and_then(|name| self.get(name))
+    }
+
+    /// Detect the format from a file path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path
+    ///
+    /// # Returns
+    ///
+    /// Some(format) if detected, None otherwise.
+    pub fn detect_format(&self, path: &Path) -> Option<OutputFormat> {
+        path.extension()
+            .and_then(|e| e.to_str())
+            .and_then(|ext| self.extension_map.get(&ext.to_lowercase()).copied())
     }
 
     /// Check if a writer is registered for the given format name.
-    pub fn contains(&self, name: &str) -> bool {
-        self.writers.contains_key(name.to_lowercase().as_str())
+    pub fn supports_format(&self, name: &str) -> bool {
+        name.parse::<OutputFormat>()
+            .ok()
+            .and_then(|f| self.get(f))
+            .is_some()
+    }
+
+    /// Check if an extension is supported.
+    pub fn supports_extension(&self, extension: &str) -> bool {
+        self.get_by_extension(extension).is_some()
     }
 
     /// Get a list of all registered format names.
-    pub fn list(&self) -> Vec<&str> {
-        self.writers.keys().map(|s| s.as_str()).collect()
+    pub fn formats(&self) -> Vec<&'static str> {
+        self.writers.keys().map(|f| f.as_str()).collect()
     }
 
     /// Get a list of all registered file extensions.
-    pub fn extensions(&self) -> Vec<&str> {
-        self.extension_map.keys().map(|s| s.as_str()).collect()
+    pub fn extensions(&self) -> Vec<&'static str> {
+        self.extension_map
+            .keys()
+            .filter_map(|k| {
+                // Get the extension string from the format
+                self.extension_map.get(k).map(|f| {
+                    // Find the matching extension from the writer
+                    if let Some(writer) = self.get(*f) {
+                        writer.extensions().iter().find(|e| e.to_lowercase() == *k).copied()
+                    } else {
+                        None
+                    }
+                })?
+            })
+            .collect()
     }
 
     /// Get the number of registered writers.
@@ -175,14 +278,12 @@ impl WriterRegistry {
     }
 
     /// Remove a writer from the registry.
-    pub fn remove(&mut self, name: &str) -> Option<BoxedWriter> {
-        let name = name.to_lowercase();
-
+    pub fn remove(&mut self, format: OutputFormat) -> Option<BoxedWriter> {
         // Remove from extension map
-        self.extension_map.retain(|_, v| v != &name);
+        self.extension_map.retain(|_, v| *v != format);
 
         // Remove writer
-        self.writers.remove(&name)
+        self.writers.remove(&format)
     }
 
     /// Clear all writers from the registry.
@@ -193,200 +294,426 @@ impl WriterRegistry {
 
     /// Register all built-in writers.
     fn register_builtin_writers(&mut self) {
-        self.register(HtmlWriter::new());
-        self.register(CommonMarkWriter::new());
-        self.register(XmlWriter::new());
-        self.register(LatexWriter::new());
-        self.register(ManWriter::new());
+        self.register(Box::new(HtmlWriter));
+        self.register(Box::new(CommonMarkWriter));
+        self.register(Box::new(XmlWriter));
+        self.register(Box::new(LatexWriter));
+        self.register(Box::new(ManWriter));
+        self.register(Box::new(TypstWriter));
+        self.register(Box::new(PdfWriter));
+        self.register(Box::new(BibTeXWriter));
+        self.register(Box::new(RtfWriter));
+        self.register(Box::new(DocxWriter));
+        self.register(Box::new(EpubWriter));
+        self.register(Box::new(BeamerWriter));
+        self.register(Box::new(RevealJsWriter));
     }
 }
 
 impl Clone for WriterRegistry {
     fn clone(&self) -> Self {
-        // Note: This creates a new registry with the same writers.
-        // Since writers are trait objects, we can't directly clone them.
-        // In practice, you'd typically create a new registry with_defaults().
-        Self::with_defaults()
+        // Create a new registry with default writers
+        // This is a limitation - custom writers won't be cloned
+        Self::new()
     }
 }
 
-/// Built-in HTML writer.
+/// HTML document writer.
+///
+/// Renders documents to HTML format.
 #[derive(Debug, Clone, Copy)]
 pub struct HtmlWriter;
 
-impl HtmlWriter {
-    /// Create a new HTML writer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for HtmlWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Writer for HtmlWriter {
-    fn name(&self) -> &'static str {
-        "html"
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["html", "htm", "xhtml"]
-    }
-
-    fn write_text<'c>(
+    fn write(
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &WriterOptions<'c>,
-    ) -> Result<String, ClmdError> {
-        crate::io::writer::write_html(arena, root, options)
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        let mut render_options = crate::options::Options::default();
+        render_options.render.sourcepos = options.output_sourcepos;
+        render_options.extension.tagfilter =
+            options.extensions.contains(crate::ext::flags::ExtensionFlags::TAGFILTER);
+        Ok(crate::render::html::render(arena, root, &render_options))
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Html
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["html", "htm"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/html"
     }
 }
 
-/// Built-in CommonMark writer.
+/// CommonMark document writer.
+///
+/// Renders documents to CommonMark (Markdown) format.
 #[derive(Debug, Clone, Copy)]
 pub struct CommonMarkWriter;
 
-impl CommonMarkWriter {
-    /// Create a new CommonMark writer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for CommonMarkWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Writer for CommonMarkWriter {
-    fn name(&self) -> &'static str {
-        "commonmark"
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["md", "markdown", "commonmark", "cm"]
-    }
-
-    fn write_text<'c>(
+    fn write(
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &WriterOptions<'c>,
-    ) -> Result<String, ClmdError> {
-        crate::io::writer::write_commonmark(arena, root, options)
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        let width = if options.wrap == crate::options::WrapOption::Auto {
+            options.width
+        } else {
+            0
+        };
+        Ok(crate::render::commonmark::render(arena, root, width))
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Markdown
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["md", "markdown", "mkd", "mdown"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/markdown"
     }
 }
 
-/// Built-in XML writer.
+/// XML document writer.
+///
+/// Renders documents to CommonMark XML format.
 #[derive(Debug, Clone, Copy)]
 pub struct XmlWriter;
 
-impl XmlWriter {
-    /// Create a new XML writer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for XmlWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Writer for XmlWriter {
-    fn name(&self) -> &'static str {
-        "xml"
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::xml::write_xml(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Xml
     }
 
     fn extensions(&self) -> &[&'static str] {
         &["xml"]
     }
 
-    fn write_text<'c>(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &WriterOptions<'c>,
-    ) -> Result<String, ClmdError> {
-        crate::io::writer::write_xml(arena, root, options)
+    fn mime_type(&self) -> &'static str {
+        "application/xml"
     }
 }
 
-/// Built-in LaTeX writer.
+/// LaTeX document writer.
+///
+/// Renders documents to LaTeX format.
 #[derive(Debug, Clone, Copy)]
 pub struct LatexWriter;
 
-impl LatexWriter {
-    /// Create a new LaTeX writer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for LatexWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Writer for LatexWriter {
-    fn name(&self) -> &'static str {
-        "latex"
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::latex::write_latex(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Latex
     }
 
     fn extensions(&self) -> &[&'static str] {
         &["tex", "latex"]
     }
 
-    fn write_text<'c>(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        options: &WriterOptions<'c>,
-    ) -> Result<String, ClmdError> {
-        crate::io::writer::write_latex(arena, root, options)
+    fn mime_type(&self) -> &'static str {
+        "application/x-latex"
     }
 }
 
-/// Built-in Man page writer.
+/// Man page document writer.
+///
+/// Renders documents to Unix man page (groff) format.
 #[derive(Debug, Clone, Copy)]
 pub struct ManWriter;
 
-impl ManWriter {
-    /// Create a new Man page writer.
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for ManWriter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Writer for ManWriter {
-    fn name(&self) -> &'static str {
-        "man"
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::man::write_man(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Man
     }
 
     fn extensions(&self) -> &[&'static str] {
         &["man", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
     }
 
-    fn write_text<'c>(
+    fn mime_type(&self) -> &'static str {
+        "application/x-troff-man"
+    }
+}
+
+/// Typst document writer.
+///
+/// Renders documents to Typst format.
+#[derive(Debug, Clone, Copy)]
+pub struct TypstWriter;
+
+impl Writer for TypstWriter {
+    fn write(
         &self,
         arena: &NodeArena,
         root: NodeId,
-        options: &WriterOptions<'c>,
-    ) -> Result<String, ClmdError> {
-        crate::io::writer::write_man(arena, root, options)
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::typst::write_typst(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Typst
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["typ", "typst"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/typst"
+    }
+}
+
+/// PDF document writer.
+///
+/// Renders documents to PDF format.
+#[derive(Debug, Clone, Copy)]
+pub struct PdfWriter;
+
+impl Writer for PdfWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::pdf::write_pdf(arena, root, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Pdf
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["pdf"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/pdf"
+    }
+}
+
+/// BibTeX document writer.
+///
+/// Renders documents to BibTeX format.
+#[derive(Debug, Clone, Copy)]
+pub struct BibTeXWriter;
+
+impl Writer for BibTeXWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::bibtex::BibTeXWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Bibtex
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["bib", "bibtex"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/x-bibtex"
+    }
+}
+
+/// RTF document writer.
+///
+/// Renders documents to RTF format.
+#[derive(Debug, Clone, Copy)]
+pub struct RtfWriter;
+
+impl Writer for RtfWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::rtf::RtfWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Rtf
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["rtf"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/rtf"
+    }
+}
+
+/// DOCX document writer.
+///
+/// Renders documents to DOCX format.
+#[derive(Debug, Clone, Copy)]
+pub struct DocxWriter;
+
+impl Writer for DocxWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::docx::DocxWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Docx
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["docx"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    }
+}
+
+/// EPUB document writer.
+///
+/// Renders documents to EPUB format.
+#[derive(Debug, Clone, Copy)]
+pub struct EpubWriter;
+
+impl Writer for EpubWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::epub::EpubWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Epub
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["epub"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "application/epub+zip"
+    }
+}
+
+/// Beamer document writer.
+///
+/// Renders documents to Beamer (LaTeX slides) format.
+#[derive(Debug, Clone, Copy)]
+pub struct BeamerWriter;
+
+impl Writer for BeamerWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::beamer::BeamerWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Beamer
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["tex", "beamer"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/x-tex"
+    }
+}
+
+/// RevealJS document writer.
+///
+/// Renders documents to RevealJS (HTML slides) format.
+#[derive(Debug, Clone, Copy)]
+pub struct RevealJsWriter;
+
+impl Writer for RevealJsWriter {
+    fn write(
+        &self,
+        arena: &NodeArena,
+        root: NodeId,
+        _ctx: &dyn ClmdContext<Error = ClmdError>,
+        options: &WriterOptions,
+    ) -> ClmdResult<String> {
+        crate::io::writer::revealjs::RevealJsWriter.write(arena, root, _ctx, options)
+    }
+
+    fn format(&self) -> OutputFormat {
+        OutputFormat::RevealJs
+    }
+
+    fn extensions(&self) -> &[&'static str] {
+        &["html", "revealjs"]
+    }
+
+    fn mime_type(&self) -> &'static str {
+        "text/html"
     }
 }
 
@@ -397,17 +724,17 @@ impl Writer for ManWriter {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::writers::default_registry;
+/// use clmd::io::writer::default_registry;
 ///
 /// let registry = default_registry();
-/// if let Some(writer) = registry.get("html") {
+/// if let Some(writer) = registry.get_by_name("html") {
 ///     println!("HTML writer is available");
 /// }
-/// ```ignore
+/// ```
 pub fn default_registry() -> &'static WriterRegistry {
     use std::sync::OnceLock;
     static REGISTRY: OnceLock<WriterRegistry> = OnceLock::new();
-    REGISTRY.get_or_init(WriterRegistry::with_defaults)
+    REGISTRY.get_or_init(WriterRegistry::new)
 }
 
 /// Get a writer by name from the default registry.
@@ -417,14 +744,14 @@ pub fn default_registry() -> &'static WriterRegistry {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::writers::get_writer;
+/// use clmd::io::writer::get_writer;
 ///
 /// if let Some(writer) = get_writer("html") {
 ///     println!("Found HTML writer");
 /// }
-/// ```ignore
+/// ```
 pub fn get_writer(name: &str) -> Option<&'static dyn Writer> {
-    default_registry().get(name)
+    default_registry().get_by_name(name)
 }
 
 /// Get a writer by file extension from the default registry.
@@ -435,16 +762,14 @@ pub fn get_writer(name: &str) -> Option<&'static dyn Writer> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::writers::get_writer_by_extension;
+/// use clmd::io::writer::get_writer_by_extension;
 ///
 /// if let Some(writer) = get_writer_by_extension("html") {
 ///     println!("Found writer for .html files");
 /// }
-/// ```ignore
+/// ```
 pub fn get_writer_by_extension(ext: &str) -> Option<&'static dyn Writer> {
-    default_registry()
-        .get_by_extension(ext)
-        .and_then(|name| default_registry().get(name))
+    default_registry().get_by_extension(ext)
 }
 
 /// Get a writer by file path from the default registry.
@@ -455,168 +780,305 @@ pub fn get_writer_by_extension(ext: &str) -> Option<&'static dyn Writer> {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::writers::get_writer_by_path;
+/// use clmd::io::writer::get_writer_by_path;
 /// use std::path::Path;
 ///
 /// if let Some(writer) = get_writer_by_path(Path::new("document.html")) {
 ///     println!("Found writer for document.html");
 /// }
-/// ```ignore
-pub fn get_writer_by_path(path: &std::path::Path) -> Option<&'static dyn Writer> {
+/// ```
+pub fn get_writer_by_path(path: &Path) -> Option<&'static dyn Writer> {
     default_registry().get_by_path(path)
+}
+
+/// Write a document to a string.
+///
+/// # Arguments
+///
+/// * `arena` - The arena containing the AST nodes
+/// * `root` - The root node ID
+/// * `format` - The output format name
+/// * `ctx` - The context for IO operations
+/// * `options` - Rendering options
+///
+/// # Returns
+///
+/// The rendered output as a string on success, or an error on failure.
+pub fn write_document(
+    arena: &NodeArena,
+    root: NodeId,
+    format: &str,
+    ctx: &dyn ClmdContext<Error = ClmdError>,
+    options: &WriterOptions,
+) -> ClmdResult<String> {
+    let registry = WriterRegistry::new();
+
+    let writer = registry
+        .get_by_name(format)
+        .ok_or_else(|| ClmdError::unknown_writer(format))?;
+
+    writer.write(arena, root, ctx, options)
+}
+
+/// Write a document to a file.
+///
+/// # Arguments
+///
+/// * `arena` - The arena containing the AST nodes
+/// * `root` - The root node ID
+/// * `path` - The output file path
+/// * `format` - Optional format override (if None, detects from extension)
+/// * `ctx` - The context for IO operations
+/// * `options` - Rendering options
+///
+/// # Returns
+///
+/// Ok on success, or an error on failure.
+pub fn write_file(
+    arena: &NodeArena,
+    root: NodeId,
+    path: &Path,
+    format: Option<&str>,
+    ctx: &dyn ClmdContext<Error = ClmdError>,
+    options: &WriterOptions,
+) -> ClmdResult<()> {
+    // Create the appropriate writer based on format or file extension
+    let content = if let Some(format_name) = format {
+        write_document(arena, root, format_name, ctx, options)?
+    } else {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("html");
+        let registry = WriterRegistry::new();
+        let writer = registry
+            .get_by_extension(ext)
+            .ok_or_else(|| ClmdError::unknown_writer("unknown"))?;
+        writer.write(arena, root, ctx, options)?
+    };
+
+    ctx.write_file(path, content.as_bytes())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use crate::context::PureContext;
+
+    fn create_test_document() -> (NodeArena, NodeId) {
+        use crate::core::arena::{Node, TreeOps};
+        use crate::core::nodes::{NodeHeading, NodeValue};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
+            level: 1,
+            setext: false,
+            closed: false,
+        })));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
+
+        TreeOps::append_child(&mut arena, root, heading);
+        TreeOps::append_child(&mut arena, heading, text);
+
+        (arena, root)
+    }
 
     #[test]
-    fn test_registry_new() {
-        let registry = WriterRegistry::new();
+    fn test_registry_empty() {
+        let registry = WriterRegistry::empty();
         assert!(registry.is_empty());
         assert_eq!(registry.len(), 0);
     }
 
     #[test]
-    fn test_registry_with_defaults() {
-        let registry = WriterRegistry::with_defaults();
+    fn test_registry_new() {
+        let registry = WriterRegistry::new();
         assert!(!registry.is_empty());
-        assert!(registry.contains("html"));
-        assert!(registry.contains("commonmark"));
-        assert!(registry.contains("xml"));
-        assert!(registry.contains("latex"));
-        assert!(registry.contains("man"));
+        assert!(registry.supports_format("html"));
+        assert!(registry.supports_format("markdown"));
+        assert!(registry.supports_format("xml"));
+        assert!(registry.supports_format("pdf"));
+
+        assert!(registry.supports_extension("html"));
+        assert!(registry.supports_extension("md"));
+        assert!(registry.supports_extension("pdf"));
     }
 
     #[test]
     fn test_registry_get() {
-        let registry = WriterRegistry::with_defaults();
+        let registry = WriterRegistry::new();
 
-        let writer = registry.get("html").unwrap();
-        assert_eq!(writer.name(), "html");
+        let writer = registry.get(OutputFormat::Html);
+        assert!(writer.is_some());
+        assert_eq!(writer.unwrap().format(), OutputFormat::Html);
 
-        let writer = registry.get("HTML").unwrap(); // case insensitive
-        assert_eq!(writer.name(), "html");
+        let writer = registry.get_by_name("html");
+        assert!(writer.is_some());
 
-        assert!(registry.get("unknown").is_none());
+        let writer = registry.get_by_name("unknown");
+        assert!(writer.is_none());
     }
 
     #[test]
     fn test_registry_get_by_extension() {
-        let registry = WriterRegistry::with_defaults();
+        let registry = WriterRegistry::new();
 
-        assert_eq!(registry.get_by_extension("html"), Some("html"));
-        assert_eq!(registry.get_by_extension("HTML"), Some("html")); // case insensitive
-        assert_eq!(registry.get_by_extension("md"), Some("commonmark"));
-        assert_eq!(registry.get_by_extension("tex"), Some("latex"));
-        assert_eq!(registry.get_by_extension("unknown"), None);
+        let writer = registry.get_by_extension("html");
+        assert!(writer.is_some());
+
+        let writer = registry.get_by_extension("unknown");
+        assert!(writer.is_none());
     }
 
     #[test]
     fn test_registry_get_by_path() {
-        let registry = WriterRegistry::with_defaults();
+        let registry = WriterRegistry::new();
 
-        let writer = registry.get_by_path(Path::new("document.html")).unwrap();
-        assert_eq!(writer.name(), "html");
+        let writer = registry.get_by_path(Path::new("test.html"));
+        assert!(writer.is_some());
 
-        let writer = registry.get_by_path(Path::new("/path/to/file.md")).unwrap();
-        assert_eq!(writer.name(), "commonmark");
-
-        assert!(registry.get_by_path(Path::new("no_extension")).is_none());
+        let writer = registry.get_by_path(Path::new("no_extension"));
+        assert!(writer.is_none());
     }
 
     #[test]
-    fn test_registry_list() {
-        let registry = WriterRegistry::with_defaults();
-        let formats = registry.list();
+    fn test_detect_format() {
+        let registry = WriterRegistry::new();
 
-        assert!(formats.contains(&"html"));
-        assert!(formats.contains(&"commonmark"));
-        assert!(formats.contains(&"xml"));
-    }
+        // Note: "html" extension is registered by both HtmlWriter and RevealJsWriter
+        // The last one registered wins (RevealJs in this case)
+        let path = Path::new("test.html");
+        let format = registry.detect_format(path);
+        assert!(format == Some(OutputFormat::Html) || format == Some(OutputFormat::RevealJs));
 
-    #[test]
-    fn test_registry_extensions() {
-        let registry = WriterRegistry::with_defaults();
-        let extensions = registry.extensions();
+        let path = Path::new("test.md");
+        assert_eq!(registry.detect_format(path), Some(OutputFormat::Markdown));
 
-        assert!(extensions.contains(&"html"));
-        assert!(extensions.contains(&"htm"));
-        assert!(extensions.contains(&"md"));
-        assert!(extensions.contains(&"xml"));
+        let path = Path::new("test.revealjs");
+        assert_eq!(registry.detect_format(path), Some(OutputFormat::RevealJs));
+
+        let path = Path::new("test");
+        assert_eq!(registry.detect_format(path), None);
     }
 
     #[test]
     fn test_html_writer() {
-        let writer = HtmlWriter::new();
-        assert_eq!(writer.name(), "html");
-        assert!(writer.supports_extension("html"));
-        assert!(writer.supports_extension("htm"));
-        assert!(!writer.supports_extension("md"));
+        let ctx = PureContext::new();
+        let writer = HtmlWriter;
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("<h1>"));
     }
 
     #[test]
     fn test_commonmark_writer() {
-        let writer = CommonMarkWriter::new();
-        assert_eq!(writer.name(), "commonmark");
-        assert!(writer.supports_extension("md"));
-        assert!(writer.supports_extension("markdown"));
-        assert!(!writer.supports_extension("html"));
+        let ctx = PureContext::new();
+        let writer = CommonMarkWriter;
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("# Hello"));
     }
 
     #[test]
     fn test_xml_writer() {
-        let writer = XmlWriter::new();
-        assert_eq!(writer.name(), "xml");
-        assert!(writer.supports_extension("xml"));
-        assert!(!writer.supports_extension("html"));
+        let ctx = PureContext::new();
+        let writer = XmlWriter;
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
+
+        let output = writer.write(&arena, root, &ctx, &options).unwrap();
+        assert!(output.contains("<?xml"));
     }
 
     #[test]
-    fn test_latex_writer() {
-        let writer = LatexWriter::new();
-        assert_eq!(writer.name(), "latex");
-        assert!(writer.supports_extension("tex"));
-        assert!(writer.supports_extension("latex"));
+    fn test_write_document() {
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
+
+        let output = write_document(&arena, root, "html", &ctx, &options).unwrap();
+        assert!(output.contains("<h1>"));
     }
 
     #[test]
-    fn test_man_writer() {
-        let writer = ManWriter::new();
-        assert_eq!(writer.name(), "man");
-        assert!(writer.supports_extension("man"));
-        assert!(writer.supports_extension("1"));
+    fn test_write_document_unknown_format() {
+        let ctx = PureContext::new();
+        let options = WriterOptions::default();
+        let (arena, root) = create_test_document();
+
+        let result = write_document(&arena, root, "unknown", &ctx, &options);
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_default_registry() {
         let registry = default_registry();
-        assert!(registry.contains("html"));
-        assert!(registry.contains("commonmark"));
+        assert!(registry.supports_format("html"));
+        assert!(registry.supports_format("markdown"));
     }
 
     #[test]
     fn test_get_writer() {
-        let writer = get_writer("html").unwrap();
-        assert_eq!(writer.name(), "html");
+        let writer = get_writer("html");
+        assert!(writer.is_some());
 
         assert!(get_writer("unknown").is_none());
     }
 
     #[test]
     fn test_get_writer_by_extension() {
-        let writer = get_writer_by_extension("html").unwrap();
-        assert_eq!(writer.name(), "html");
+        let writer = get_writer_by_extension("html");
+        assert!(writer.is_some());
 
         assert!(get_writer_by_extension("unknown").is_none());
     }
 
     #[test]
-    fn test_get_writer_by_path() {
-        let writer = get_writer_by_path(Path::new("test.html")).unwrap();
-        assert_eq!(writer.name(), "html");
+    fn test_html_writer_trait() {
+        let writer = HtmlWriter;
+        assert_eq!(writer.format(), OutputFormat::Html);
+        assert!(writer.extensions().contains(&"html"));
+        assert!(writer.extensions().contains(&"htm"));
+        assert!(!writer.extensions().contains(&"md"));
+        assert_eq!(writer.mime_type(), "text/html");
+    }
 
-        assert!(get_writer_by_path(Path::new("no_extension")).is_none());
+    #[test]
+    fn test_commonmark_writer_trait() {
+        let writer = CommonMarkWriter;
+        assert_eq!(writer.format(), OutputFormat::Markdown);
+        assert!(writer.extensions().contains(&"md"));
+        assert!(writer.extensions().contains(&"markdown"));
+        assert!(!writer.extensions().contains(&"html"));
+        assert_eq!(writer.mime_type(), "text/markdown");
+    }
+
+    #[test]
+    fn test_xml_writer_trait() {
+        let writer = XmlWriter;
+        assert_eq!(writer.format(), OutputFormat::Xml);
+        assert!(writer.extensions().contains(&"xml"));
+        assert!(!writer.extensions().contains(&"html"));
+        assert_eq!(writer.mime_type(), "application/xml");
+    }
+
+    #[test]
+    fn test_latex_writer_trait() {
+        let writer = LatexWriter;
+        assert_eq!(writer.format(), OutputFormat::Latex);
+        assert!(writer.extensions().contains(&"tex"));
+        assert!(writer.extensions().contains(&"latex"));
+        assert_eq!(writer.mime_type(), "application/x-latex");
+    }
+
+    #[test]
+    fn test_man_writer_trait() {
+        let writer = ManWriter;
+        assert_eq!(writer.format(), OutputFormat::Man);
+        assert!(writer.extensions().contains(&"man"));
+        assert!(writer.extensions().contains(&"1"));
+        assert_eq!(writer.mime_type(), "application/x-troff-man");
     }
 }

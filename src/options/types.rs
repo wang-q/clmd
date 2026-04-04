@@ -57,7 +57,7 @@ impl fmt::Display for InputFormat {
 }
 
 /// Output format for writing documents.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Arbitrary)]
 pub enum OutputFormat {
     /// Markdown (CommonMark)
     #[default]
