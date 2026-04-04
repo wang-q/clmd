@@ -1,13 +1,23 @@
 //! Beamer document writer.
 //!
-//! This module provides a writer for Beamer (LaTeX slides) format,
-//! using the shared LaTeX rendering core with Beamer-specific extensions.
+//! This module provides a writer for Beamer (LaTeX slides) format.
 //!
-//! The Beamer writer extends the shared LaTeX core with:
-//! - Slide structure conversion (frames)
-//! - Title slide generation
-//! - Section/subsection handling
-//! - Support for fragile frames (for code blocks)
+//! ## Architecture Note
+//!
+//! This module implements its own slide rendering logic rather than using
+//! `LatexRenderer` from `latex_shared.rs`. This is because Beamer requires
+//! special handling that the generic LaTeX renderer doesn't provide:
+//!
+//! - **Slide structure**: Converting headings to `\begin{frame}...\end{frame}`
+//!   with `\frametitle{}` instead of just section commands
+//! - **Fragile frames**: Code blocks need `\begin{frame}[fragile]` option
+//! - **Content grouping**: Paragraphs, lists, and blockquotes outside frames
+//!   are automatically wrapped in their own frames
+//!
+//! The `latex_shared.rs` module is still used for:
+//! - `escape_latex`: LaTeX special character escaping
+//! - `generate_preamble`: Document preamble generation
+//! - `LatexState`: Beamer state configuration
 //!
 //! # Example
 //!

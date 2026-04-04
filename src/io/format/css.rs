@@ -163,72 +163,6 @@ pub fn parse_inline_style(css: &str) -> Option<StyleDeclaration> {
     Some(StyleDeclaration::from_css(trimmed))
 }
 
-/// CSS color utilities.
-///
-/// This is reserved for extended CSS validation support.
-#[allow(dead_code)]
-pub mod colors {
-    /// Check if a string is a valid CSS color value.
-    ///
-    /// This is a basic check that handles:
-    /// - Named colors (red, blue, etc.)
-    /// - Hex colors (#fff, #ffffff)
-    /// - RGB/RGBA colors
-    /// - HSL/HSLA colors
-    pub fn is_valid_color(value: &str) -> bool {
-        let value = value.trim().to_lowercase();
-
-        // Named colors (common subset)
-        let named_colors = [
-            "black",
-            "white",
-            "red",
-            "green",
-            "blue",
-            "yellow",
-            "cyan",
-            "magenta",
-            "gray",
-            "grey",
-            "orange",
-            "purple",
-            "pink",
-            "brown",
-            "silver",
-            "gold",
-            "transparent",
-            "inherit",
-            "initial",
-            "unset",
-        ];
-        if named_colors.contains(&value.as_str()) {
-            return true;
-        }
-
-        // Hex colors
-        if let Some(hex) = value.strip_prefix('#') {
-            return hex.len() == 3 || hex.len() == 4 || hex.len() == 6 || hex.len() == 8;
-        }
-
-        // RGB/RGBA
-        if value.starts_with("rgb(") || value.starts_with("rgba(") {
-            return value.ends_with(')');
-        }
-
-        // HSL/HSLA
-        if value.starts_with("hsl(") || value.starts_with("hsla(") {
-            return value.ends_with(')');
-        }
-
-        false
-    }
-
-    /// Normalize a CSS color to lowercase.
-    pub fn normalize_color(value: &str) -> String {
-        value.trim().to_lowercase()
-    }
-}
-
 /// CSS unit utilities.
 ///
 /// This is reserved for extended CSS validation support.
@@ -342,15 +276,6 @@ mod tests {
 
         let css = format!("{}", style);
         assert!(css.contains("color: red"));
-    }
-
-    #[test]
-    fn test_colors_is_valid_color() {
-        assert!(colors::is_valid_color("red"));
-        assert!(colors::is_valid_color("#fff"));
-        assert!(colors::is_valid_color("#ffffff"));
-        assert!(colors::is_valid_color("rgb(255, 0, 0)"));
-        assert!(!colors::is_valid_color("invalid"));
     }
 
     #[test]

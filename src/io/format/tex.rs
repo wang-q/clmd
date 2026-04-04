@@ -250,56 +250,6 @@ impl fmt::Display for TokenType {
     }
 }
 
-/// A TeX macro definition.
-///
-/// This is reserved for future macro expansion support.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
-pub struct MacroDefinition {
-    /// Name of the macro.
-    pub name: String,
-    /// Parameter types.
-    pub parameters: Vec<ParameterType>,
-    /// Body of the macro.
-    pub body: Vec<Token>,
-    /// Whether this is a long macro.
-    pub is_long: bool,
-}
-
-/// Types of macro parameters.
-///
-/// This is reserved for future macro expansion support.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParameterType {
-    /// Number parameter.
-    Number,
-    /// Optional parameter.
-    Optional,
-    /// Delimited parameter.
-    Until(usize),
-    /// Character parameter.
-    Char(char),
-}
-
-impl MacroDefinition {
-    /// Create a new macro definition.
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            parameters: Vec::new(),
-            body: Vec::new(),
-            is_long: false,
-        }
-    }
-
-    /// Mark this macro as long.
-    pub fn long(mut self) -> Self {
-        self.is_long = true;
-        self
-    }
-}
-
 /// A TeX parser for tokenizing input.
 #[derive(Debug)]
 pub struct TeXParser {
@@ -512,66 +462,6 @@ pub fn tokenize(input: &str) -> Vec<Token> {
     parser.tokenize()
 }
 
-/// Check if a token is a math command.
-///
-/// This is reserved for future math mode detection.
-#[allow(dead_code)]
-pub fn is_math_cmd(token: &Token) -> bool {
-    if !token.is_control_sequence() {
-        return false;
-    }
-    matches!(
-        token.as_str(),
-        "frac"
-            | "sqrt"
-            | "sum"
-            | "prod"
-            | "int"
-            | "lim"
-            | "sin"
-            | "cos"
-            | "tan"
-            | "log"
-            | "ln"
-            | "exp"
-            | "alpha"
-            | "beta"
-            | "gamma"
-            | "delta"
-            | "epsilon"
-            | "theta"
-            | "lambda"
-            | "mu"
-            | "pi"
-            | "sigma"
-            | "phi"
-            | "omega"
-            | "infty"
-            | "rightarrow"
-            | "leftarrow"
-            | "Rightarrow"
-            | "Leftarrow"
-            | "ldots"
-            | "cdots"
-            | "vdots"
-            | "ddots"
-    )
-}
-
-/// Check if a token starts an environment.
-///
-/// This is reserved for future environment detection.
-#[allow(dead_code)]
-pub fn is_env_start(token: &Token) -> bool {
-    if !token.is_control_sequence() {
-        return false;
-    }
-    matches!(
-        token.as_str(),
-        "begin" | "end" | "documentclass" | "usepackage"
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -685,42 +575,6 @@ mod tests {
         assert!(tokens
             .last()
             .is_some_and(|t| matches!(t.token_type, TokenType::EOF)));
-    }
-
-    #[test]
-    fn test_is_math_cmd() {
-        let t = Token::control_sequence("sqrt");
-        assert!(is_math_cmd(&t));
-
-        let t2 = Token::control_sequence("textbf");
-        assert!(!is_math_cmd(&t2));
-
-        let t3 = Token::word("sqrt");
-        assert!(!is_math_cmd(&t3));
-    }
-
-    #[test]
-    fn test_is_env_start() {
-        let t = Token::control_sequence("begin");
-        assert!(is_env_start(&t));
-
-        let t2 = Token::control_sequence("documentclass");
-        assert!(is_env_start(&t2));
-
-        let t3 = Token::control_sequence("textbf");
-        assert!(!is_env_start(&t3));
-    }
-
-    #[test]
-    fn test_macro_definition() {
-        let macro_def = MacroDefinition::new("test");
-        assert_eq!(macro_def.name, "test");
-        assert!(!macro_def.is_long);
-        assert!(macro_def.parameters.is_empty());
-        assert!(macro_def.body.is_empty());
-
-        let long_macro = MacroDefinition::new("longtest").long();
-        assert!(long_macro.is_long);
     }
 
     #[test]

@@ -59,8 +59,6 @@ impl HtmlMode {
 #[derive(Debug)]
 pub struct HtmlRenderer<'a> {
     arena: &'a NodeArena,
-    #[allow(dead_code)]
-    options: &'a WriterOptions,
     mode: HtmlMode,
     output: String,
     slide_level: usize,
@@ -70,12 +68,11 @@ impl<'a> HtmlRenderer<'a> {
     /// Create a new HTML renderer with the specified mode.
     pub fn new(
         arena: &'a NodeArena,
-        options: &'a WriterOptions,
+        _options: &'a WriterOptions,
         mode: HtmlMode,
     ) -> Self {
         Self {
             arena,
-            options,
             mode,
             output: String::with_capacity(arena.len() * 64),
             slide_level: 2, // Default: h1 = title slide, h2+ = content slides

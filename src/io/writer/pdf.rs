@@ -1,166 +1,41 @@
-//! PDF writer (placeholder implementation)
+//! PDF writer (not yet implemented)
 //!
-//! This module provides PDF output generation.
+//! This module is reserved for future PDF output generation.
 //!
-//! # Experimental Feature
+//! # Status: Not Implemented
 //!
-//! This is a placeholder implementation. Full PDF support would require
-//! the printpdf or genpdf crate for proper PDF generation.
+//! PDF output is not yet implemented. To add PDF support, one of these
+//! approaches could be used:
 //!
-//! The current implementation only generates a text-based placeholder output,
-//! not a valid PDF file.
+//! 1. **Direct PDF generation**: Add `printpdf` or `genpdf` crate dependency
+//!    - Implement proper PDF structure generation
+//!    - Add font embedding
+//!    - Handle images and complex layouts
 //!
-//! # Future Work
+//! 2. **External tool integration**: Use external tools like:
+//!    - `wkhtmltopdf` - HTML to PDF via wkhtmltopdf
+//!    - `pandoc` - Convert to PDF via pandoc
+//!    - `weasyprint` - HTML/CSS to PDF
 //!
-//! To implement full PDF support:
-//! 1. Add printpdf or genpdf dependency
-//! 2. Implement proper PDF structure generation
-//! 3. Add font embedding
-//! 4. Handle images and complex layouts
+//! 3. **LaTeX intermediate**: Convert to LaTeX first, then use LaTeX to PDF
 
 use crate::core::arena::{NodeArena, NodeId};
-use crate::core::error::ClmdResult;
-use crate::core::nodes::NodeValue;
+use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::WriterOptions;
 
-/// Render an AST as PDF
-///
-/// This is a convenience function that generates a placeholder PDF structure.
-/// Note: This is a placeholder implementation.
-pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
-    let mut renderer = PdfRenderer::new(arena);
-    renderer.render(root)
-}
-
 /// Write a document as PDF.
+///
+/// # Errors
+///
+/// Always returns an error as PDF output is not yet implemented.
 pub fn write_pdf(
-    arena: &NodeArena,
-    root: NodeId,
+    _arena: &NodeArena,
+    _root: NodeId,
     _options: &WriterOptions,
 ) -> ClmdResult<String> {
-    Ok(render(arena, root, 0))
-}
-
-/// PDF renderer state
-struct PdfRenderer<'a> {
-    arena: &'a NodeArena,
-    output: String,
-}
-
-impl<'a> PdfRenderer<'a> {
-    fn new(arena: &'a NodeArena) -> Self {
-        PdfRenderer {
-            arena,
-            output: String::new(),
-        }
-    }
-
-    fn render(&mut self, root: NodeId) -> String {
-        self.output.push_str("%PDF-1.4\n");
-        self.output.push_str(
-            "% Placeholder PDF - real implementation would use printpdf crate\n",
-        );
-
-        self.render_node(root);
-
-        self.output.push_str("%%EOF\n");
-
-        self.output.clone()
-    }
-
-    fn render_node(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-        let value = &node.value;
-
-        match value {
-            NodeValue::Heading(heading) => {
-                self.output
-                    .push_str(&format!("Heading {}: ", heading.level));
-                self.write_children_text(node_id);
-                self.output.push('\n');
-            }
-            NodeValue::Paragraph => {
-                self.write_children_text(node_id);
-                self.output.push_str("\n\n");
-            }
-            _ => {
-                self.write_children(node_id);
-            }
-        }
-    }
-
-    fn write_children(&mut self, node_id: NodeId) {
-        let children = self.collect_children(node_id);
-        for child_id in children {
-            self.render_node(child_id);
-        }
-    }
-
-    fn write_children_text(&mut self, node_id: NodeId) {
-        let children = self.collect_children(node_id);
-        for child_id in children {
-            self.write_node_text(child_id);
-        }
-    }
-
-    fn write_node_text(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-        match &node.value {
-            NodeValue::Text(literal) => {
-                self.output.push_str(literal);
-            }
-            _ => {
-                self.write_children_text(node_id);
-            }
-        }
-    }
-
-    fn collect_children(&self, node_id: NodeId) -> Vec<NodeId> {
-        let mut children = Vec::new();
-
-        let first_opt = self.arena.get(node_id).first_child;
-        if let Some(first) = first_opt {
-            children.push(first);
-            let mut current = first;
-            loop {
-                let next_opt = self.arena.get(current).next;
-                if let Some(next) = next_opt {
-                    children.push(next);
-                    current = next;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        children
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::io::test_utils::{create_heading, create_paragraph, create_test_arena};
-
-    #[test]
-    fn test_pdf_render() {
-        let (mut arena, doc) = create_test_arena();
-        create_heading(&mut arena, doc, 1, "Test Document");
-        create_paragraph(&mut arena, doc, "This is a test paragraph.");
-        let output = render(&arena, doc, 0);
-
-        assert!(output.contains("%PDF"));
-        assert!(output.contains("Test Document"));
-    }
-
-    #[test]
-    fn test_pdf_write() {
-        let (mut arena, doc) = create_test_arena();
-        create_heading(&mut arena, doc, 1, "Test Document");
-        let options = WriterOptions::default();
-        let output = write_pdf(&arena, doc, &options).unwrap();
-
-        assert!(output.contains("%PDF"));
-        assert!(output.contains("Test Document"));
-    }
+    Err(ClmdError::not_implemented(
+        "PDF output is not yet implemented. \
+         Consider using LaTeX output and converting with pdflatex, \
+         or use an external tool like wkhtmltopdf or pandoc.",
+    ))
 }

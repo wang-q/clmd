@@ -393,48 +393,6 @@ impl SlideShow {
     pub fn titles(&self) -> Vec<Option<&String>> {
         self.slides.iter().map(|s| s.title.as_ref()).collect()
     }
-
-    /// Render to reveal.js HTML format.
-    pub fn to_reveal_js(&self) -> String {
-        let mut output = String::new();
-
-        output.push_str("<div class=\"reveal\">\n");
-        output.push_str("  <div class=\"slides\">\n");
-
-        for slide in &self.slides {
-            output.push_str("    <section>\n");
-
-            if let Some(ref title) = slide.title {
-                output.push_str(&format!("      <h2>{}</h2>\n", escape_html(title)));
-            }
-
-            output.push_str("      <!-- Slide content -->\n");
-            output.push_str("    </section>\n");
-        }
-
-        output.push_str("  </div>\n");
-        output.push_str("</div>\n");
-
-        output
-    }
-
-    /// Render to beamer LaTeX format.
-    pub fn to_beamer(&self) -> String {
-        let mut output = String::new();
-
-        for slide in &self.slides {
-            output.push_str("\\begin{frame}\n");
-
-            if let Some(ref title) = slide.title {
-                output.push_str(&format!("  \\frametitle{{{}}}\n", escape_latex(title)));
-            }
-
-            output.push_str("  % Slide content\n");
-            output.push_str("\\end{frame}\n\n");
-        }
-
-        output
-    }
 }
 
 impl Default for SlideShow {
@@ -449,16 +407,6 @@ fn get_heading_text(arena: &NodeArena, heading_id: NodeId) -> String {
         .trim()
         .to_string()
 }
-
-/// Escape HTML special characters.
-///
-/// Re-exports the implementation from `writer::shared`.
-pub use crate::io::writer::shared::escape_html;
-
-/// Escape LaTeX special characters.
-///
-/// Re-exports the implementation from `writer::shared`.
-pub use crate::io::writer::shared::escape_latex;
 
 /// Split a document into slides.
 ///
@@ -601,31 +549,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reveal_js_output() {
-        let md = "# Slide 1\n\n# Slide 2";
-        let show = SlideShow::from_markdown(md);
-        let html = show.to_reveal_js();
-
-        assert!(html.contains("<div class=\"reveal\">"));
-        assert!(html.contains("<div class=\"slides\">"));
-        assert!(html.contains("<section>"));
-        assert!(html.contains("<h2>Slide 1</h2>"));
-        assert!(html.contains("<h2>Slide 2</h2>"));
-    }
-
-    #[test]
-    fn test_beamer_output() {
-        let md = "# Slide 1\n\n# Slide 2";
-        let show = SlideShow::from_markdown(md);
-        let latex = show.to_beamer();
-
-        assert!(latex.contains("\\begin{frame}"));
-        assert!(latex.contains("\\frametitle{Slide 1}"));
-        assert!(latex.contains("\\frametitle{Slide 2}"));
-        assert!(latex.contains("\\end{frame}"));
-    }
-
-    #[test]
     fn test_split_into_slides() {
         let md = "# First\n\nContent\n\n# Second";
         let options = Options::default();
@@ -674,22 +597,5 @@ mod tests {
         // Just verify config is set correctly
         assert!(show_with_toc.config.include_toc);
         assert_eq!(show_with_toc.config.toc_title, "Table of Contents");
-    }
-
-    #[test]
-    fn test_html_escaping() {
-        let text = "Test <script>alert('xss')</script>";
-        let escaped = escape_html(text);
-        assert!(!escaped.contains("<script>"));
-        assert!(escaped.contains("&lt;script&gt;"));
-    }
-
-    #[test]
-    fn test_latex_escaping() {
-        let text = "Special $characters% & more";
-        let escaped = escape_latex(text);
-        assert!(escaped.contains("\\$"));
-        assert!(escaped.contains("\\%"));
-        assert!(escaped.contains("\\&"));
     }
 }

@@ -337,7 +337,6 @@ impl WriterRegistry {
         self.register(Box::new(LatexWriter));
         self.register(Box::new(ManWriter));
         self.register(Box::new(TypstWriter));
-        self.register(Box::new(PdfWriter));
         self.register(Box::new(BibTeXWriter));
         self.register(Box::new(RtfWriter));
         self.register(Box::new(BeamerWriter));
@@ -543,36 +542,6 @@ impl Writer for TypstWriter {
     }
 }
 
-/// PDF document writer.
-///
-/// Renders documents to PDF format.
-#[derive(Debug, Clone, Copy)]
-pub struct PdfWriter;
-
-impl Writer for PdfWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::pdf::write_pdf(arena, root, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Pdf
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["pdf"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/pdf"
-    }
-}
-
 /// Get the default writer registry.
 ///
 /// This is a lazily initialized global registry containing all built-in writers.
@@ -733,11 +702,9 @@ mod tests {
         assert!(registry.supports_format("html"));
         assert!(registry.supports_format("markdown"));
         assert!(registry.supports_format("xml"));
-        assert!(registry.supports_format("pdf"));
 
         assert!(registry.supports_extension("html"));
         assert!(registry.supports_extension("md"));
-        assert!(registry.supports_extension("pdf"));
     }
 
     #[test]

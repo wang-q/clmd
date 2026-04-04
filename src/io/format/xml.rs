@@ -23,46 +23,7 @@
 
 use std::fmt;
 
-/// Escape special XML characters.
-///
-/// Converts the following characters to their XML entities:
-/// - `&` → `&amp;`
-/// - `<` → `&lt;`
-/// - `>` → `&gt;`
-/// - `"` → `&quot;`
-/// - `'` → `&apos;`
-///
-/// # Arguments
-///
-/// * `s` - The string to escape
-///
-/// # Returns
-///
-/// The XML-escaped string
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::formats::xml::escape_xml;
-///
-/// assert_eq!(escape_xml("<tag>"), "&lt;tag&gt;");
-/// assert_eq!(escape_xml("&"), "&amp;");
-/// assert_eq!(escape_xml("'test'"), "&apos;test&apos;");
-/// ```ignore
-pub fn escape_xml(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            '\'' => result.push_str("&apos;"),
-            _ => result.push(c),
-        }
-    }
-    result
-}
+pub use crate::io::writer::shared::escape_xml;
 
 /// Unescape XML entities.
 ///
