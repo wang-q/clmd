@@ -2,7 +2,7 @@
 //!
 //! Benchmarks for the CommonMark formatter performance.
 
-use clmd::{markdown_to_commonmark, Options};
+use clmd::{markdown_to_commonmark, Options, Plugins};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 /// Generate a large document with mixed content
@@ -98,7 +98,13 @@ fn bench_large_document(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_large_document");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(&input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(&input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -112,7 +118,13 @@ fn bench_simple_paragraphs(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_simple_paragraphs");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -126,7 +138,13 @@ fn bench_emphasis(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_emphasis");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -140,7 +158,13 @@ fn bench_links(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_links");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -160,7 +184,13 @@ fn bench_code_blocks(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_code_blocks");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -174,7 +204,7 @@ fn bench_tables(c: &mut Criterion) {
     group.bench_function("markdown_to_commonmark", |b| {
         let mut opts = Options::default();
         opts.extension.table = true;
-        b.iter(|| markdown_to_commonmark(black_box(&input), &opts))
+        b.iter(|| markdown_to_commonmark(black_box(&input), &opts, &Plugins::default()))
     });
     group.finish();
 }
@@ -186,7 +216,13 @@ fn bench_nested_lists(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_nested_lists");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(&input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(&input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -203,7 +239,13 @@ fn bench_headings(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_headings");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -218,7 +260,13 @@ fn bench_blockquotes(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_blockquotes");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
@@ -233,12 +281,18 @@ fn bench_task_lists(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_task_lists");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        b.iter(|| markdown_to_commonmark(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_commonmark(
+                black_box(input),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
     group.finish();
 }
 
-/// Benchmark: Mixed content (realistic document)
+/// Benchmark: HeadingsMixed content (realistic document)
 fn bench_mixed_content(c: &mut Criterion) {
     let input = r#"# Document Title
 
@@ -280,7 +334,7 @@ fn hello() {
     group.bench_function("markdown_to_commonmark", |b| {
         let mut opts = Options::default();
         opts.extension.table = true;
-        b.iter(|| markdown_to_commonmark(black_box(input), &opts))
+        b.iter(|| markdown_to_commonmark(black_box(input), &opts, &Plugins::default()))
     });
     group.finish();
 }

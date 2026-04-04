@@ -2,7 +2,7 @@
 //!
 //! Benchmarks for specific Markdown features.
 
-use clmd::{markdown_to_html, Options};
+use clmd::{markdown_to_html, Options, Plugins};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 // Smart punctuation benchmark
@@ -15,7 +15,9 @@ Wow... Becky is so 'mean'!"#;
     let mut group = c.benchmark_group("smart_punctuation");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }
@@ -29,7 +31,9 @@ fn bench_links_and_emphasis(c: &mut Criterion) {
     let mut group = c.benchmark_group("links_and_emphasis");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }
@@ -42,7 +46,9 @@ fn bench_code_blocks(c: &mut Criterion) {
     let mut group = c.benchmark_group("code_blocks");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }
@@ -57,7 +63,9 @@ fn bench_tables(c: &mut Criterion) {
     let mut group = c.benchmark_group("tables");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }
@@ -71,7 +79,9 @@ fn bench_autolinks(c: &mut Criterion) {
     let mut group = c.benchmark_group("autolinks");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }
@@ -85,7 +95,9 @@ fn bench_html_entities(c: &mut Criterion) {
     let mut group = c.benchmark_group("html_entities");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("clmd", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(black_box(input), &Options::default(), &Plugins::default())
+        })
     });
     group.finish();
 }

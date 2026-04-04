@@ -8,7 +8,7 @@
 //! - Using write! instead of format!
 //! - Efficient text node merging
 
-use clmd::{markdown_to_html, Options};
+use clmd::{markdown_to_html, Options, Plugins};
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
 };
@@ -21,7 +21,13 @@ fn bench_text_heavy_documents(c: &mut Criterion) {
     let plain_text = "This is a paragraph with plain text content. ".repeat(100);
     group.throughput(Throughput::Bytes(plain_text.len() as u64));
     group.bench_function("plain_text_5kb", |b| {
-        b.iter(|| markdown_to_html(black_box(&plain_text), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&plain_text),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Text with some formatting (tests mixed path)
@@ -29,7 +35,13 @@ fn bench_text_heavy_documents(c: &mut Criterion) {
         "This is **bold** and *italic* text with `code` and [links](http://example.com). ".repeat(50);
     group.throughput(Throughput::Bytes(formatted_text.len() as u64));
     group.bench_function("formatted_text_5kb", |b| {
-        b.iter(|| markdown_to_html(black_box(&formatted_text), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&formatted_text),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     group.finish();
@@ -51,7 +63,13 @@ fn bench_text_node_merging(c: &mut Criterion) {
             BenchmarkId::from_parameter(segment_count),
             &input,
             |b, input| {
-                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
+                b.iter(|| {
+                    markdown_to_html(
+                        black_box(input),
+                        &Options::default(),
+                        &Plugins::default(),
+                    )
+                })
             },
         );
     }
@@ -69,7 +87,13 @@ fn bench_html_output_generation(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(headings_doc.len() as u64));
     group.bench_function("many_headings", |b| {
-        b.iter(|| markdown_to_html(black_box(&headings_doc), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&headings_doc),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Many task items (tests checkbox generation)
@@ -78,7 +102,13 @@ fn bench_html_output_generation(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(task_list.len() as u64));
     group.bench_function("many_task_items", |b| {
-        b.iter(|| markdown_to_html(black_box(&task_list), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&task_list),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Tables with alignment (tests table header generation)
@@ -105,7 +135,13 @@ fn bench_html_output_generation(c: &mut Criterion) {
             BenchmarkId::new("table_with_alignment", col_count),
             &table,
             |b, table| {
-                b.iter(|| markdown_to_html(black_box(table), &Options::default()))
+                b.iter(|| {
+                    markdown_to_html(
+                        black_box(table),
+                        &Options::default(),
+                        &Plugins::default(),
+                    )
+                })
             },
         );
     }
@@ -123,7 +159,13 @@ fn bench_line_processing(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(many_lines.len() as u64));
     group.bench_function("many_lines_10k", |b| {
-        b.iter(|| markdown_to_html(black_box(&many_lines), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&many_lines),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Document with CRLF line endings (tests line ending normalization)
@@ -132,7 +174,13 @@ fn bench_line_processing(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(crlf_lines.len() as u64));
     group.bench_function("crlf_lines_10k", |b| {
-        b.iter(|| markdown_to_html(black_box(&crlf_lines), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&crlf_lines),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     group.finish();
@@ -149,7 +197,13 @@ fn bench_memory_allocation_patterns(c: &mut Criterion) {
         + &"More content here. ".repeat(1000);
     group.throughput(Throughput::Bytes(large_doc.len() as u64));
     group.bench_function("large_doc_50kb", |b| {
-        b.iter(|| markdown_to_html(black_box(&large_doc), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&large_doc),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Document with many footnotes (tests footnote reference generation)
@@ -163,7 +217,13 @@ fn bench_memory_allocation_patterns(c: &mut Criterion) {
     }
     group.throughput(Throughput::Bytes(footnote_doc.len() as u64));
     group.bench_function("many_footnotes", |b| {
-        b.iter(|| markdown_to_html(black_box(&footnote_doc), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&footnote_doc),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     group.finish();
@@ -179,20 +239,27 @@ fn bench_smart_punctuation_comparison(c: &mut Criterion) {
     let options_no_smart = Options::default();
     group.throughput(Throughput::Bytes(text_with_quotes.len() as u64));
     group.bench_function("without_smart_punctuation", |b| {
-        b.iter(|| markdown_to_html(black_box(&text_with_quotes), &options_no_smart))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&text_with_quotes),
+                &options_no_smart,
+                &Plugins::default(),
+            )
+        })
     });
 
     // With smart punctuation (tests regular path)
-    let options_smart = Options {
-        parse: clmd::Parse {
-            smart: true,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
+    let mut options_smart = Options::default();
+    options_smart.parse.smart = true;
     group.throughput(Throughput::Bytes(text_with_quotes.len() as u64));
     group.bench_function("with_smart_punctuation", |b| {
-        b.iter(|| markdown_to_html(black_box(&text_with_quotes), &options_smart))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&text_with_quotes),
+                &options_smart,
+                &Plugins::default(),
+            )
+        })
     });
 
     group.finish();
@@ -208,7 +275,13 @@ fn bench_append_text_operations(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(code_heavy.len() as u64));
     group.bench_function("code_heavy_document", |b| {
-        b.iter(|| markdown_to_html(black_box(&code_heavy), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&code_heavy),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     // Document with emphasis (creates text nodes around emphasis)
@@ -217,7 +290,13 @@ fn bench_append_text_operations(c: &mut Criterion) {
         .collect::<String>();
     group.throughput(Throughput::Bytes(emphasis_heavy.len() as u64));
     group.bench_function("emphasis_heavy_document", |b| {
-        b.iter(|| markdown_to_html(black_box(&emphasis_heavy), &Options::default()))
+        b.iter(|| {
+            markdown_to_html(
+                black_box(&emphasis_heavy),
+                &Options::default(),
+                &Plugins::default(),
+            )
+        })
     });
 
     group.finish();
