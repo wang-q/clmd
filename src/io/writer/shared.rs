@@ -290,6 +290,7 @@ pub fn get_node_text(arena: &NodeArena, node_id: NodeId) -> String {
 /// Escape LaTeX special characters.
 ///
 /// Escapes characters that have special meaning in LaTeX.
+/// This implementation matches the full escaping in `latex_shared.rs`.
 ///
 /// # Arguments
 ///
@@ -309,6 +310,7 @@ pub fn get_node_text(arena: &NodeArena, node_id: NodeId) -> String {
 /// ```
 pub fn escape_latex(text: &str) -> String {
     let mut result = String::with_capacity(text.len() * 2);
+
     for c in text.chars() {
         match c {
             '\\' => result.push_str("\\textbackslash{}"),
@@ -317,10 +319,10 @@ pub fn escape_latex(text: &str) -> String {
             '$' => result.push_str("\\$"),
             '&' => result.push_str("\\&"),
             '#' => result.push_str("\\#"),
-            '^' => result.push_str("\\^{}"),
+            '^' => result.push_str("\\textasciicircum{}"),
             '_' => result.push_str("\\_"),
-            '%' => result.push_str("\\%"),
             '~' => result.push_str("\\textasciitilde{}"),
+            '%' => result.push_str("\\%"),
             '<' => result.push_str("\\textless{}"),
             '>' => result.push_str("\\textgreater{}"),
             '|' => result.push_str("\\textbar{}"),
@@ -330,6 +332,7 @@ pub fn escape_latex(text: &str) -> String {
             _ => result.push(c),
         }
     }
+
     result
 }
 
@@ -357,7 +360,7 @@ pub fn escape_typst(text: &str) -> String {
     let mut result = String::with_capacity(text.len() * 2);
     for c in text.chars() {
         match c {
-            '\\' => result.push('\\'),
+            '\\' => result.push_str("\\\\"),
             '*' => result.push_str("\\*"),
             '_' => result.push_str("\\_"),
             '`' => result.push_str("\\`"),
@@ -405,6 +408,106 @@ pub fn escape_man(text: &str) -> String {
         }
     }
     result
+}
+
+/// Escape XML special characters.
+///
+/// Converts the following characters to their XML entities:
+/// - `&` → `&amp;`
+/// - `<` → `&lt;`
+/// - `>` → `&gt;`
+/// - `"` → `&quot;`
+/// - `'` → `&apos;`
+///
+/// # Arguments
+///
+/// * `text` - The string to escape
+///
+/// # Returns
+///
+/// The XML-escaped string
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::io::writer::shared::escape_xml;
+///
+/// assert_eq!(escape_xml("<tag>"), "&lt;tag&gt;");
+/// assert_eq!(escape_xml("&"), "&amp;");
+/// ```
+pub fn escape_xml(text: &str) -> String {
+    let mut result = String::with_capacity(text.len() * 2);
+    for c in text.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&apos;"),
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
+/// Escape RTF special characters.
+///
+/// Escapes characters that have special meaning in RTF format.
+/// This function keeps newlines as-is.
+///
+/// # Arguments
+///
+/// * `text` - The text to escape
+///
+/// # Returns
+///
+/// The escaped text safe for RTF
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::io::writer::shared::escape_rtf;
+///
+/// assert_eq!(escape_rtf("{ \\ }"), "\\{ \\\\ \\}");
+/// ```
+pub fn escape_rtf(text: &str) -> String {
+    let mut result = String::with_capacity(text.len() * 2);
+    escape_rtf_to(text, &mut result, RtfNewlineMode::Keep);
+    result
+}
+
+/// RTF newline handling mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RtfNewlineMode {
+    /// Keep newlines as-is.
+    Keep,
+    /// Convert newlines to spaces (for inline text).
+    Space,
+    /// Convert newlines to RTF line breaks (for code blocks).
+    LineBreak,
+}
+
+/// Escape RTF special characters to an existing output buffer.
+///
+/// # Arguments
+///
+/// * `text` - The text to escape
+/// * `output` - The output buffer to append to
+/// * `newline_mode` - How to handle newlines
+pub fn escape_rtf_to(text: &str, output: &mut String, newline_mode: RtfNewlineMode) {
+    for c in text.chars() {
+        match c {
+            '\\' => output.push_str("\\\\"),
+            '{' => output.push_str("\\{"),
+            '}' => output.push_str("\\}"),
+            '\n' => match newline_mode {
+                RtfNewlineMode::Keep => output.push('\n'),
+                RtfNewlineMode::Space => output.push(' '),
+                RtfNewlineMode::LineBreak => output.push_str("\\line "),
+            },
+            _ => output.push(c),
+        }
+    }
 }
 
 /// Count words in text.
@@ -603,9 +706,11 @@ mod tests {
         assert_eq!(escape_latex("a & b"), "a \\& b");
         assert_eq!(escape_latex("$100"), "\\$100");
         assert_eq!(escape_latex("test_"), "test\\_");
-        assert_eq!(escape_latex("x^2"), "x\\^{}2");
+        assert_eq!(escape_latex("x^2"), "x\\textasciicircum{}2");
         assert_eq!(escape_latex("#tag"), "\\#tag");
         assert_eq!(escape_latex("{brace}"), "\\{brace\\}");
+        assert_eq!(escape_latex("~nbs"), "\\textasciitilde{}nbs");
+        assert_eq!(escape_latex("<tag>"), "\\textless{}tag\\textgreater{}");
     }
 
     #[test]
@@ -637,5 +742,24 @@ mod tests {
         assert_eq!(truncate_text("hi", 8), "hi");
         assert_eq!(truncate_text("exactly ten", 11), "exactly ten");
         assert_eq!(truncate_text("more than ten", 10), "more th...");
+    }
+
+    #[test]
+    fn test_escape_xml() {
+        assert_eq!(escape_xml("<tag>"), "&lt;tag&gt;");
+        assert_eq!(escape_xml("&"), "&amp;");
+        assert_eq!(escape_xml("\"quoted\""), "&quot;quoted&quot;");
+        assert_eq!(escape_xml("'single'"), "&apos;single&apos;");
+        assert_eq!(escape_xml("a > b"), "a &gt; b");
+        assert_eq!(escape_xml("hello"), "hello");
+    }
+
+    #[test]
+    fn test_escape_rtf() {
+        assert_eq!(escape_rtf("{ \\ }"), "\\{ \\\\ \\}");
+        assert_eq!(escape_rtf("hello"), "hello");
+        assert_eq!(escape_rtf("\\"), "\\\\");
+        assert_eq!(escape_rtf("{"), "\\{");
+        assert_eq!(escape_rtf("}"), "\\}");
     }
 }

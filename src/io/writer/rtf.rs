@@ -18,6 +18,7 @@ use crate::context::ClmdContext;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::NodeValue;
+use crate::io::writer::shared::{escape_rtf_to, RtfNewlineMode};
 use crate::io::writer::Writer;
 use crate::options::{OutputFormat, WriterOptions};
 
@@ -140,15 +141,7 @@ fn render_node(
             output.push_str("\n\\pard \\f0\\fs20 ");
 
             // Escape RTF special characters in code
-            for c in code.literal.chars() {
-                match c {
-                    '\\' => output.push_str("\\\\"),
-                    '{' => output.push_str("\\{"),
-                    '}' => output.push_str("\\}"),
-                    '\n' => output.push_str("\\line "),
-                    _ => output.push(c),
-                }
-            }
+            escape_rtf_to(&code.literal, output, RtfNewlineMode::LineBreak);
 
             output.push_str("\\par\n");
         }
@@ -203,16 +196,7 @@ fn render_inline(
 
     match &node.value {
         NodeValue::Text(text) => {
-            // Escape RTF special characters
-            for c in text.chars() {
-                match c {
-                    '\\' => output.push_str("\\\\"),
-                    '{' => output.push_str("\\{"),
-                    '}' => output.push_str("\\}"),
-                    '\n' => output.push(' '),
-                    _ => output.push(c),
-                }
-            }
+            escape_rtf_to(text, output, RtfNewlineMode::Space);
         }
 
         NodeValue::SoftBreak | NodeValue::HardBreak => {
@@ -243,14 +227,7 @@ fn render_inline(
 
         NodeValue::Code(code) => {
             output.push_str("\\f0\\fs20 ");
-            for c in code.literal.chars() {
-                match c {
-                    '\\' => output.push_str("\\\\"),
-                    '{' => output.push_str("\\{"),
-                    '}' => output.push_str("\\}"),
-                    _ => output.push(c),
-                }
-            }
+            escape_rtf_to(&code.literal, output, RtfNewlineMode::Keep);
             output.push_str("\\f0 ");
         }
 
@@ -320,37 +297,17 @@ mod tests {
     use crate::core::nodes::{
         NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
     };
+    use crate::io::test_utils::{create_heading, create_paragraph, create_test_arena};
     use crate::options::WriterOptions;
-
-    fn create_test_document() -> (NodeArena, NodeId) {
-        let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-
-        // Add a heading
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
-        let text = arena.alloc(Node::with_value(NodeValue::Text("Hello".into())));
-        TreeOps::append_child(&mut arena, heading, text);
-        TreeOps::append_child(&mut arena, root, heading);
-
-        // Add a paragraph
-        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text = arena.alloc(Node::with_value(NodeValue::Text("World".into())));
-        TreeOps::append_child(&mut arena, para, para_text);
-        TreeOps::append_child(&mut arena, root, para);
-
-        (arena, root)
-    }
 
     #[test]
     fn test_rtf_writer_basic() {
         let writer = RtfWriter;
         let ctx = PureContext::new();
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
+        create_paragraph(&mut arena, root, "World");
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
 

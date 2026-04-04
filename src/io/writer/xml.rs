@@ -6,7 +6,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeValue};
-use crate::io::format::xml::escape_xml;
+use crate::io::writer::shared::escape_xml;
 use crate::options::{Options, Plugins, WriterOptions};
 use std::fmt;
 
@@ -16,16 +16,31 @@ pub fn write_xml(
     root: NodeId,
     _options: &WriterOptions,
 ) -> ClmdResult<String> {
-    let mut renderer = XmlRenderer::new(arena);
-    Ok(renderer.render(root))
+    let mut output = String::new();
+    format_document_with_plugins(
+        arena,
+        root,
+        &Options::default(),
+        &mut output,
+        &Plugins::default(),
+    )?;
+    Ok(output)
 }
 
 /// Render an AST as XML.
 ///
 /// This is a convenience function that doesn't use plugins.
 pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
-    let mut renderer = XmlRenderer::new(arena);
-    renderer.render(root)
+    let mut output = String::new();
+    format_document_with_plugins(
+        arena,
+        root,
+        &Options::default(),
+        &mut output,
+        &Plugins::default(),
+    )
+    .unwrap();
+    output
 }
 
 /// Format an AST as XML.
@@ -196,97 +211,6 @@ fn format_node_xml(
     }
 
     Ok(())
-}
-
-/// XML renderer state
-struct XmlRenderer<'a> {
-    arena: &'a NodeArena,
-    output: String,
-}
-
-impl<'a> XmlRenderer<'a> {
-    fn new(arena: &'a NodeArena) -> Self {
-        XmlRenderer {
-            arena,
-            output: String::new(),
-        }
-    }
-
-    fn render(&mut self, root: NodeId) -> String {
-        self.output
-            .push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        self.output
-            .push_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n");
-        self.render_node(root);
-        self.output.clone()
-    }
-
-    fn render_node(&mut self, node_id: NodeId) {
-        let node = self.arena.get(node_id);
-        let tag_name = node.value.xml_node_name();
-
-        self.output.push('<');
-        self.output.push_str(tag_name);
-
-        match &node.value {
-            NodeValue::List(list) => match list.list_type {
-                ListType::Bullet => {
-                    self.output.push_str(" type=\"bullet\"");
-                }
-                ListType::Ordered => {
-                    self.output.push_str(" type=\"ordered\"");
-                    if list.start != 1 {
-                        self.output.push_str(&format!(" start=\"{}\"", list.start));
-                    }
-                }
-            },
-            NodeValue::Heading(heading) => {
-                self.output
-                    .push_str(&format!(" level=\"{}\"", heading.level));
-            }
-            NodeValue::ShortCode(shortcode) => {
-                self.output
-                    .push_str(&format!(" code=\"{}\"", escape_xml(&shortcode.code)));
-            }
-            _ => {}
-        }
-
-        if node.value.is_leaf() {
-            match &node.value {
-                NodeValue::Text(text) => {
-                    if !text.is_empty() {
-                        self.output.push('>');
-                        self.output.push_str(&escape_xml(text));
-                        self.output.push_str(&format!("</{tag_name}>"));
-                    } else {
-                        self.output.push_str(" />");
-                    }
-                }
-                NodeValue::ShortCode(shortcode) => {
-                    if !shortcode.emoji.is_empty() {
-                        self.output.push('>');
-                        self.output.push_str(&escape_xml(&shortcode.emoji));
-                        self.output.push_str(&format!("</{tag_name}>"));
-                    } else {
-                        self.output.push_str(" />");
-                    }
-                }
-                _ => {
-                    self.output.push_str(" />");
-                }
-            }
-        } else {
-            self.output.push_str(">\n");
-
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
-                self.render_node(child_id);
-                child_opt = self.arena.get(child_id).next;
-            }
-
-            self.output.push_str(&format!("</{tag_name}>\n"));
-        }
-    }
 }
 
 #[cfg(test)]

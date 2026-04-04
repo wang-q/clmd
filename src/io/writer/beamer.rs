@@ -378,49 +378,17 @@ mod tests {
     use crate::core::nodes::{
         NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeValue,
     };
-
-    fn create_test_presentation() -> (NodeArena, NodeId) {
-        let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-
-        // Add a title heading
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
-        let text =
-            arena.alloc(Node::with_value(NodeValue::Text("My Presentation".into())));
-        TreeOps::append_child(&mut arena, heading, text);
-        TreeOps::append_child(&mut arena, root, heading);
-
-        // Add a slide heading
-        let slide = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-            level: 2,
-            setext: false,
-            closed: false,
-        })));
-        let slide_text =
-            arena.alloc(Node::with_value(NodeValue::Text("First Slide".into())));
-        TreeOps::append_child(&mut arena, slide, slide_text);
-        TreeOps::append_child(&mut arena, root, slide);
-
-        // Add a paragraph
-        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text =
-            arena.alloc(Node::with_value(NodeValue::Text("Hello World".into())));
-        TreeOps::append_child(&mut arena, para, para_text);
-        TreeOps::append_child(&mut arena, root, para);
-
-        (arena, root)
-    }
+    use crate::io::test_utils::{create_heading, create_paragraph, create_test_arena};
 
     #[test]
     fn test_beamer_writer_basic() {
         let writer = BeamerWriter;
         let ctx = PureContext::new();
         let options = WriterOptions::default();
-        let (arena, root) = create_test_presentation();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "My Presentation");
+        create_heading(&mut arena, root, 2, "First Slide");
+        create_paragraph(&mut arena, root, "Hello World");
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
 
@@ -443,7 +411,8 @@ mod tests {
 
     #[test]
     fn test_beamer_title_extraction() {
-        let (arena, root) = create_test_presentation();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "My Presentation");
         let title = extract_title(&arena, root);
         assert_eq!(title, Some("My Presentation".to_string()));
     }

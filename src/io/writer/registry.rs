@@ -30,6 +30,12 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::{ClmdError, ClmdResult};
 use crate::options::{OutputFormat, WriterOptions};
 
+// Import writers from their modules
+use crate::io::writer::bibtex::BibTeXWriter;
+use crate::io::writer::beamer::BeamerWriter;
+use crate::io::writer::revealjs::RevealJsWriter;
+use crate::io::writer::rtf::RtfWriter;
+
 /// Type alias for boxed writer trait objects.
 pub type BoxedWriter = Box<dyn Writer>;
 
@@ -567,126 +573,6 @@ impl Writer for PdfWriter {
     }
 }
 
-/// BibTeX document writer.
-///
-/// Renders documents to BibTeX format.
-#[derive(Debug, Clone, Copy)]
-pub struct BibTeXWriter;
-
-impl Writer for BibTeXWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::bibtex::BibTeXWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Bibtex
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["bib", "bibtex"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/x-bibtex"
-    }
-}
-
-/// RTF document writer.
-///
-/// Renders documents to RTF format.
-#[derive(Debug, Clone, Copy)]
-pub struct RtfWriter;
-
-impl Writer for RtfWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::rtf::RtfWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Rtf
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["rtf"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/rtf"
-    }
-}
-
-/// Beamer document writer.
-///
-/// Renders documents to Beamer (LaTeX slides) format.
-#[derive(Debug, Clone, Copy)]
-pub struct BeamerWriter;
-
-impl Writer for BeamerWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::beamer::BeamerWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Beamer
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["tex", "beamer"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "text/x-tex"
-    }
-}
-
-/// RevealJS document writer.
-///
-/// Renders documents to RevealJS (HTML slides) format.
-#[derive(Debug, Clone, Copy)]
-pub struct RevealJsWriter;
-
-impl Writer for RevealJsWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::revealjs::RevealJsWriter.write(arena, root, _ctx, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::RevealJs
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["html", "revealjs"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "text/html"
-    }
-}
-
 /// Get the default writer registry.
 ///
 /// This is a lazily initialized global registry containing all built-in writers.
@@ -831,25 +717,7 @@ pub fn write_file(
 mod tests {
     use super::*;
     use crate::context::PureContext;
-
-    fn create_test_document() -> (NodeArena, NodeId) {
-        use crate::core::arena::{Node, TreeOps};
-        use crate::core::nodes::{NodeHeading, NodeValue};
-
-        let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
-        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
-
-        TreeOps::append_child(&mut arena, root, heading);
-        TreeOps::append_child(&mut arena, heading, text);
-
-        (arena, root)
-    }
+    use crate::io::test_utils::{create_heading, create_test_arena};
 
     #[test]
     fn test_registry_empty() {
@@ -936,7 +804,8 @@ mod tests {
         let ctx = PureContext::new();
         let writer = HtmlWriter;
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("<h1>"));
@@ -947,7 +816,8 @@ mod tests {
         let ctx = PureContext::new();
         let writer = CommonMarkWriter;
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("# Hello"));
@@ -958,7 +828,8 @@ mod tests {
         let ctx = PureContext::new();
         let writer = XmlWriter;
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
 
         let output = writer.write(&arena, root, &ctx, &options).unwrap();
         assert!(output.contains("<?xml"));
@@ -968,7 +839,8 @@ mod tests {
     fn test_write_document() {
         let ctx = PureContext::new();
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
 
         let output = write_document(&arena, root, "html", &ctx, &options).unwrap();
         assert!(output.contains("<h1>"));
@@ -978,7 +850,8 @@ mod tests {
     fn test_write_document_unknown_format() {
         let ctx = PureContext::new();
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Hello");
 
         let result = write_document(&arena, root, "unknown", &ctx, &options);
         assert!(result.is_err());

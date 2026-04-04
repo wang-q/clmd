@@ -251,6 +251,9 @@ impl fmt::Display for TokenType {
 }
 
 /// A TeX macro definition.
+///
+/// This is reserved for future macro expansion support.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct MacroDefinition {
     /// Name of the macro.
@@ -264,6 +267,9 @@ pub struct MacroDefinition {
 }
 
 /// Types of macro parameters.
+///
+/// This is reserved for future macro expansion support.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParameterType {
     /// Number parameter.
@@ -507,6 +513,9 @@ pub fn tokenize(input: &str) -> Vec<Token> {
 }
 
 /// Check if a token is a math command.
+///
+/// This is reserved for future math mode detection.
+#[allow(dead_code)]
 pub fn is_math_cmd(token: &Token) -> bool {
     if !token.is_control_sequence() {
         return false;
@@ -550,6 +559,9 @@ pub fn is_math_cmd(token: &Token) -> bool {
 }
 
 /// Check if a token starts an environment.
+///
+/// This is reserved for future environment detection.
+#[allow(dead_code)]
 pub fn is_env_start(token: &Token) -> bool {
     if !token.is_control_sequence() {
         return false;

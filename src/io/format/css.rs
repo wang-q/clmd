@@ -164,6 +164,9 @@ pub fn parse_inline_style(css: &str) -> Option<StyleDeclaration> {
 }
 
 /// CSS color utilities.
+///
+/// This is reserved for extended CSS validation support.
+#[allow(dead_code)]
 pub mod colors {
     /// Check if a string is a valid CSS color value.
     ///
@@ -227,6 +230,9 @@ pub mod colors {
 }
 
 /// CSS unit utilities.
+///
+/// This is reserved for extended CSS validation support.
+#[allow(dead_code)]
 pub mod units {
     /// Common CSS length units.
     pub const LENGTH_UNITS: &[&str] = &[

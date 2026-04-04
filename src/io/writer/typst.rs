@@ -5,6 +5,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListType, NodeList, NodeValue};
+use crate::io::writer::shared::escape_typst;
 use crate::options::{Options, Plugins, WriterOptions};
 use std::fmt;
 
@@ -29,17 +30,6 @@ pub fn format_document_with_plugins(
     let mut renderer = TypstRenderer::new(arena);
     let result = renderer.render(root);
     output.write_str(&result)
-}
-
-/// Escape special Typst characters in text.
-fn escape_typst_text(text: &str) -> String {
-    text.replace('*', "\\*")
-        .replace('_', "\\_")
-        .replace('#', "\\#")
-        .replace('@', "\\@")
-        .replace('$', "\\$")
-        .replace('<', "\\<")
-        .replace('>', "\\>")
 }
 
 /// Typst renderer state
@@ -81,7 +71,7 @@ impl<'a> TypstRenderer<'a> {
                 self.output.push_str("\n\n");
             }
             NodeValue::Text(text) => {
-                self.output.push_str(&escape_typst_text(text));
+                self.output.push_str(&escape_typst(text));
             }
             NodeValue::Heading(heading) => {
                 let level = heading.level as usize;

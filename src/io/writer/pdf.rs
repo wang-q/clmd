@@ -140,38 +140,13 @@ impl<'a> PdfRenderer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::arena::{Node, NodeArena, TreeOps};
-
-    fn create_test_document() -> (NodeArena, NodeId) {
-        let mut arena = NodeArena::new();
-        let doc = arena.alloc(Node::with_value(NodeValue::Document));
-
-        let heading = arena.alloc(Node::with_value(NodeValue::Heading(
-            crate::core::nodes::NodeHeading {
-                level: 1,
-                setext: false,
-                closed: false,
-            },
-        )));
-
-        let text = arena.alloc(Node::with_value(NodeValue::make_text("Test Document")));
-        TreeOps::append_child(&mut arena, heading, text);
-        TreeOps::append_child(&mut arena, doc, heading);
-
-        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-
-        let para_text = arena.alloc(Node::with_value(NodeValue::make_text(
-            "This is a test paragraph.",
-        )));
-        TreeOps::append_child(&mut arena, para, para_text);
-        TreeOps::append_child(&mut arena, doc, para);
-
-        (arena, doc)
-    }
+    use crate::io::test_utils::{create_heading, create_paragraph, create_test_arena};
 
     #[test]
     fn test_pdf_render() {
-        let (arena, doc) = create_test_document();
+        let (mut arena, doc) = create_test_arena();
+        create_heading(&mut arena, doc, 1, "Test Document");
+        create_paragraph(&mut arena, doc, "This is a test paragraph.");
         let output = render(&arena, doc, 0);
 
         assert!(output.contains("%PDF"));
@@ -180,7 +155,8 @@ mod tests {
 
     #[test]
     fn test_pdf_write() {
-        let (arena, doc) = create_test_document();
+        let (mut arena, doc) = create_test_arena();
+        create_heading(&mut arena, doc, 1, "Test Document");
         let options = WriterOptions::default();
         let output = write_pdf(&arena, doc, &options).unwrap();
 

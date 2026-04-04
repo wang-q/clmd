@@ -445,47 +445,20 @@ impl Default for SlideShow {
 
 /// Get the text content of a heading node.
 fn get_heading_text(arena: &NodeArena, heading_id: NodeId) -> String {
-    let mut result = String::new();
-    collect_text_recursive(arena, heading_id, &mut result);
-    result.trim().to_string()
-}
-
-/// Recursively collect text from a node and its children.
-fn collect_text_recursive(arena: &NodeArena, node_id: NodeId, result: &mut String) {
-    let node = arena.get(node_id);
-
-    if let NodeValue::Text(text) = &node.value {
-        result.push_str(text);
-    }
-
-    let mut child_opt = node.first_child;
-    while let Some(child_id) = child_opt {
-        collect_text_recursive(arena, child_id, result);
-        child_opt = arena.get(child_id).next;
-    }
+    crate::io::writer::shared::collect_text(arena, heading_id)
+        .trim()
+        .to_string()
 }
 
 /// Escape HTML special characters.
-fn escape_html(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
+///
+/// Re-exports the implementation from `writer::shared`.
+pub use crate::io::writer::shared::escape_html;
 
 /// Escape LaTeX special characters.
-fn escape_latex(text: &str) -> String {
-    text.replace('\\', "\\textbackslash{}")
-        .replace('{', "\\{")
-        .replace('}', "\\}")
-        .replace('$', "\\$")
-        .replace('&', "\\&")
-        .replace('%', "\\%")
-        .replace('#', "\\#")
-        .replace('_', "\\_")
-        .replace('^', "\\^{}")
-        .replace('~', "\\textasciitilde{}")
-}
+///
+/// Re-exports the implementation from `writer::shared`.
+pub use crate::io::writer::shared::escape_latex;
 
 /// Split a document into slides.
 ///

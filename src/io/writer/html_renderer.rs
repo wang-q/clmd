@@ -517,25 +517,14 @@ impl<'a> HtmlRenderer<'a> {
 }
 
 /// Escape HTML special characters.
-fn escape_html(text: &str) -> String {
-    let mut result = String::with_capacity(text.len() * 2);
-    escape_html_to(text, &mut result);
-    result
-}
+///
+/// Re-exports the implementation from `shared.rs`.
+pub use crate::io::writer::shared::escape_html;
 
 /// Escape HTML special characters to an existing output buffer.
-fn escape_html_to(text: &str, output: &mut String) {
-    for c in text.chars() {
-        match c {
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '&' => output.push_str("&amp;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#x27;"),
-            _ => output.push(c),
-        }
-    }
-}
+///
+/// Re-exports the implementation from `shared.rs`.
+pub use crate::io::writer::shared::escape_html_to;
 
 /// Render a document to standard HTML.
 ///
@@ -562,33 +551,8 @@ pub fn render_revealjs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::arena::{Node, NodeArena, TreeOps};
-    use crate::core::nodes::{NodeHeading, NodeValue};
+    use crate::io::test_utils::{create_heading, create_paragraph, create_test_arena};
     use crate::options::WriterOptions;
-
-    fn create_test_document() -> (NodeArena, NodeId) {
-        let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-
-        // h1 heading
-        let h1 = arena.alloc(Node::with_value(NodeValue::Heading(NodeHeading {
-            level: 1,
-            setext: false,
-            closed: false,
-        })));
-        let h1_text = arena.alloc(Node::with_value(NodeValue::Text("Title".into())));
-        TreeOps::append_child(&mut arena, h1, h1_text);
-        TreeOps::append_child(&mut arena, root, h1);
-
-        // Paragraph
-        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let para_text =
-            arena.alloc(Node::with_value(NodeValue::Text("Hello world".into())));
-        TreeOps::append_child(&mut arena, para, para_text);
-        TreeOps::append_child(&mut arena, root, para);
-
-        (arena, root)
-    }
 
     #[test]
     fn test_html_mode() {
@@ -601,7 +565,9 @@ mod tests {
     #[test]
     fn test_render_html() {
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Title");
+        create_paragraph(&mut arena, root, "Hello world");
 
         let output = render_html(&arena, root, &options).unwrap();
         assert!(output.contains("<!DOCTYPE html>"));
@@ -613,7 +579,9 @@ mod tests {
     #[test]
     fn test_render_revealjs() {
         let options = WriterOptions::default();
-        let (arena, root) = create_test_document();
+        let (mut arena, root) = create_test_arena();
+        create_heading(&mut arena, root, 1, "Title");
+        create_paragraph(&mut arena, root, "Hello world");
 
         let output = render_revealjs(&arena, root, &options).unwrap();
         assert!(output.contains("<!DOCTYPE html>"));

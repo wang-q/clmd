@@ -5,6 +5,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeHeading, NodeList, NodeValue};
+use crate::io::writer::shared::escape_man;
 use crate::options::WriterOptions;
 
 /// Render an AST as Man page.
@@ -294,21 +295,6 @@ impl<'a> ManRenderer<'a> {
         self.output.push('\n');
         self.beginning_of_line = true;
     }
-}
-
-/// Escape man page special characters
-fn escape_man(text: &str) -> String {
-    let mut result = String::with_capacity(text.len() * 2);
-
-    for c in text.chars() {
-        match c {
-            '\\' => result.push_str("\\e"),
-            '-' => result.push_str("\\-"),
-            _ => result.push(c),
-        }
-    }
-
-    result
 }
 
 #[cfg(test)]

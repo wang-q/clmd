@@ -421,33 +421,9 @@ impl<'a> LatexRenderer<'a> {
 /// Escape LaTeX special characters.
 ///
 /// Converts LaTeX special characters to their escaped equivalents.
-pub fn escape_latex(text: &str) -> String {
-    let mut result = String::with_capacity(text.len() * 2);
-
-    for c in text.chars() {
-        match c {
-            '\\' => result.push_str("\\textbackslash{}"),
-            '{' => result.push_str("\\{"),
-            '}' => result.push_str("\\}"),
-            '$' => result.push_str("\\$"),
-            '&' => result.push_str("\\&"),
-            '#' => result.push_str("\\#"),
-            '^' => result.push_str("\\textasciicircum{}"),
-            '_' => result.push_str("\\_"),
-            '~' => result.push_str("\\textasciitilde{}"),
-            '%' => result.push_str("\\%"),
-            '<' => result.push_str("\\textless{}"),
-            '>' => result.push_str("\\textgreater{}"),
-            '|' => result.push_str("\\textbar{}"),
-            '"' => result.push_str("\\textquotedbl{}"),
-            '`' => result.push_str("\\textasciigrave{}"),
-            '\'' => result.push_str("\\textquotesingle{}"),
-            _ => result.push(c),
-        }
-    }
-
-    result
-}
+///
+/// This function re-exports the implementation from `shared.rs` for convenience.
+pub use crate::io::writer::shared::escape_latex;
 
 /// Generate LaTeX document preamble.
 ///
