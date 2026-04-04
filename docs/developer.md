@@ -37,6 +37,7 @@ cargo build
 | commonmark.js-0.31.2 | JavaScript | 与 marked 相当，纯 JS 实现              |
 | flexmark-java-0.64.6 |    Java    | 高度可扩展，功能丰富，34+ 扩展模块      |
 | comrak-0.51.0        |    Rust    | Arena-based AST                         |
+
 ### 学习资源
 
 - [CommonMark 规范](https://spec.commonmark.org/)
@@ -44,119 +45,229 @@ cargo build
 - [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：../commonmark.js-0.31.2
 - [flexmark-java 源码](https://github.com/vsch/flexmark-java) - 本地路径：../flexmark-java-0.64.6
 
-## 参考项目详细分析
+## 参考代码文件
 
-### 核心算法参考
+以下是与本项目相关的参考代码文件，主要用于学习多格式写入器的实现策略：
 
-| 功能            | cmark (C)                    | commonmark.js (JS)           | flexmark (Java)   |
-| --------------- | ---------------------------- | ---------------------------- | ----------------- |
-| 块级解析        | blocks.c                     | blocks.js                    | BlockParser 体系  |
-| 内联解析        | inlines.c                    | inlines.js                   | InlineParser 体系 |
-| 强调处理        | inlines.c (process_emphasis) | inlines.js (processEmphasis) | Delimiter 处理    |
-| 链接处理        | inlines.c (parse_link)       | inlines.js (parseLink)       | LinkParser        |
-| HTML 渲染       | html.c                       | render/html.js               | NodeRenderer 体系 |
-| 表格解析        | -                            | -                            | TableBlockParser  |
-| 短代码处理      | -                            | -                            | ShortCodeParser   |
-| Markdown 格式化 | -                            | -                            | Formatter 体系    |
-| Typst 渲染      | -                            | -                            | -                 |
-| PDF 渲染        | -                            | -                            | -                 |
-### 最近完成的改进 (2026-04-01)
+### Pandoc Writers (Haskell)
 
-基于 Pandoc 架构分析，已完成以下改进：
+| 文件路径                                                      | 说明                                                  |
+| ------------------------------------------------------------- | ----------------------------------------------------- |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/LaTeX.hs`          | LaTeX/Beamer 写入器，展示如何通过状态标志区分相似格式 |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Beamer.hs`         | Beamer 写入器（实际为 LaTeX 的包装）                  |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/HTML.hs`           | HTML 写入器                                           |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Markdown.hs`       | Markdown 写入器                                       |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Docx.hs`           | DOCX 写入器                                           |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/ODT.hs`            | ODT 写入器                                            |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/RTF.hs`            | RTF 写入器                                            |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/EPUB.hs`           | EPUB 写入器                                           |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Powerpoint.hs`     | PowerPoint 写入器                                     |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Man.hs`            | Man page 写入器                                       |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Roff.hs`           | Roff 共享模块（Man/Ms 共用）                          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/ANSI.hs`           | ANSI 终端输出写入器                                   |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Native.hs`         | Native 格式写入器                                     |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Shared.hs`         | 写入器共享工具函数                                    |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Math.hs`           | 数学公式处理共享模块                                  |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/OOXML.hs`          | OOXML 共享模块（Docx/PPTX 共用）                      |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/AnnotatedTable.hs` | 表格注解类型定义                                      |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/GridTable.hs`      | 网格表格处理                                          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Blaze.hs`          | Blaze-HTML 渲染工具                                   |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/XML.hs`            | XML 写入器                                            |
 
-#### 1. 扩展系统完善
+### 具体格式写入器
 
-- 新增 35 个扩展变体（Fenced divs、Citations、YAML metadata、Raw attribute 等）
-- 新增扩展组合运算方法（enable_extension、disable_extension、combine_extensions 等）
-- 新增格式默认扩展（pandoc、mmd、phpextra、strict）
+| 文件路径                                                    | 说明                    |
+| ----------------------------------------------------------- | ----------------------- |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/AsciiDoc.hs`     | AsciiDoc 写入器         |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/BBCode.hs`       | BBCode 写入器           |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/BibTeX.hs`       | BibTeX/BibLaTeX 写入器  |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/CommonMark.hs`   | CommonMark 写入器       |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/ConTeXt.hs`      | ConTeXt 写入器          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/CslJson.hs`      | CSL JSON 写入器         |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Djot.hs`         | Djot 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/DocBook.hs`      | DocBook 写入器          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/DokuWiki.hs`     | DokuWiki 写入器         |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/FB2.hs`          | FictionBook2 写入器     |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Haddock.hs`      | Haddock 写入器          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/ICML.hs`         | ICML 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Ipynb.hs`        | Jupyter Notebook 写入器 |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/JATS.hs`         | JATS 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Jira.hs`         | Jira 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/MediaWiki.hs`    | MediaWiki 写入器        |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Ms.hs`           | Ms 写入器               |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Muse.hs`         | Muse 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/OpenDocument.hs` | OpenDocument 写入器     |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/OPML.hs`         | OPML 写入器             |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Org.hs`          | Org 写入器              |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/RST.hs`          | reStructuredText 写入器 |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/TEI.hs`          | TEI 写入器              |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Texinfo.hs`      | Texinfo 写入器          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Textile.hs`      | Textile 写入器          |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Typst.hs`        | Typst 写入器            |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/Vimdoc.hs`       | Vimdoc 写入器           |
+| `../pandoc-3.9.0.2/src/Text/Pandoc/Writers/XWiki.hs`        | XWiki 写入器            |
 
-#### 2. 错误处理改进
+## Pandoc LaTeX/Beamer 实现分析
 
-- 新增 12 个错误类型（CircularReference、Timeout、Network、PermissionDenied 等）
-- 新增错误检查方法（is_circular_reference、is_timeout、is_warning 等）
-- 新增错误渲染系统（ErrorRenderer、ErrorCollector）
+Pandoc 采用了**统一核心 + 差异化扩展**的架构策略来处理 LaTeX 和 Beamer 两种相似但又有区别的格式。
 
-#### 3. 文档遍历系统
+### 核心设计思想
 
-- 新增节点类型（DescriptionList、Alert、WikiLink 等）
-- 新增 NodeType 方法（is_block、is_inline）
-- 新增 Queryable trait 方法（find_links、find_images、get_heading_structure 等）
+#### 1. 共享核心模块
 
-#### 4. 转换管道改进
+LaTeX 和 Beamer 共享同一个主模块 `Text.Pandoc.Writers.LaTeX`，导出两个函数：
 
-- 新增转换类型（StripFootnotes、CapitalizeHeaders、AbsToRel、AutoIdent）
-- 新增转换实现（apply_strip_footnotes、apply_capitalize_headers 等）
+```haskell
+module Text.Pandoc.Writers.LaTeX (
+    writeLaTeX
+  , writeBeamer
+  ) where
+```
 
-#### 5. Pandoc 架构借鉴的新模块 (2026-04-01)
+#### 2. 状态驱动的差异化
 
-基于 Pandoc 架构分析，新增以下核心模块：
+核心区别在于 `WriterState` 中的 `stBeamer` 标志：
 
-**字符处理模块 (`char`)**：
+```haskell
+-- LaTeX 模式
+writeLaTeX :: PandocMonad m => WriterOptions -> Pandoc -> m Text
+writeLaTeX options document = do
+  evalStateT (pandocToLaTeX options document') $ startingState options
 
-- CJK 字符检测（中日韩文字范围）
-- CJK 标点符号检测
-- 全角字符检测
-- 字符串 CJK 字符统计
+-- Beamer 模式
+writeBeamer :: PandocMonad m => WriterOptions -> Pandoc -> m Text
+writeBeamer options document =
+  evalStateT (pandocToLaTeX options document) $
+    (startingState options){ stBeamer = True }  -- 关键区别
+```
 
-**Roff 转义模块 (`roff_char`)**：
+### 关键差异化处理点
 
-- roff/groff 特殊字符转义
-- 标准转义序列（引号、反斜杠、省略号等）
-- Unicode 字符转义
-- 可配置的转义器
+#### (1) 文档结构转换
 
-**幻灯片模块 (`slides`)**：
+Beamer 模式会将文档转换为幻灯片结构：
 
-- 幻灯片级别配置（H1-H6）
-- 幻灯片放映管理
-- reveal.js HTML 输出
-- beamer LaTeX 输出
-- 目录幻灯片支持
-- 导航链接生成
+```haskell
+blocks''' <- if beamer
+                then toSlides blocks''           -- Beamer: 转换为幻灯片
+                else return $ makeSections False Nothing blocks''  -- LaTeX
+```
 
-**TeX 令牌模块 (`tex`)**：
+`toSlides` 函数会：
 
-- TeX/LaTeX 令牌类型
-- 完整的 category codes 支持
-- TeX 分词器
-- 数学命令检测
-- 环境开始/结束检测
+- 根据 `slideLevel` 将内容分割成幻灯片
+- 使用 `elementToBeamer` 标记 `slide` 和 `block` 类
 
-**文档分块模块 (`chunks`)**：
+#### (2) 幻灯片环境处理
 
-- 文档分块配置
-- 基于标题级别的分块
-- 导航链接生成（上一页/下一页/上级）
-- 目录树生成
-- EPUB/网站生成支持
+Beamer 特有的 `frame` 环境处理，支持 fragile、allowframebreaks 等选项：
 
-**源文件管理模块 (`sources`)**：
+```haskell
+blockToLaTeX (Div (identifier,"slide":dclasses,dkvs)
+               (Header _ (_,hclasses,hkvs) ils : bs)) = do
+  let fragile = "fragile" `elem` classes || ...
+  let optionslist = ["fragile" | fragile] ++ ...
+  return $ ("\\begin{frame}" <> options <> slideTitle <> slideAnchor) $$
+             contents $$ "\\end{frame}"
+```
 
-- 多源文件输入管理（文件、字符串、URL）
-- 源位置跟踪（行号、列号、偏移量）
-- 源范围表示和合并
-- 带源位置的数据包装（Spanned）
-- 错误报告精确定位
+#### (3) Block 环境（Beamer 特有）
 
-#### 6. Transforms 模块增强
+支持 `block`、`exampleblock`、`alertblock`：
 
-- 新增 `EastAsianLineBreaks` 转换类型
-- 实现东亚语言软换行过滤（CJK 字符间软换行移除）
-- 改进东亚语言排版支持
+```haskell
+blockToLaTeX (Div attr@(identifier,"block":dclasses,_)
+             (Header _ _ ils : bs)) = do
+  let blockname
+        | "example" `elem` dclasses = "exampleblock"
+        | "alert" `elem` dclasses = "alertblock"
+        | otherwise = "block"
+  -- 生成 \begin{block} ... \end{block}
+```
 
-#### 7. 实用工具模块
+#### (4) 增量显示支持
 
-- 新增字符串处理函数（truncate_with_ellipsis、is_url、to_kebab_case、to_camel_case 等）
+Beamer 支持增量显示（`<+->`）：
 
-### 待实现的功能
+```haskell
+let inc = if beamer && incremental then "[<+->]" else ""
+return $ text ("\\begin{itemize}" <> inc) $$ ...
+```
 
-参考 Pandoc，clmd 可以考虑实现：
+#### (5) 演讲者备注
 
-1. **更多格式支持**: DOCX、ODT、EPUB 等
-2. **引用处理**: 类似 Citeproc 的引用系统
-3. **幻灯片支持**: 类似 Slides 的幻灯片生成
-4. **Lua 过滤器**: 支持 Lua 脚本过滤器
-5. **数学公式**: LaTeX 数学公式支持
-6. **文档分块**: 类似 Chunks 的文档分块处理
-7. **翻译支持**: 类似 Translations 的多语言支持
+Beamer 特有的 `notes` 类处理：
+
+```haskell
+let wrap txt
+     | beamer && "notes" `elem` classes
+       = pure ("\\note" <> braces txt) -- speaker notes
+```
+
+#### (6) 脚注处理差异
+
+```haskell
+let beamerMark = if beamer
+                    then if incremental
+                         then text "<.->[frame]"
+                         else text "<\\value{beamerpauses}->[frame]"
+                    else empty
+```
+
+#### (7) 内部链接处理
+
+Beamer 使用 `\hyperlink` 而非 `\hyperref`：
+
+```haskell
+if beamer
+   then "\\hyperlink" <> braces (literal lab) <> braces contents
+   else "\\hyperref" <> brackets (literal lab) <> braces contents
+```
+
+#### (8) 原始块处理
+
+Beamer 支持 `beamer` 格式的原始块：
+
+```haskell
+if f == Format "latex" || f == Format "tex" ||
+     (f == Format "beamer" && beamer)
+   then return $ literal x
+```
+
+#### (9) 文档类自动选择
+
+```haskell
+let documentClass =
+      case ... of
+             Just x -> x
+             Nothing | beamer    -> "beamer"     -- Beamer 默认使用 beamer 类
+                     | otherwise -> case writerTopLevelDivision options of
+                                      TopLevelPart    -> "book"
+                                      TopLevelChapter -> "book"
+                                      _               -> "article"
+```
+
+### 设计优势
+
+| 优势     | 说明                              |
+| -------- | --------------------------------- |
+| 代码复用 | 共享大部分 LaTeX 生成逻辑         |
+| 维护简单 | 修复 bug 时只需修改一处           |
+| 一致性   | 确保两种格式的输出风格一致        |
+| 扩展性   | 可以轻松添加其他基于 LaTeX 的格式 |
+
+### 对比总结
+
+| 特性     | LaTeX 模式         | Beamer 模式                           |
+| -------- | ------------------ | ------------------------------------- |
+| 入口函数 | `writeLaTeX`       | `writeBeamer`                         |
+| 状态标志 | `stBeamer = False` | `stBeamer = True`                     |
+| 文档结构 | 普通章节           | 幻灯片 (`frame`)                      |
+| 特殊环境 | 标准 LaTeX         | `block`, `exampleblock`, `alertblock` |
+| 列表     | 普通列表           | 支持增量显示 `[<+->]`                 |
+| 链接     | `\hyperref`        | `\hyperlink`                          |
+| 脚注     | 标准脚注           | 带 overlay 标记的脚注                 |
+| 原始格式 | `latex`, `tex`     | `latex`, `tex`, `beamer`              |
+
+这种**"同一个写入器，不同模式"**的设计思想值得在实现相似格式（如 HTML 与 Reveal.js）时借鉴。
 
