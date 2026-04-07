@@ -144,16 +144,18 @@ impl LineBreakingContext {
 
     /// Add a word to the context
     pub fn add_word(&mut self, mut word: Word) {
-        // If next_word_no_leading_space is set, clear the leading space flag
-        if self.next_word_no_leading_space {
+        // If next_word_no_leading_space is set and word needs leading space, clear it
+        // But if word already has needs_leading_space = false (e.g., CJK punctuation), keep it
+        if self.next_word_no_leading_space && word.needs_leading_space {
             word.needs_leading_space = false;
-            self.next_word_no_leading_space = false;
         }
+        // Always reset the flag after processing a word
+        self.next_word_no_leading_space = false;
         self.words.push(word);
     }
 
     /// Add text and split it into words
-    /// For CJK text, splits at punctuation marks to allow better line breaking
+    /// For CJK text, splits at punctuation marks for better line breaking
     /// Note: This function does NOT add CJK spacing - that is handled by add_cjk_spacing before this
     pub fn add_text(&mut self, text: &str) {
         // Split text by whitespace first
@@ -169,12 +171,28 @@ impl LineBreakingContext {
                 let total_cjk_words = cjk_words.len();
 
                 for (j, word_text) in cjk_words.iter().enumerate() {
-                    // All words from split_cjk_text are treated as CJK words
+                    // Check if this word starts with CJK punctuation
+                    let is_cjk_punct = starts_with_cjk_punctuation(word_text);
+                    // Create word: CJK punctuation doesn't need spaces, normal CJK does
                     let mut w = Word::new_cjk(word_text.as_str());
-                    // First word of first segment: if it starts with CJK punctuation, don't add leading space
-                    // Note: next_word_no_leading_space is handled by add_word
-                    if i == 0 && j == 0 && starts_with_cjk_punctuation(word_text) {
-                        w.needs_leading_space = false;
+                    // First word of first segment: special handling
+                    if i == 0 && j == 0 {
+                        if self.next_word_no_leading_space {
+                            // Previous element was Markdown marker
+                            // CJK text after Markdown marker should not have leading space
+                            // add_word will clear the flag
+                            if is_cjk_punct {
+                                // CJK punctuation: definitely no leading space
+                                w.needs_leading_space = false;
+                            }
+                            // For normal CJK text, let add_word handle it
+                        } else {
+                            // Previous element was not a Markdown marker (e.g., inline code)
+                            // Normal CJK text should have leading space
+                            if !is_cjk_punct {
+                                w.needs_leading_space = true;
+                            }
+                        }
                     }
                     // Only add trailing space if this is not the last segment
                     // (i.e., there was whitespace after this segment in the original text)
@@ -208,17 +226,24 @@ impl LineBreakingContext {
     /// Add a mark/punctuation that doesn't need spaces around it
     pub fn add_mark(&mut self, text: &str) {
         self.add_word(Word::new_mark(text));
-        // The next word should not have a leading space
+        // Don't set next_word_no_leading_space here
+        // Let add_text handle spacing based on content type (CJK punctuation vs normal text)
+    }
+
+    /// Add a Markdown marker (like **, *, [, ], etc.)
+    /// This sets next_word_no_leading_space to prevent space after the marker
+    pub fn add_markdown_marker(&mut self, text: &str) {
+        self.add_word(Word::new_mark(text));
+        // The next word should not have a leading space (unless it's CJK punctuation)
         self.next_word_no_leading_space = true;
     }
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
         // Use new_without_space to avoid adding trailing space after inline elements
-        // This is important for CJK punctuation that follows inline code
         self.add_word(Word::new_without_space(text));
-        // Set next_word_no_leading_space - the next word should not have leading space
-        self.next_word_no_leading_space = true;
+        // Don't set next_word_no_leading_space here
+        // This allows subsequent CJK text to have leading space
     }
 
     /// Reset the "no leading space" flag

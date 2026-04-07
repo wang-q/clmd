@@ -417,3 +417,343 @@ fn test_fmt_cjk_punctuation_between_cjk_and_markdown() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_punctuation_multiple_marks() {
+    // Test multiple CJK punctuation marks in sequence
+    let input = "**粗体***斜体**：测试。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        cm.contains("*斜体**："),
+        "CJK colon should not have space after italic: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_with_nested_emphasis() {
+    // Test nested emphasis with CJK punctuation
+    let input = "***粗斜体***：测试。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        cm.contains("***粗斜体***："),
+        "CJK colon should not have space after nested emphasis: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_with_strikethrough() {
+    // Test strikethrough with CJK punctuation (if supported)
+    let input = "~~删除~~：测试。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        !cm.contains("~~删除~~ ："),
+        "CJK colon should not have space after strikethrough: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_inline_code_at_end_of_sentence() {
+    // Test inline code at the end of sentence followed by CJK punctuation
+    let input = "使用 `code`。这是下一句。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK period should not have space before it
+    assert!(
+        cm.contains("`code`。"),
+        "CJK period should not have space after inline code: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("`code` 。"),
+        "There should be no space between ` and CJK period: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_inline_code_at_start_of_sentence() {
+    // Test inline code at the start of sentence
+    let input = "`code` 是代码示例。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added between inline code and CJK text
+    assert!(
+        cm.contains("`code` 是"),
+        "Space should be added after inline code: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_multiple_inline_codes() {
+    // Test multiple inline codes in one sentence
+    let input = "使用 `code1` 和 `code2` 测试。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added around inline codes
+    assert!(
+        cm.contains("`code1` 和"),
+        "Space should be added after first inline code: {}",
+        cm
+    );
+    assert!(
+        cm.contains("和 `code2` 测试"),
+        "Space should be added around second inline code: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_link_with_cjk_punctuation() {
+    // Test link followed by CJK punctuation
+    let input = "[链接](https://example.com)：说明。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        !cm.contains("](https://example.com) ："),
+        "CJK colon should not have space after link: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_image_with_cjk_punctuation() {
+    // Test image followed by CJK punctuation
+    let input = "![图片](image.png)：说明。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        !cm.contains("](image.png) ："),
+        "CJK colon should not have space after image: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_heading_with_inline_code() {
+    // Test heading with inline code
+    let input = "# 标题 `code` 说明".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added around inline code in heading
+    assert!(
+        cm.contains("标题 `code` 说明"),
+        "Space should be added around inline code in heading: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_list_with_inline_code() {
+    // Test list item with inline code
+    let input = "- 项目 `code` 说明\n- 另一项".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added around inline code in list item
+    assert!(
+        cm.contains("项目 `code` 说明"),
+        "Space should be added around inline code in list: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_blockquote_with_inline_code() {
+    // Test blockquote with inline code
+    let input = "> 引用 `code` 说明".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added around inline code in blockquote
+    assert!(
+        cm.contains("引用 `code` 说明"),
+        "Space should be added around inline code in blockquote: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_mixed_english_and_cjk_punctuation() {
+    // Test mixed English and CJK punctuation
+    let input = "**粗体**：test，中文。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should not have space before it
+    assert!(
+        !cm.contains("**粗体** ："),
+        "CJK colon should not have space: {}",
+        cm
+    );
+    // English text should have space after CJK colon
+    assert!(
+        cm.contains("**：test") || cm.contains("**： test"),
+        "English text should follow CJK colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_all_punctuation_types() {
+    // Test all common CJK punctuation types
+    let test_cases = vec![
+        ("测试：", "CJK colon"),
+        ("测试；", "CJK semicolon"),
+        ("测试，", "CJK comma"),
+        ("测试。", "CJK period"),
+        ("测试！", "CJK exclamation"),
+        ("测试？", "CJK question"),
+        ("测试、", "CJK enumeration comma"),
+        ("测试（", "CJK left parenthesis"),
+        ("测试）", "CJK right parenthesis"),
+        ("测试【", "CJK left bracket"),
+        ("测试】", "CJK right bracket"),
+    ];
+
+    for (punct, desc) in test_cases {
+        let input = format!("**粗体**{}", punct).as_bytes().to_vec();
+        let output = run_with_stdin(&["fmt", "--cjk-spacing"], &input);
+
+        assert!(output.status.success());
+        let cm = String::from_utf8(output.stdout).unwrap();
+
+        let expected = format!("**粗体**{}", punct);
+        assert!(
+            cm.contains(&expected),
+            "{} should not have space before it: got {}",
+            desc,
+            cm
+        );
+    }
+}
+
+#[test]
+fn test_fmt_cjk_emphasis_with_english() {
+    // Test emphasis mixed with English and CJK
+    let input = "**bold**中文和English混合。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added between English and CJK
+    assert!(
+        cm.contains("**bold** 中文") || cm.contains("**bold**中文"),
+        "Bold marker should be followed by CJK text: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_code_with_backticks() {
+    // Test inline code with backticks inside
+    let input = "使用 `` `backticks` `` 代码。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added around code
+    assert!(
+        cm.contains("使用 `` `backticks` `` 代码"),
+        "Space should be added around code with backticks: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_without_cjk_spacing() {
+    // Test that without --cjk-spacing, no spaces are added
+    let input = "中文test示例".as_bytes();
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    assert!(
+        cm.contains("中文test示例"),
+        "Without --cjk-spacing, no spaces should be added: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_empty_document() {
+    // Test empty document
+    let input = "".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+}
+
+#[test]
+fn test_fmt_cjk_only_whitespace() {
+    // Test document with only whitespace
+    let input = "   \n\n   ".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+}
+
+#[test]
+fn test_fmt_cjk_long_paragraph() {
+    // Test long paragraph with line breaking
+    let input = "这是一个很长的段落，包含很多中文字符和English单词，用来测试行断行功能是否正常工作，以及CJK标点的处理是否正确。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing", "--width", "40"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Check that the output has multiple lines
+    let lines: Vec<&str> = cm.lines().collect();
+    assert!(
+        lines.len() > 1,
+        "Long paragraph should be wrapped into multiple lines: {}",
+        cm
+    );
+}

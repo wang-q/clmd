@@ -819,7 +819,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn add_line_breaking_word_text(&mut self, text: &str) {
         if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_mark(text);
+            ctx.add_markdown_marker(text);
         }
     }
 

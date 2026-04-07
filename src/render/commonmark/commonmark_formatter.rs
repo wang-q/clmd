@@ -692,8 +692,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         let marker = "*";
                         if ctx.is_collecting_line_breaking() {
                             ctx.add_line_breaking_word_text(marker);
-                            // Reset space flag so subsequent text gets proper spacing
-                            ctx.reset_line_breaking_space();
+                            // Don't reset space flag here - let add_text handle it
+                            // This is important for CJK punctuation handling
                         } else {
                             writer.append(marker);
                         }
@@ -721,8 +721,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         let marker = "**";
                         if ctx.is_collecting_line_breaking() {
                             ctx.add_line_breaking_word_text(marker);
-                            // Reset space flag so subsequent text gets proper spacing
-                            ctx.reset_line_breaking_space();
+                            // Don't reset space flag here - let add_text handle it
+                            // This is important for CJK punctuation handling
                         } else {
                             writer.append(marker);
                         }
