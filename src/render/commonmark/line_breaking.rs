@@ -8,6 +8,7 @@
 //! The algorithm is based on the paper "Breaking Paragraphs into Lines" by
 //! Donald E. Knuth and Michael F. Plass (1981).
 
+use crate::text::char::is_cjk_punctuation;
 use crate::text::unicode_width;
 
 /// A word in the paragraph with its display width
@@ -835,8 +836,14 @@ mod tests {
     fn test_is_cjk_punctuation() {
         assert!(is_cjk_punctuation('。'), "'。' should be CJK punctuation");
         assert!(is_cjk_punctuation('，'), "'，' should be CJK punctuation");
-        assert!(!is_cjk_punctuation('a'), "'a' should NOT be CJK punctuation");
-        assert!(!is_cjk_punctuation('1'), "'1' should NOT be CJK punctuation");
+        assert!(
+            !is_cjk_punctuation('a'),
+            "'a' should NOT be CJK punctuation"
+        );
+        assert!(
+            !is_cjk_punctuation('1'),
+            "'1' should NOT be CJK punctuation"
+        );
     }
 
     #[test]
@@ -875,7 +882,11 @@ mod tests {
 
         let formatted = ctx.format();
         // Without CJK spacing, there should be no space between CJK and number
-        assert!(formatted.contains("单词和数字123"), "Should NOT have space between CJK and number without CJK spacing: {}", formatted);
+        assert!(
+            formatted.contains("单词和数字123"),
+            "Should NOT have space between CJK and number without CJK spacing: {}",
+            formatted
+        );
     }
 
     #[test]
@@ -894,8 +905,11 @@ mod tests {
 
         let formatted = ctx.format();
         // The space between "单词和数字" and "123" should be preserved
-        assert!(formatted.contains("单词和数字 123"),
-                "Should have space between CJK and number with CJK spacing: {}", formatted);
+        assert!(
+            formatted.contains("单词和数字 123"),
+            "Should have space between CJK and number with CJK spacing: {}",
+            formatted
+        );
     }
 }
 
@@ -925,29 +939,6 @@ fn contains_cjk(text: &str) -> bool {
             // Halfwidth Katakana
             || (0xFF65..=0xFF9F).contains(&(c as u32))
     })
-}
-
-/// Check if a character is a CJK punctuation mark where line breaking is allowed after
-fn is_cjk_punctuation(c: char) -> bool {
-    matches!(c,
-        // CJK full stop punctuation
-        '。' | '．' | '，' | '、' | '；' | '：' | '！' | '？' |
-        // CJK brackets (closing)
-        '）' | '」' | '』' | '】' | '》' | '〉' | '〕' | '］' | '｝' |
-        // ASCII punctuation (converted to fullwidth in CJK context)
-        '.' | ',' | '!' | '?' | ';' | ':' | ')'
-    )
-}
-
-/// Extension trait for checking if a string ends with CJK punctuation
-trait EndsWithCjkPunctuation {
-    fn ends_with_cjk_punctuation(&self) -> bool;
-}
-
-impl EndsWithCjkPunctuation for str {
-    fn ends_with_cjk_punctuation(&self) -> bool {
-        self.chars().last().map_or(false, is_cjk_punctuation)
-    }
 }
 
 /// Split CJK text at punctuation marks for better line breaking

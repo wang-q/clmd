@@ -212,11 +212,7 @@ fn test_fmt_cjk_spacing_inline_code_text_order() {
     let cm = String::from_utf8(output.stdout).unwrap();
     // The inline code `tva` should appear after "本文档旨在为 " and before " 的开发者"
     // It should NOT appear at the beginning of the output
-    assert!(
-        cm.contains("`tva`"),
-        "Should contain inline code: {}",
-        cm
-    );
+    assert!(cm.contains("`tva`"), "Should contain inline code: {}", cm);
     // Check that the code is not at the beginning (indicating order corruption)
     assert!(
         !cm.trim_start().starts_with("`tva`"),
@@ -241,11 +237,7 @@ fn test_fmt_inline_code_text_order_without_cjk_spacing() {
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
     // The inline code `world` should appear after "Hello " and before " test"
-    assert!(
-        cm.contains("`world`"),
-        "Should contain inline code: {}",
-        cm
-    );
+    assert!(cm.contains("`world`"), "Should contain inline code: {}", cm);
     // Check that the code is not at the beginning (indicating order corruption)
     assert!(
         !cm.trim_start().starts_with("`world`"),
