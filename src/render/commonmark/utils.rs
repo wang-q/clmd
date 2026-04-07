@@ -491,4 +491,180 @@ mod tests {
         assert_eq!(normalize_line_endings("Hello\r\nWorld"), "Hello\nWorld");
         assert_eq!(normalize_line_endings("Hello\rWorld"), "Hello\nWorld");
     }
+
+    #[test]
+    fn test_get_numbered_delimiter() {
+        assert_eq!(get_numbered_delimiter(NumberedMarker::Period), '.');
+        assert_eq!(get_numbered_delimiter(NumberedMarker::Paren), ')');
+        assert_eq!(get_numbered_delimiter(NumberedMarker::Any), '.');
+    }
+
+    #[test]
+    fn test_get_code_fence_marker_various_lengths() {
+        assert_eq!(get_code_fence_marker(CodeFenceMarker::BackTick, 1), "`");
+        assert_eq!(get_code_fence_marker(CodeFenceMarker::BackTick, 3), "```");
+        assert_eq!(get_code_fence_marker(CodeFenceMarker::BackTick, 5), "`````");
+        assert_eq!(get_code_fence_marker(CodeFenceMarker::Tilde, 3), "~~~");
+        assert_eq!(get_code_fence_marker(CodeFenceMarker::Any, 3), "```");
+    }
+
+    #[test]
+    fn test_strip_soft_line_breaks_various() {
+        assert_eq!(strip_soft_line_breaks("Hello\nWorld", ""), "HelloWorld");
+        assert_eq!(strip_soft_line_breaks("Hello\nWorld", " "), "Hello World");
+        assert_eq!(strip_soft_line_breaks("Hello\n\nWorld", " "), "Hello  World");
+        assert_eq!(strip_soft_line_breaks("No breaks", " "), "No breaks");
+        assert_eq!(strip_soft_line_breaks("", " "), "");
+    }
+
+    #[test]
+    fn test_pad_to_width_various() {
+        assert_eq!(pad_to_width("Hi", 5, ' '), "Hi   ");
+        assert_eq!(pad_to_width("Hi", 5, '-'), "Hi---");
+        assert_eq!(pad_to_width("Hello", 3, ' '), "Hello");
+        assert_eq!(pad_to_width("", 3, ' '), "   ");
+        assert_eq!(pad_to_width("Hi", 2, ' '), "Hi");
+    }
+
+    #[test]
+    fn test_truncate_to_width_various() {
+        assert_eq!(truncate_to_width("Hello World", 8, "..."), "Hello...");
+        assert_eq!(truncate_to_width("Hello World", 11, "..."), "Hello World");
+        assert_eq!(truncate_to_width("Hi", 10, "..."), "Hi");
+        assert_eq!(truncate_to_width("Hello", 3, ""), "Hel");
+        assert_eq!(truncate_to_width("Hello", 5, "..."), "Hello");
+    }
+
+    #[test]
+    fn test_wrap_text_various() {
+        // Empty text
+        let lines = wrap_text("", 10);
+        assert_eq!(lines, vec![""]);
+
+        // Width 0 returns original
+        let lines = wrap_text("Hello", 0);
+        assert_eq!(lines, vec!["Hello"]);
+
+        // Short text
+        let lines = wrap_text("Hi", 10);
+        assert_eq!(lines, vec!["Hi"]);
+
+        // Long text
+        let lines = wrap_text("Hello world this is a test", 10);
+        assert_eq!(lines.len(), 3);
+        assert!(lines.iter().all(|line| line.len() <= 10));
+
+        // Single long word
+        let lines = wrap_text("supercalifragilisticexpialidocious", 10);
+        assert_eq!(lines, vec!["supercalifragilisticexpialidocious"]);
+    }
+
+    #[test]
+    fn test_is_whitespace() {
+        assert!(is_whitespace(' '));
+        assert!(is_whitespace('\t'));
+        assert!(is_whitespace('\n'));
+        assert!(is_whitespace('\r'));
+        assert!(!is_whitespace('a'));
+        assert!(!is_whitespace('1'));
+        assert!(!is_whitespace('-'));
+    }
+
+    #[test]
+    fn test_trim_trailing_whitespace() {
+        assert_eq!(trim_trailing_whitespace("Hello  "), "Hello");
+        assert_eq!(trim_trailing_whitespace("Hello\t\n"), "Hello");
+        assert_eq!(trim_trailing_whitespace("Hello"), "Hello");
+        assert_eq!(trim_trailing_whitespace(""), "");
+        assert_eq!(trim_trailing_whitespace("   "), "");
+    }
+
+    #[test]
+    fn test_get_indent_level() {
+        assert_eq!(get_indent_level("Hello"), 0);
+        assert_eq!(get_indent_level("  Hello"), 2);
+        assert_eq!(get_indent_level("    Hello"), 4);
+        assert_eq!(get_indent_level("\tHello"), 1);
+        assert_eq!(get_indent_level(""), 0);
+        assert_eq!(get_indent_level("   "), 3);
+    }
+
+    #[test]
+    fn test_remove_common_indent_various() {
+        // Basic case
+        let lines = vec!["    Hello", "    World"];
+        let result = remove_common_indent(&lines);
+        assert_eq!(result, vec!["Hello", "World"]);
+
+        // With empty lines
+        let lines = vec!["    Hello", "", "    World"];
+        let result = remove_common_indent(&lines);
+        assert_eq!(result, vec!["Hello", "", "World"]);
+
+        // Different indentation
+        let lines = vec!["      Hello", "    World"];
+        let result = remove_common_indent(&lines);
+        assert_eq!(result, vec!["  Hello", "World"]);
+
+        // Empty input
+        let lines: Vec<&str> = vec![];
+        let result = remove_common_indent(&lines);
+        assert!(result.is_empty());
+
+        // All empty lines
+        let lines = vec!["", "", ""];
+        let result = remove_common_indent(&lines);
+        assert_eq!(result, vec!["", "", ""]);
+    }
+
+    #[test]
+    fn test_format_heading_marker_various() {
+        // ATX style
+        assert_eq!(format_heading_marker(1, false, None), "#");
+        assert_eq!(format_heading_marker(2, false, None), "##");
+        assert_eq!(format_heading_marker(6, false, None), "######");
+
+        // Setext style
+        assert_eq!(format_heading_marker(1, true, Some('=')), "=");
+        assert_eq!(format_heading_marker(2, true, Some('-')), "--");
+        assert_eq!(format_heading_marker(3, true, Some('=')), "===");
+    }
+
+    #[test]
+    fn test_is_valid_url_various() {
+        // HTTP/HTTPS
+        assert!(is_valid_url("http://example.com"));
+        assert!(is_valid_url("https://example.com"));
+        assert!(is_valid_url("https://example.com/path"));
+
+        // FTP
+        assert!(is_valid_url("ftp://files.example.com"));
+
+        // Mailto
+        assert!(is_valid_url("mailto:test@example.com"));
+
+        // Absolute paths
+        assert!(is_valid_url("/path/to/file"));
+        assert!(is_valid_url("/"));
+
+        // Anchors
+        assert!(is_valid_url("#section1"));
+        assert!(is_valid_url("#"));
+
+        // Invalid URLs
+        assert!(!is_valid_url("not a url"));
+        assert!(!is_valid_url("example.com"));
+        assert!(!is_valid_url("file.txt"));
+        assert!(!is_valid_url(""));
+    }
+
+    #[test]
+    fn test_normalize_line_endings_various() {
+        assert_eq!(normalize_line_endings("Hello\r\nWorld"), "Hello\nWorld");
+        assert_eq!(normalize_line_endings("Hello\rWorld"), "Hello\nWorld");
+        assert_eq!(normalize_line_endings("Hello\nWorld"), "Hello\nWorld");
+        assert_eq!(normalize_line_endings("a\r\nb\rc\n"), "a\nb\nc\n");
+        assert_eq!(normalize_line_endings(""), "");
+        assert_eq!(normalize_line_endings("no newlines"), "no newlines");
+    }
 }

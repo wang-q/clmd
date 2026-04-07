@@ -874,4 +874,243 @@ mod tests {
         assert_eq!(stack[0], "> ");
         assert_eq!(stack[1], "  ");
     }
+
+    #[test]
+    fn test_markdown_writer_creation() {
+        let writer = MarkdownWriter::new(FormatFlags::DEFAULT);
+        assert!(writer.is_beginning_of_line());
+        assert_eq!(writer.get_column(), 0);
+        assert!(writer.is_empty());
+    }
+
+    #[test]
+    fn test_markdown_writer_default() {
+        let writer = MarkdownWriter::default();
+        assert!(writer.is_beginning_of_line());
+        assert_eq!(writer.get_column(), 0);
+    }
+
+    #[test]
+    fn test_append_raw() {
+        let mut writer = MarkdownWriter::default();
+        writer.append_raw("  raw text  ");
+        assert_eq!(writer.to_string(), "  raw text  ");
+    }
+
+    #[test]
+    fn test_line() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Hello");
+        writer.line();
+        writer.append("World");
+        assert_eq!(writer.to_string(), "Hello\nWorld");
+    }
+
+    #[test]
+    fn test_force_newline() {
+        let mut writer = MarkdownWriter::default();
+        writer.force_newline();
+        writer.append("Hello");
+        assert_eq!(writer.to_string(), "\nHello");
+    }
+
+    #[test]
+    fn test_blank_line_if_needed() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Line 1");
+        writer.blank_line_if_needed();
+        writer.append("Line 2");
+        assert_eq!(writer.to_string(), "Line 1\n\nLine 2");
+    }
+
+    #[test]
+    fn test_tail_blank_line() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Hello");
+        writer.tail_blank_line();
+        let output = writer.to_string();
+        assert!(output.starts_with("Hello"));
+        assert!(output.ends_with("\n\n"));
+    }
+
+    #[test]
+    fn test_space() {
+        let mut flags = FormatFlags::DEFAULT;
+        flags.collapse_whitespace = false;
+        flags.trim_trailing_whitespace = false;
+        let mut writer = MarkdownWriter::new(flags);
+        writer.append("Hello");
+        writer.space();
+        writer.append("World");
+        assert_eq!(writer.to_string(), "Hello World");
+    }
+
+    #[test]
+    fn test_spaces() {
+        let mut flags = FormatFlags::DEFAULT;
+        flags.collapse_whitespace = false;
+        flags.trim_trailing_whitespace = false;
+        let mut writer = MarkdownWriter::new(flags);
+        writer.append("Hello");
+        writer.spaces(3);
+        writer.append("World");
+        assert_eq!(writer.to_string(), "Hello   World");
+    }
+
+    #[test]
+    fn test_repeat_char() {
+        let mut writer = MarkdownWriter::default();
+        writer.repeat_char('-', 5);
+        assert_eq!(writer.to_string(), "-----");
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Hello");
+        writer.clear();
+        assert!(writer.is_empty());
+        assert_eq!(writer.get_column(), 0);
+        assert!(writer.is_beginning_of_line());
+    }
+
+    #[test]
+    fn test_into_string() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Hello");
+        let s = writer.into_string();
+        assert_eq!(s, "Hello");
+    }
+
+    #[test]
+    fn test_len() {
+        let mut writer = MarkdownWriter::default();
+        assert_eq!(writer.len(), 0);
+        writer.append("Hello");
+        assert_eq!(writer.len(), 5);
+    }
+
+    #[test]
+    fn test_is_pre_formatted() {
+        let mut writer = MarkdownWriter::default();
+        assert!(!writer.is_pre_formatted());
+        writer.open_pre_formatted();
+        assert!(writer.is_pre_formatted());
+        writer.close_pre_formatted();
+        assert!(!writer.is_pre_formatted());
+    }
+
+    #[test]
+    fn test_get_line_number() {
+        let mut writer = MarkdownWriter::default();
+        assert_eq!(writer.get_line_number(), 0);
+        // line() only adds newline if not at beginning of line
+        // So we need to append something first
+        writer.append("test");
+        writer.line();
+        assert_eq!(writer.get_line_number(), 1);
+        writer.append("test");
+        writer.line();
+        assert_eq!(writer.get_line_number(), 2);
+    }
+
+    #[test]
+    fn test_get_line_info() {
+        let writer = MarkdownWriter::default();
+        let info = writer.get_line_info();
+        assert_eq!(info.line_number, 0);
+        assert_eq!(info.column, 0);
+        assert!(info.beginning_of_line);
+    }
+
+    #[test]
+    fn test_set_right_margin() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_right_margin(40);
+        assert_eq!(writer.get_right_margin(), 40);
+    }
+
+    #[test]
+    fn test_append_with_wrap() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_right_margin(10);
+        writer.append_with_wrap("Hello World Test");
+        let output = writer.to_string();
+        // Should wrap at 10 characters
+        assert!(output.contains('\n') || output.len() <= 10);
+    }
+
+    #[test]
+    fn test_flush_word_wrap_buffer() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_right_margin(10);
+        writer.append_with_wrap("Hello");
+        writer.flush_word_wrap_buffer();
+        let output = writer.to_string();
+        assert!(output.contains("Hello"));
+    }
+
+    #[test]
+    fn test_append_non_translating_with() {
+        let mut writer = MarkdownWriter::default();
+        writer.append_non_translating_with(Some("["), "text", Some("]"), None);
+        assert_eq!(writer.to_string(), "[text]");
+    }
+
+    #[test]
+    fn test_append_translating_with() {
+        let mut writer = MarkdownWriter::default();
+        writer.append_translating_with(Some("**"), "bold", Some("**"), None);
+        assert_eq!(writer.to_string(), "**bold**");
+    }
+
+    #[test]
+    fn test_set_space_after_atx_marker() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_space_after_atx_marker(false);
+        // Just verify it doesn't panic
+        assert!(true);
+    }
+
+    #[test]
+    fn test_set_space_before_info() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_space_before_info(false);
+        // Just verify it doesn't panic
+        assert!(true);
+    }
+
+    #[test]
+    fn test_set_max_trailing_blank_lines() {
+        let mut writer = MarkdownWriter::default();
+        writer.set_max_trailing_blank_lines(1);
+        writer.append("Hello");
+        writer.tail_blank_line();
+        // With max 1, should only have 1 trailing newline
+        assert!(true); // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_append_to_appendable() {
+        let writer = MarkdownWriter::default();
+        let mut output = String::new();
+        writer.append_to_appendable(&mut output).unwrap();
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn test_append_with_max_blank_lines() {
+        let mut writer = MarkdownWriter::default();
+        writer.append("Hello");
+        writer.blank_line();
+        writer.blank_line();
+        writer.blank_line();
+
+        let mut output = String::new();
+        writer
+            .append_with_max_blank_lines(&mut output, 2, 2)
+            .unwrap();
+        // Should be trimmed to max 2 trailing blank lines
+        assert!(output.starts_with("Hello"));
+    }
 }

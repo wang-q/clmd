@@ -148,4 +148,92 @@ mod tests {
         let phase: FormattingPhase = Default::default();
         assert!(matches!(phase, FormattingPhase::Document));
     }
+
+    #[test]
+    fn test_phase_variants_equality() {
+        assert_eq!(FormattingPhase::Collect, FormattingPhase::Collect);
+        assert_ne!(FormattingPhase::Collect, FormattingPhase::Document);
+        assert_ne!(FormattingPhase::DocumentTop, FormattingPhase::DocumentBottom);
+    }
+
+    #[test]
+    fn test_phase_clone() {
+        let phase = FormattingPhase::DocumentTop;
+        let cloned = phase.clone();
+        assert_eq!(phase, cloned);
+    }
+
+    #[test]
+    fn test_phase_copy() {
+        let phase = FormattingPhase::DocumentBottom;
+        let copied = phase;
+        assert_eq!(phase, copied);
+    }
+
+    #[test]
+    fn test_before_document_phases() {
+        let before = FormattingPhase::before_document();
+        assert_eq!(before.len(), 3);
+        assert!(before.contains(&FormattingPhase::Collect));
+        assert!(before.contains(&FormattingPhase::DocumentFirst));
+        assert!(before.contains(&FormattingPhase::DocumentTop));
+        assert!(!before.contains(&FormattingPhase::Document));
+        assert!(!before.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_after_document_phases() {
+        let after = FormattingPhase::after_document();
+        assert_eq!(after.len(), 1);
+        assert!(after.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_all_phases_complete() {
+        let all = FormattingPhase::all();
+        assert_eq!(all.len(), 5);
+
+        // Check all variants are included
+        let variants: Vec<_> = all.to_vec();
+        assert!(variants.contains(&FormattingPhase::Collect));
+        assert!(variants.contains(&FormattingPhase::DocumentFirst));
+        assert!(variants.contains(&FormattingPhase::DocumentTop));
+        assert!(variants.contains(&FormattingPhase::Document));
+        assert!(variants.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_phase_names_all() {
+        assert_eq!(FormattingPhase::Collect.name(), "Collect");
+        assert_eq!(FormattingPhase::DocumentFirst.name(), "DocumentFirst");
+        assert_eq!(FormattingPhase::DocumentTop.name(), "DocumentTop");
+        assert_eq!(FormattingPhase::Document.name(), "Document");
+        assert_eq!(FormattingPhase::DocumentBottom.name(), "DocumentBottom");
+    }
+
+    #[test]
+    fn test_is_before_and_after_combinations() {
+        // Collect is before document, not after
+        assert!(FormattingPhase::Collect.is_before_document());
+        assert!(!FormattingPhase::Collect.is_after_document());
+        assert!(!FormattingPhase::Collect.is_document());
+
+        // Document is neither before nor after
+        assert!(!FormattingPhase::Document.is_before_document());
+        assert!(!FormattingPhase::Document.is_after_document());
+        assert!(FormattingPhase::Document.is_document());
+
+        // DocumentBottom is after, not before
+        assert!(!FormattingPhase::DocumentBottom.is_before_document());
+        assert!(FormattingPhase::DocumentBottom.is_after_document());
+        assert!(!FormattingPhase::DocumentBottom.is_document());
+    }
+
+    #[test]
+    fn test_is_collection() {
+        assert!(FormattingPhase::Collect.is_collection());
+        assert!(!FormattingPhase::DocumentFirst.is_collection());
+        assert!(!FormattingPhase::Document.is_collection());
+        assert!(!FormattingPhase::DocumentBottom.is_collection());
+    }
 }

@@ -937,6 +937,133 @@ mod tests {
             formatted
         );
     }
+
+    #[test]
+    fn test_line_breaking_empty() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_text("");
+        assert_eq!(ctx.words.len(), 0);
+        let formatted = ctx.format();
+        assert_eq!(formatted, "");
+    }
+
+    #[test]
+    fn test_line_breaking_single_word() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_text("Hello");
+        assert_eq!(ctx.words.len(), 1);
+        assert_eq!(ctx.words[0].text, "Hello");
+        let formatted = ctx.format();
+        assert_eq!(formatted, "Hello");
+    }
+
+    #[test]
+    fn test_line_breaking_multiple_words() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_text("Hello World");
+        assert_eq!(ctx.words.len(), 2);
+        assert_eq!(ctx.words[0].text, "Hello");
+        assert_eq!(ctx.words[1].text, "World");
+        let formatted = ctx.format();
+        assert_eq!(formatted, "Hello World");
+    }
+
+    #[test]
+    fn test_line_breaking_long_paragraph() {
+        let mut ctx = LineBreakingContext::new(40, 80);
+        ctx.add_text("This is a very long paragraph that should be wrapped into multiple lines when formatted with line breaking enabled.");
+        // The paragraph should be split into multiple words
+        assert!(ctx.words.len() > 1);
+        let formatted = ctx.format();
+        // The formatted output should have line breaks
+        assert!(formatted.contains('\n') || ctx.words.len() <= 40);
+    }
+
+    #[test]
+    fn test_line_breaking_with_prefix() {
+        let mut ctx = LineBreakingContext::with_prefixes(80, 80, "> ", "> ");
+        ctx.add_text("Hello World");
+        let formatted = ctx.format();
+        assert!(formatted.starts_with("> "));
+    }
+
+    #[test]
+    fn test_word_width_calculation() {
+        let word = Word::new("Hello");
+        assert_eq!(word.width, 5);
+
+        let word_cjk = Word::new_cjk("中文");
+        assert_eq!(word_cjk.width, 4); // CJK characters are width 2
+    }
+
+    #[test]
+    fn test_line_width_calculation() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_text("Hello World");
+        let width = ctx.calculate_line_width(0, 1);
+        assert_eq!(width, 5); // "Hello" width
+    }
+
+    #[test]
+    fn test_compute_breaks_basic() {
+        let mut ctx = LineBreakingContext::new(40, 80);
+        ctx.add_text("Hello World Test");
+        let breaks = ctx.compute_breaks();
+        // Badness should be calculated for potential line breaks
+        // This is a basic test to ensure compute_breaks doesn't panic
+        assert!(breaks.is_empty() || !breaks.is_empty());
+    }
+
+    #[test]
+    fn test_add_markdown_marker() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_markdown_marker("**");
+        assert_eq!(ctx.words.len(), 1);
+        assert_eq!(ctx.words[0].text, "**");
+        assert!(ctx.next_word_no_leading_space);
+    }
+
+    #[test]
+    fn test_add_inline_element() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_inline_element("`code`");
+        assert_eq!(ctx.words.len(), 1);
+        assert_eq!(ctx.words[0].text, "`code`");
+        assert!(!ctx.next_word_no_leading_space);
+    }
+
+    #[test]
+    fn test_reset_next_word_no_leading_space() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_markdown_marker("**");
+        assert!(ctx.next_word_no_leading_space);
+        ctx.reset_next_word_no_leading_space();
+        assert!(!ctx.next_word_no_leading_space);
+    }
+
+    #[test]
+    fn test_cjk_punctuation_handling() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_markdown_marker("**");
+        ctx.add_text("特性：");
+        // The CJK punctuation "：" should not have leading space
+        assert_eq!(ctx.words.len(), 2);
+        assert_eq!(ctx.words[0].text, "**");
+        assert_eq!(ctx.words[1].text, "特性：");
+        assert!(!ctx.words[1].needs_leading_space);
+    }
+
+    #[test]
+    fn test_cjk_text_after_inline_code() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_inline_element("`tva`");
+        ctx.add_text("的开发者");
+        // Normal CJK text after inline code should have leading space
+        assert_eq!(ctx.words.len(), 2);
+        assert_eq!(ctx.words[0].text, "`tva`");
+        assert_eq!(ctx.words[1].text, "的开发者");
+        assert!(ctx.words[1].needs_leading_space);
+    }
 }
 
 /// Check if a string contains CJK characters

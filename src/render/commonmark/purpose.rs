@@ -387,4 +387,250 @@ mod tests {
         let result = collection.set_translated_texts(vec![]);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_render_purpose_variants() {
+        // Test distinct variants
+        assert_ne!(RenderPurpose::Format, RenderPurpose::TranslationSpans);
+        assert_ne!(RenderPurpose::TranslationSpans, RenderPurpose::TranslatedSpans);
+        assert_ne!(RenderPurpose::TranslatedSpans, RenderPurpose::Translated);
+
+        // Test equality
+        assert_eq!(RenderPurpose::Format, RenderPurpose::Format);
+
+        // Test Clone and Copy
+        let purpose = RenderPurpose::TranslationSpans;
+        let cloned = purpose.clone();
+        assert_eq!(purpose, cloned);
+
+        let copied = purpose;
+        assert_eq!(purpose, copied);
+    }
+
+    #[test]
+    fn test_render_purpose_is_translation_spans() {
+        assert!(RenderPurpose::TranslationSpans.is_translation_spans());
+        assert!(!RenderPurpose::TranslatedSpans.is_translation_spans());
+        assert!(!RenderPurpose::Translated.is_translation_spans());
+        assert!(!RenderPurpose::Format.is_translation_spans());
+    }
+
+    #[test]
+    fn test_render_purpose_is_translated_spans() {
+        assert!(!RenderPurpose::TranslationSpans.is_translated_spans());
+        assert!(RenderPurpose::TranslatedSpans.is_translated_spans());
+        assert!(!RenderPurpose::Translated.is_translated_spans());
+        assert!(!RenderPurpose::Format.is_translated_spans());
+    }
+
+    #[test]
+    fn test_render_purpose_is_translated() {
+        assert!(!RenderPurpose::TranslationSpans.is_translated());
+        assert!(!RenderPurpose::TranslatedSpans.is_translated());
+        assert!(RenderPurpose::Translated.is_translated());
+        assert!(!RenderPurpose::Format.is_translated());
+    }
+
+    #[test]
+    fn test_render_purpose_names() {
+        assert_eq!(RenderPurpose::Format.name(), "Format");
+        assert_eq!(RenderPurpose::TranslationSpans.name(), "TranslationSpans");
+        assert_eq!(RenderPurpose::TranslatedSpans.name(), "TranslatedSpans");
+        assert_eq!(RenderPurpose::Translated.name(), "Translated");
+    }
+
+    #[test]
+    fn test_render_purpose_next_sequence() {
+        // Format stays Format
+        assert_eq!(RenderPurpose::Format.next(), RenderPurpose::Format);
+
+        // Translation workflow sequence
+        assert_eq!(
+            RenderPurpose::TranslationSpans.next(),
+            RenderPurpose::TranslatedSpans
+        );
+        assert_eq!(RenderPurpose::TranslatedSpans.next(), RenderPurpose::Translated);
+
+        // Translated stays Translated
+        assert_eq!(RenderPurpose::Translated.next(), RenderPurpose::Translated);
+    }
+
+    #[test]
+    fn test_translation_span_isolated() {
+        let span = TranslationSpan::new_isolated(1, "Hello", "_{}_");
+        assert!(span.is_isolated);
+        assert_eq!(span.id, 1);
+        assert_eq!(span.original_text, "Hello");
+        assert_eq!(span.placeholder, "_1_");
+    }
+
+    #[test]
+    fn test_translation_span_is_translated() {
+        let mut span = TranslationSpan::new(1, "Hello", "_{}_");
+        assert!(!span.is_translated());
+
+        span.set_translated("Bonjour");
+        assert!(span.is_translated());
+    }
+
+    #[test]
+    fn test_translation_span_get_text_all_purposes() {
+        let mut span = TranslationSpan::new(1, "Hello", "_{}_");
+
+        // Format returns original
+        assert_eq!(span.get_text(RenderPurpose::Format), "Hello");
+
+        // TranslationSpans returns placeholder
+        assert_eq!(span.get_text(RenderPurpose::TranslationSpans), "_1_");
+
+        // TranslatedSpans returns placeholder
+        assert_eq!(span.get_text(RenderPurpose::TranslatedSpans), "_1_");
+
+        // Translated returns original (no translation set)
+        assert_eq!(span.get_text(RenderPurpose::Translated), "Hello");
+
+        // After setting translation
+        span.set_translated("Bonjour");
+        assert_eq!(span.get_text(RenderPurpose::Translated), "Bonjour");
+    }
+
+    #[test]
+    fn test_translation_span_collection_with_custom_placeholder() {
+        let mut collection =
+            TranslationSpanCollection::with_placeholder_format("[{}]");
+
+        collection.add_span("Hello");
+        collection.add_span("World");
+
+        assert_eq!(collection.get_placeholder(1), Some("[1]"));
+        assert_eq!(collection.get_placeholder(2), Some("[2]"));
+    }
+
+    #[test]
+    fn test_translation_span_collection_add_isolated() {
+        let mut collection = TranslationSpanCollection::new();
+
+        let span = collection.add_isolated_span("Isolated text");
+        assert!(span.is_isolated);
+        assert_eq!(span.id, 1);
+    }
+
+    #[test]
+    fn test_translation_span_collection_get_span() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("First");
+        collection.add_span("Second");
+
+        assert!(collection.get_span(1).is_some());
+        assert!(collection.get_span(2).is_some());
+        assert!(collection.get_span(3).is_none());
+
+        assert_eq!(collection.get_span(1).unwrap().original_text, "First");
+        assert_eq!(collection.get_span(2).unwrap().original_text, "Second");
+    }
+
+    #[test]
+    fn test_translation_span_collection_get_span_mut() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("Original");
+
+        if let Some(span) = collection.get_span_mut(1) {
+            span.set_translated("Modified");
+        }
+
+        assert_eq!(
+            collection.get_span(1).unwrap().get_text(RenderPurpose::Translated),
+            "Modified"
+        );
+    }
+
+    #[test]
+    fn test_translation_span_collection_clear() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("Hello");
+        collection.add_span("World");
+
+        assert_eq!(collection.len(), 2);
+
+        collection.clear();
+
+        assert!(collection.is_empty());
+        assert_eq!(collection.len(), 0);
+
+        // Next ID should reset to 1
+        let span = collection.add_span("New");
+        assert_eq!(span.id, 1);
+    }
+
+    #[test]
+    fn test_translation_span_collection_get_spans() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("First");
+        collection.add_span("Second");
+
+        let spans = collection.get_spans();
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].original_text, "First");
+        assert_eq!(spans[1].original_text, "Second");
+    }
+
+    #[test]
+    fn test_translation_span_collection_set_translated_texts_success() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("Hello");
+        collection.add_span("World");
+
+        let result =
+            collection.set_translated_texts(vec!["Bonjour".to_string(), "Monde".to_string()]);
+
+        assert!(result.is_ok());
+        assert_eq!(
+            collection.get_span(1).unwrap().get_text(RenderPurpose::Translated),
+            "Bonjour"
+        );
+        assert_eq!(
+            collection.get_span(2).unwrap().get_text(RenderPurpose::Translated),
+            "Monde"
+        );
+    }
+
+    #[test]
+    fn test_translation_span_collection_set_translated_texts_wrong_count() {
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("Hello");
+
+        // Too few texts
+        let result = collection.set_translated_texts(vec![]);
+        assert!(result.is_err());
+
+        // Too many texts
+        let result = collection.set_translated_texts(vec!["a".to_string(), "b".to_string()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_translation_span_collection_empty() {
+        let collection = TranslationSpanCollection::new();
+        assert!(collection.is_empty());
+        assert_eq!(collection.len(), 0);
+
+        let mut collection = TranslationSpanCollection::new();
+        collection.add_span("Test");
+        assert!(!collection.is_empty());
+        assert_eq!(collection.len(), 1);
+    }
+
+    #[test]
+    fn test_translation_span_collection_get_placeholder_invalid() {
+        let collection = TranslationSpanCollection::new();
+        assert_eq!(collection.get_placeholder(1), None);
+        assert_eq!(collection.get_placeholder(0), None);
+    }
+
+    #[test]
+    fn test_translation_span_collection_default() {
+        let collection: TranslationSpanCollection = Default::default();
+        assert!(collection.is_empty());
+        assert_eq!(collection.len(), 0);
+    }
 }

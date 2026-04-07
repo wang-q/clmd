@@ -483,4 +483,283 @@ mod tests {
         assert_eq!(sorted.len(), 1);
         assert_eq!(sorted[0].label, "used");
     }
+
+    #[test]
+    fn test_reference_repository_default() {
+        let repo: ReferenceRepository = Default::default();
+        assert!(repo.is_empty());
+        assert_eq!(repo.len(), 0);
+    }
+
+    #[test]
+    fn test_reference_repository_new() {
+        let repo = ReferenceRepository::new();
+        assert!(repo.is_empty());
+        assert_eq!(repo.len(), 0);
+    }
+
+    #[test]
+    fn test_reference_repository_get_mut() {
+        let mut repo = ReferenceRepository::new();
+
+        repo.add(ReferenceEntry {
+            label: "ref1".to_string(),
+            url: "https://example.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        // Get mutable reference and modify it
+        if let Some(entry) = repo.get_mut("ref1") {
+            entry.is_used = true;
+        }
+
+        assert!(repo.get("ref1").unwrap().is_used);
+    }
+
+    #[test]
+    fn test_reference_repository_update_existing() {
+        let mut repo = ReferenceRepository::new();
+
+        repo.add(ReferenceEntry {
+            label: "ref1".to_string(),
+            url: "https://old.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        // Add with same label - should update but not change order
+        repo.add(ReferenceEntry {
+            label: "ref1".to_string(),
+            url: "https://new.com".to_string(),
+            title: Some("Updated".to_string()),
+            is_used: true,
+            node_id: None,
+        });
+
+        assert_eq!(repo.len(), 1);
+        let entry = repo.get("ref1").unwrap();
+        assert_eq!(entry.url, "https://new.com");
+        assert_eq!(entry.title, Some("Updated".to_string()));
+        assert!(entry.is_used);
+    }
+
+    #[test]
+    fn test_reference_repository_clear() {
+        let mut repo = ReferenceRepository::new();
+
+        repo.add(ReferenceEntry {
+            label: "ref1".to_string(),
+            url: "https://example.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        assert!(!repo.is_empty());
+
+        repo.clear();
+
+        assert!(repo.is_empty());
+        assert_eq!(repo.len(), 0);
+        assert!(!repo.contains("ref1"));
+    }
+
+    #[test]
+    fn test_reference_repository_get_nonexistent() {
+        let repo = ReferenceRepository::new();
+        assert!(repo.get("nonexistent").is_none());
+        assert!(!repo.contains("nonexistent"));
+    }
+
+    #[test]
+    fn test_reference_repository_mark_used_nonexistent() {
+        let mut repo = ReferenceRepository::new();
+        // Should not panic
+        repo.mark_used("nonexistent");
+    }
+
+    #[test]
+    fn test_reference_repository_order_preserved() {
+        let mut repo = ReferenceRepository::new();
+
+        repo.add(ReferenceEntry {
+            label: "first".to_string(),
+            url: "https://first.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        repo.add(ReferenceEntry {
+            label: "second".to_string(),
+            url: "https://second.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        repo.add(ReferenceEntry {
+            label: "third".to_string(),
+            url: "https://third.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        let all = repo.get_all();
+        assert_eq!(all[0].label, "first");
+        assert_eq!(all[1].label, "second");
+        assert_eq!(all[2].label, "third");
+    }
+
+    #[test]
+    fn test_reference_entry_clone() {
+        let entry = ReferenceEntry {
+            label: "ref1".to_string(),
+            url: "https://example.com".to_string(),
+            title: Some("Title".to_string()),
+            is_used: true,
+            node_id: None,
+        };
+
+        let cloned = entry.clone();
+        assert_eq!(entry.label, cloned.label);
+        assert_eq!(entry.url, cloned.url);
+        assert_eq!(entry.title, cloned.title);
+        assert_eq!(entry.is_used, cloned.is_used);
+    }
+
+    #[test]
+    fn test_link_reference_formatter_default() {
+        let formatter: LinkReferenceFormatter = Default::default();
+        assert_eq!(
+            formatter.get_reference_placement(),
+            ElementPlacement::DocumentBottom
+        );
+        assert_eq!(formatter.get_reference_sort(), ElementPlacementSort::AsIs);
+        assert!(formatter.get_repository().is_empty());
+    }
+
+    #[test]
+    fn test_link_reference_formatter_make_references_unique() {
+        let formatter = LinkReferenceFormatter::with_defaults();
+        assert!(formatter.make_references_unique());
+    }
+
+    #[test]
+    fn test_link_reference_formatter_get_formatting_phases() {
+        let formatter = LinkReferenceFormatter::with_defaults();
+        let phases = formatter.get_formatting_phases();
+
+        assert!(phases.contains(&FormattingPhase::Collect));
+        assert!(phases.contains(&FormattingPhase::DocumentTop));
+        assert!(phases.contains(&FormattingPhase::DocumentBottom));
+    }
+
+    #[test]
+    fn test_sorted_references_sort_delete_unused() {
+        let mut formatter = LinkReferenceFormatter::new(
+            ElementPlacement::DocumentBottom,
+            ElementPlacementSort::SortDeleteUnused,
+        );
+
+        formatter.repository.add(ReferenceEntry {
+            label: "zebra".to_string(),
+            url: "https://zebra.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        formatter.repository.add(ReferenceEntry {
+            label: "alpha".to_string(),
+            url: "https://alpha.com".to_string(),
+            title: None,
+            is_used: true,
+            node_id: None,
+        });
+
+        formatter.repository.add(ReferenceEntry {
+            label: "beta".to_string(),
+            url: "https://beta.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        let sorted = formatter.get_sorted_references();
+        // Only used references, sorted alphabetically
+        assert_eq!(sorted.len(), 1);
+        assert_eq!(sorted[0].label, "alpha");
+    }
+
+    #[test]
+    fn test_sorted_references_empty() {
+        let formatter = LinkReferenceFormatter::with_defaults();
+        let sorted = formatter.get_sorted_references();
+        assert!(sorted.is_empty());
+    }
+
+    #[test]
+    fn test_sorted_references_all_unused() {
+        let mut formatter = LinkReferenceFormatter::new(
+            ElementPlacement::DocumentBottom,
+            ElementPlacementSort::SortUnusedLast,
+        );
+
+        formatter.repository.add(ReferenceEntry {
+            label: "zebra".to_string(),
+            url: "https://zebra.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        formatter.repository.add(ReferenceEntry {
+            label: "alpha".to_string(),
+            url: "https://alpha.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        let sorted = formatter.get_sorted_references();
+        // All unused, just sorted alphabetically
+        assert_eq!(sorted.len(), 2);
+        assert_eq!(sorted[0].label, "alpha");
+        assert_eq!(sorted[1].label, "zebra");
+    }
+
+    #[test]
+    fn test_sorted_references_as_is() {
+        let mut formatter = LinkReferenceFormatter::new(
+            ElementPlacement::DocumentBottom,
+            ElementPlacementSort::AsIs,
+        );
+
+        formatter.repository.add(ReferenceEntry {
+            label: "zebra".to_string(),
+            url: "https://zebra.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        formatter.repository.add(ReferenceEntry {
+            label: "alpha".to_string(),
+            url: "https://alpha.com".to_string(),
+            title: None,
+            is_used: false,
+            node_id: None,
+        });
+
+        let sorted = formatter.get_sorted_references();
+        // Original order preserved
+        assert_eq!(sorted.len(), 2);
+        assert_eq!(sorted[0].label, "zebra");
+        assert_eq!(sorted[1].label, "alpha");
+    }
 }
