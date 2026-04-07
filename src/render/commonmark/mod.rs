@@ -792,6 +792,21 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         ));
     }
 
+    fn start_line_breaking_with_prefixes(
+        &mut self,
+        ideal_width: usize,
+        max_width: usize,
+        first_line_prefix: String,
+        continuation_prefix: String,
+    ) {
+        self.line_breaking_context = Some(line_breaking::LineBreakingContext::with_prefixes(
+            ideal_width,
+            max_width,
+            first_line_prefix,
+            continuation_prefix,
+        ));
+    }
+
     fn add_line_breaking_word(&mut self, word: line_breaking::Word) {
         if let Some(ref mut ctx) = self.line_breaking_context {
             ctx.add_word(word);

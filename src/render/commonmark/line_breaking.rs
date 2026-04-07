@@ -67,6 +67,10 @@ pub struct LineBreakingContext {
     max_width: usize,
     /// Whether line breaking is enabled
     enabled: bool,
+    /// First line prefix (e.g., "- " or "1. ")
+    first_line_prefix: String,
+    /// Continuation line prefix (e.g., "  ")
+    continuation_prefix: String,
 }
 
 impl LineBreakingContext {
@@ -77,6 +81,25 @@ impl LineBreakingContext {
             ideal_width,
             max_width,
             enabled: max_width > 0,
+            first_line_prefix: String::new(),
+            continuation_prefix: String::new(),
+        }
+    }
+
+    /// Create a new line breaking context with prefixes
+    pub fn with_prefixes(
+        ideal_width: usize,
+        max_width: usize,
+        first_line_prefix: impl Into<String>,
+        continuation_prefix: impl Into<String>,
+    ) -> Self {
+        Self {
+            words: Vec::new(),
+            ideal_width,
+            max_width,
+            enabled: max_width > 0,
+            first_line_prefix: first_line_prefix.into(),
+            continuation_prefix: continuation_prefix.into(),
         }
     }
 
@@ -115,6 +138,10 @@ impl LineBreakingContext {
             prev_break: None,
         }];
 
+        // Calculate prefix widths
+        let first_prefix_width = unicode_width::width(&self.first_line_prefix) as usize;
+        let cont_prefix_width = unicode_width::width(&self.continuation_prefix) as usize;
+
         // Dynamic programming: for each possible breakpoint
         for j in 1..=n {
             let mut best_badness = f64::INFINITY;
@@ -122,9 +149,18 @@ impl LineBreakingContext {
 
             // Try all possible previous breakpoints
             for i in (0..j).rev() {
-                let line_width = self.calculate_line_width(i, j);
+                // Determine if this is the first line (i == 0)
+                let is_first_line = i == 0;
+                let line_width = self.calculate_line_width_with_prefix(i, j, is_first_line);
 
-                if line_width > self.max_width {
+                // Use appropriate max width based on whether it's the first line
+                let effective_max_width = if is_first_line {
+                    self.max_width
+                } else {
+                    self.max_width.saturating_sub(cont_prefix_width) + first_prefix_width
+                };
+
+                if line_width > effective_max_width {
                     break; // Exceeds max width, stop searching
                 }
 
@@ -159,7 +195,18 @@ impl LineBreakingContext {
 
     /// Calculate the width of a line from word i to word j (exclusive)
     fn calculate_line_width(&self, start: usize, end: usize) -> usize {
-        let mut width = 0;
+        self.calculate_line_width_with_prefix(start, end, start == 0)
+    }
+
+    /// Calculate the width of a line from word i to word j (exclusive) with prefix consideration
+    fn calculate_line_width_with_prefix(&self, start: usize, end: usize, is_first_line: bool) -> usize {
+        let prefix_width = if is_first_line {
+            unicode_width::width(&self.first_line_prefix) as usize
+        } else {
+            unicode_width::width(&self.continuation_prefix) as usize
+        };
+
+        let mut width = prefix_width;
         for i in start..end {
             width += self.words[i].width;
             // Add space after word if it has trailing space and it's not the last word
@@ -174,14 +221,23 @@ impl LineBreakingContext {
     pub fn format(&self) -> String {
         let breaks = self.compute_breaks();
         if breaks.is_empty() {
-            // No breaks needed, return all words joined
-            return self.words.iter().map(|w| &*w.text).collect::<Vec<_>>().join(" ");
+            // No breaks needed, return all words joined with first line prefix
+            return self.first_line_prefix.clone()
+                + &self.words.iter().map(|w| &*w.text).collect::<Vec<_>>().join(" ");
         }
 
         let mut result = String::new();
         let mut start = 0;
+        let mut is_first_line = true;
 
         for &end in &breaks {
+            // Add appropriate prefix
+            if is_first_line {
+                result.push_str(&self.first_line_prefix);
+            } else {
+                result.push_str(&self.continuation_prefix);
+            }
+
             // Add words from start to end
             for i in start..end {
                 if i > start {
@@ -191,6 +247,7 @@ impl LineBreakingContext {
             }
             result.push('\n');
             start = end;
+            is_first_line = false;
         }
 
         // Remove trailing newline
@@ -297,5 +354,387 @@ mod tests {
 
         // Off by 5
         assert_eq!(calculate_badness(25, 20), 25.0);
+    }
+
+    #[test]
+    fn test_line_breaking_with_prefixes() {
+        let mut ctx = LineBreakingContext::with_prefixes(20, 30, "- ", "  ");
+        ctx.add_text("This is a list item with some text");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // First line should start with "- "
+        assert!(lines[0].starts_with("- "), "First line should start with list marker");
+
+        // Subsequent lines should start with "  "
+        if lines.len() > 1 {
+            assert!(
+                lines[1].starts_with("  "),
+                "Continuation lines should be indented"
+            );
+        }
+    }
+
+    #[test]
+    fn test_line_breaking_with_ordered_list_prefix() {
+        let mut ctx = LineBreakingContext::with_prefixes(20, 35, "1. ", "   ");
+        ctx.add_text("First ordered item with some text content");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // First line should start with "1. "
+        assert!(
+            lines[0].starts_with("1. "),
+            "First line should start with ordered list marker"
+        );
+
+        // Subsequent lines should start with "   " (3 spaces)
+        if lines.len() > 1 {
+            assert!(
+                lines[1].starts_with("   "),
+                "Continuation lines should be indented to align with content"
+            );
+        }
+    }
+
+    #[test]
+    fn test_prefix_width_considered_in_breaks() {
+        // Create context with prefixes
+        let mut ctx_with_prefix = LineBreakingContext::with_prefixes(20, 25, "- ", "  ");
+        ctx_with_prefix.add_text("This is a test paragraph");
+
+        let formatted_with_prefix = ctx_with_prefix.format();
+
+        // Check that lines respect the max width considering prefixes
+        for line in formatted_with_prefix.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 25,
+                "Line with prefix exceeds max width: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_empty_prefixes() {
+        // Test with empty prefixes (same as no prefixes)
+        let mut ctx = LineBreakingContext::with_prefixes(20, 25, "", "");
+        ctx.add_text("Simple text without prefixes");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // All lines should not have any prefix
+        for line in lines {
+            assert!(
+                !line.starts_with("- ") && !line.starts_with("  "),
+                "Line should not have prefix: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_nested_list_prefixes() {
+        // Simulate nested list with different indentation levels
+        let mut ctx = LineBreakingContext::with_prefixes(15, 20, "    - ", "      ");
+        ctx.add_text("Nested item with text");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // First line should have nested marker
+        assert!(lines[0].starts_with("    - "), "Should have nested marker");
+
+        // Check width constraint
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 20,
+                "Nested line exceeds max width: {}",
+                line
+            );
+        }
+    }
+
+    // Tests for regular paragraph line breaking
+
+    #[test]
+    fn test_paragraph_multiple_lines() {
+        let mut ctx = LineBreakingContext::new(20, 25);
+        ctx.add_text("First line with some text. Second part with more text here.");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Should produce multiple lines
+        assert!(
+            lines.len() >= 2,
+            "Should have multiple lines, got: {:?}",
+            lines
+        );
+
+        // Each line should respect max width
+        for line in &lines {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 25,
+                "Line exceeds max width: {} (width: {})",
+                line,
+                width
+            );
+        }
+    }
+
+    #[test]
+    fn test_paragraph_single_line() {
+        // Short paragraph that fits on one line
+        let mut ctx = LineBreakingContext::new(20, 25);
+        ctx.add_text("Short text");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Should be a single line
+        assert_eq!(lines.len(), 1, "Short text should be on one line");
+        assert_eq!(lines[0], "Short text");
+    }
+
+    #[test]
+    fn test_paragraph_optimal_break_points() {
+        // Test that Knuth-Plass finds optimal break points
+        let mut ctx = LineBreakingContext::new(15, 20);
+        ctx.add_text("The quick brown fox jumps over the lazy dog");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Check that lines are reasonably balanced
+        // (not too short, not exceeding max)
+        for line in &lines {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 20,
+                "Line exceeds max width: {}",
+                line
+            );
+            // Lines should be reasonably filled (at least 50% of ideal width)
+            assert!(
+                width >= 7,
+                "Line too short, not optimal: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_paragraph_with_mixed_content() {
+        // Paragraph with mixed word lengths
+        let mut ctx = LineBreakingContext::new(20, 25);
+        ctx.add_text("A very longwordthatmightbeproblematic and then more text here");
+
+        let formatted = ctx.format();
+
+        // The long word might exceed max width on its own line
+        // This is expected behavior - we can't break words
+        assert!(!formatted.is_empty(), "Should produce some output");
+
+        // Check that lines without the long word respect max width
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            // Skip the line with the very long word if it exceeds max width
+            if !line.contains("longwordthatmightbeproblematic") {
+                assert!(
+                    width <= 25,
+                    "Line exceeds max width: {}",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_paragraph_empty() {
+        let ctx = LineBreakingContext::new(20, 25);
+        // No words added
+
+        let formatted = ctx.format();
+        assert!(formatted.is_empty(), "Empty paragraph should produce empty string");
+    }
+
+    #[test]
+    fn test_paragraph_whitespace_only() {
+        let mut ctx = LineBreakingContext::new(20, 25);
+        ctx.add_text("   "); // Only whitespace
+
+        let formatted = ctx.format();
+        // Whitespace-only text should produce empty result
+        // (split_whitespace returns no words)
+        assert!(formatted.is_empty());
+    }
+
+    #[test]
+    fn test_paragraph_large_width() {
+        // Paragraph with large max width (minimal breaking)
+        let mut ctx = LineBreakingContext::new(100, 120);
+        ctx.add_text("This is a paragraph that should fit on a single line because the max width is very large");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Should be on one line
+        assert_eq!(
+            lines.len(),
+            1,
+            "Should fit on one line with large width"
+        );
+    }
+
+    #[test]
+    fn test_paragraph_small_width() {
+        // Paragraph with small max width (aggressive breaking)
+        let mut ctx = LineBreakingContext::new(10, 12);
+        ctx.add_text("This is a test");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Should produce multiple short lines
+        assert!(
+            lines.len() >= 2,
+            "Should have multiple lines with small width"
+        );
+
+        for line in &lines {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 12,
+                "Line exceeds max width: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_paragraph_with_numbers_and_punctuation() {
+        let mut ctx = LineBreakingContext::new(20, 25);
+        ctx.add_text("Version 1.2.3 is released on 2024-01-15! Check it out.");
+
+        let formatted = ctx.format();
+
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 25,
+                "Line exceeds max width: {}",
+                line
+            );
+        }
+    }
+
+    // Tests for block quote line breaking
+
+    #[test]
+    fn test_block_quote_line_breaking() {
+        // First line prefix is empty (BlockQuote handler already outputs "> ")
+        // Continuation lines have "> " prefix
+        let mut ctx = LineBreakingContext::with_prefixes(20, 30, "", "> ");
+        ctx.add_text("This is a blockquote with some text that should wrap");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // First line should NOT have prefix (it's already output by BlockQuote handler)
+        // Continuation lines should have "> " prefix
+        if lines.len() > 1 {
+            for line in &lines[1..] {
+                assert!(
+                    line.starts_with("> "),
+                    "Block quote continuation line should start with '> ': {}",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_nested_block_quote_line_breaking() {
+        // Nested block quote: continuation lines have "> > " prefix
+        let mut ctx = LineBreakingContext::with_prefixes(15, 20, "", "> > ");
+        ctx.add_text("Nested blockquote with some text");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Continuation lines should start with "> > "
+        if lines.len() > 1 {
+            for line in &lines[1..] {
+                assert!(
+                    line.starts_with("> > "),
+                    "Nested block quote continuation line should start with '> > ': {}",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_block_quote_single_line() {
+        // Short block quote that fits on one line
+        // First line prefix is empty, no continuation lines
+        let mut ctx = LineBreakingContext::with_prefixes(20, 30, "", "> ");
+        ctx.add_text("Short quote");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Should be a single line without prefix
+        assert_eq!(lines.len(), 1, "Short quote should be on one line");
+        assert_eq!(lines[0], "Short quote");
+    }
+
+    #[test]
+    fn test_block_quote_width_constraint() {
+        // Test that block quote lines respect max width
+        // First line: no prefix, continuation: "> "
+        let mut ctx = LineBreakingContext::with_prefixes(15, 20, "", "> ");
+        ctx.add_text("This is a longer text that should wrap properly");
+
+        let formatted = ctx.format();
+
+        // Check that all lines respect max width
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 20,
+                "Block quote line exceeds max width: {} (width: {})",
+                line,
+                width
+            );
+        }
+    }
+
+    #[test]
+    fn test_triple_nested_block_quote() {
+        // Test triple nesting
+        let mut ctx = LineBreakingContext::with_prefixes(10, 15, "", "> > > ");
+        ctx.add_text("Deeply nested quote");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Continuation lines should start with "> > > "
+        if lines.len() > 1 {
+            for line in &lines[1..] {
+                assert!(
+                    line.starts_with("> > > "),
+                    "Triple nested continuation line should start with '> > > ': {}",
+                    line
+                );
+            }
+        }
     }
 }

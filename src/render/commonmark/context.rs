@@ -224,6 +224,18 @@ pub trait NodeFormatterContext {
     /// Called when entering a paragraph to begin collecting words for optimal line breaking.
     fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize);
 
+    /// Start collecting text for line breaking with prefixes
+    ///
+    /// Called when entering a paragraph in a list item to begin collecting words
+    /// with proper indentation prefixes.
+    fn start_line_breaking_with_prefixes(
+        &mut self,
+        ideal_width: usize,
+        max_width: usize,
+        first_line_prefix: String,
+        continuation_prefix: String,
+    );
+
     /// Add a word to the line breaking context
     fn add_line_breaking_word(&mut self, word: Word);
 
@@ -463,6 +475,21 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize) {
         self.parent.start_line_breaking(ideal_width, max_width);
+    }
+
+    fn start_line_breaking_with_prefixes(
+        &mut self,
+        ideal_width: usize,
+        max_width: usize,
+        first_line_prefix: String,
+        continuation_prefix: String,
+    ) {
+        self.parent.start_line_breaking_with_prefixes(
+            ideal_width,
+            max_width,
+            first_line_prefix,
+            continuation_prefix,
+        );
     }
 
     fn add_line_breaking_word(&mut self, word: Word) {
@@ -743,6 +770,15 @@ mod tests {
         }
 
         fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
+
+        fn start_line_breaking_with_prefixes(
+            &mut self,
+            _ideal_width: usize,
+            _max_width: usize,
+            _first_line_prefix: String,
+            _continuation_prefix: String,
+        ) {
+        }
 
         fn add_line_breaking_word(&mut self, _word: Word) {}
 

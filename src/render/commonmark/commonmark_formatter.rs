@@ -136,16 +136,43 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // Only enable line breaking if right_margin is set
                             if options.right_margin > 0 {
                                 // Calculate available width considering nesting
-                                let nesting_level = ctx.get_list_nesting_level()
-                                    + ctx.get_block_quote_nesting_level();
-                                let prefix_width = nesting_level * 2; // Approximate prefix width
+                                let list_nesting = ctx.get_list_nesting_level();
+                                let block_quote_nesting =
+                                    ctx.get_block_quote_nesting_level();
+                                let prefix_width =
+                                    (list_nesting + block_quote_nesting) * 2;
                                 let ideal_width = options
                                     .right_margin
                                     .saturating_sub(prefix_width);
                                 let max_width = options
                                     .right_margin
                                     .saturating_sub(prefix_width);
-                                ctx.start_line_breaking(ideal_width, max_width);
+
+                                // Determine which prefixes to use
+                                if ctx.is_parent_list_item() {
+                                    // List item: use list item prefixes
+                                    let (first_prefix, cont_prefix) =
+                                        calculate_list_item_prefixes(ctx);
+                                    ctx.start_line_breaking_with_prefixes(
+                                        ideal_width,
+                                        max_width,
+                                        first_prefix,
+                                        cont_prefix,
+                                    );
+                                } else if block_quote_nesting > 0 {
+                                    // Block quote: use block quote prefixes
+                                    let (first_prefix, cont_prefix) =
+                                        calculate_block_quote_prefixes(ctx);
+                                    ctx.start_line_breaking_with_prefixes(
+                                        ideal_width,
+                                        max_width,
+                                        first_prefix,
+                                        cont_prefix,
+                                    );
+                                } else {
+                                    // Regular paragraph: no prefixes
+                                    ctx.start_line_breaking(ideal_width, max_width);
+                                }
                             }
                         }
                     },
@@ -1581,6 +1608,80 @@ fn skip_task_marker(text: &str) -> String {
     }
 }
 
+/// Calculate the prefixes for list item line breaking
+///
+/// Returns (first_line_prefix, continuation_prefix) where:
+/// - first_line_prefix is empty (the list marker is already output by Item handler)
+/// - continuation_prefix is the indentation to align with the list marker
+fn calculate_list_item_prefixes(ctx: &dyn NodeFormatterContext) -> (String, String) {
+    use crate::core::nodes::NodeValue;
+    use crate::text::unicode_width;
+
+    // Get the current node (Paragraph) and find its parent Item
+    if let Some(current_node) = ctx.get_current_node() {
+        let arena = ctx.get_arena();
+        let node = arena.get(current_node);
+
+        if let Some(parent_id) = node.parent {
+            let parent = arena.get(parent_id);
+
+            // Check if parent is an Item
+            if let NodeValue::Item(item_data) = &parent.value {
+                // Get the grandparent (List) to determine the marker
+                if let Some(grandparent_id) = parent.parent {
+                    let grandparent = arena.get(grandparent_id);
+
+                    if let NodeValue::List(list) = &grandparent.value {
+                        // Calculate the item number for ordered lists
+                        let item_number =
+                            get_item_number_in_list(arena, grandparent_id, Some(parent_id));
+
+                        // Get the list marker
+                        let marker =
+                            format_list_item_marker_with_number_and_options(list, item_number, ctx.get_formatter_options());
+
+                        // Calculate marker width
+                        let marker_width = unicode_width::width(&marker) as usize;
+
+                        // Calculate nesting level for additional indentation
+                        let nesting_level = count_list_ancestors(arena, grandparent_id);
+                        let indent_width = nesting_level * 4;
+
+                        // First line prefix is empty (marker already output)
+                        let first_prefix = String::new();
+
+                        // Continuation prefix aligns with the content after the marker
+                        let cont_prefix = " ".repeat(indent_width + marker_width);
+
+                        return (first_prefix, cont_prefix);
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: no special prefixes
+    (String::new(), String::new())
+}
+
+/// Calculate the prefixes for block quote line breaking
+///
+/// Returns (first_line_prefix, continuation_prefix) where:
+/// - first_line_prefix is empty (the block quote marker is already output by BlockQuote handler)
+/// - continuation_prefix is the block quote marker for subsequent lines
+fn calculate_block_quote_prefixes(ctx: &dyn NodeFormatterContext) -> (String, String) {
+    let nesting_level = ctx.get_block_quote_nesting_level();
+
+    // Build the continuation prefix: "> " repeated for each nesting level
+    // This is needed for continuation lines
+    let cont_prefix = "> ".repeat(nesting_level);
+
+    // First line prefix is empty because BlockQuote handler already outputs the marker
+    let first_prefix = String::new();
+
+    (first_prefix, cont_prefix)
+}
+
 /// Calculate the content length of a heading for Setext underline
 ///
 /// This function calculates the visible content length of a heading,
@@ -2255,6 +2356,15 @@ mod tests {
         }
 
         fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
+
+        fn start_line_breaking_with_prefixes(
+            &mut self,
+            _ideal_width: usize,
+            _max_width: usize,
+            _first_line_prefix: String,
+            _continuation_prefix: String,
+        ) {
+        }
 
         fn add_line_breaking_word(&mut self, _word: crate::render::commonmark::line_breaking::Word) {}
 

@@ -1062,6 +1062,15 @@ mod tests {
 
         fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
 
+        fn start_line_breaking_with_prefixes(
+            &mut self,
+            _ideal_width: usize,
+            _max_width: usize,
+            _first_line_prefix: String,
+            _continuation_prefix: String,
+        ) {
+        }
+
         fn add_line_breaking_word(&mut self, _word: crate::render::commonmark::line_breaking::Word) {}
 
         fn add_line_breaking_text(&mut self, _text: &str) {}
