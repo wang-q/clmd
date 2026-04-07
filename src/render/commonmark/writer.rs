@@ -5,6 +5,7 @@
 //! Inspired by flexmark-java's MarkdownWriter class.
 
 use crate::options::format::FormatFlags;
+use crate::text::unicode_width;
 
 /// Line information for tracking output state
 ///
@@ -129,9 +130,10 @@ impl MarkdownWriter {
             return self;
         }
 
-        // If no wrapping is configured or in pre-formatted mode, just append
+        // If no wrapping is configured or in pre-formatted mode, just append raw
+        // Use append_raw to preserve whitespace (append would trim trailing whitespace)
         if self.right_margin == 0 || self.pre_formatted {
-            return self.append(text);
+            return self.append_raw(text);
         }
 
         // Add text to word wrap buffer
@@ -158,11 +160,13 @@ impl MarkdownWriter {
         loop {
             // Find the next word boundary
             if let Some(space_pos) = self.word_wrap_buffer.find(' ') {
-                let word_len = space_pos;
+                let word_width =
+                    unicode_width::width(&self.word_wrap_buffer[..space_pos]) as usize;
                 let remaining_start = space_pos + 1;
 
                 // Check if adding this word would exceed the margin
-                if self.column + word_len > self.right_margin && !self.beginning_of_line
+                // Use Unicode display width for accurate CJK character handling
+                if self.column + word_width > self.right_margin && !self.beginning_of_line
                 {
                     // Start a new line
                     self.line();
@@ -171,7 +175,8 @@ impl MarkdownWriter {
                 // Extract and output the word
                 let word: String = self.word_wrap_buffer[..space_pos].to_string();
                 self.append(&word);
-                self.append(" ");
+                // Use append_raw to preserve the space (append would trim it)
+                self.append_raw(" ");
 
                 // Update buffer - remove the word and space we just processed
                 let remaining: String =
@@ -179,9 +184,9 @@ impl MarkdownWriter {
                 self.word_wrap_buffer = remaining;
             } else {
                 // No more spaces, check if remaining text fits
-                let remaining_len = self.word_wrap_buffer.len();
-                if remaining_len > 0 {
-                    if self.column + remaining_len > self.right_margin
+                let remaining_width = unicode_width::width(&self.word_wrap_buffer) as usize;
+                if remaining_width > 0 {
+                    if self.column + remaining_width > self.right_margin
                         && !self.beginning_of_line
                     {
                         // Start a new line

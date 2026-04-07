@@ -20,6 +20,7 @@ pub mod commonmark_formatter;
 pub mod context;
 pub mod escaping;
 pub mod format_control;
+pub mod line_breaking;
 pub mod node;
 pub mod phase;
 pub mod phased;
@@ -56,6 +57,7 @@ pub use repository_formatter::{
 };
 pub use translation::{TranslationContext, TranslationHandler, TranslationHandlerImpl};
 pub use writer::MarkdownWriter;
+pub use line_breaking::{LineBreakingContext, Word};
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
@@ -246,6 +248,8 @@ pub struct MainFormatterContext<'a> {
     format_off_buffer: Option<String>,
     /// Whether delegation was requested by the current handler
     delegation_requested: bool,
+    /// Line breaking context for optimal paragraph formatting
+    line_breaking_context: Option<line_breaking::LineBreakingContext>,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -291,6 +295,7 @@ impl<'a> MainFormatterContext<'a> {
             format_control,
             format_off_buffer: None,
             delegation_requested: false,
+            line_breaking_context: None,
         };
         context.build_handler_map();
         context.collect_nodes();
@@ -776,6 +781,39 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
         // Return the captured content
         temp_writer.to_string()
+    }
+
+    // Line breaking methods
+
+    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize) {
+        self.line_breaking_context = Some(line_breaking::LineBreakingContext::new(
+            ideal_width,
+            max_width,
+        ));
+    }
+
+    fn add_line_breaking_word(&mut self, word: line_breaking::Word) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_word(word);
+        }
+    }
+
+    fn add_line_breaking_text(&mut self, text: &str) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_text(text);
+        }
+    }
+
+    fn finish_line_breaking(&mut self) -> Option<String> {
+        self.line_breaking_context.take().map(|ctx| ctx.format())
+    }
+
+    fn is_collecting_line_breaking(&self) -> bool {
+        self.line_breaking_context.is_some()
+    }
+
+    fn get_line_breaking_context(&self) -> Option<&line_breaking::LineBreakingContext> {
+        self.line_breaking_context.as_ref()
     }
 }
 

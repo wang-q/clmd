@@ -130,13 +130,22 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      _writer: &mut MarkdownWriter| {
-                        // Paragraph opening - check if we need special handling
+                        // Paragraph opening - start line breaking context if enabled
                         if let NodeValue::Paragraph = _value {
-                            // Check if this paragraph is in a list item and needs special handling
-                            if ctx.is_parent_list_item() {
-                                // In a list item, paragraphs may need different handling
-                                // based on whether the list is tight or loose
-                                // Additional handling can be added here if needed
+                            let options = ctx.get_formatter_options();
+                            // Only enable line breaking if right_margin is set
+                            if options.right_margin > 0 {
+                                // Calculate available width considering nesting
+                                let nesting_level = ctx.get_list_nesting_level()
+                                    + ctx.get_block_quote_nesting_level();
+                                let prefix_width = nesting_level * 2; // Approximate prefix width
+                                let ideal_width = options
+                                    .right_margin
+                                    .saturating_sub(prefix_width);
+                                let max_width = options
+                                    .right_margin
+                                    .saturating_sub(prefix_width);
+                                ctx.start_line_breaking(ideal_width, max_width);
                             }
                         }
                     },
@@ -145,17 +154,20 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        // Paragraph closing - add line break after paragraph
-                        // Based on flexmark-java's logic:
-                        // 1. In tight lists, just add a single line break
-                        // 2. In loose lists, add a blank line
-                        // 3. For paragraphs in list items, handle spacing carefully
-                        // 4. For the last paragraph in a list item, don't add extra blank lines
-
+                        // Paragraph closing - finish line breaking and output result
                         let is_in_list_item = ctx.is_parent_list_item();
                         let is_in_tight_list = ctx.is_in_tight_list();
                         let has_next_sibling = ctx.has_next_sibling();
 
+                        // Check if we were collecting text for line breaking
+                        if ctx.is_collecting_line_breaking() {
+                            if let Some(formatted_text) = ctx.finish_line_breaking() {
+                                // Output the formatted text with optimal line breaks
+                                writer.append_raw(&formatted_text);
+                            }
+                        }
+
+                        // Add line break after paragraph
                         if is_in_list_item {
                             // Paragraph is inside a list item
                             if is_in_tight_list {
@@ -563,10 +575,17 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 processed_text
                             };
 
-                            // Use context-aware escaping
-                            let escaped = escape_text(&final_text, ctx);
-                            // Use append_raw to preserve whitespace in text content
-                            writer.append_raw(&escaped);
+                            // Check if we're collecting text for line breaking
+                            if ctx.is_collecting_line_breaking() {
+                                // Add text to line breaking context
+                                ctx.add_line_breaking_text(&final_text);
+                            } else {
+                                // Use context-aware escaping
+                                let escaped = escape_text(&final_text, ctx);
+                                // Use append_with_wrap for text wrapping when right_margin is set
+                                // This enables line folding at the specified width
+                                writer.append_with_wrap(&escaped);
+                            }
                         }
                     },
                 ),
@@ -2233,6 +2252,24 @@ mod tests {
             _node_id: crate::core::arena::NodeId,
         ) -> String {
             String::new()
+        }
+
+        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
+
+        fn add_line_breaking_word(&mut self, _word: crate::render::commonmark::line_breaking::Word) {}
+
+        fn add_line_breaking_text(&mut self, _text: &str) {}
+
+        fn finish_line_breaking(&mut self) -> Option<String> {
+            None
+        }
+
+        fn is_collecting_line_breaking(&self) -> bool {
+            false
+        }
+
+        fn get_line_breaking_context(&self) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext> {
+            None
         }
     }
 

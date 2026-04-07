@@ -426,6 +426,24 @@ mod tests {
         ) -> String {
             String::new()
         }
+
+        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
+
+        fn add_line_breaking_word(&mut self, _word: crate::render::commonmark::line_breaking::Word) {}
+
+        fn add_line_breaking_text(&mut self, _text: &str) {}
+
+        fn finish_line_breaking(&mut self) -> Option<String> {
+            None
+        }
+
+        fn is_collecting_line_breaking(&self) -> bool {
+            false
+        }
+
+        fn get_line_breaking_context(&self) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext> {
+            None
+        }
     }
 
     #[test]

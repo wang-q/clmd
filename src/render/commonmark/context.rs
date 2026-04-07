@@ -6,6 +6,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
+use crate::render::commonmark::line_breaking::{LineBreakingContext, Word};
 use crate::render::commonmark::node::NodeValueType;
 use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::purpose::RenderPurpose;
@@ -215,6 +216,30 @@ pub trait NodeFormatterContext {
         self.get_current_node()
             .is_some_and(|node_id| self.get_arena().get(node_id).prev.is_some())
     }
+
+    // Line breaking methods
+
+    /// Start collecting text for line breaking
+    ///
+    /// Called when entering a paragraph to begin collecting words for optimal line breaking.
+    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize);
+
+    /// Add a word to the line breaking context
+    fn add_line_breaking_word(&mut self, word: Word);
+
+    /// Add text to the line breaking context
+    fn add_line_breaking_text(&mut self, text: &str);
+
+    /// Finish line breaking and get the formatted result
+    ///
+    /// Called when exiting a paragraph to compute optimal line breaks and return the formatted text.
+    fn finish_line_breaking(&mut self) -> Option<String>;
+
+    /// Check if we're currently collecting text for line breaking
+    fn is_collecting_line_breaking(&self) -> bool;
+
+    /// Get the line breaking context
+    fn get_line_breaking_context(&self) -> Option<&LineBreakingContext>;
 }
 
 /// A sub-context for nested formatting operations
@@ -432,6 +457,32 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn render_children_to_string(&mut self, node_id: NodeId) -> String {
         self.parent.render_children_to_string(node_id)
+    }
+
+    // Line breaking methods - delegate to parent
+
+    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize) {
+        self.parent.start_line_breaking(ideal_width, max_width);
+    }
+
+    fn add_line_breaking_word(&mut self, word: Word) {
+        self.parent.add_line_breaking_word(word);
+    }
+
+    fn add_line_breaking_text(&mut self, text: &str) {
+        self.parent.add_line_breaking_text(text);
+    }
+
+    fn finish_line_breaking(&mut self) -> Option<String> {
+        self.parent.finish_line_breaking()
+    }
+
+    fn is_collecting_line_breaking(&self) -> bool {
+        self.parent.is_collecting_line_breaking()
+    }
+
+    fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
+        self.parent.get_line_breaking_context()
     }
 }
 
@@ -689,6 +740,24 @@ mod tests {
 
         fn render_children_to_string(&mut self, _node_id: NodeId) -> String {
             String::new()
+        }
+
+        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
+
+        fn add_line_breaking_word(&mut self, _word: Word) {}
+
+        fn add_line_breaking_text(&mut self, _text: &str) {}
+
+        fn finish_line_breaking(&mut self) -> Option<String> {
+            None
+        }
+
+        fn is_collecting_line_breaking(&self) -> bool {
+            false
+        }
+
+        fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
+            None
         }
     }
 
