@@ -823,6 +823,12 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
+    fn add_line_breaking_inline_element(&mut self, text: &str) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_inline_element(text);
+        }
+    }
+
     fn finish_line_breaking(&mut self) -> Option<String> {
         self.line_breaking_context.take().map(|ctx| ctx.format())
     }

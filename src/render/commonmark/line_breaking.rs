@@ -173,6 +173,12 @@ impl LineBreakingContext {
         self.next_word_no_leading_space = true;
     }
 
+    /// Add an inline element (like code span) that should preserve surrounding spaces
+    pub fn add_inline_element(&mut self, text: &str) {
+        self.add_word(Word::new(text));
+        // Don't set next_word_no_leading_space - let the next word have its leading space
+    }
+
     /// Reset the "no leading space" flag
     pub fn reset_next_word_no_leading_space(&mut self) {
         self.next_word_no_leading_space = false;

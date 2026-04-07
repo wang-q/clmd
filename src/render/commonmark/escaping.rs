@@ -1081,6 +1081,8 @@ mod tests {
 
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
+        fn add_line_breaking_inline_element(&mut self, _text: &str) {}
+
         fn finish_line_breaking(&mut self) -> Option<String> {
             None
         }

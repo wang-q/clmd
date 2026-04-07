@@ -638,7 +638,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
 
                             // Check if we're collecting text for line breaking
                             if ctx.is_collecting_line_breaking() {
-                                // Add code span as a single word to line breaking context
+                                // Add code span as an inline element to preserve surrounding spaces
                                 let mut code_text = backticks.clone();
                                 if needs_leading_space {
                                     code_text.push(' ');
@@ -648,7 +648,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     code_text.push(' ');
                                 }
                                 code_text.push_str(&backticks);
-                                ctx.add_line_breaking_word_text(&code_text);
+                                ctx.add_line_breaking_inline_element(&code_text);
                             } else {
                                 writer.append(&backticks);
 
@@ -2446,6 +2446,8 @@ mod tests {
         fn add_line_breaking_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
+
+        fn add_line_breaking_inline_element(&mut self, _text: &str) {}
 
         fn finish_line_breaking(&mut self) -> Option<String> {
             None
