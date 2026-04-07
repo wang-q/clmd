@@ -99,4 +99,13 @@ mod tests {
         assert_eq!(add_cjk_spacing("123数字"), "123 数字");
         assert_eq!(add_cjk_spacing("中文 test"), "中文 test"); // Already has space
     }
+
+    #[test]
+    fn test_cjk_punctuation_spacing() {
+        // CJK punctuation should NOT have space added after it
+        assert_eq!(add_cjk_spacing("示例，包含"), "示例，包含");
+        assert_eq!(add_cjk_spacing("测试。通过"), "测试。通过");
+        assert!(!needs_spacing('，', '包'));
+        assert!(!needs_spacing('。', '测'));
+    }
 }

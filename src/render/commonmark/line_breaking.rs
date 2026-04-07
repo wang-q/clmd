@@ -48,6 +48,18 @@ impl Word {
         }
     }
 
+    /// Create a new CJK word that doesn't need spaces around it
+    pub fn new_cjk(text: impl Into<String>) -> Self {
+        let text = text.into();
+        let width = unicode_width::width(&text) as usize;
+        Self {
+            text,
+            width,
+            has_trailing_space: false,
+            needs_leading_space: false,
+        }
+    }
+
     /// Create a new punctuation/mark word that doesn't need spaces around it
     pub fn new_mark(text: impl Into<String>) -> Self {
         let text = text.into();
@@ -140,25 +152,53 @@ impl LineBreakingContext {
     }
 
     /// Add text and split it into words
+    /// For CJK text, splits at punctuation marks to allow better line breaking
+    /// Note: This function does NOT add CJK spacing - that is handled by add_cjk_spacing before this
     pub fn add_text(&mut self, text: &str) {
-        // Split text by whitespace
-        let words: Vec<&str> = text.split_whitespace().collect();
-        for (i, word_text) in words.iter().enumerate() {
-            let mut word = Word::new(*word_text);
-            // Only apply the "no leading space" flag to the first word
-            if i == 0 && self.next_word_no_leading_space {
-                word.needs_leading_space = false;
+        // Split text by whitespace first
+        let whitespace_separated: Vec<&str> = text.split_whitespace().collect();
+        let total_segments = whitespace_separated.len();
+
+        for (i, segment) in whitespace_separated.iter().enumerate() {
+            // Check if this segment contains CJK characters
+            if contains_cjk(segment) {
+                // Split CJK text at punctuation marks for better line breaking
+                // This only splits at punctuation, not at CJK/ASCII boundaries
+                let cjk_words = split_cjk_text(segment);
+                let total_cjk_words = cjk_words.len();
+
+                for (j, word_text) in cjk_words.iter().enumerate() {
+                    // All words from split_cjk_text are treated as CJK words
+                    let mut w = Word::new_cjk(word_text.as_str());
+                    // First word of first segment: apply no_leading_space flag if needed
+                    if i == 0 && j == 0 && self.next_word_no_leading_space {
+                        w.needs_leading_space = false;
+                    }
+                    // Only add trailing space if this is not the last segment
+                    // (i.e., there was whitespace after this segment in the original text)
+                    // Don't add space between words within the same segment
+                    if i < total_segments - 1 && j == total_cjk_words - 1 {
+                        w.has_trailing_space = true;
+                    }
+                    self.add_word(w);
+                }
+            } else {
+                // Non-CJK text: treat as single word
+                let mut word = Word::new(*segment);
+                if i == 0 && self.next_word_no_leading_space {
+                    word.needs_leading_space = false;
+                }
+                if self.next_word_no_leading_space {
+                    word.has_trailing_space = false;
+                }
+                // If this is the last segment, don't add trailing space
+                // (the next element will decide if space is needed)
+                if i == total_segments - 1 {
+                    word.has_trailing_space = false;
+                }
+                self.add_word(word);
             }
-            // Don't add trailing space if the next "word" is a mark
-            // This is a heuristic: if next_word_no_leading_space is set,
-            // it means a mark was just added, so don't add trailing space
-            if self.next_word_no_leading_space {
-                word.has_trailing_space = false;
-            }
-            self.words.push(word);
         }
-        // Reset the flag after processing text
-        self.next_word_no_leading_space = false;
     }
 
     /// Add text as a single word without splitting
@@ -790,4 +830,156 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_is_cjk_punctuation() {
+        assert!(is_cjk_punctuation('。'), "'。' should be CJK punctuation");
+        assert!(is_cjk_punctuation('，'), "'，' should be CJK punctuation");
+        assert!(!is_cjk_punctuation('a'), "'a' should NOT be CJK punctuation");
+        assert!(!is_cjk_punctuation('1'), "'1' should NOT be CJK punctuation");
+    }
+
+    #[test]
+    fn test_split_cjk_text() {
+        // Test splitting at punctuation marks (not at CJK/ASCII boundaries)
+        // Punctuation is included with the preceding text
+        let result = split_cjk_text("数字123");
+        assert_eq!(result, vec!["数字123"]);
+
+        let result = split_cjk_text("test中文");
+        assert_eq!(result, vec!["test中文"]);
+
+        // Punctuation '，' is included with preceding text "示例"
+        let result = split_cjk_text("示例，包含");
+        assert_eq!(result, vec!["示例，", "包含"], "Failed: {:?}", result);
+
+        // Test longer text
+        let result = split_cjk_text("单词和数字123");
+        assert_eq!(result, vec!["单词和数字123"]);
+
+        // Test with punctuation at end - punctuation is included with preceding text
+        let result = split_cjk_text("单词和数字123。");
+        assert_eq!(result, vec!["单词和数字123。"], "Failed: {:?}", result);
+    }
+
+    #[test]
+    fn test_cjk_text_formatting() {
+        // Test that add_text correctly handles CJK text
+        // Note: add_text does NOT add CJK spacing - that is handled by add_cjk_spacing before this
+        let mut ctx = LineBreakingContext::new(80, 80);
+        ctx.add_text("单词和数字123。");
+
+        // Check the words (only split at punctuation, punctuation stays with preceding text)
+        assert_eq!(ctx.words.len(), 1);
+        assert_eq!(ctx.words[0].text, "单词和数字123。");
+
+        let formatted = ctx.format();
+        // Without CJK spacing, there should be no space between CJK and number
+        assert!(formatted.contains("单词和数字123"), "Should NOT have space between CJK and number without CJK spacing: {}", formatted);
+    }
+
+    #[test]
+    fn test_cjk_text_formatting_with_spacing() {
+        // Test that add_text correctly handles CJK text when CJK spacing is already applied
+        let mut ctx = LineBreakingContext::new(80, 80);
+        // Simulate CJK spacing applied before add_text
+        ctx.add_text("单词和数字 123。");
+
+        // Check the words (split by whitespace, then by punctuation)
+        // "单词和数字" -> ["单词和数字"]
+        // "123。" -> ["123。"] (punctuation stays with preceding text)
+        assert_eq!(ctx.words.len(), 2);
+        assert_eq!(ctx.words[0].text, "单词和数字");
+        assert_eq!(ctx.words[1].text, "123。");
+
+        let formatted = ctx.format();
+        // The space between "单词和数字" and "123" should be preserved
+        assert!(formatted.contains("单词和数字 123"),
+                "Should have space between CJK and number with CJK spacing: {}", formatted);
+    }
+}
+
+/// Check if a string contains CJK characters
+fn contains_cjk(text: &str) -> bool {
+    text.chars().any(|c| {
+        // CJK Unified Ideographs
+        (0x4E00..=0x9FFF).contains(&(c as u32))
+            // CJK Unified Ideographs Extension A
+            || (0x3400..=0x4DBF).contains(&(c as u32))
+            // CJK Unified Ideographs Extension B-F
+            || (0x20000..=0x2EBEF).contains(&(c as u32))
+            // CJK Compatibility Ideographs
+            || (0xF900..=0xFAFF).contains(&(c as u32))
+            // CJK Symbols and Punctuation
+            || (0x3000..=0x303F).contains(&(c as u32))
+            // Hiragana
+            || (0x3040..=0x309F).contains(&(c as u32))
+            // Katakana
+            || (0x30A0..=0x30FF).contains(&(c as u32))
+            // Hangul Syllables
+            || (0xAC00..=0xD7AF).contains(&(c as u32))
+            // Hangul Jamo
+            || (0x1100..=0x11FF).contains(&(c as u32))
+            // Fullwidth ASCII variants
+            || (0xFF01..=0xFF5E).contains(&(c as u32))
+            // Halfwidth Katakana
+            || (0xFF65..=0xFF9F).contains(&(c as u32))
+    })
+}
+
+/// Check if a character is a CJK punctuation mark where line breaking is allowed after
+fn is_cjk_punctuation(c: char) -> bool {
+    matches!(c,
+        // CJK full stop punctuation
+        '。' | '．' | '，' | '、' | '；' | '：' | '！' | '？' |
+        // CJK brackets (closing)
+        '）' | '」' | '』' | '】' | '》' | '〉' | '〕' | '］' | '｝' |
+        // ASCII punctuation (converted to fullwidth in CJK context)
+        '.' | ',' | '!' | '?' | ';' | ':' | ')'
+    )
+}
+
+/// Extension trait for checking if a string ends with CJK punctuation
+trait EndsWithCjkPunctuation {
+    fn ends_with_cjk_punctuation(&self) -> bool;
+}
+
+impl EndsWithCjkPunctuation for str {
+    fn ends_with_cjk_punctuation(&self) -> bool {
+        self.chars().last().map_or(false, is_cjk_punctuation)
+    }
+}
+
+/// Split CJK text at punctuation marks for better line breaking
+/// Note: This function does NOT split at CJK/ASCII boundaries - that's handled by CJK spacing
+/// Returns a vector of string segments
+fn split_cjk_text(text: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current_segment = String::new();
+
+    for c in text.chars() {
+        let is_punct = is_cjk_punctuation(c);
+
+        // If this is punctuation, add it to current segment and end the segment
+        // This allows line breaking after punctuation
+        if is_punct {
+            current_segment.push(c);
+            result.push(current_segment.clone());
+            current_segment.clear();
+        } else {
+            current_segment.push(c);
+        }
+    }
+
+    // Add any remaining text
+    if !current_segment.is_empty() {
+        result.push(current_segment);
+    }
+
+    // If no splits were made, return the whole text as one segment
+    if result.is_empty() && !text.is_empty() {
+        result.push(text.to_string());
+    }
+
+    result
 }
