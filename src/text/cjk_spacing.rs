@@ -24,12 +24,33 @@ pub fn is_ascii_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
+/// Check if a character is CJK punctuation
+fn is_cjk_punctuation(c: char) -> bool {
+    matches!(c,
+        // CJK Symbols and Punctuation
+        '\u{3000}'..='\u{303F}' |
+        // Fullwidth ASCII variants
+        '\u{FF01}'..='\u{FF0F}' |
+        '\u{FF1A}'..='\u{FF20}' |
+        '\u{FF3B}'..='\u{FF40}' |
+        '\u{FF5B}'..='\u{FF65}'
+    )
+}
+
 /// Check if spacing is needed between two characters
 pub fn needs_spacing(prev: char, next: char) -> bool {
     let prev_is_cjk = is_cjk(prev);
     let next_is_cjk = is_cjk(next);
     let prev_is_ascii_alnum = is_ascii_letter(prev) || is_ascii_digit(prev);
     let next_is_ascii_alnum = is_ascii_letter(next) || is_ascii_digit(next);
+    let prev_is_cjk_punct = is_cjk_punctuation(prev);
+    let next_is_cjk_punct = is_cjk_punctuation(next);
+
+    // CJK punctuation should NOT have space added after it
+    // and should NOT have space added before it
+    if prev_is_cjk_punct || next_is_cjk_punct {
+        return false;
+    }
 
     // CJK <-> ASCII alphanumeric needs spacing
     (prev_is_cjk && next_is_ascii_alnum) || (prev_is_ascii_alnum && next_is_cjk)
@@ -107,5 +128,43 @@ mod tests {
         assert_eq!(add_cjk_spacing("测试。通过"), "测试。通过");
         assert!(!needs_spacing('，', '包'));
         assert!(!needs_spacing('。', '测'));
+    }
+
+    #[test]
+    fn test_cjk_punctuation_with_ascii() {
+        // CJK punctuation should NOT have space added before or after ASCII characters
+        // This is important for Markdown formatting like **特性**：
+        assert!(
+            !needs_spacing('：', '*'),
+            "CJK colon should not have space before asterisk"
+        );
+        assert!(
+            !needs_spacing('*', '：'),
+            "Asterisk should not have space before CJK colon"
+        );
+        assert!(
+            !needs_spacing('，', '*'),
+            "CJK comma should not have space before asterisk"
+        );
+        assert!(
+            !needs_spacing('*', '，'),
+            "Asterisk should not have space before CJK comma"
+        );
+        assert!(
+            !needs_spacing('。', 'a'),
+            "CJK period should not have space before ASCII letter"
+        );
+        assert!(
+            !needs_spacing('a', '。'),
+            "ASCII letter should not have space before CJK period"
+        );
+
+        // Verify the actual spacing behavior
+        assert_eq!(add_cjk_spacing("特性："), "特性：");
+        assert_eq!(add_cjk_spacing("：test"), "：test");
+
+        // Test Markdown markers with CJK punctuation
+        assert_eq!(add_cjk_spacing("**特性**:"), "**特性**:");
+        assert_eq!(add_cjk_spacing("**特性**："), "**特性**：");
     }
 }

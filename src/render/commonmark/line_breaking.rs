@@ -171,8 +171,9 @@ impl LineBreakingContext {
                 for (j, word_text) in cjk_words.iter().enumerate() {
                     // All words from split_cjk_text are treated as CJK words
                     let mut w = Word::new_cjk(word_text.as_str());
-                    // First word of first segment: apply no_leading_space flag if needed
-                    if i == 0 && j == 0 && self.next_word_no_leading_space {
+                    // First word of first segment: if it starts with CJK punctuation, don't add leading space
+                    // Note: next_word_no_leading_space is handled by add_word
+                    if i == 0 && j == 0 && starts_with_cjk_punctuation(word_text) {
                         w.needs_leading_space = false;
                     }
                     // Only add trailing space if this is not the last segment
@@ -186,9 +187,6 @@ impl LineBreakingContext {
             } else {
                 // Non-CJK text: treat as single word
                 let mut word = Word::new(*segment);
-                if i == 0 && self.next_word_no_leading_space {
-                    word.needs_leading_space = false;
-                }
                 if self.next_word_no_leading_space {
                     word.has_trailing_space = false;
                 }
@@ -216,8 +214,11 @@ impl LineBreakingContext {
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
-        self.add_word(Word::new(text));
-        // Don't set next_word_no_leading_space - let the next word have its leading space
+        // Use new_without_space to avoid adding trailing space after inline elements
+        // This is important for CJK punctuation that follows inline code
+        self.add_word(Word::new_without_space(text));
+        // Set next_word_no_leading_space - the next word should not have leading space
+        self.next_word_no_leading_space = true;
     }
 
     /// Reset the "no leading space" flag
@@ -973,4 +974,9 @@ fn split_cjk_text(text: &str) -> Vec<String> {
     }
 
     result
+}
+
+/// Check if a string starts with CJK punctuation
+fn starts_with_cjk_punctuation(text: &str) -> bool {
+    text.chars().next().map_or(false, is_cjk_punctuation)
 }

@@ -251,3 +251,169 @@ fn test_fmt_inline_code_text_order_without_cjk_spacing() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_punctuation_no_space_with_markdown() {
+    // Test that CJK punctuation does not have space added before/after Markdown markers
+    // Issue: `**特性**：` was being formatted as `**特性** ：` (space before colon)
+    let input = "- **特性**：datamash 提供大量逐行转换操作。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The CJK colon should NOT have space before it
+    assert!(
+        cm.contains("**特性**："),
+        "CJK punctuation should not have space before Markdown marker: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("**特性** ："),
+        "There should be no space between ** and CJK colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_with_emphasis() {
+    // Test CJK punctuation with emphasis markers
+    let input = "*强调*，测试。*强调*。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK comma and period should NOT have space before them
+    assert!(
+        cm.contains("*强调*，"),
+        "CJK comma should not have space after emphasis: {}",
+        cm
+    );
+    assert!(
+        cm.contains("*强调*。"),
+        "CJK period should not have space after emphasis: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("*强调* ，"),
+        "There should be no space between * and CJK comma: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("*强调* 。"),
+        "There should be no space between * and CJK period: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_with_inline_code() {
+    // Test CJK punctuation with inline code
+    let input = "使用 `code`：示例。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should NOT have space before it after inline code
+    assert!(
+        cm.contains("`code`："),
+        "CJK colon should not have space after inline code: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("`code` ："),
+        "There should be no space between ` and CJK colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_with_link() {
+    // Test CJK punctuation with links
+    let input = "[链接](https://example.com)：测试。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // CJK colon should NOT have space before it after link
+    assert!(
+        cm.contains("](https://example.com)："),
+        "CJK colon should not have space after link: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("](https://example.com) ："),
+        "There should be no space between ) and CJK colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_various_marks() {
+    // Test various CJK punctuation marks with Markdown
+    let test_cases = vec![
+        ("**粗体**：", "**粗体**：", "CJK colon"),
+        ("*斜体*，", "*斜体*，", "CJK comma"),
+        ("`code`。", "`code`。", "CJK period"),
+        ("**粗体**；", "**粗体**；", "CJK semicolon"),
+        ("*斜体*？", "*斜体*？", "CJK question"),
+        ("`code`！", "`code`！", "CJK exclamation"),
+    ];
+
+    for (input_text, expected, desc) in test_cases {
+        let input = format!("{}", input_text).as_bytes().to_vec();
+        let output = run_with_stdin(&["fmt", "--cjk-spacing"], &input);
+
+        assert!(output.status.success());
+        let cm = String::from_utf8(output.stdout).unwrap();
+
+        assert!(
+            cm.contains(expected),
+            "{} should not have space before it: got {}",
+            desc,
+            cm
+        );
+    }
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_at_line_start() {
+    // Test CJK punctuation at the start of a line
+    let input = "：这是以冒号开头的句子。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The line should start with CJK colon, not a space
+    assert!(
+        cm.trim_start().starts_with('：'),
+        "Line should start with CJK colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_punctuation_between_cjk_and_markdown() {
+    // Test CJK punctuation between CJK text and Markdown markers
+    let input = "注意：**重要**，请查看。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Space should be added between CJK and Markdown, but not between Markdown and CJK punctuation
+    assert!(
+        cm.contains("注意：**重要**，"),
+        "Should have space before ** but not after: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("注意**重要** ，"),
+        "Should not have space between ** and CJK comma: {}",
+        cm
+    );
+}
