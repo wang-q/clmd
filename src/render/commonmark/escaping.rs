@@ -1251,10 +1251,7 @@ mod tests {
             "cell1 | cell2"
         );
         // Other special chars should be escaped
-        assert_eq!(
-            escape_markdown_for_table("*text*", &ctx),
-            "\\*text\\*"
-        );
+        assert_eq!(escape_markdown_for_table("*text*", &ctx), "\\*text\\*");
     }
 
     #[test]
@@ -1272,10 +1269,7 @@ mod tests {
         );
 
         // Test backtick handling (inline code)
-        assert_eq!(
-            escape_markdown_for_table_simple("`code`"),
-            "`code`"
-        );
+        assert_eq!(escape_markdown_for_table_simple("`code`"), "`code`");
 
         // Test underscore inside word
         assert_eq!(
@@ -1284,28 +1278,16 @@ mod tests {
         );
 
         // Test underscore at boundary
-        assert_eq!(
-            escape_markdown_for_table_simple("_text_"),
-            "\\_text\\_"
-        );
+        assert_eq!(escape_markdown_for_table_simple("_text_"), "\\_text\\_");
 
         // Test asterisk escaping
-        assert_eq!(
-            escape_markdown_for_table_simple("*text*"),
-            "\\*text\\*"
-        );
+        assert_eq!(escape_markdown_for_table_simple("*text*"), "\\*text\\*");
 
         // Test brackets escaping
-        assert_eq!(
-            escape_markdown_for_table_simple("[link]"),
-            "\\[link\\]"
-        );
+        assert_eq!(escape_markdown_for_table_simple("[link]"), "\\[link\\]");
 
         // Test less-than escaping
-        assert_eq!(
-            escape_markdown_for_table_simple("<tag>"),
-            "\\<tag>"
-        );
+        assert_eq!(escape_markdown_for_table_simple("<tag>"), "\\<tag>");
 
         // Test exclamation with bracket - both ! and [ get escaped
         assert_eq!(
@@ -1314,22 +1296,13 @@ mod tests {
         );
 
         // Test standalone exclamation
-        assert_eq!(
-            escape_markdown_for_table_simple("Hello!"),
-            "Hello!"
-        );
+        assert_eq!(escape_markdown_for_table_simple("Hello!"), "Hello!");
 
         // Test hash at start with space
-        assert_eq!(
-            escape_markdown_for_table_simple("# heading"),
-            "\\# heading"
-        );
+        assert_eq!(escape_markdown_for_table_simple("# heading"), "\\# heading");
 
         // Test hash followed by digit (not a heading)
-        assert_eq!(
-            escape_markdown_for_table_simple("#123"),
-            "#123"
-        );
+        assert_eq!(escape_markdown_for_table_simple("#123"), "#123");
     }
 
     #[test]
@@ -1473,10 +1446,7 @@ mod tests {
         let ctx = MockParagraphContext;
         // Note: consecutive asterisks (like ** or ***) are preserved as they
         // are likely emphasis markers and should not be escaped
-        assert_eq!(
-            escape_text("**__[]", &ctx),
-            "**\\_\\_\\[\\]"
-        );
+        assert_eq!(escape_text("**__[]", &ctx), "**\\_\\_\\[\\]");
         assert_eq!(
             escape_text("`code` and *emph*", &ctx),
             "\\`code\\` and \\*emph\\*"
@@ -1574,7 +1544,10 @@ mod tests {
     fn test_escape_regex_various() {
         assert_eq!(escape_regex(""), "");
         assert_eq!(escape_regex("normal"), "normal");
-        assert_eq!(escape_regex(".*+?^${}()|[]\\"), "\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+        assert_eq!(
+            escape_regex(".*+?^${}()|[]\\"),
+            "\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\"
+        );
     }
 
     #[test]

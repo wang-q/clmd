@@ -419,9 +419,18 @@ mod tests {
         let processor = FormatControlProcessor::new(&options);
 
         let cloned = processor.clone();
-        assert_eq!(processor.get_formatter_on_tag(), cloned.get_formatter_on_tag());
-        assert_eq!(processor.get_formatter_off_tag(), cloned.get_formatter_off_tag());
-        assert_eq!(processor.are_formatter_tags_enabled(), cloned.are_formatter_tags_enabled());
+        assert_eq!(
+            processor.get_formatter_on_tag(),
+            cloned.get_formatter_on_tag()
+        );
+        assert_eq!(
+            processor.get_formatter_off_tag(),
+            cloned.get_formatter_off_tag()
+        );
+        assert_eq!(
+            processor.are_formatter_tags_enabled(),
+            cloned.are_formatter_tags_enabled()
+        );
     }
 
     #[test]

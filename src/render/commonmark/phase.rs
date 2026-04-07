@@ -153,7 +153,10 @@ mod tests {
     fn test_phase_variants_equality() {
         assert_eq!(FormattingPhase::Collect, FormattingPhase::Collect);
         assert_ne!(FormattingPhase::Collect, FormattingPhase::Document);
-        assert_ne!(FormattingPhase::DocumentTop, FormattingPhase::DocumentBottom);
+        assert_ne!(
+            FormattingPhase::DocumentTop,
+            FormattingPhase::DocumentBottom
+        );
     }
 
     #[test]

@@ -392,7 +392,10 @@ mod tests {
     fn test_render_purpose_variants() {
         // Test distinct variants
         assert_ne!(RenderPurpose::Format, RenderPurpose::TranslationSpans);
-        assert_ne!(RenderPurpose::TranslationSpans, RenderPurpose::TranslatedSpans);
+        assert_ne!(
+            RenderPurpose::TranslationSpans,
+            RenderPurpose::TranslatedSpans
+        );
         assert_ne!(RenderPurpose::TranslatedSpans, RenderPurpose::Translated);
 
         // Test equality
@@ -449,7 +452,10 @@ mod tests {
             RenderPurpose::TranslationSpans.next(),
             RenderPurpose::TranslatedSpans
         );
-        assert_eq!(RenderPurpose::TranslatedSpans.next(), RenderPurpose::Translated);
+        assert_eq!(
+            RenderPurpose::TranslatedSpans.next(),
+            RenderPurpose::Translated
+        );
 
         // Translated stays Translated
         assert_eq!(RenderPurpose::Translated.next(), RenderPurpose::Translated);
@@ -496,8 +502,7 @@ mod tests {
 
     #[test]
     fn test_translation_span_collection_with_custom_placeholder() {
-        let mut collection =
-            TranslationSpanCollection::with_placeholder_format("[{}]");
+        let mut collection = TranslationSpanCollection::with_placeholder_format("[{}]");
 
         collection.add_span("Hello");
         collection.add_span("World");
@@ -539,7 +544,10 @@ mod tests {
         }
 
         assert_eq!(
-            collection.get_span(1).unwrap().get_text(RenderPurpose::Translated),
+            collection
+                .get_span(1)
+                .unwrap()
+                .get_text(RenderPurpose::Translated),
             "Modified"
         );
     }
@@ -580,16 +588,22 @@ mod tests {
         collection.add_span("Hello");
         collection.add_span("World");
 
-        let result =
-            collection.set_translated_texts(vec!["Bonjour".to_string(), "Monde".to_string()]);
+        let result = collection
+            .set_translated_texts(vec!["Bonjour".to_string(), "Monde".to_string()]);
 
         assert!(result.is_ok());
         assert_eq!(
-            collection.get_span(1).unwrap().get_text(RenderPurpose::Translated),
+            collection
+                .get_span(1)
+                .unwrap()
+                .get_text(RenderPurpose::Translated),
             "Bonjour"
         );
         assert_eq!(
-            collection.get_span(2).unwrap().get_text(RenderPurpose::Translated),
+            collection
+                .get_span(2)
+                .unwrap()
+                .get_text(RenderPurpose::Translated),
             "Monde"
         );
     }
@@ -604,7 +618,8 @@ mod tests {
         assert!(result.is_err());
 
         // Too many texts
-        let result = collection.set_translated_texts(vec!["a".to_string(), "b".to_string()]);
+        let result =
+            collection.set_translated_texts(vec!["a".to_string(), "b".to_string()]);
         assert!(result.is_err());
     }
 

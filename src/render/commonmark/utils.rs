@@ -512,7 +512,10 @@ mod tests {
     fn test_strip_soft_line_breaks_various() {
         assert_eq!(strip_soft_line_breaks("Hello\nWorld", ""), "HelloWorld");
         assert_eq!(strip_soft_line_breaks("Hello\nWorld", " "), "Hello World");
-        assert_eq!(strip_soft_line_breaks("Hello\n\nWorld", " "), "Hello  World");
+        assert_eq!(
+            strip_soft_line_breaks("Hello\n\nWorld", " "),
+            "Hello  World"
+        );
         assert_eq!(strip_soft_line_breaks("No breaks", " "), "No breaks");
         assert_eq!(strip_soft_line_breaks("", " "), "");
     }
