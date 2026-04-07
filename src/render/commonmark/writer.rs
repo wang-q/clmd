@@ -166,7 +166,8 @@ impl MarkdownWriter {
 
                 // Check if adding this word would exceed the margin
                 // Use Unicode display width for accurate CJK character handling
-                if self.column + word_width > self.right_margin && !self.beginning_of_line
+                if self.column + word_width > self.right_margin
+                    && !self.beginning_of_line
                 {
                     // Start a new line
                     self.line();
@@ -184,7 +185,8 @@ impl MarkdownWriter {
                 self.word_wrap_buffer = remaining;
             } else {
                 // No more spaces, check if remaining text fits
-                let remaining_width = unicode_width::width(&self.word_wrap_buffer) as usize;
+                let remaining_width =
+                    unicode_width::width(&self.word_wrap_buffer) as usize;
                 if remaining_width > 0 {
                     if self.column + remaining_width > self.right_margin
                         && !self.beginning_of_line

@@ -18,8 +18,8 @@ use crate::core::nodes::NodeValue;
 use crate::options::format::{FormatOptions, HeadingStyle};
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::{
-    choose_emphasis_marker, compute_fence_length, escape_markdown_for_table_simple,
-    escape_string, escape_text, escape_url,
+    compute_fence_length, escape_markdown_for_table_simple, escape_string, escape_text,
+    escape_url,
 };
 use crate::render::commonmark::node::{
     NodeFormatter, NodeFormattingHandler, NodeValueType,
@@ -141,12 +141,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     ctx.get_block_quote_nesting_level();
                                 let prefix_width =
                                     (list_nesting + block_quote_nesting) * 2;
-                                let ideal_width = options
-                                    .right_margin
-                                    .saturating_sub(prefix_width);
-                                let max_width = options
-                                    .right_margin
-                                    .saturating_sub(prefix_width);
+                                let ideal_width =
+                                    options.right_margin.saturating_sub(prefix_width);
+                                let max_width =
+                                    options.right_margin.saturating_sub(prefix_width);
 
                                 // Determine which prefixes to use
                                 if ctx.is_parent_list_item() {
@@ -662,13 +660,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        // Choose the best emphasis marker based on content
-                        if let Some(node_id) = ctx.get_current_node() {
-                            let content = ctx.render_children_to_string(node_id);
-                            let marker = choose_emphasis_marker(&content);
-                            writer.append(marker.to_string());
+                        // Use default marker in line breaking mode to avoid double rendering
+                        // The actual content is rendered by render_children
+                        let marker = "*";
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text(marker);
                         } else {
-                            writer.append("*");
+                            writer.append(marker);
                         }
                     },
                 ),
@@ -676,13 +674,13 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        // Match the opening marker
-                        if let Some(node_id) = ctx.get_current_node() {
-                            let content = ctx.render_children_to_string(node_id);
-                            let marker = choose_emphasis_marker(&content);
-                            writer.append(marker.to_string());
+                        let marker = "*";
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text(marker);
+                            // Reset space flag so subsequent text gets proper spacing
+                            ctx.reset_line_breaking_space();
                         } else {
-                            writer.append("*");
+                            writer.append(marker);
                         }
                     },
                 ),
@@ -691,16 +689,28 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Strong,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("**");
+                        let marker = "**";
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text(marker);
+                        } else {
+                            writer.append(marker);
+                        }
                     },
                 ),
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("**");
+                        let marker = "**";
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text(marker);
+                            // Reset space flag so subsequent text gets proper spacing
+                            ctx.reset_line_breaking_space();
+                        } else {
+                            writer.append(marker);
+                        }
                     },
                 ),
             ),
@@ -708,9 +718,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Link,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("[");
+                        // When line breaking is active, add marker to context as a word
+                        // Otherwise write directly to writer
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text("[");
+                        } else {
+                            writer.append("[");
+                        }
                     },
                 ),
                 Box::new(
@@ -718,10 +734,24 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Link(link) = value {
-                            // Close the link text bracket
-                            writer.append("]");
-                            // Then add the URL/title
-                            render_link_url(&link.url, &link.title, ctx, writer);
+                            if ctx.is_collecting_line_breaking() {
+                                // Close the link text bracket and add URL as words
+                                ctx.add_line_breaking_word_text("]");
+                                ctx.add_line_breaking_word_text("(");
+                                ctx.add_line_breaking_word_text(&link.url);
+                                if !link.title.is_empty() {
+                                    ctx.add_line_breaking_word_text(&format!(
+                                        " \"{}\"",
+                                        link.title
+                                    ));
+                                }
+                                ctx.add_line_breaking_word_text(")");
+                            } else {
+                                // Close the link text bracket
+                                writer.append("]");
+                                // Then add the URL/title
+                                render_link_url(&link.url, &link.title, ctx, writer);
+                            }
                         }
                     },
                 ),
@@ -730,9 +760,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Image,
                 Box::new(
                     |_value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        writer.append("![");
+                        // When line breaking is active, add marker to context as a word
+                        // Otherwise write directly to writer
+                        if ctx.is_collecting_line_breaking() {
+                            ctx.add_line_breaking_word_text("![");
+                        } else {
+                            writer.append("![");
+                        }
                     },
                 ),
                 Box::new(
@@ -740,10 +776,24 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Image(link) = value {
-                            // Close the image alt bracket
-                            writer.append("]");
-                            // Then add the URL/title
-                            render_image_url(&link.url, &link.title, ctx, writer);
+                            if ctx.is_collecting_line_breaking() {
+                                // Close the image alt bracket and add URL as words
+                                ctx.add_line_breaking_word_text("]");
+                                ctx.add_line_breaking_word_text("(");
+                                ctx.add_line_breaking_word_text(&link.url);
+                                if !link.title.is_empty() {
+                                    ctx.add_line_breaking_word_text(&format!(
+                                        " \"{}\"",
+                                        link.title
+                                    ));
+                                }
+                                ctx.add_line_breaking_word_text(")");
+                            } else {
+                                // Close the image alt bracket
+                                writer.append("]");
+                                // Then add the URL/title
+                                render_image_url(&link.url, &link.title, ctx, writer);
+                            }
                         }
                     },
                 ),
@@ -1626,19 +1676,25 @@ fn calculate_list_item_prefixes(ctx: &dyn NodeFormatterContext) -> (String, Stri
             let parent = arena.get(parent_id);
 
             // Check if parent is an Item
-            if let NodeValue::Item(item_data) = &parent.value {
+            if let NodeValue::Item(_item_data) = &parent.value {
                 // Get the grandparent (List) to determine the marker
                 if let Some(grandparent_id) = parent.parent {
                     let grandparent = arena.get(grandparent_id);
 
                     if let NodeValue::List(list) = &grandparent.value {
                         // Calculate the item number for ordered lists
-                        let item_number =
-                            get_item_number_in_list(arena, grandparent_id, Some(parent_id));
+                        let item_number = get_item_number_in_list(
+                            arena,
+                            grandparent_id,
+                            Some(parent_id),
+                        );
 
                         // Get the list marker
-                        let marker =
-                            format_list_item_marker_with_number_and_options(list, item_number, ctx.get_formatter_options());
+                        let marker = format_list_item_marker_with_number_and_options(
+                            list,
+                            item_number,
+                            ctx.get_formatter_options(),
+                        );
 
                         // Calculate marker width
                         let marker_width = unicode_width::width(&marker) as usize;
@@ -2366,9 +2422,15 @@ mod tests {
         ) {
         }
 
-        fn add_line_breaking_word(&mut self, _word: crate::render::commonmark::line_breaking::Word) {}
+        fn add_line_breaking_word(
+            &mut self,
+            _word: crate::render::commonmark::line_breaking::Word,
+        ) {
+        }
 
         fn add_line_breaking_text(&mut self, _text: &str) {}
+
+        fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
         fn finish_line_breaking(&mut self) -> Option<String> {
             None
@@ -2378,9 +2440,14 @@ mod tests {
             false
         }
 
-        fn get_line_breaking_context(&self) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext> {
+        fn get_line_breaking_context(
+            &self,
+        ) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext>
+        {
             None
         }
+
+        fn reset_line_breaking_space(&mut self) {}
     }
 
     #[test]

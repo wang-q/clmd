@@ -242,6 +242,9 @@ pub trait NodeFormatterContext {
     /// Add text to the line breaking context
     fn add_line_breaking_text(&mut self, text: &str);
 
+    /// Add text as a single word to the line breaking context (no splitting)
+    fn add_line_breaking_word_text(&mut self, text: &str);
+
     /// Finish line breaking and get the formatted result
     ///
     /// Called when exiting a paragraph to compute optimal line breaks and return the formatted text.
@@ -252,6 +255,9 @@ pub trait NodeFormatterContext {
 
     /// Get the line breaking context
     fn get_line_breaking_context(&self) -> Option<&LineBreakingContext>;
+
+    /// Reset the "no leading space" flag after closing a mark
+    fn reset_line_breaking_space(&mut self);
 }
 
 /// A sub-context for nested formatting operations
@@ -500,6 +506,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.add_line_breaking_text(text);
     }
 
+    fn add_line_breaking_word_text(&mut self, text: &str) {
+        self.parent.add_line_breaking_word_text(text);
+    }
+
     fn finish_line_breaking(&mut self) -> Option<String> {
         self.parent.finish_line_breaking()
     }
@@ -510,6 +520,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
         self.parent.get_line_breaking_context()
+    }
+
+    fn reset_line_breaking_space(&mut self) {
+        self.parent.reset_line_breaking_space();
     }
 }
 
@@ -784,6 +798,8 @@ mod tests {
 
         fn add_line_breaking_text(&mut self, _text: &str) {}
 
+        fn add_line_breaking_word_text(&mut self, _text: &str) {}
+
         fn finish_line_breaking(&mut self) -> Option<String> {
             None
         }
@@ -795,6 +811,8 @@ mod tests {
         fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
             None
         }
+
+        fn reset_line_breaking_space(&mut self) {}
     }
 
     #[test]

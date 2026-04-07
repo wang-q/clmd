@@ -42,6 +42,7 @@ pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
     SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
 };
+pub use line_breaking::{LineBreakingContext, Word};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
@@ -57,7 +58,6 @@ pub use repository_formatter::{
 };
 pub use translation::{TranslationContext, TranslationHandler, TranslationHandlerImpl};
 pub use writer::MarkdownWriter;
-pub use line_breaking::{LineBreakingContext, Word};
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
@@ -799,12 +799,13 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         first_line_prefix: String,
         continuation_prefix: String,
     ) {
-        self.line_breaking_context = Some(line_breaking::LineBreakingContext::with_prefixes(
-            ideal_width,
-            max_width,
-            first_line_prefix,
-            continuation_prefix,
-        ));
+        self.line_breaking_context =
+            Some(line_breaking::LineBreakingContext::with_prefixes(
+                ideal_width,
+                max_width,
+                first_line_prefix,
+                continuation_prefix,
+            ));
     }
 
     fn add_line_breaking_word(&mut self, word: line_breaking::Word) {
@@ -819,6 +820,12 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
+    fn add_line_breaking_word_text(&mut self, text: &str) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_mark(text);
+        }
+    }
+
     fn finish_line_breaking(&mut self) -> Option<String> {
         self.line_breaking_context.take().map(|ctx| ctx.format())
     }
@@ -829,6 +836,12 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn get_line_breaking_context(&self) -> Option<&line_breaking::LineBreakingContext> {
         self.line_breaking_context.as_ref()
+    }
+
+    fn reset_line_breaking_space(&mut self) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.reset_next_word_no_leading_space();
+        }
     }
 }
 

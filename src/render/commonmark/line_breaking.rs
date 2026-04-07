@@ -19,6 +19,8 @@ pub struct Word {
     pub width: usize,
     /// Whether this word is followed by a space
     pub has_trailing_space: bool,
+    /// Whether this word needs a leading space (false for punctuation/marks)
+    pub needs_leading_space: bool,
 }
 
 impl Word {
@@ -30,6 +32,7 @@ impl Word {
             text,
             width,
             has_trailing_space: true,
+            needs_leading_space: true,
         }
     }
 
@@ -41,6 +44,19 @@ impl Word {
             text,
             width,
             has_trailing_space: false,
+            needs_leading_space: true,
+        }
+    }
+
+    /// Create a new punctuation/mark word that doesn't need spaces around it
+    pub fn new_mark(text: impl Into<String>) -> Self {
+        let text = text.into();
+        let width = unicode_width::width(&text) as usize;
+        Self {
+            text,
+            width,
+            has_trailing_space: false,
+            needs_leading_space: false,
         }
     }
 }
@@ -49,6 +65,7 @@ impl Word {
 #[derive(Debug, Clone)]
 struct BreakPoint {
     /// Index of the word at this breakpoint
+    #[allow(dead_code)]
     word_index: usize,
     /// Total badness from start to this breakpoint
     total_badness: f64,
@@ -71,6 +88,8 @@ pub struct LineBreakingContext {
     first_line_prefix: String,
     /// Continuation line prefix (e.g., "  ")
     continuation_prefix: String,
+    /// Whether the next word should not have a leading space
+    next_word_no_leading_space: bool,
 }
 
 impl LineBreakingContext {
@@ -83,6 +102,7 @@ impl LineBreakingContext {
             enabled: max_width > 0,
             first_line_prefix: String::new(),
             continuation_prefix: String::new(),
+            next_word_no_leading_space: false,
         }
     }
 
@@ -100,6 +120,7 @@ impl LineBreakingContext {
             enabled: max_width > 0,
             first_line_prefix: first_line_prefix.into(),
             continuation_prefix: continuation_prefix.into(),
+            next_word_no_leading_space: false,
         }
     }
 
@@ -109,20 +130,52 @@ impl LineBreakingContext {
     }
 
     /// Add a word to the context
-    pub fn add_word(&mut self, word: Word) {
+    pub fn add_word(&mut self, mut word: Word) {
+        // If next_word_no_leading_space is set, clear the leading space flag
+        if self.next_word_no_leading_space {
+            word.needs_leading_space = false;
+            self.next_word_no_leading_space = false;
+        }
         self.words.push(word);
     }
 
     /// Add text and split it into words
     pub fn add_text(&mut self, text: &str) {
         // Split text by whitespace
-        for (i, word_text) in text.split_whitespace().enumerate() {
-            if i > 0 || text.starts_with(' ') {
-                // Add space before this word if it's not the first word
-                // or if the original text started with space
+        let words: Vec<&str> = text.split_whitespace().collect();
+        for (i, word_text) in words.iter().enumerate() {
+            let mut word = Word::new(*word_text);
+            // Only apply the "no leading space" flag to the first word
+            if i == 0 && self.next_word_no_leading_space {
+                word.needs_leading_space = false;
             }
-            self.add_word(Word::new(word_text));
+            // Don't add trailing space if the next "word" is a mark
+            // This is a heuristic: if next_word_no_leading_space is set,
+            // it means a mark was just added, so don't add trailing space
+            if self.next_word_no_leading_space {
+                word.has_trailing_space = false;
+            }
+            self.words.push(word);
         }
+        // Reset the flag after processing text
+        self.next_word_no_leading_space = false;
+    }
+
+    /// Add text as a single word without splitting
+    pub fn add_text_as_word(&mut self, text: &str) {
+        self.add_word(Word::new_without_space(text));
+    }
+
+    /// Add a mark/punctuation that doesn't need spaces around it
+    pub fn add_mark(&mut self, text: &str) {
+        self.add_word(Word::new_mark(text));
+        // The next word should not have a leading space
+        self.next_word_no_leading_space = true;
+    }
+
+    /// Reset the "no leading space" flag
+    pub fn reset_next_word_no_leading_space(&mut self) {
+        self.next_word_no_leading_space = false;
     }
 
     /// Compute the optimal line breaks using Knuth-Plass algorithm
@@ -151,7 +204,8 @@ impl LineBreakingContext {
             for i in (0..j).rev() {
                 // Determine if this is the first line (i == 0)
                 let is_first_line = i == 0;
-                let line_width = self.calculate_line_width_with_prefix(i, j, is_first_line);
+                let line_width =
+                    self.calculate_line_width_with_prefix(i, j, is_first_line);
 
                 // Use appropriate max width based on whether it's the first line
                 let effective_max_width = if is_first_line {
@@ -193,13 +247,19 @@ impl LineBreakingContext {
         result
     }
 
+    #[allow(dead_code)]
     /// Calculate the width of a line from word i to word j (exclusive)
     fn calculate_line_width(&self, start: usize, end: usize) -> usize {
         self.calculate_line_width_with_prefix(start, end, start == 0)
     }
 
     /// Calculate the width of a line from word i to word j (exclusive) with prefix consideration
-    fn calculate_line_width_with_prefix(&self, start: usize, end: usize, is_first_line: bool) -> usize {
+    fn calculate_line_width_with_prefix(
+        &self,
+        start: usize,
+        end: usize,
+        is_first_line: bool,
+    ) -> usize {
         let prefix_width = if is_first_line {
             unicode_width::width(&self.first_line_prefix) as usize
         } else {
@@ -222,8 +282,19 @@ impl LineBreakingContext {
         let breaks = self.compute_breaks();
         if breaks.is_empty() {
             // No breaks needed, return all words joined with first line prefix
-            return self.first_line_prefix.clone()
-                + &self.words.iter().map(|w| &*w.text).collect::<Vec<_>>().join(" ");
+            let mut result = self.first_line_prefix.clone();
+            for (i, word) in self.words.iter().enumerate() {
+                // Add space if:
+                // - It's not the first word
+                // - Current word needs leading space OR previous word has trailing space
+                if i > 0
+                    && (word.needs_leading_space || self.words[i - 1].has_trailing_space)
+                {
+                    result.push(' ');
+                }
+                result.push_str(&word.text);
+            }
+            return result;
         }
 
         let mut result = String::new();
@@ -240,7 +311,13 @@ impl LineBreakingContext {
 
             // Add words from start to end
             for i in start..end {
-                if i > start {
+                // Add space if:
+                // - It's not the first word in the line
+                // - Current word needs leading space OR previous word has trailing space
+                if i > start
+                    && (self.words[i].needs_leading_space
+                        || self.words[i - 1].has_trailing_space)
+                {
                     result.push(' ');
                 }
                 result.push_str(&self.words[i].text);
@@ -365,7 +442,10 @@ mod tests {
         let lines: Vec<&str> = formatted.lines().collect();
 
         // First line should start with "- "
-        assert!(lines[0].starts_with("- "), "First line should start with list marker");
+        assert!(
+            lines[0].starts_with("- "),
+            "First line should start with list marker"
+        );
 
         // Subsequent lines should start with "  "
         if lines.len() > 1 {
@@ -410,11 +490,7 @@ mod tests {
         // Check that lines respect the max width considering prefixes
         for line in formatted_with_prefix.lines() {
             let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 25,
-                "Line with prefix exceeds max width: {}",
-                line
-            );
+            assert!(width <= 25, "Line with prefix exceeds max width: {}", line);
         }
     }
 
@@ -452,11 +528,7 @@ mod tests {
         // Check width constraint
         for line in formatted.lines() {
             let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 20,
-                "Nested line exceeds max width: {}",
-                line
-            );
+            assert!(width <= 20, "Nested line exceeds max width: {}", line);
         }
     }
 
@@ -516,17 +588,9 @@ mod tests {
         // (not too short, not exceeding max)
         for line in &lines {
             let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 20,
-                "Line exceeds max width: {}",
-                line
-            );
+            assert!(width <= 20, "Line exceeds max width: {}", line);
             // Lines should be reasonably filled (at least 50% of ideal width)
-            assert!(
-                width >= 7,
-                "Line too short, not optimal: {}",
-                line
-            );
+            assert!(width >= 7, "Line too short, not optimal: {}", line);
         }
     }
 
@@ -547,11 +611,7 @@ mod tests {
             let width = unicode_width::width(line) as usize;
             // Skip the line with the very long word if it exceeds max width
             if !line.contains("longwordthatmightbeproblematic") {
-                assert!(
-                    width <= 25,
-                    "Line exceeds max width: {}",
-                    line
-                );
+                assert!(width <= 25, "Line exceeds max width: {}", line);
             }
         }
     }
@@ -562,7 +622,10 @@ mod tests {
         // No words added
 
         let formatted = ctx.format();
-        assert!(formatted.is_empty(), "Empty paragraph should produce empty string");
+        assert!(
+            formatted.is_empty(),
+            "Empty paragraph should produce empty string"
+        );
     }
 
     #[test]
@@ -586,11 +649,7 @@ mod tests {
         let lines: Vec<&str> = formatted.lines().collect();
 
         // Should be on one line
-        assert_eq!(
-            lines.len(),
-            1,
-            "Should fit on one line with large width"
-        );
+        assert_eq!(lines.len(), 1, "Should fit on one line with large width");
     }
 
     #[test]
@@ -610,11 +669,7 @@ mod tests {
 
         for line in &lines {
             let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 12,
-                "Line exceeds max width: {}",
-                line
-            );
+            assert!(width <= 12, "Line exceeds max width: {}", line);
         }
     }
 
@@ -627,11 +682,7 @@ mod tests {
 
         for line in formatted.lines() {
             let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 25,
-                "Line exceeds max width: {}",
-                line
-            );
+            assert!(width <= 25, "Line exceeds max width: {}", line);
         }
     }
 
