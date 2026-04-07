@@ -197,3 +197,65 @@ fn test_fmt_cjk_spacing_with_link() {
         cm
     );
 }
+
+/// Test for issue: inline code should not cause text order corruption
+/// This test ensures that inline code is rendered in the correct position
+/// and not moved to the beginning of the text.
+/// Regression test for: Text order corruption when using inline code with CJK spacing
+#[test]
+fn test_fmt_cjk_spacing_inline_code_text_order() {
+    // Test case 1: CJK text with inline code
+    let input = "本文档旨在为 `tva` 的开发者提供技术背景。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    // The inline code `tva` should appear after "本文档旨在为 " and before " 的开发者"
+    // It should NOT appear at the beginning of the output
+    assert!(
+        cm.contains("`tva`"),
+        "Should contain inline code: {}",
+        cm
+    );
+    // Check that the code is not at the beginning (indicating order corruption)
+    assert!(
+        !cm.trim_start().starts_with("`tva`"),
+        "Inline code should not be at the beginning (text order corruption): {}",
+        cm
+    );
+    // Verify the text appears in correct order
+    assert!(
+        cm.contains("本文档") && cm.contains("`tva`") && cm.contains("开发者"),
+        "Text should appear in correct order: {}",
+        cm
+    );
+}
+
+/// Additional test for inline code text order without CJK spacing
+/// This ensures the fix works for all cases, not just with --cjk-spacing
+#[test]
+fn test_fmt_inline_code_text_order_without_cjk_spacing() {
+    let input = "Hello `world` test.".as_bytes();
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    // The inline code `world` should appear after "Hello " and before " test"
+    assert!(
+        cm.contains("`world`"),
+        "Should contain inline code: {}",
+        cm
+    );
+    // Check that the code is not at the beginning (indicating order corruption)
+    assert!(
+        !cm.trim_start().starts_with("`world`"),
+        "Inline code should not be at the beginning (text order corruption): {}",
+        cm
+    );
+    // Verify the text appears in correct order
+    assert!(
+        cm.contains("Hello") && cm.contains("`world`") && cm.contains("test"),
+        "Text should appear in correct order: {}",
+        cm
+    );
+}

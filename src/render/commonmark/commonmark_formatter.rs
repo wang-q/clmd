@@ -619,7 +619,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 NodeValueType::Code,
                 Box::new(
                     |value: &NodeValue,
-                     _ctx: &mut dyn NodeFormatterContext,
+                     ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Code(code) = value {
                             // Calculate the required fence length based on content
@@ -636,20 +636,35 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             let needs_trailing_space = code.literal.ends_with('`')
                                 || code.literal.ends_with(' ');
 
-                            writer.append(&backticks);
+                            // Check if we're collecting text for line breaking
+                            if ctx.is_collecting_line_breaking() {
+                                // Add code span as a single word to line breaking context
+                                let mut code_text = backticks.clone();
+                                if needs_leading_space {
+                                    code_text.push(' ');
+                                }
+                                code_text.push_str(&code.literal);
+                                if needs_trailing_space {
+                                    code_text.push(' ');
+                                }
+                                code_text.push_str(&backticks);
+                                ctx.add_line_breaking_word_text(&code_text);
+                            } else {
+                                writer.append(&backticks);
 
-                            if needs_leading_space {
-                                writer.append(" ");
+                                if needs_leading_space {
+                                    writer.append(" ");
+                                }
+
+                                // For code content, we don't escape - output as-is
+                                writer.append_raw(&code.literal);
+
+                                if needs_trailing_space {
+                                    writer.append(" ");
+                                }
+
+                                writer.append(&backticks);
                             }
-
-                            // For code content, we don't escape - output as-is
-                            writer.append_raw(&code.literal);
-
-                            if needs_trailing_space {
-                                writer.append(" ");
-                            }
-
-                            writer.append(&backticks);
                         }
                     },
                 ),
