@@ -389,6 +389,12 @@ impl NodeValueType {
     }
 }
 
+impl From<&NodeValue> for NodeValueType {
+    fn from(value: &NodeValue) -> Self {
+        NodeValueType::from_node_value(value)
+    }
+}
+
 /// Trait for node formatters
 ///
 /// Implementors of this trait can provide custom formatting for specific node types.

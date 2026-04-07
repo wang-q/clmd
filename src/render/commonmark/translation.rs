@@ -379,33 +379,6 @@ impl TranslationHandler for TranslationHandlerImpl {
     }
 }
 
-/// Translation context extension trait
-///
-/// This trait provides methods for working with translation
-/// in the context of node formatting.
-pub trait TranslationContext {
-    /// Get the render purpose
-    fn get_render_purpose(&self) -> RenderPurpose;
-
-    /// Check if text transformation is active
-    fn is_transforming_text(&self) -> bool;
-
-    /// Transform non-translating text
-    fn transform_non_translating(&self, text: &str) -> String;
-
-    /// Transform translating text
-    fn transform_translating(&self, text: &str) -> String;
-
-    /// Transform anchor reference
-    fn transform_anchor_ref(&self, page_ref: &str, anchor_ref: &str) -> String;
-
-    /// Check if post-processing is active
-    fn is_post_processing_non_translating(&self) -> bool;
-
-    /// Get the translation store
-    fn get_translation_store(&self) -> &HashMap<String, String>;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

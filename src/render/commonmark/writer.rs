@@ -550,11 +550,6 @@ impl MarkdownWriter {
         self.line_info.line_number
     }
 
-    /// Append the content of another writer to this one
-    pub fn append_to(&mut self, other: &Self) -> &mut Self {
-        self.append_raw(&other.output)
-    }
-
     /// Append to an appendable (like String or another writer)
     pub fn append_to_appendable(
         &self,
@@ -661,7 +656,7 @@ impl MarkdownWriter {
 
 impl Default for MarkdownWriter {
     fn default() -> Self {
-        Self::default()
+        Self::new(FormatFlags::DEFAULT)
     }
 }
 

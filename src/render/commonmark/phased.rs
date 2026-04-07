@@ -315,20 +315,6 @@ impl PhasedNodeFormatter for SimplePhasedFormatter {
     }
 }
 
-/// Standard phases used by most phased formatters
-pub const STANDARD_FORMATTING_PHASES: &[FormattingPhase] = &[
-    FormattingPhase::Collect,
-    FormattingPhase::DocumentTop,
-    FormattingPhase::DocumentBottom,
-];
-
-/// Phases for reference/footnote formatters
-pub const REFERENCE_FORMATTING_PHASES: &[FormattingPhase] = &[
-    FormattingPhase::Collect,
-    FormattingPhase::DocumentTop,
-    FormattingPhase::DocumentBottom,
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -572,21 +558,5 @@ mod tests {
         assert_eq!(phases[2], FormattingPhase::DocumentTop);
         assert_eq!(phases[3], FormattingPhase::Document);
         assert_eq!(phases[4], FormattingPhase::DocumentBottom);
-    }
-
-    #[test]
-    fn test_standard_formatting_phases() {
-        assert_eq!(STANDARD_FORMATTING_PHASES.len(), 3);
-        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::Collect));
-        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::DocumentTop));
-        assert!(STANDARD_FORMATTING_PHASES.contains(&FormattingPhase::DocumentBottom));
-    }
-
-    #[test]
-    fn test_reference_formatting_phases() {
-        assert_eq!(REFERENCE_FORMATTING_PHASES.len(), 3);
-        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::Collect));
-        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::DocumentTop));
-        assert!(REFERENCE_FORMATTING_PHASES.contains(&FormattingPhase::DocumentBottom));
     }
 }

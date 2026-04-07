@@ -3,27 +3,10 @@
 //! This module provides utility functions for formatting Markdown content,
 //! inspired by flexmark-java's FormatterUtils class.
 
-use crate::core::nodes::{NodeCodeBlock, NodeList};
+use crate::core::nodes::NodeCodeBlock;
 use crate::options::format::{BulletMarker, CodeFenceMarker, NumberedMarker};
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::writer::MarkdownWriter;
-
-/// Render a list
-///
-/// This function is currently a stub. List rendering is fully implemented
-/// in the main formatter. This function may be completed in the future
-/// for alternative list rendering workflows.
-pub fn render_list(
-    _list: &NodeList,
-    _context: &mut dyn NodeFormatterContext,
-    _writer: &mut MarkdownWriter,
-) {
-    // List rendering is fully implemented in commonmark_formatter.rs
-    // This stub exists for potential future use in alternative workflows
-    unimplemented!(
-        "render_list is not yet fully implemented. Use the main formatter for list rendering."
-    )
-}
 
 /// Get the bullet marker character
 pub fn get_bullet_marker(marker: BulletMarker) -> char {
@@ -133,11 +116,6 @@ pub fn get_blank_lines_between_blocks(
     };
 
     blank_lines.min(options.max_blank_lines)
-}
-
-/// Repeat a string n times
-pub fn repeat_string(s: &str, n: usize) -> String {
-    s.repeat(n)
 }
 
 /// Pad a string to a minimum width

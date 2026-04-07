@@ -351,11 +351,7 @@ impl LineBreakingContext {
 /// Badness is defined as the square of the difference between
 /// the actual line width and the ideal line width.
 fn calculate_badness(line_width: usize, ideal_width: usize) -> f64 {
-    let diff = if line_width > ideal_width {
-        line_width - ideal_width
-    } else {
-        ideal_width - line_width
-    };
+    let diff = line_width.abs_diff(ideal_width);
     (diff as f64).powi(2)
 }
 
