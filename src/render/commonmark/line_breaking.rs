@@ -748,6 +748,14 @@ impl LineBreakingContext {
                         {
                             // Don't break before CJK punctuation (。，；：！？、 etc.), keep it with previous content
                             current_width += space_width + word_width;
+                        // Special case: if this word is `(` or other opening brackets,
+                        // keep it with previous content to avoid space at line start
+                        } else if self.words[i].text.starts_with('(')
+                            || self.words[i].text.starts_with('[')
+                            || self.words[i].text.starts_with('{')
+                        {
+                            // Don't break before opening bracket, keep it with previous content
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -1008,7 +1016,8 @@ impl LineBreakingContext {
                 // Check if the word at this break point is an opening bracket
                 // Opening brackets like `(` should not be at line start
                 if word.text.starts_with('(') || word.text.starts_with('（') {
-                    // `(` is at line start, we should keep it with the next content
+                    // `(` is at line start, we should keep it with the previous content
+                    // Don't add a break at `(`, let it stay with the previous line
                     // Find the closing bracket and add a break after it
                     for i in break_point..self.words.len() {
                         if self.words[i].text.starts_with(')')
@@ -1023,8 +1032,7 @@ impl LineBreakingContext {
                             break;
                         }
                     }
-                    // Don't continue here, let the normal break handling apply
-                    // to ensure following content is properly broken
+                    // Skip adding a break at `(`, let it stay with previous content
                     continue;
                 }
 
@@ -3125,6 +3133,65 @@ mod tests {
     }
 
     #[test]
+    fn test_link_with_various_cjk_punctuation() {
+        // Test that various CJK punctuation after link are NOT at line start
+        let test_cases = vec![
+            ("，", "CJK comma"),
+            ("、", "CJK enumeration comma"),
+            ("；", "CJK semicolon"),
+            ("：", "CJK colon"),
+            ("！", "CJK exclamation"),
+            ("？", "CJK question"),
+            ("）", "CJK right parenthesis"),
+            ("】", "CJK right bracket"),
+            ("」", "CJK right corner bracket"),
+            ("』", "CJK right white corner bracket"),
+            ("〉", "CJK right angle bracket"),
+            ("》", "CJK right double angle bracket"),
+            // Japanese punctuation
+            ("〜", "Japanese wave dash"),
+            ("〝", "Japanese double quote open"),
+            ("〞", "Japanese double quote close"),
+        ];
+
+        for (punct, desc) in test_cases {
+            let mut ctx = LineBreakingContext::new(60, 60);
+
+            // Simulate: [link](url) [punct] test
+            ctx.add_text("- ");
+            ctx.add_markdown_marker("[");
+            ctx.add_text("link");
+            ctx.add_markdown_marker("]");
+            ctx.add_markdown_marker("(");
+            ctx.add_text_as_word("https://archive.ics.uci.edu/ml/datasets/HEPMASS");
+            ctx.add_link_close_marker(")");
+            ctx.add_text(&format!(" {} 测试", punct));
+
+            let formatted = ctx.format();
+
+            // CJK punctuation should NOT be at line start
+            let newline_punct = format!("\n  {}", punct);
+            assert!(
+                !formatted.contains(&newline_punct),
+                "{} ({}) should NOT be at line start. Formatted:\n{}",
+                desc,
+                punct,
+                formatted
+            );
+
+            // The punctuation should be on the same line as the link
+            let link_punct = format!("){}", punct);
+            assert!(
+                formatted.contains(&link_punct),
+                "{} ({}) should be on the same line as the link. Formatted:\n{}",
+                desc,
+                punct,
+                formatted
+            );
+        }
+    }
+
+    #[test]
     fn test_debug_markdown_emphasis() {
         // Debug test for Markdown emphasis
         let mut ctx = LineBreakingContext::with_prefixes(35, 45, "> ", "> ");
@@ -3155,6 +3222,39 @@ mod tests {
         assert!(
             formatted.contains("**简单高效的数据处理**"),
             "Emphasized text should stay together. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_opening_paren_no_space_after_cjk() {
+        // Test that opening parenthesis `(` has no space after CJK text
+        // Example: 和随机采样 (`sample`)的基础
+        // Should be: 和随机采样(`sample`)的基础 (no space before `(`)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("和随机采样 ");
+        ctx.add_markdown_marker("(");
+        ctx.add_markdown_marker("`");
+        ctx.add_text("sample");
+        ctx.add_markdown_marker("`");
+        ctx.add_markdown_marker(")");
+        ctx.add_text("的基础");
+
+        let formatted = ctx.format();
+        println!("Formatted: {:?}", formatted);
+
+        // There should be no space before `(`
+        assert!(
+            !formatted.contains("采样 ("),
+            "There should be no space before `(` after CJK text. Formatted:\n{}",
+            formatted
+        );
+
+        // The correct format should be `采样(`
+        assert!(
+            formatted.contains("采样(`"),
+            "`(` should directly follow CJK text without space. Formatted:\n{}",
             formatted
         );
     }
