@@ -836,7 +836,11 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         // 3. Otherwise, convert to space (for wrapping) or line break
                         let options = ctx.get_formatter_options();
 
-                        if ctx.is_in_tight_list() {
+                        // Check if we're collecting text for line breaking
+                        if ctx.is_collecting_line_breaking() {
+                            // Add space to line breaking context for proper wrapping
+                            ctx.add_line_breaking_text(" ");
+                        } else if ctx.is_in_tight_list() {
                             // In tight lists, soft breaks become spaces
                             writer.append(" ");
                         } else if options.keep_soft_line_breaks {
