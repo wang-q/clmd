@@ -119,6 +119,7 @@ fn replace_toc_with_placeholder(input: &str, toc_info: &utils::TocBoundaries) ->
     let mut result = String::new();
     result.push_str(&input[..marker_line_start]);
     result.push_str(TOC_PLACEHOLDER);
+    result.push_str("\n\n");
     result.push_str(&input[toc_info.content_end..]);
     result
 }
@@ -181,5 +182,18 @@ mod tests {
         assert!(result.contains("[Title](#title)"));
         assert!(result.contains("[Section](#section)"));
         assert!(!result.contains(TOC_PLACEHOLDER));
+    }
+
+    #[test]
+    fn test_toc_with_no_initial_content() {
+        let input = "# Title\n\n[TOC levels=1-4]: #\n\n## First Section\n\nContent.\n\n## Second Section\n\nContent.";
+        let toc_info = utils::find_toc_boundaries(input).unwrap();
+
+        let replaced = replace_toc_with_placeholder(input, &toc_info);
+        println!("Replaced:\n{}", replaced);
+
+        assert!(replaced.contains(TOC_PLACEHOLDER));
+        assert!(replaced.contains("## First Section"));
+        assert!(replaced.contains("## Second Section"));
     }
 }
