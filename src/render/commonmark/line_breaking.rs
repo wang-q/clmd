@@ -1389,6 +1389,29 @@ impl LineBreakingContext {
                     let is_link_end = word.text == "]"
                         && break_point > 1
                         && self.words[break_point - 2].text == "[";
+
+                    // Special case: if prev_word is `(` and the word before that is `]`,
+                    // this is a link `[text](url)` - don't break here
+                    let is_link_url_start = prev_word.text == "("
+                        && break_point > 1
+                        && self.words[break_point - 2].text == "]";
+
+                    if is_link_url_start {
+                        // This is a link `[text](url)`, find the closing `)` and add break after it
+                        for i in break_point..self.words.len() {
+                            if self.words[i].text == ")" {
+                                // Found the closing `)`, add break after it
+                                if i + 1 <= self.words.len()
+                                    && !adjusted.contains(&(i + 1))
+                                {
+                                    adjusted.push(i + 1);
+                                }
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+
                     // Special case: if prev_word is `[` or `(` but current word is not the corresponding closing marker,
                     // this means we're in the middle of link text (e.g., `[URL` or `(URL`)
                     // Don't apply the opening marker logic here, let the normal break handling apply
