@@ -141,6 +141,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     ctx.get_block_quote_nesting_level();
                                 let prefix_width =
                                     (list_nesting + block_quote_nesting) * 2;
+                                // Set ideal_width to max_width to encourage filling lines
                                 let ideal_width =
                                     options.right_margin.saturating_sub(prefix_width);
                                 let max_width =

@@ -35,6 +35,7 @@ pub fn make_subcommand() -> Command {
         )
         .arg(
             Arg::new("width")
+                .short('w')
                 .long("width")
                 .default_value("80")
                 .help("Line width limit for wrapping"),
