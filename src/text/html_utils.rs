@@ -321,8 +321,10 @@ const MAX_URL_LENGTH: usize = 8192;
 pub fn is_safe_url(url: &str) -> bool {
     // Trim whitespace and check for empty URL
     let url = url.trim();
+    // Empty URL is allowed by CommonMark spec (generates href="")
+    // This is safe as it just creates a link to the current page
     if url.is_empty() {
-        return false;
+        return true;
     }
 
     // Check URL length to prevent DoS attacks
@@ -572,14 +574,14 @@ mod tests {
         assert!(is_safe_url("../relative/path"));
         assert!(is_safe_url("#anchor"));
         assert!(is_safe_url("?query=value"));
+
+        // Empty URL (allowed by CommonMark spec)
+        assert!(is_safe_url(""));
+        assert!(is_safe_url("   "));
     }
 
     #[test]
-    fn test_is_safe_url_blocks_empty_and_invalid() {
-        // Empty URL
-        assert!(!is_safe_url(""));
-        assert!(!is_safe_url("   "));
-
+    fn test_is_safe_url_blocks_invalid() {
         // Null bytes
         assert!(!is_safe_url("https://example.com\0"));
         assert!(!is_safe_url("\0javascript:alert(1)"));
