@@ -65,6 +65,24 @@ pub struct CliSpecExample {
     pub expected_exit_code: i32,
 }
 
+/// A single API test example from a spec file
+/// API specs test library function calls
+#[derive(Debug, Clone)]
+pub struct ApiSpecExample {
+    /// Section name in the spec file
+    pub section: String,
+    /// Test case number
+    pub number: usize,
+    /// API function to call (e.g., "html", "commonmark")
+    pub function: String,
+    /// Input markdown text
+    pub input: String,
+    /// Expected output
+    pub expected_output: String,
+    /// Test options
+    pub options: Vec<String>,
+}
+
 /// Parse a spec file content and extract all test examples
 pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
     let mut examples = Vec::new();
@@ -409,6 +427,99 @@ fn parse_cli_header(line: &str) -> Option<(String, Vec<String>, i32)> {
     }
 
     Some((command, args, exit_code))
+}
+
+/// Parse an API spec file content and extract all test examples
+/// API specs use format: api(function) options(...)
+pub fn parse_api_spec_file(content: &str) -> Vec<ApiSpecExample> {
+    let mut examples = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut i = 0;
+    let mut example_number = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+
+        if line.starts_with("```````````````````````````````` api") {
+            if let Some((function, options)) = parse_api_header(line) {
+                example_number += 1;
+                i += 1;
+
+                let mut input_lines = Vec::new();
+                while i < lines.len() && lines[i] != "." {
+                    input_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                i += 1;
+
+                let mut output_lines = Vec::new();
+                while i < lines.len()
+                    && !lines[i].starts_with("````````````````````````````````")
+                {
+                    output_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                i += 1;
+
+                let input = input_lines.join("\n");
+                let expected_output = output_lines.join("\n");
+
+                let section = function.clone();
+
+                examples.push(ApiSpecExample {
+                    section,
+                    number: example_number,
+                    function,
+                    input,
+                    expected_output,
+                    options,
+                });
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    examples
+}
+
+/// Parse API header line
+/// Format: api(function) options(opt1, opt2)
+fn parse_api_header(line: &str) -> Option<(String, Vec<String>)> {
+    let prefix = "```````````````````````````````` api";
+    if !line.starts_with(prefix) {
+        return None;
+    }
+
+    let rest = line[prefix.len()..].trim();
+
+    if !rest.starts_with('(') {
+        return None;
+    }
+
+    let close_paren = rest.find(')')?;
+    let function = rest[1..close_paren].trim().to_string();
+
+    let mut options = Vec::new();
+    let after_paren = rest[close_paren + 1..].trim();
+
+    if after_paren.starts_with("options(") {
+        let opts_start = 8;
+        if let Some(opts_end) = after_paren[opts_start..].find(')') {
+            let opts_str = &after_paren[opts_start..opts_start + opts_end];
+            options = opts_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+    }
+
+    Some((function, options))
 }
 
 #[cfg(test)]
