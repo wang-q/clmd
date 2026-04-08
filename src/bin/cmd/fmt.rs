@@ -3,6 +3,8 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use crate::cmd::toc::{collect_headings, generate_toc, TocOptions};
 use crate::cmd::utils;
 
+const TOC_PLACEHOLDER: &str = "<!-- TOC_PLACEHOLDER -->";
+
 pub fn make_subcommand() -> Command {
     Command::new("fmt")
         .about("Format Markdown to canonical CommonMark/GFM")
@@ -57,7 +59,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
     let toc_info = utils::find_toc_boundaries(&input);
 
     let input_for_format = if let Some(ref toc_info) = toc_info {
-        remove_toc_content(&input, toc_info)
+        replace_toc_with_placeholder(&input, toc_info)
     } else {
         input.clone()
     };
@@ -79,7 +81,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
     );
 
     if let Some(toc_info) = toc_info {
-        cm = reinsert_toc(&cm, &toc_info, &fmt_options);
+        cm = replace_placeholder_with_toc(&cm, &toc_info, &fmt_options);
     }
 
     if in_place {
@@ -108,7 +110,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
     }
 }
 
-fn remove_toc_content(input: &str, toc_info: &utils::TocBoundaries) -> String {
+fn replace_toc_with_placeholder(input: &str, toc_info: &utils::TocBoundaries) -> String {
     let marker_line_start = input
         .find(&toc_info.marker_line)
         .map(|pos| input[..pos].rfind('\n').map(|p| p + 1).unwrap_or(0))
@@ -116,11 +118,12 @@ fn remove_toc_content(input: &str, toc_info: &utils::TocBoundaries) -> String {
 
     let mut result = String::new();
     result.push_str(&input[..marker_line_start]);
+    result.push_str(TOC_PLACEHOLDER);
     result.push_str(&input[toc_info.content_end..]);
     result
 }
 
-fn reinsert_toc(
+fn replace_placeholder_with_toc(
     formatted: &str,
     toc_info: &utils::TocBoundaries,
     options: &clmd::Options,
@@ -134,15 +137,15 @@ fn reinsert_toc(
     let new_toc = generate_toc(&headings, &toc_options);
 
     if new_toc.is_empty() {
-        return formatted.to_string();
+        return formatted.replace(TOC_PLACEHOLDER, "");
     }
 
-    let mut result = String::new();
-    result.push_str(&toc_info.marker_line);
-    result.push_str("\n\n");
-    result.push_str(&new_toc);
-    result.push_str(formatted);
-    result
+    let mut replacement = String::new();
+    replacement.push_str(&toc_info.marker_line);
+    replacement.push_str("\n\n");
+    replacement.push_str(&new_toc);
+
+    formatted.replace(TOC_PLACEHOLDER, &replacement)
 }
 
 #[cfg(test)]
@@ -150,30 +153,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_remove_toc_content() {
+    fn test_replace_toc_with_placeholder() {
         let input = "# Title\n\n[TOC]: #\n\n- [Old](#old)\n\n## Section\n\nContent";
         let toc_info = utils::TocBoundaries {
             marker_line: "[TOC]: #".to_string(),
             content_end: 35,
         };
 
-        let result = remove_toc_content(input, &toc_info);
+        let result = replace_toc_with_placeholder(input, &toc_info);
+        assert!(result.contains(TOC_PLACEHOLDER));
         assert!(!result.contains("[TOC]: #"));
         assert!(!result.contains("[Old](#old)"));
     }
 
     #[test]
-    fn test_reinsert_toc() {
-        let formatted = "# Title\n\n## Section\n\nContent";
+    fn test_replace_placeholder_with_toc() {
+        let formatted =
+            format!("# Title\n\n{}\n\n## Section\n\nContent", TOC_PLACEHOLDER);
         let toc_info = utils::TocBoundaries {
             marker_line: "[TOC]: #".to_string(),
             content_end: 0,
         };
         let options = clmd::Options::default();
 
-        let result = reinsert_toc(formatted, &toc_info, &options);
+        let result = replace_placeholder_with_toc(&formatted, &toc_info, &options);
         assert!(result.contains("[TOC]: #"));
         assert!(result.contains("[Title](#title)"));
         assert!(result.contains("[Section](#section)"));
+        assert!(!result.contains(TOC_PLACEHOLDER));
     }
 }
