@@ -45,6 +45,26 @@ pub struct FormatterSpecExample {
     pub options: Vec<String>,
 }
 
+/// A single CLI test example from a spec file
+/// CLI specs test command-line interface behavior
+#[derive(Debug, Clone)]
+pub struct CliSpecExample {
+    /// Section name in the spec file
+    pub section: String,
+    /// Test case number
+    pub number: usize,
+    /// CLI command (e.g., "extract links", "fmt", "to html")
+    pub command: String,
+    /// Command-line arguments
+    pub args: Vec<String>,
+    /// Input text (stdin)
+    pub input: String,
+    /// Expected stdout output
+    pub expected_output: String,
+    /// Expected exit code (0 for success)
+    pub expected_exit_code: i32,
+}
+
 /// Parse a spec file content and extract all test examples
 pub fn parse_spec_file(content: &str) -> Vec<SpecExample> {
     let mut examples = Vec::new();
@@ -273,6 +293,122 @@ fn parse_example_header(line: &str) -> Option<(String, usize, Vec<String>)> {
     let number = section_parts[1].trim().parse::<usize>().ok()?;
 
     Some((section, number, options))
+}
+
+/// Parse a CLI spec file content and extract all test examples
+/// CLI specs use format: cli(command: subcommand) args(arg1, arg2)
+pub fn parse_cli_spec_file(content: &str) -> Vec<CliSpecExample> {
+    let mut examples = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut i = 0;
+    let mut example_number = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+
+        if line.starts_with("```````````````````````````````` cli") {
+            if let Some((command, args, exit_code)) = parse_cli_header(line) {
+                example_number += 1;
+                i += 1;
+
+                let mut input_lines = Vec::new();
+                while i < lines.len() && lines[i] != "." {
+                    input_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                i += 1;
+
+                let mut output_lines = Vec::new();
+                while i < lines.len()
+                    && !lines[i].starts_with("````````````````````````````````")
+                {
+                    output_lines.push(lines[i]);
+                    i += 1;
+                }
+
+                i += 1;
+
+                let input = input_lines.join("\n");
+                let expected_output = output_lines.join("\n");
+
+                let section = command.clone();
+
+                examples.push(CliSpecExample {
+                    section,
+                    number: example_number,
+                    command,
+                    args,
+                    input,
+                    expected_output,
+                    expected_exit_code: exit_code,
+                });
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    examples
+}
+
+/// Parse CLI header line
+/// Format: cli(command: subcommand) args(arg1, arg2) exit(code)
+fn parse_cli_header(line: &str) -> Option<(String, Vec<String>, i32)> {
+    let prefix = "```````````````````````````````` cli";
+    if !line.starts_with(prefix) {
+        return None;
+    }
+
+    let rest = line[prefix.len()..].trim();
+
+    if !rest.starts_with('(') {
+        return None;
+    }
+
+    let close_paren = rest.find(')')?;
+    let command_part = &rest[1..close_paren];
+
+    let command = command_part.trim().to_string();
+
+    let mut args = Vec::new();
+    let mut exit_code = 0;
+
+    let after_paren = rest[close_paren + 1..].trim();
+
+    let mut remaining = after_paren;
+    while !remaining.is_empty() {
+        remaining = remaining.trim_start();
+        if remaining.starts_with("args(") {
+            let args_start = 5;
+            if let Some(args_end) = remaining[args_start..].find(')') {
+                let args_str = &remaining[args_start..args_start + args_end];
+                args = args_str
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                remaining = &remaining[args_start + args_end + 1..];
+            } else {
+                break;
+            }
+        } else if remaining.starts_with("exit(") {
+            let exit_start = 5;
+            if let Some(exit_end) = remaining[exit_start..].find(')') {
+                let exit_str = &remaining[exit_start..exit_start + exit_end];
+                exit_code = exit_str.trim().parse().unwrap_or(0);
+                remaining = &remaining[exit_start + exit_end + 1..];
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    Some((command, args, exit_code))
 }
 
 #[cfg(test)]
