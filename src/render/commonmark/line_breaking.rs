@@ -527,17 +527,25 @@ impl LineBreakingContext {
                 if is_punctuation_that_should_not_be_at_line_start(&word.text) {
                     // This punctuation should not be at line start, move it to the previous line
                     // by including it in the current line
-                    // We do this by pushing the end of words or the next break point
+                    // We need to find the next appropriate break point after this punctuation
                     if break_point + 1 <= self.words.len() {
                         // Check if there's more content after this punctuation
                         if break_point + 1 < self.words.len() {
-                            // Find the next non-punctuation word to break after
+                            // Find the next non-punctuation word and the word after it
+                            // We want to break after the word that follows the punctuation
+                            // to ensure the punctuation stays with the previous line
                             let mut next_break = break_point + 1;
                             for i in (break_point + 1)..self.words.len() {
                                 if !is_punctuation_that_should_not_be_at_line_start(
                                     &self.words[i].text,
                                 ) {
+                                    // Found a non-punctuation word, include it and look for one more
                                     next_break = i + 1;
+                                    // Check if there's another word after this one
+                                    if i + 1 < self.words.len() {
+                                        // Include the next word as well to ensure punctuation stays with previous line
+                                        next_break = i + 2;
+                                    }
                                     break;
                                 }
                             }
@@ -644,6 +652,11 @@ impl LineBreakingContext {
                     }
                 }
             }
+        }
+
+        // If adjusted is empty, use the original breaks
+        if adjusted.is_empty() {
+            adjusted = breaks.to_vec();
         }
 
         // If adjusted is empty, use the original breaks

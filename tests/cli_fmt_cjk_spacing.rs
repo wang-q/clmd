@@ -811,26 +811,48 @@ fn test_fmt_cjk_ascii_colon_various() {
 
 #[test]
 fn test_fmt_cjk_comma_not_at_line_start() {
-    // Test that comma is not placed at the start of a line when wrapping
+    // Test case 1: Comma between inline codes
     // Example: `one-to-one`, `many-to-one` should not have comma at line start
-    let input = "- 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）在连接时验证键。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--width", "50"], input);
-
-    assert!(output.status.success());
-    let cm = String::from_utf8(output.stdout).unwrap();
+    let input1 = "- 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）在连接时验证键。".as_bytes();
+    let output1 = run_with_stdin(&["fmt", "--width", "50"], input1);
+    assert!(output1.status.success());
+    let cm1 = String::from_utf8(output1.stdout).unwrap();
 
     // The comma should not be at the start of a line
     assert!(
-        !cm.contains("\n  ,"),
-        "Comma should not be at the start of a line: got {}",
-        cm
+        !cm1.contains("\n  ,"),
+        "Test 1: Comma should not be at the start of a line: got {}",
+        cm1
     );
 
     // The comma should be on the same line as the preceding content
     assert!(
-        cm.contains("`one-to-one`,\n") || cm.contains("`one-to-one`, "),
-        "Comma should be on the same line as the preceding inline code: got {}",
-        cm
+        cm1.contains("`one-to-one`,\n") || cm1.contains("`one-to-one`, "),
+        "Test 1: Comma should be on the same line as the preceding inline code: got {}",
+        cm1
+    );
+
+    // Test case 2: Multiple commas in a list
+    // Example: `dirname`, `basename`, `extname`, `barename` should not have comma at line start
+    let input2 =
+        "- **文件路径处理**: `dirname`, `basename`, `extname`, `barename`。abspath"
+            .as_bytes();
+    let output2 = run_with_stdin(&["fmt", "--width", "50"], input2);
+    assert!(output2.status.success());
+    let cm2 = String::from_utf8(output2.stdout).unwrap();
+
+    // The comma should not be at the start of a line
+    assert!(
+        !cm2.contains("\n  ,"),
+        "Test 2: Comma should not be at the start of a line: got {}",
+        cm2
+    );
+
+    // The comma should be on the same line as the preceding content
+    assert!(
+        cm2.contains("`extname`,") || cm2.contains("`extname`,\n"),
+        "Test 2: Comma should be on the same line as the preceding content: got {}",
+        cm2
     );
 }
 
