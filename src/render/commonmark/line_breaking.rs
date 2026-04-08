@@ -8,7 +8,7 @@
 //! The algorithm is based on the paper "Breaking Paragraphs into Lines" by
 //! Donald E. Knuth and Michael F. Plass (1981).
 
-use crate::text::char::is_cjk_punctuation;
+use crate::text::char::{is_cjk, is_cjk_punctuation};
 use crate::text::unicode_width;
 
 /// A word in the paragraph with its display width
@@ -272,10 +272,27 @@ impl LineBreakingContext {
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
-        // Use new_without_space to avoid adding trailing space after inline elements
-        self.add_word(Word::new_without_space(text));
+        // Create a word that doesn't need leading space by default
+        // This prevents space between "(" and "`code`", or between "`code`" and ")"
+        let mut word = Word::new_without_space(text);
+        // Check if the previous word ends with CJK character
+        // If so, we need leading space for the inline element
+        if let Some(prev_word) = self.words.last() {
+            if let Some(last_char) = prev_word.text.chars().last() {
+                if is_cjk(last_char) {
+                    word.needs_leading_space = true;
+                } else {
+                    word.needs_leading_space = false;
+                }
+            } else {
+                word.needs_leading_space = false;
+            }
+        } else {
+            word.needs_leading_space = false;
+        }
+        self.add_word(word);
         // Don't set next_word_no_leading_space here
-        // This allows subsequent CJK text to have leading space
+        // Subsequent text will have leading space via normal add_text logic
     }
 
     /// Reset the "no leading space" flag
@@ -1061,30 +1078,29 @@ mod tests {
 
     #[test]
     fn test_left_paren_preserves_space() {
-        // Test that left parenthesis preserves leading space after inline code
+        // Test that left parenthesis has no leading space after inline code
+        // This simulates the actual code path where inline code is added as a complete unit
         let mut ctx = LineBreakingContext::new(80, 80);
 
         // Simulate: `strbin` (字符串哈希分箱)
-        ctx.add_markdown_marker("`");
-        ctx.add_text("strbin");
-        ctx.add_markdown_marker("`");
+        // In actual code path, inline code is added via add_line_breaking_inline_element
+        ctx.add_inline_element("`strbin`");
         ctx.add_text("(字符串哈希分箱)");
 
         let formatted = ctx.format();
 
-        // The left parenthesis should have a leading space after the closing backtick
-        // Note: There might be a space before "strbin" due to formatting, but the key
-        // is that there IS a space before "("
+        // The left parenthesis should NOT have a leading space after inline code
         assert!(
-            formatted.contains("` ("),
-            "Left parenthesis should have leading space after inline code: {}",
+            formatted.contains("`strbin`(字符串哈希分箱)"),
+            "Left parenthesis should NOT have leading space after inline code: got {}",
             formatted
         );
     }
 
     #[test]
-    fn test_brackets_preserve_space() {
-        // Test that brackets preserve leading space after inline code
+    fn test_brackets_no_space_after_inline_code() {
+        // Test that brackets have no leading space after inline code
+        // This simulates the actual code path where inline code is added as a complete unit
         let test_cases = vec![
             ("(", ")", "parentheses"),
             ("[", "]", "brackets"),
@@ -1093,16 +1109,15 @@ mod tests {
 
         for (open, close, name) in test_cases {
             let mut ctx = LineBreakingContext::new(80, 80);
-            ctx.add_markdown_marker("`");
-            ctx.add_inline_element("code");
-            ctx.add_markdown_marker("`");
+            // In actual code path, inline code is added via add_line_breaking_inline_element
+            ctx.add_inline_element("`code`");
             ctx.add_text(&format!("{}text{}", open, close));
 
             let formatted = ctx.format();
-            let expected = format!("`code` {}text{}", open, close);
+            let expected = format!("`code`{}text{}", open, close);
             assert!(
                 formatted.contains(&expected),
-                "{} should have leading space after inline code: got '{}'",
+                "{} should NOT have leading space after inline code: got '{}'",
                 name,
                 formatted
             );
@@ -1137,6 +1152,35 @@ mod tests {
         assert!(
             formatted.contains("`--buffer-size`)"),
             "There should be no space before closing parenthesis: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_parentheses_with_full_inline_code() {
+        // Test that parentheses with inline code inside don't have extra spaces
+        // This simulates the actual code path where inline code is added as a complete unit
+        // Example: 支持进度条 (`indicatif` 的 `MultiProgress`)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: 支持进度条 (`indicatif` 的 `MultiProgress`)
+        ctx.add_text("支持进度条 (");
+        ctx.add_inline_element("`indicatif`"); // Full inline code with backticks
+        ctx.add_text(" 的 ");
+        ctx.add_inline_element("`MultiProgress`"); // Full inline code with backticks
+        ctx.add_text(")");
+
+        let formatted = ctx.format();
+
+        // The formatted output should NOT have spaces after ( or before )
+        assert!(
+            formatted.contains("(`indicatif`"),
+            "There should be no space after opening parenthesis: got {}",
+            formatted
+        );
+        assert!(
+            formatted.contains("`MultiProgress`)"),
+            "There should be no space before closing parenthesis: got {}",
             formatted
         );
     }
@@ -1345,9 +1389,12 @@ fn split_cjk_text(text: &str) -> Vec<String> {
 }
 
 /// Check if a character is an ASCII punctuation mark that should NOT have
-/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`)
+/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `(`, `)`, `[`, `]`, `{`, `}`)
 fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
-    matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
+    matches!(
+        c,
+        ':' | ',' | '.' | ';' | '!' | '?' | '(' | ')' | '[' | ']' | '{' | '}'
+    )
 }
 
 /// Check if a string starts with punctuation that should NOT have leading space
