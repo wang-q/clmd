@@ -202,10 +202,8 @@ impl LineBreakingContext {
                             // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
                             // keep needs_leading_space = false (default from new_cjk)
                             // For opening brackets after Markdown marker, add space
-                            // For opening brackets after inline code, don't add space
-                            if !is_no_space_punct
-                                || (starts_with_bracket && !self.after_inline_code)
-                            {
+                            // For opening brackets after inline code, also add space
+                            if !is_no_space_punct || starts_with_bracket {
                                 w.needs_leading_space = true;
                             }
                         } else {
@@ -236,18 +234,13 @@ impl LineBreakingContext {
                     .next()
                     .map_or(false, |c| matches!(c, '(' | '[' | '{'));
 
-                if self.next_word_no_leading_space {
-                    word.has_trailing_space = false;
+                if self.next_word_no_leading_space || self.after_inline_code {
                     // If the text starts with punctuation that should NOT have leading space,
                     // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
                     // But for `(`, `[`, etc., we should keep the leading space
-                    // unless it's after inline code (after_inline_code is true)
-                    if is_no_space_punct {
-                        // For opening brackets after inline code, don't add space
-                        // For opening brackets after Markdown marker, add space
-                        if !starts_with_bracket || self.after_inline_code {
-                            word.needs_leading_space = false;
-                        }
+                    // For opening brackets after inline code, also add space
+                    if is_no_space_punct && !starts_with_bracket {
+                        word.needs_leading_space = false;
                     }
                 } else {
                     // Previous element was not a Markdown marker (e.g., inline code)
@@ -1107,30 +1100,29 @@ mod tests {
     }
 
     #[test]
-    fn test_left_paren_preserves_space() {
-        // Test that left parenthesis has no leading space after inline code
-        // This simulates the actual code path where inline code is added as a complete unit
+    fn test_left_paren_has_space_after_inline_code() {
+        // Test that left parenthesis has leading space after inline code
+        // Example: `cmd/parallel.rs` (~1600 行)
         let mut ctx = LineBreakingContext::new(80, 80);
 
         // Simulate: `strbin` (字符串哈希分箱)
-        // In actual code path, inline code is added via add_line_breaking_inline_element
         ctx.add_inline_element("`strbin`");
         ctx.add_text("(字符串哈希分箱)");
 
         let formatted = ctx.format();
 
-        // The left parenthesis should NOT have a leading space after inline code
+        // The left parenthesis should have a leading space after inline code
         assert!(
-            formatted.contains("`strbin`(字符串哈希分箱)"),
-            "Left parenthesis should NOT have leading space after inline code: got {}",
+            formatted.contains("`strbin` (字符串哈希分箱)"),
+            "Left parenthesis should have leading space after inline code: got {}",
             formatted
         );
     }
 
     #[test]
-    fn test_brackets_no_space_after_inline_code() {
-        // Test that brackets have no leading space after inline code
-        // This simulates the actual code path where inline code is added as a complete unit
+    fn test_brackets_have_space_after_inline_code() {
+        // Test that brackets have leading space after inline code
+        // Example: `cmd/parallel.rs` (~1600 行)
         let test_cases = vec![
             ("(", ")", "parentheses"),
             ("[", "]", "brackets"),
@@ -1139,15 +1131,14 @@ mod tests {
 
         for (open, close, name) in test_cases {
             let mut ctx = LineBreakingContext::new(80, 80);
-            // In actual code path, inline code is added via add_line_breaking_inline_element
             ctx.add_inline_element("`code`");
             ctx.add_text(&format!("{}text{}", open, close));
 
             let formatted = ctx.format();
-            let expected = format!("`code`{}text{}", open, close);
+            let expected = format!("`code` {}text{}", open, close);
             assert!(
                 formatted.contains(&expected),
-                "{} should NOT have leading space after inline code: got '{}'",
+                "{} should have leading space after inline code: got '{}'",
                 name,
                 formatted
             );
@@ -1313,6 +1304,41 @@ mod tests {
         assert!(
             formatted.contains("`scores.txt`/`scores_h.txt`:"),
             "Slash should have no space around inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_paren_space_after_inline_code() {
+        // Test that opening parenthesis has space after inline code
+        // Example: - **实现**: `cmd/parallel.rs` (~1600 行)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: - **实现**: `cmd/parallel.rs` (~1600 行)
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("实现");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(":");
+        ctx.add_inline_element("`cmd/parallel.rs`");
+        ctx.add_text(" (~1600 行)");
+
+        // Debug: print all words
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let formatted = ctx.format();
+        println!("Formatted: {:?}", formatted);
+
+        // The opening parenthesis should have a leading space after inline code
+        assert!(
+            formatted.contains("`cmd/parallel.rs` (~1600 行)"),
+            "Opening parenthesis should have leading space after inline code: got {}",
             formatted
         );
     }
@@ -1499,11 +1525,12 @@ fn split_cjk_text(text: &str) -> Vec<String> {
 }
 
 /// Check if a character is an ASCII punctuation mark that should NOT have
-/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `(`, `)`, `[`, `]`, `{`, `}`, `/`)
+/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `)`, `[`, `]`, `{`, `}`, `/`)
+/// Note: `(` is excluded because it should have leading space after inline code
 fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
     matches!(
         c,
-        ':' | ',' | '.' | ';' | '!' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '/'
+        ':' | ',' | '.' | ';' | '!' | '?' | ')' | '[' | ']' | '{' | '}' | '/'
     )
 }
 
