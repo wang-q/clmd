@@ -457,11 +457,14 @@ impl LineBreakingContext {
             return result;
         }
 
+        // Post-process breaks to prevent punctuation from being at line start
+        let adjusted_breaks = self.adjust_breaks_for_punctuation(&breaks);
+
         let mut result = String::new();
         let mut start = 0;
         let mut is_first_line = true;
 
-        for &end in &breaks {
+        for &end in &adjusted_breaks {
             // Add appropriate prefix
             if is_first_line {
                 result.push_str(&self.first_line_prefix);
@@ -493,6 +496,32 @@ impl LineBreakingContext {
         }
 
         result
+    }
+
+    /// Adjust breaks to prevent punctuation from being at line start
+    /// This ensures that punctuation like `,`, `.`, `;`, `:` etc. stay with the previous word
+    fn adjust_breaks_for_punctuation(&self, breaks: &[usize]) -> Vec<usize> {
+        let mut adjusted = Vec::new();
+
+        for &break_point in breaks {
+            // Check if the word at this break point is punctuation that shouldn't be at line start
+            // Note: break_point is the index of the first word on the next line
+            if break_point < self.words.len() {
+                let word = &self.words[break_point];
+                if is_punctuation_that_should_not_be_at_line_start(&word.text) {
+                    // Move this punctuation to the previous line by including it in the current line
+                    // We do this by pushing the next word index + 1
+                    if break_point > 0 && !adjusted.contains(&(break_point + 1)) {
+                        adjusted.push(break_point + 1);
+                        continue;
+                    }
+                }
+            }
+
+            adjusted.push(break_point);
+        }
+
+        adjusted
     }
 
     /// Get the words
@@ -1644,4 +1673,39 @@ fn starts_with_no_leading_space_punctuation(text: &str) -> bool {
     text.chars().next().map_or(false, |c| {
         is_cjk_punctuation(c) || is_ascii_punctuation_no_leading_space(c)
     })
+}
+
+/// Check if a string is punctuation that should not be at the start of a line
+/// This includes punctuation like `,`, `.`, `;`, `:`, `)`, `]`, `}`, etc.
+fn is_punctuation_that_should_not_be_at_line_start(text: &str) -> bool {
+    // Check if the text starts with punctuation that should not be at line start
+    let first_char = text.chars().next();
+    if let Some(c) = first_char {
+        return matches!(
+            c,
+            ',' | '.'
+                | ';'
+                | ':'
+                | ')'
+                | ']'
+                | '}'
+                | '!'
+                | '?'
+                | '"'
+                | '\''
+                | '”'
+                | '’'
+                | '）'
+                | '」'
+                | '】'
+                | '、'
+                | '。'
+                | '，'
+                | '；'
+                | '：'
+                | '！'
+                | '？'
+        );
+    }
+    false
 }
