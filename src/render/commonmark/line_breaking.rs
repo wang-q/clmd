@@ -698,15 +698,13 @@ impl LineBreakingContext {
                         {
                             // Don't break before `]`, keep `](` together
                             current_width += space_width + word_width;
-                        // Special case: if previous word is `(` (link URL start),
-                        // keep URL with the opening parenthesis
-                        } else if i > 0 && self.words[i - 1].text == "(" {
-                            // Don't break after `(`, keep URL with opening paren
-                            current_width += space_width + word_width;
-                        // Special case: if this word is `（` (full-width opening parenthesis),
-                        // keep it with the following content
-                        } else if self.words[i].text == "（" {
-                            // Don't break before `（`, keep it with following content
+                        // Special case: if previous word is `](` structure (i.e., prev is `(` and prev-1 is `]`),
+                        // don't break before this word - keep the entire link structure together
+                        } else if i > 1
+                            && self.words[i - 1].text == "("
+                            && self.words[i - 2].text == "]"
+                        {
+                            // Don't break after `](`, keep URL with the link structure
                             current_width += space_width + word_width;
                         // Special case: if this word is backtick (inline code marker),
                         // keep it with the content
@@ -832,11 +830,6 @@ impl LineBreakingContext {
                         // keep URL with the opening parenthesis
                         } else if i > 0 && self.words[i - 1].text == "(" {
                             // Don't break after `(`, keep URL with opening paren
-                            current_width += space_width + word_width;
-                        // Special case: if this word is `（` (full-width opening parenthesis),
-                        // keep it with the following content
-                        } else if self.words[i].text == "（" {
-                            // Don't break before `（`, keep it with following content
                             current_width += space_width + word_width;
                         // Special case: if this word is backtick (inline code marker),
                         // keep it with the content
@@ -3020,6 +3013,55 @@ mod tests {
         assert!(
             !formatted.contains("]\n("),
             "`](` should NOT be split across lines. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_link_with_text_and_long_url() {
+        // Test that links with text and long URL are formatted correctly
+        // Example: [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+        let mut ctx = LineBreakingContext::new(60, 60);
+
+        // Simulate: 我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md) 使用的严格基准测试策略。
+        ctx.add_text("我们旨在重现 ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("eBay TSV Utilities");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" 使用的严格基准测试策略。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let adjusted_breaks = ctx.adjust_breaks_for_punctuation(&breaks);
+        println!("Adjusted breaks: {:?}", adjusted_breaks);
+
+        let final_breaks = ctx.enforce_max_width(&adjusted_breaks);
+        println!("Final breaks: {:?}", final_breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // `](` should NOT be split across lines
+        assert!(
+            !formatted.contains("]\n("),
+            "`](` should NOT be split across lines. Formatted:\n{}",
+            formatted
+        );
+
+        // The URL should be on the same line as `](`
+        assert!(
+            formatted.contains("](https://"),
+            "URL should be on the same line as `](`. Formatted:\n{}",
             formatted
         );
     }
