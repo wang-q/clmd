@@ -495,11 +495,27 @@ impl LineBreakingContext {
             result.pop();
         }
 
+        // Ensure all words are included (handle case where last break point is before the last word)
+        if start < self.words.len() {
+            result.push('\n');
+            result.push_str(&self.continuation_prefix);
+            for i in start..self.words.len() {
+                if i > start
+                    && (self.words[i].needs_leading_space
+                        || self.words[i - 1].has_trailing_space)
+                {
+                    result.push(' ');
+                }
+                result.push_str(&self.words[i].text);
+            }
+        }
+
         result
     }
 
     /// Adjust breaks to prevent punctuation from being at line start
     /// This ensures that punctuation like `,`, `.`, `;`, `:` etc. stay with the previous word
+    /// Also ensures that opening brackets like `(`, `[`, `{` stay with their content
     fn adjust_breaks_for_punctuation(&self, breaks: &[usize]) -> Vec<usize> {
         let mut adjusted = Vec::new();
 
@@ -511,14 +527,92 @@ impl LineBreakingContext {
                 if is_punctuation_that_should_not_be_at_line_start(&word.text) {
                     // Move this punctuation to the previous line by including it in the current line
                     // We do this by pushing the next word index + 1
-                    if break_point > 0 && !adjusted.contains(&(break_point + 1)) {
+                    // But only if there's more content after this punctuation
+                    if break_point + 1 < self.words.len() {
+                        if break_point > 0 && !adjusted.contains(&(break_point + 1)) {
+                            adjusted.push(break_point + 1);
+                            continue;
+                        }
+                    } else {
+                        // This is the last word, include it in the current line
+                        // by pushing the end of words
+                        if break_point > 0 && !adjusted.contains(&self.words.len()) {
+                            adjusted.push(self.words.len());
+                            continue;
+                        }
+                    }
+                }
+
+                // Check if the word at this break point is an opening bracket
+                // Opening brackets like `(` should not be at line start
+                if word.text.starts_with('(') || word.text.starts_with('（') {
+                    // `(` is at line start, we should keep it with the next content
+                    // Find the closing bracket and add a break after it
+                    for i in break_point..self.words.len() {
+                        if self.words[i].text.starts_with(')')
+                            || self.words[i].text.starts_with('）')
+                        {
+                            if i + 1 <= self.words.len() && !adjusted.contains(&(i + 1))
+                            {
+                                adjusted.push(i + 1);
+                                break;
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // Check if the previous word ends with opening bracket that shouldn't be at line end
+            // This ensures `(` stays with its content like (`slice`)
+            if break_point > 0 && break_point < self.words.len() {
+                let prev_word = &self.words[break_point - 1];
+                if is_opening_bracket_at_line_end(&prev_word.text) {
+                    // The previous word ends with `(`, we should keep it with the next word
+                    // Move the break point to after the next word
+                    if break_point + 1 <= self.words.len()
+                        && !adjusted.contains(&(break_point + 1))
+                    {
                         adjusted.push(break_point + 1);
                         continue;
                     }
                 }
             }
 
+            // Special case: if break_point equals words.len(), check if the last word is punctuation
+            // This handles the case where `)` is the last word and would be alone on a line
+            if break_point == self.words.len() && break_point > 0 {
+                let last_word = &self.words[break_point - 1];
+                if is_punctuation_that_should_not_be_at_line_start(&last_word.text) {
+                    // Don't add this break, the last word will be included in the previous line
+                    continue;
+                }
+            }
+
             adjusted.push(break_point);
+        }
+
+        // Post-process: ensure the last break includes all remaining words
+        // This handles the case where the last word is punctuation like `)`
+        if let Some(&last_break) = adjusted.last() {
+            if last_break < self.words.len() {
+                // Check if any remaining word starts with punctuation that shouldn't be at line start
+                let mut should_extend = false;
+                for i in last_break..self.words.len() {
+                    if is_punctuation_that_should_not_be_at_line_start(
+                        &self.words[i].text,
+                    ) {
+                        should_extend = true;
+                        break;
+                    }
+                }
+                if should_extend {
+                    // Extend the last break to include all remaining words
+                    if let Some(last) = adjusted.last_mut() {
+                        *last = self.words.len();
+                    }
+                }
+            }
         }
 
         adjusted
@@ -1705,6 +1799,20 @@ fn is_punctuation_that_should_not_be_at_line_start(text: &str) -> bool {
                 | '：'
                 | '！'
                 | '？'
+        );
+    }
+    false
+}
+
+/// Check if a string ends with opening bracket that should not be at line end
+/// This includes `(`, `[`, `{`, `（`, `「`, `【`, etc.
+fn is_opening_bracket_at_line_end(text: &str) -> bool {
+    // Check if the text ends with opening bracket
+    let last_char = text.chars().last();
+    if let Some(c) = last_char {
+        return matches!(
+            c,
+            '(' | '[' | '{' | '（' | '「' | '【' | '『' | '《' | '〈' | '“' | '‘'
         );
     }
     false

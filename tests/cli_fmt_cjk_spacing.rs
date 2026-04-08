@@ -858,3 +858,28 @@ fn test_fmt_cjk_closing_paren_not_at_line_start() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_opening_paren_with_content() {
+    // Test that opening parenthesis stays with its content when wrapping
+    // Example: (`slice`) should not have `(` at line end and `slice` at line start
+    let input = "- **建议**: 处理超大压缩 TSV 时，支持 BGZF 索引是实现并行切片 (`slice`) 和随机采样 (`sample`)的基础。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--width", "35"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The opening parenthesis should be on the same line as its content
+    assert!(
+        !cm.contains("切片 (\n"),
+        "Opening parenthesis should not be at line end: got {}",
+        cm
+    );
+
+    // The content should be on the same line as the opening parenthesis
+    assert!(
+        cm.contains("切片 (`slice`)"),
+        "Opening parenthesis should be on the same line as its content: got {}",
+        cm
+    );
+}
