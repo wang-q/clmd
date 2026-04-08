@@ -1318,21 +1318,31 @@ fn render_html_block(
     _ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
 ) {
-    // Add blank line before HTML block (unless it's the first element)
-    writer.blank_line();
-
-    // Process the HTML content
     let content = &html.literal;
 
-    // Output the HTML content line by line
-    // Use split('\n') instead of lines() to preserve empty lines
-    for line in content.split('\n') {
-        writer.append_raw(line);
-        writer.line();
-    }
+    // Check if this is a single-line HTML comment (like <!-- TOC -->)
+    let is_single_line_comment = content.trim().starts_with("<!--")
+        && content.trim().ends_with("-->")
+        && !content.trim().contains('\n');
 
-    // Add trailing blank line after HTML block
-    writer.tail_blank_line();
+    if is_single_line_comment {
+        // For single-line HTML comments, output without extra blank lines
+        writer.append_raw(content.trim());
+        writer.line();
+    } else {
+        // For multi-line HTML blocks, add blank lines before and after
+        writer.blank_line();
+
+        // Output the HTML content line by line
+        // Use split('\n') instead of lines() to preserve empty lines
+        for line in content.split('\n') {
+            writer.append_raw(line);
+            writer.line();
+        }
+
+        // Add trailing blank line after HTML block
+        writer.tail_blank_line();
+    }
 }
 
 /// Collect text content from a cell node and its children

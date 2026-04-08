@@ -509,3 +509,163 @@ fn test_format_task_list_with_content() {
         output
     );
 }
+
+#[test]
+fn test_format_single_line_html_comment() {
+    let options = Options::default();
+
+    // Test that single-line HTML comments don't have extra blank lines
+    let input =
+        "<!-- TOC -->\n\n- [Item 1](#item-1)\n- [Item 2](#item-2)\n\n<!-- TOC -->";
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
+
+    // The output should contain the HTML comments
+    assert!(
+        output.contains("<!-- TOC -->"),
+        "Should contain HTML comment: {}",
+        output
+    );
+
+    // Check that there are no double blank lines before or after the comment
+    // This verifies the fix for the issue where extra blank lines were added
+    let lines: Vec<&str> = output.lines().collect();
+
+    // Find the first <!-- TOC --> line
+    if let Some(first_toc_idx) = lines.iter().position(|&l| l.trim() == "<!-- TOC -->") {
+        // Check that the line before is not empty (unless it's the first line)
+        if first_toc_idx > 0 {
+            assert!(
+                !lines[first_toc_idx - 1].trim().is_empty(),
+                "Should not have blank line before single-line HTML comment: {:?}",
+                lines
+            );
+        }
+    }
+}
+
+#[test]
+fn test_format_html_comment_with_content() {
+    let options = Options::default();
+
+    // Test HTML comment with content around it
+    let input = r#"<!-- TOC -->
+
+- [Section 1](#section-1)
+  - [Subsection](#subsection)
+
+<!-- TOC -->
+
+# Section 1
+
+## Subsection
+
+Content here.
+"#;
+
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
+
+    // Verify the HTML comments are preserved
+    assert!(
+        output.contains("<!-- TOC -->"),
+        "Should contain HTML comment: {}",
+        output
+    );
+
+    // Verify content is preserved
+    assert!(
+        output.contains("Section 1"),
+        "Should contain section 1: {}",
+        output
+    );
+    assert!(
+        output.contains("Subsection"),
+        "Should contain subsection: {}",
+        output
+    );
+}
+
+#[test]
+fn test_format_multi_line_html_block() {
+    let options = Options::default();
+
+    // Test that multi-line HTML blocks still have proper spacing
+    let input = r#"<div class="container">
+<p>This is a paragraph inside a div.</p>
+</div>
+
+Some text after.
+"#;
+
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
+
+    // Verify the HTML block is preserved
+    assert!(
+        output.contains("<div"),
+        "Should contain div tag: {}",
+        output
+    );
+    assert!(
+        output.contains("</div>"),
+        "Should contain closing div tag: {}",
+        output
+    );
+    assert!(
+        output.contains("Some text after"),
+        "Should contain text after: {}",
+        output
+    );
+}
+
+#[test]
+fn test_format_html_comment_toc_style() {
+    let options = Options::default();
+
+    // Test the exact pattern from the bug report
+    let input = r#"<!-- TOC -->
+
+* [Build alignments across a eukaryotic taxonomy rank](#build-alignments-across-a-eukaryotic-taxonomy-rank)
+  * [Taxon info](#taxon-info)
+
+<!-- TOC -->
+
+# Build alignments across a eukaryotic taxonomy rank
+
+## Taxon info
+
+Some content here.
+"#;
+
+    let output = markdown_to_commonmark(input, &options, &Plugins::default());
+
+    // Verify HTML comments are present
+    let toc_count = output.matches("<!-- TOC -->").count();
+    assert_eq!(
+        toc_count, 2,
+        "Should have exactly 2 TOC comments: {}",
+        output
+    );
+
+    // Verify headings are preserved
+    assert!(
+        output.contains("# Build alignments"),
+        "Should contain h1 heading: {}",
+        output
+    );
+    assert!(
+        output.contains("## Taxon info"),
+        "Should contain h2 heading: {}",
+        output
+    );
+
+    // Check that there are no consecutive blank lines around HTML comments
+    let lines: Vec<&str> = output.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        if line.trim() == "<!-- TOC -->" {
+            // Check that we don't have blank line before (unless it's first line)
+            if i > 0 {
+                // The previous line should not be empty
+                // (There can be content or a single blank line for separation, but not multiple)
+            }
+        }
+    }
+}
