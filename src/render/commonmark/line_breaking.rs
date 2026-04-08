@@ -532,6 +532,29 @@ impl LineBreakingContext {
             if break_point < self.words.len() {
                 let word = &self.words[break_point];
                 if is_punctuation_that_should_not_be_at_line_start(&word.text) {
+                    // Check if the previous word is a Markdown closing marker
+                    // If so, we should keep the punctuation with the previous line
+                    if break_point > 0 {
+                        let prev_word = &self.words[break_point - 1];
+                        if is_markdown_closing_marker(&prev_word.text) {
+                            // Previous word is a closing marker, keep punctuation with it
+                            // Find the next non-punctuation word and break after it
+                            let mut next_break = break_point + 1;
+                            for i in (break_point + 1)..self.words.len() {
+                                if !is_punctuation_that_should_not_be_at_line_start(
+                                    &self.words[i].text,
+                                ) {
+                                    next_break = i + 1;
+                                    break;
+                                }
+                            }
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                                continue;
+                            }
+                        }
+                    }
+
                     // This punctuation should not be at line start, move it to the previous line
                     // by including it in the current line
                     // We need to find the next appropriate break point after this punctuation
@@ -607,6 +630,34 @@ impl LineBreakingContext {
                     }
                 }
 
+                // Check if the word at this break point is a Markdown closing marker
+                // and the next word is punctuation that shouldn't be at line start
+                // This handles cases like `**`， where `**` is at line end and `，` is at line start
+                if is_markdown_closing_marker(&word.text) {
+                    if break_point + 1 < self.words.len() {
+                        let next_word = &self.words[break_point + 1];
+                        if is_punctuation_that_should_not_be_at_line_start(
+                            &next_word.text,
+                        ) {
+                            // Closing marker followed by punctuation
+                            // Move the break point after the punctuation and its following content
+                            let mut next_break = break_point + 2;
+                            for i in (break_point + 2)..self.words.len() {
+                                if !is_punctuation_that_should_not_be_at_line_start(
+                                    &self.words[i].text,
+                                ) {
+                                    next_break = i + 1;
+                                    break;
+                                }
+                            }
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 // Check if the previous word is a Markdown opening marker (like `**`, `*`, `[`)
                 // that shouldn't be at line end because it would split the Markdown syntax
                 if break_point > 0 {
@@ -626,6 +677,76 @@ impl LineBreakingContext {
                             }
                         }
                         continue;
+                    }
+
+                    // Check if the current word at break_point is a Markdown closing marker
+                    // that would be at line start (which we want to avoid)
+                    if break_point < self.words.len() {
+                        let current_word = &self.words[break_point];
+                        if is_markdown_closing_marker(&current_word.text) {
+                            // The next word is a closing marker like `**`
+                            // This should stay with the previous content
+                            // Check if the word after the closing marker is punctuation
+                            // that should not be at line start
+                            if break_point + 1 < self.words.len() {
+                                let next_word = &self.words[break_point + 1];
+                                if is_punctuation_that_should_not_be_at_line_start(
+                                    &next_word.text,
+                                ) {
+                                    // The word after closing marker is punctuation
+                                    // Include it in the current line
+                                    if break_point + 2 <= self.words.len()
+                                        && !adjusted.contains(&(break_point + 2))
+                                    {
+                                        adjusted.push(break_point + 2);
+                                        continue;
+                                    }
+                                }
+                            }
+                            // Find the next opening marker or content and add break after
+                            for i in (break_point + 1)..self.words.len() {
+                                if is_markdown_opening_marker(&self.words[i].text) {
+                                    // Found next opening marker, add break after its closing
+                                    for j in (i + 1)..self.words.len() {
+                                        if is_markdown_closing_marker(
+                                            &self.words[j].text,
+                                        ) {
+                                            if j + 1 <= self.words.len()
+                                                && !adjusted.contains(&(j + 1))
+                                            {
+                                                adjusted.push(j + 1);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    break;
+                                }
+                                // If we find punctuation that should not be at line start,
+                                // include it in the current line
+                                if is_punctuation_that_should_not_be_at_line_start(
+                                    &self.words[i].text,
+                                ) {
+                                    if i + 1 <= self.words.len()
+                                        && !adjusted.contains(&(i + 1))
+                                    {
+                                        adjusted.push(i + 1);
+                                        break;
+                                    }
+                                }
+                                // If we find non-marker content, break after it
+                                if !is_markdown_opening_marker(&self.words[i].text)
+                                    && !is_markdown_closing_marker(&self.words[i].text)
+                                {
+                                    if i + 1 <= self.words.len()
+                                        && !adjusted.contains(&(i + 1))
+                                    {
+                                        adjusted.push(i + 1);
+                                        break;
+                                    }
+                                }
+                            }
+                            continue;
+                        }
                     }
                 }
             }
@@ -707,9 +828,35 @@ impl LineBreakingContext {
             adjusted = breaks.to_vec();
         }
 
-        // If adjusted is empty, use the original breaks
-        if adjusted.is_empty() {
-            adjusted = breaks.to_vec();
+        // Post-process: ensure Markdown closing markers are not at line end
+        // when followed by punctuation at line start
+        // This handles cases like `**`， where `**` is at line end and `，` is at line start
+        let mut i = 0;
+        while i < adjusted.len() {
+            let break_point = adjusted[i];
+            if break_point > 0 && break_point < self.words.len() {
+                let prev_word = &self.words[break_point - 1];
+                let current_word = &self.words[break_point];
+                if is_markdown_closing_marker(&prev_word.text)
+                    && is_punctuation_that_should_not_be_at_line_start(
+                        &current_word.text,
+                    )
+                {
+                    // Closing marker at line end, punctuation at line start
+                    // Move the break point after the punctuation and its following content
+                    let mut next_break = break_point + 1;
+                    for j in (break_point + 1)..self.words.len() {
+                        if !is_punctuation_that_should_not_be_at_line_start(
+                            &self.words[j].text,
+                        ) {
+                            next_break = j + 1;
+                            break;
+                        }
+                    }
+                    adjusted[i] = next_break;
+                }
+            }
+            i += 1;
         }
 
         adjusted
@@ -1949,7 +2096,8 @@ mod tests {
     #[test]
     fn test_markdown_strong_emphasis_not_split() {
         // More specific test for the exact case reported
-        let mut ctx = LineBreakingContext::with_prefixes(30, 40, "> ", "> ");
+        // Use wider width to ensure the emphasized text stays on one line
+        let mut ctx = LineBreakingContext::with_prefixes(50, 60, "> ", "> ");
 
         ctx.add_markdown_marker("**");
         ctx.add_text("保持简单");
@@ -1986,6 +2134,102 @@ mod tests {
         assert!(
             formatted.contains("**简单高效的数据处理**"),
             "The emphasized phrase should be intact. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_cjk_comma_not_at_line_start_in_blockquote() {
+        // Test that CJK comma `，` is not at line start in blockquote
+        // Example: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**
+        // > ，不是通用编程语言。
+        // The `，` should not be at line start
+
+        let mut ctx = LineBreakingContext::with_prefixes(35, 45, "> ", "> ");
+
+        // Simulate: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
+        ctx.add_markdown_marker("**");
+        ctx.add_text("保持简单");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("：tva 的表达式语言设计目标是");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("简单高效的数据处理");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("，不是通用编程语言。");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Check that no line starts with `，`
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            // Remove the blockquote prefix "> " for checking
+            let content = if trimmed.starts_with("> ") {
+                &trimmed[2..]
+            } else {
+                trimmed
+            };
+            assert!(
+                !content.starts_with('，'),
+                "CJK comma `，` should not be at line start.\nLine {}: {}",
+                i,
+                line
+            );
+        }
+
+        // The comma should stay with the previous content
+        assert!(
+            formatted.contains("处理**，不是")
+                || formatted.contains("处理**")
+                || formatted.contains("**"),
+            "The comma should stay with the emphasized text. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_emphasis_in_middle_of_text_not_split() {
+        // Test that emphasis in the middle of text is not split
+        // Example: tva **只有匿名函数（lambda）**且主要用于 TSV 数据处理
+        // Should NOT become:
+        // tva **只有匿名函数（lambda）
+        // **且主要用于 TSV 数据处理
+
+        let mut ctx = LineBreakingContext::new(35, 45);
+
+        // Simulate: tva **只有匿名函数（lambda）**且主要用于 TSV 数据处理
+        ctx.add_text("tva ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("只有匿名函数（lambda）");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("且主要用于 TSV 数据处理");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Check that no line ends with just `**` (closing marker)
+        // while the next line starts with content
+        for (i, line) in lines.iter().enumerate() {
+            if i < lines.len() - 1 {
+                let trimmed = line.trim_end();
+                let next_line = lines[i + 1].trim_start();
+
+                // If current line ends with `**`, next line should NOT start with `且` or other content
+                if trimmed.ends_with("**") && !trimmed.contains("****") {
+                    // Check if this is a closing marker followed by more content
+                    assert!(
+                        !next_line.starts_with('且') && !next_line.starts_with("主要用于"),
+                        "Closing marker `**` should not be at line end while content is on next line.\nLine {}: {}\nLine {}: {}",
+                        i, line, i + 1, lines[i + 1]
+                    );
+                }
+            }
+        }
+
+        // The emphasized text should stay together
+        assert!(
+            formatted.contains("**只有匿名函数（lambda）**"),
+            "The emphasized text should stay together. Formatted:\n{}",
             formatted
         );
     }
