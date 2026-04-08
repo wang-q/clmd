@@ -135,3 +135,18 @@ fn test_cli_fmt_line_breaking_spec() {
 fn test_cli_fmt_spec() {
     run_cli_spec_file("tests/fixtures/cli_fmt_spec.md");
 }
+
+#[test]
+fn test_cli_stats_spec() {
+    run_cli_spec_file("tests/fixtures/cli_stats_spec.md");
+}
+
+#[test]
+fn test_cli_to_html_spec() {
+    run_cli_spec_file("tests/fixtures/cli_to_html_spec.md");
+}
+
+#[test]
+fn test_cli_toc_spec() {
+    run_cli_spec_file("tests/fixtures/cli_toc_spec.md");
+}
