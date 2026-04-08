@@ -739,6 +739,15 @@ impl LineBreakingContext {
                         {
                             // Don't break before comma, keep it with previous content
                             current_width += space_width + word_width;
+                        // Special case: if this word starts with CJK punctuation, keep it with previous content
+                        } else if self.words[i]
+                            .text
+                            .chars()
+                            .next()
+                            .map_or(false, is_cjk_punctuation)
+                        {
+                            // Don't break before CJK punctuation (。，；：！？、 etc.), keep it with previous content
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -3062,6 +3071,55 @@ mod tests {
         assert!(
             formatted.contains("](https://"),
             "URL should be on the same line as `](`. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_link_with_cjk_punctuation_not_at_line_start() {
+        // Test that CJK punctuation after link is NOT at line start
+        // Example: [link](url) 。测试。
+        let mut ctx = LineBreakingContext::new(60, 60);
+
+        // Simulate: - **HEPMASS** ( 4.8GB): [link](https://archive.ics.uci.edu/ml/datasets/HEPMASS) 。测试。
+        ctx.add_text("- **HEPMASS** ( 4.8GB): ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("link");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("https://archive.ics.uci.edu/ml/datasets/HEPMASS");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" 。测试。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let adjusted_breaks = ctx.adjust_breaks_for_punctuation(&breaks);
+        println!("Adjusted breaks: {:?}", adjusted_breaks);
+
+        let final_breaks = ctx.enforce_max_width(&adjusted_breaks);
+        println!("Final breaks: {:?}", final_breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // CJK period `。` should NOT be at line start
+        assert!(
+            !formatted.contains("\n  。"),
+            "CJK period should NOT be at line start. Formatted:\n{}",
+            formatted
+        );
+
+        // The period should be on the same line as the link
+        assert!(
+            formatted.contains(")。"),
+            "CJK period should be on the same line as the link. Formatted:\n{}",
             formatted
         );
     }
