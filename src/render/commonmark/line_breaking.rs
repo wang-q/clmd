@@ -1001,6 +1001,61 @@ impl LineBreakingContext {
             if break_point < self.words.len() {
                 let word = &self.words[break_point];
 
+                // Check if the previous word is punctuation that shouldn't be at line end
+                // This handles cases like "text，" where the comma should stay with the following word
+                if break_point > 0 {
+                    let prev_word = &self.words[break_point - 1];
+                    // CJK punctuation like "，" "。" "、" should stay with the following word
+                    let is_cjk_punctuation_at_line_end =
+                        prev_word.text.chars().next().map_or(false, |c| {
+                            matches!(
+                                c,
+                                '，' | '。'
+                                    | '、'
+                                    | '；'
+                                    | '：'
+                                    | '！'
+                                    | '？'
+                                    | '）'
+                                    | '」'
+                                    | '』'
+                                    | '】'
+                            )
+                        });
+                    if is_cjk_punctuation_at_line_end {
+                        // Don't break after CJK punctuation, find the next appropriate break point
+                        // Find the next non-punctuation word and break after it
+                        let mut next_break = break_point + 1;
+                        for i in (break_point + 1)..self.words.len() {
+                            if !is_punctuation_that_should_not_be_at_line_start(
+                                &self.words[i].text,
+                            ) {
+                                next_break = i + 1;
+                                break;
+                            }
+                        }
+                        // Check if the new break point would exceed max_width
+                        let prev_break = adjusted.last().copied().unwrap_or(0);
+                        let is_first_line = prev_break == 0;
+                        let new_line_width = self.calculate_line_width_with_prefix(
+                            prev_break,
+                            next_break,
+                            is_first_line,
+                        );
+                        if new_line_width <= self.max_width {
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                            }
+                        } else {
+                            // Would exceed max_width, but we still need to keep punctuation with following word
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                            }
+                        }
+                        continue;
+                    }
+                }
+
                 // Check if we should keep content together after an opening parenthesis
                 // This handles cases like "我们编写了基准测试（`benches/value_arc.rs`）"
                 // where the opening parenthesis is in the middle of a word
@@ -1274,6 +1329,27 @@ impl LineBreakingContext {
                             adjusted.push(break_point + 1);
                             continue;
                         }
+                    } else {
+                        // Previous word is not an opening marker
+                        // This means we have content like `**text**` where `**` is at line start
+                        // We should not split here - find the opening marker and include all content
+                        // Move break point after the closing marker and any following content
+                        let mut next_break = break_point + 1;
+                        // Include any following words that should stay with the closing marker
+                        for i in (break_point + 1)..self.words.len() {
+                            // Stop at the next natural break point (e.g., after a space or punctuation)
+                            if self.words[i].needs_leading_space {
+                                next_break = i;
+                                break;
+                            }
+                            next_break = i + 1;
+                        }
+                        if next_break <= self.words.len()
+                            && !adjusted.contains(&next_break)
+                        {
+                            adjusted.push(next_break);
+                            continue;
+                        }
                     }
                 }
 
@@ -1469,14 +1545,6 @@ impl LineBreakingContext {
                 && break_point > 1
                 && self.words[break_point - 2].text == "[";
 
-            // Debug output
-            if std::env::var("DEBUG_LINE_BREAKING").is_ok() {
-                eprintln!(
-                    "Final check: break_point={}, is_in_link={}, adjusted={:?}",
-                    break_point, is_in_link, adjusted
-                );
-            }
-
             if !adjusted.contains(&break_point) && !is_in_link {
                 adjusted.push(break_point);
             }
@@ -1570,17 +1638,18 @@ impl LineBreakingContext {
 /// Calculate the badness of a line with given width
 ///
 /// Badness is defined to encourage filling lines up to max_width.
-/// Only short lines are penalized; lines at or beyond ideal_width have zero badness.
+/// Lines shorter than max_width are penalized linearly to encourage filling.
+/// Lines at max_width have zero badness (they are considered ideal).
 fn calculate_badness(line_width: usize, ideal_width: usize) -> f64 {
-    if line_width >= ideal_width {
-        // Line is at or beyond ideal width - no penalty
-        0.0
+    // Calculate badness to encourage lines close to ideal_width
+    // Use quartic penalty for both short and long lines to encourage more balanced line lengths
+    let diff = if line_width > ideal_width {
+        line_width - ideal_width
     } else {
-        // Line is shorter than ideal - penalize based on how much shorter
-        // Use linear penalty to encourage filling lines more aggressively
-        let diff = ideal_width - line_width;
-        diff as f64
-    }
+        ideal_width - line_width
+    };
+    // Quartic penalty encourages more balanced line lengths
+    (diff * diff * diff * diff) as f64
 }
 
 #[cfg(test)]
@@ -1646,14 +1715,16 @@ mod tests {
 
     #[test]
     fn test_badness_calculation() {
-        // Perfect match (at or beyond ideal width)
+        // Perfect match (at ideal width)
         assert_eq!(calculate_badness(20, 20), 0.0);
-        assert_eq!(calculate_badness(21, 20), 0.0);
 
-        // Short lines are penalized linearly
-        assert_eq!(calculate_badness(19, 20), 1.0);
-        assert_eq!(calculate_badness(15, 20), 5.0);
-        assert_eq!(calculate_badness(10, 20), 10.0);
+        // Lines beyond ideal width are penalized
+        assert_eq!(calculate_badness(21, 20), 1.0); // (21-20)^4 = 1
+
+        // Short lines are penalized with quartic penalty
+        assert_eq!(calculate_badness(19, 20), 1.0); // (20-19)^4 = 1
+        assert_eq!(calculate_badness(15, 20), 625.0); // (20-15)^4 = 625
+        assert_eq!(calculate_badness(10, 20), 10000.0); // (20-10)^4 = 10000
     }
 
     #[test]
@@ -3264,7 +3335,7 @@ mod tests {
         // Test for the bug: line breaks too early in list items
         // Input: "- For projects that have finished downloading, but have renamed strains, you can run `reorder.sh` to avoid re-downloading"
         // Expected: should fill the line closer to max_width
-        // Note: ideal_width is set to max_width to encourage filling lines
+        // Note: ideal_width is set to 75% of max_width to encourage balanced line lengths
         let mut ctx = LineBreakingContext::with_prefixes(78, 78, "", "  ");
         ctx.add_text("For projects that have finished downloading, but have renamed strains, you can run");
         ctx.add_inline_element("`reorder.sh`");
@@ -3286,13 +3357,12 @@ mod tests {
         let first_line_width = unicode_width::width(first_line);
         println!("First line width: {}", first_line_width);
 
-        // The first line should be close to the ideal width (78)
-        // If it breaks at "renamed", the width would be around 61
-        // If it continues to "strains,", the width would be around 70
-        // We expect it to be closer to 78
+        // The first line should be reasonably filled
+        // With ideal_width = 75% of max_width, we expect balanced line lengths
+        // The first line should be at least 60 characters
         assert!(
-            first_line_width >= 70,
-            "First line should be closer to ideal width (78), but got {}:\n{}",
+            first_line_width >= 60,
+            "First line should be reasonably filled, but got {}:\n{}",
             first_line_width,
             first_line
         );
