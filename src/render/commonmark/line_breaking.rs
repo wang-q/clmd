@@ -569,11 +569,14 @@ impl LineBreakingContext {
         // Post-process breaks to prevent punctuation from being at line start
         let adjusted_breaks = self.adjust_breaks_for_punctuation(&breaks);
 
+        // Post-process to ensure no line exceeds max_width
+        let final_breaks = self.enforce_max_width(&adjusted_breaks);
+
         let mut result = String::new();
         let mut start = 0;
         let mut is_first_line = true;
 
-        for &end in &adjusted_breaks {
+        for &end in &final_breaks {
             // Add appropriate prefix
             if is_first_line {
                 result.push_str(&self.first_line_prefix);
@@ -616,6 +619,273 @@ impl LineBreakingContext {
                     result.push(' ');
                 }
                 result.push_str(&self.words[i].text);
+            }
+        }
+
+        result
+    }
+
+    /// Enforce max_width by adding additional breaks if necessary
+    /// This ensures that no line exceeds max_width after punctuation adjustments
+    fn enforce_max_width(&self, breaks: &[usize]) -> Vec<usize> {
+        let mut result = Vec::new();
+        let mut start = 0;
+        let first_prefix_width = unicode_width::width(&self.first_line_prefix) as usize;
+        let cont_prefix_width = unicode_width::width(&self.continuation_prefix) as usize;
+
+        for &end in breaks {
+            let is_first_line = start == 0;
+            let prefix_width = if is_first_line {
+                first_prefix_width
+            } else {
+                cont_prefix_width
+            };
+            let effective_max_width = self.max_width.saturating_sub(prefix_width);
+
+            // Check if this line exceeds max_width
+            let line_width = self.calculate_line_width(start, end);
+
+            if line_width > effective_max_width {
+                // Need to add intermediate breaks
+                let mut current_start = start;
+                let mut current_width = 0;
+
+                for i in start..end {
+                    let word_width = self.words[i].width;
+                    let mut space_width = if i > current_start
+                        && (self.words[i].needs_leading_space
+                            || self.words[i - 1].has_trailing_space)
+                    {
+                        1
+                    } else {
+                        0
+                    };
+
+                    // Special case: if current word is `]` and next word is `(`,
+                    // don't add space between them (link structure)
+                    if self.words[i].text == "]"
+                        && i + 1 < self.words.len()
+                        && self.words[i + 1].text == "("
+                    {
+                        space_width = 0;
+                    }
+
+                    // Check if adding this word would exceed max_width
+                    if current_width + space_width + word_width > effective_max_width
+                        && i > current_start
+                    {
+                        // Special case: if this word is `)` and previous word is not `(`,
+                        // keep `)` with the previous word (it's a link URL closing)
+                        if self.words[i].text == ")"
+                            && i > 0
+                            && self.words[i - 1].text != "("
+                        {
+                            // Don't break before `)`, include it in current line
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `(` and previous word is `]`,
+                        // keep `](` together (it's a link structure)
+                        } else if self.words[i].text == "("
+                            && i > 0
+                            && self.words[i - 1].text == "]"
+                        {
+                            // Don't break before `(`, keep `](` together
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `]` and next word is `(`,
+                        // keep `](` together (it's a link structure)
+                        } else if self.words[i].text == "]"
+                            && i + 1 < self.words.len()
+                            && self.words[i + 1].text == "("
+                        {
+                            // Don't break before `]`, keep `](` together
+                            current_width += space_width + word_width;
+                        // Special case: if previous word is `(` (link URL start),
+                        // keep URL with the opening parenthesis
+                        } else if i > 0 && self.words[i - 1].text == "(" {
+                            // Don't break after `(`, keep URL with opening paren
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `（` (full-width opening parenthesis),
+                        // keep it with the following content
+                        } else if self.words[i].text == "（" {
+                            // Don't break before `（`, keep it with following content
+                            current_width += space_width + word_width;
+                        // Special case: if this word is backtick (inline code marker),
+                        // keep it with the content
+                        } else if self.words[i].text == "`" {
+                            // Don't break before backtick, keep it with content
+                            current_width += space_width + word_width;
+                        // Special case: if this word contains backtick (inline code content),
+                        // keep it with the content
+                        } else if self.words[i].text.contains('`') {
+                            // Don't break before inline code content, keep it together
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `）` (full-width closing parenthesis)
+                        // and previous word contains backtick, keep it with inline code
+                        } else if self.words[i].text == "）"
+                            && i > 0
+                            && self.words[i - 1].text.contains('`')
+                        {
+                            // Don't break before `）`, keep it with inline code
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `**` (Markdown emphasis),
+                        // keep it with the content
+                        } else if self.words[i].text == "**" {
+                            // Don't break before `**`, keep it with content
+                            current_width += space_width + word_width;
+                        // Special case: if previous word is `**` (Markdown emphasis),
+                        // keep content with the marker
+                        } else if i > 0 && self.words[i - 1].text == "**" {
+                            // Don't break after `**`, keep content with marker
+                            current_width += space_width + word_width;
+                        // Special case: if this word is comma, keep it with previous content
+                        } else if self.words[i].text == "，" || self.words[i].text == ","
+                        {
+                            // Don't break before comma, keep it with previous content
+                            current_width += space_width + word_width;
+                        } else {
+                            // Add break before this word
+                            result.push(i);
+                            current_start = i;
+                            current_width = word_width;
+                        }
+                    } else {
+                        current_width += space_width + word_width;
+                    }
+                }
+
+                // Add the final break for this segment
+                if current_start < end {
+                    result.push(end);
+                }
+            } else {
+                result.push(end);
+            }
+
+            start = end;
+        }
+
+        // Handle any remaining words
+        if start < self.words.len() {
+            let is_first_line = start == 0;
+            let prefix_width = if is_first_line {
+                first_prefix_width
+            } else {
+                cont_prefix_width
+            };
+            let effective_max_width = self.max_width.saturating_sub(prefix_width);
+
+            let line_width = self.calculate_line_width(start, self.words.len());
+
+            if line_width > effective_max_width {
+                // Need to add intermediate breaks
+                let mut current_start = start;
+                let mut current_width = 0;
+
+                for i in start..self.words.len() {
+                    let word_width = self.words[i].width;
+                    let mut space_width = if i > current_start
+                        && (self.words[i].needs_leading_space
+                            || self.words[i - 1].has_trailing_space)
+                    {
+                        1
+                    } else {
+                        0
+                    };
+
+                    // Special case: if current word is `]` and next word is `(`,
+                    // don't add space between them (link structure)
+                    if self.words[i].text == "]"
+                        && i + 1 < self.words.len()
+                        && self.words[i + 1].text == "("
+                    {
+                        space_width = 0;
+                    }
+
+                    // Check if adding this word would exceed max_width
+                    if current_width + space_width + word_width > effective_max_width
+                        && i > current_start
+                    {
+                        // Special case: if this word is `)` and previous word is not `(`,
+                        // keep `)` with the previous word (it's a link URL closing)
+                        if self.words[i].text == ")"
+                            && i > 0
+                            && self.words[i - 1].text != "("
+                        {
+                            // Don't break before `)`, include it in current line
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `(` and previous word is `]`,
+                        // keep `](` together (it's a link structure)
+                        } else if self.words[i].text == "("
+                            && i > 0
+                            && self.words[i - 1].text == "]"
+                        {
+                            // Don't break before `(`, keep `](` together
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `]` and next word is `(`,
+                        // keep `](` together (it's a link structure)
+                        } else if self.words[i].text == "]"
+                            && i + 1 < self.words.len()
+                            && self.words[i + 1].text == "("
+                        {
+                            // Don't break before `]`, keep `](` together
+                            current_width += space_width + word_width;
+                        // Special case: if previous word is `(` (link URL start),
+                        // keep URL with the opening parenthesis
+                        } else if i > 0 && self.words[i - 1].text == "(" {
+                            // Don't break after `(`, keep URL with opening paren
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `（` (full-width opening parenthesis),
+                        // keep it with the following content
+                        } else if self.words[i].text == "（" {
+                            // Don't break before `（`, keep it with following content
+                            current_width += space_width + word_width;
+                        // Special case: if this word is backtick (inline code marker),
+                        // keep it with the content
+                        } else if self.words[i].text == "`" {
+                            // Don't break before backtick, keep it with content
+                            current_width += space_width + word_width;
+                        // Special case: if this word contains backtick (inline code content),
+                        // keep it with the content
+                        } else if self.words[i].text.contains('`') {
+                            // Don't break before inline code content, keep it together
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `）` (full-width closing parenthesis)
+                        // and previous word contains backtick, keep it with inline code
+                        } else if self.words[i].text == "）"
+                            && i > 0
+                            && self.words[i - 1].text.contains('`')
+                        {
+                            // Don't break before `）`, keep it with inline code
+                            current_width += space_width + word_width;
+                        // Special case: if this word is `**` (Markdown emphasis),
+                        // keep it with the content
+                        } else if self.words[i].text == "**" {
+                            // Don't break before `**`, keep it with content
+                            current_width += space_width + word_width;
+                        // Special case: if previous word is `**` (Markdown emphasis),
+                        // keep content with the marker
+                        } else if i > 0 && self.words[i - 1].text == "**" {
+                            // Don't break after `**`, keep content with marker
+                            current_width += space_width + word_width;
+                        // Special case: if this word is comma, keep it with previous content
+                        } else if self.words[i].text == "，" || self.words[i].text == ","
+                        {
+                            // Don't break before comma, keep it with previous content
+                            current_width += space_width + word_width;
+                        } else {
+                            // Add break before this word
+                            result.push(i);
+                            current_start = i;
+                            current_width = word_width;
+                        }
+                    } else {
+                        current_width += space_width + word_width;
+                    }
+                }
+
+                // Add final break
+                result.push(self.words.len());
+            } else {
+                result.push(self.words.len());
             }
         }
 
@@ -689,22 +959,15 @@ impl LineBreakingContext {
                     if break_point + 1 <= self.words.len() {
                         // Check if there's more content after this punctuation
                         if break_point + 1 < self.words.len() {
-                            // Special case: if current word is `]` and next word is `(`,
-                            // this is a link `[text](url)`. Find the closing `)` and include it.
+                            // Special case: if current word is `]` and next word is `(`
+                            // this is a link `[text](url)`. Keep `]` with the previous content
+                            // and let the opening bracket logic handle `(`.
                             if word.text == "]"
                                 && self.words[break_point + 1].text == "("
                             {
-                                // Find the closing `)` of the link
-                                for i in (break_point + 2)..self.words.len() {
-                                    if self.words[i].text == ")" {
-                                        // Found the closing `)`, include it and any following content
-                                        let next_break = i + 1;
-                                        if !adjusted.contains(&next_break) {
-                                            adjusted.push(next_break);
-                                        }
-                                        break;
-                                    }
-                                }
+                                // Don't add break at `]`, let it stay with previous content
+                                // The opening bracket logic below will handle `(`
+                                // and keep `(url)` together
                                 continue;
                             }
 
@@ -749,13 +1012,17 @@ impl LineBreakingContext {
                         if self.words[i].text.starts_with(')')
                             || self.words[i].text.starts_with('）')
                         {
+                            // Found the closing bracket, add break after it
+                            // and let the normal break handling handle the following content
                             if i + 1 <= self.words.len() && !adjusted.contains(&(i + 1))
                             {
                                 adjusted.push(i + 1);
-                                break;
                             }
+                            break;
                         }
                     }
+                    // Don't continue here, let the normal break handling apply
+                    // to ensure following content is properly broken
                     continue;
                 }
 
@@ -2713,6 +2980,109 @@ mod tests {
         assert!(
             !formatted.contains("\n)"),
             "Closing parenthesis should NOT be on its own line. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_long_url_link_with_following_text() {
+        // Test that long URLs in links are formatted correctly with following text
+        let mut ctx = LineBreakingContext::new(40, 50);
+
+        // Simulate: [URL](URL) 使用的严格基准测试策略。
+        ctx.add_markdown_marker("[");
+        ctx.add_text_as_word("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_link_close_marker(")");
+        ctx.add_text("使用的严格基准测试策略。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = ctx.format();
+
+        // The `)` should NOT be on its own line
+        assert!(
+            !formatted.contains("\n)"),
+            "Closing parenthesis should NOT be on its own line. Formatted:\n{}",
+            formatted
+        );
+
+        // `](` should NOT be split across lines
+        assert!(
+            !formatted.contains("]\n("),
+            "`](` should NOT be split across lines. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_debug_markdown_emphasis() {
+        // Debug test for Markdown emphasis
+        let mut ctx = LineBreakingContext::with_prefixes(35, 45, "> ", "> ");
+
+        // Simulate: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
+        ctx.add_markdown_marker("**");
+        ctx.add_text("保持简单");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("：tva 的表达式语言设计目标是");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("简单高效的数据处理");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("，不是通用编程语言。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // The emphasized text should stay together
+        assert!(
+            formatted.contains("**简单高效的数据处理**"),
+            "Emphasized text should stay together. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_debug_fullwidth_paren() {
+        // Debug test for full-width opening parenthesis
+        let mut ctx = LineBreakingContext::new(80, 90);
+
+        // Simulate: 针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写了基准测试（`benches/value_arc.rs`），对比当前直接克隆与使用 `Arc` 包装后的性能差异。
+        ctx.add_text("针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写了基准测试（`benches/value_arc.rs`），对比当前直接克隆与使用 `Arc` 包装后的性能差异。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // The opening parenthesis should be directly followed by the inline code
+        assert!(
+            formatted.contains("（`benches/value_arc.rs`）"),
+            "Opening parenthesis should be directly followed by inline code. Formatted:\n{}",
             formatted
         );
     }
