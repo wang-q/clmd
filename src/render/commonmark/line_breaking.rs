@@ -163,7 +163,8 @@ impl LineBreakingContext {
         }
         // Always reset the flags after processing a word
         self.next_word_no_leading_space = false;
-        self.after_inline_code = false;
+        // Don't reset after_inline_code here, let add_inline_element set it
+        // and let add_text check it before resetting
         self.words.push(word);
     }
 
@@ -174,6 +175,9 @@ impl LineBreakingContext {
         // Split text by whitespace first
         let whitespace_separated: Vec<&str> = text.split_whitespace().collect();
         let total_segments = whitespace_separated.len();
+        // Check if the original text ends with whitespace
+        let ends_with_whitespace =
+            text.chars().last().map_or(false, |c| c.is_whitespace());
 
         for (i, segment) in whitespace_separated.iter().enumerate() {
             // Check if this segment contains CJK characters
@@ -234,26 +238,29 @@ impl LineBreakingContext {
                     .next()
                     .map_or(false, |c| matches!(c, '(' | '[' | '{'));
 
+                // Check if this is the first segment and original text starts with whitespace
+                let starts_with_whitespace =
+                    text.chars().next().map_or(false, |c| c.is_whitespace());
+
                 if self.next_word_no_leading_space || self.after_inline_code {
                     // If the text starts with punctuation that should NOT have leading space,
                     // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
                     // But for `(`, `[`, etc., we should keep the leading space
                     // For opening brackets after inline code, also add space
-                    if is_no_space_punct && !starts_with_bracket {
+                    // However, if original text starts with whitespace, preserve it
+                    if is_no_space_punct
+                        && !starts_with_bracket
+                        && !starts_with_whitespace
+                    {
                         word.needs_leading_space = false;
                     }
                 } else {
                     // Previous element was not a Markdown marker (e.g., inline code)
                     // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
                     // don't add leading space
-                    if is_no_space_punct {
+                    if is_no_space_punct && !starts_with_whitespace {
                         word.needs_leading_space = false;
                     }
-                }
-                // If this is the last segment, don't add trailing space by default
-                // (the next element will decide if space is needed)
-                if i == total_segments - 1 {
-                    word.has_trailing_space = false;
                 }
                 // For punctuation like `:`, `,`, `.` that are not at the end,
                 // we should add trailing space so that the next word has space before it
@@ -261,14 +268,22 @@ impl LineBreakingContext {
                 if i < total_segments - 1 && segment.len() == 1 && is_no_space_punct {
                     word.has_trailing_space = true;
                 }
-                // For punctuation like `:` at the end, we should also add trailing space
-                // so that the next element (e.g., inline code) has space before it
-                if i == total_segments - 1 && segment.len() == 1 && *segment == ":" {
-                    word.has_trailing_space = true;
+                // If this is the last segment, check if the original text ends with whitespace
+                // If so, preserve the trailing space
+                if i == total_segments - 1 {
+                    if ends_with_whitespace {
+                        // Original text had whitespace at the end, preserve it
+                        word.has_trailing_space = true;
+                    } else {
+                        // No trailing whitespace in original text
+                        word.has_trailing_space = false;
+                    }
                 }
                 self.add_word(word);
             }
         }
+        // Reset after_inline_code after processing all segments
+        self.after_inline_code = false;
     }
 
     /// Add text as a single word without splitting
@@ -1263,11 +1278,33 @@ mod tests {
 
     #[test]
     fn test_colon_space_before_inline_code() {
-        // Test that colon has trailing space before inline code
+        // Test that colon preserves trailing space before inline code when present
         // Example: - **频率表型**: `FrequencyTables::merge()` 合并多个 `Counter`
         let mut ctx = LineBreakingContext::new(80, 80);
 
         // Simulate: - **频率表型**: `FrequencyTables::merge()`
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("频率表型");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(": ");
+        ctx.add_inline_element("`FrequencyTables::merge()`");
+
+        let formatted = ctx.format();
+
+        // The colon should preserve the trailing space from original input
+        assert!(
+            formatted.contains(": `FrequencyTables::merge()`"),
+            "Colon should preserve trailing space before inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_colon_no_space_before_inline_code() {
+        // Test that colon has no trailing space before inline code when original has no space
+        let mut ctx = LineBreakingContext::new(80, 80);
+
         ctx.add_text("- ");
         ctx.add_markdown_marker("**");
         ctx.add_text("频率表型");
@@ -1277,17 +1314,17 @@ mod tests {
 
         let formatted = ctx.format();
 
-        // The colon should have a trailing space before inline code
+        // The colon should have no trailing space when original has no space
         assert!(
-            formatted.contains(": `FrequencyTables::merge()`"),
-            "Colon should have trailing space before inline code: got {}",
+            formatted.contains(":`FrequencyTables::merge()`"),
+            "Colon should have no trailing space when original has no space: got {}",
             formatted
         );
     }
 
     #[test]
-    fn test_slash_no_space_around_inline_code() {
-        // Test that slash has no space around inline code
+    fn test_slash_space_around_inline_code() {
+        // Test that slash preserves spaces around inline code when present
         // Example: - `scores.txt` / `scores_h.txt`: 成对的无表头/有表头示例。
         let mut ctx = LineBreakingContext::new(80, 80);
 
@@ -1300,10 +1337,31 @@ mod tests {
 
         let formatted = ctx.format();
 
-        // The slash should have no space around inline code
+        // The slash should preserve spaces from original input
+        assert!(
+            formatted.contains("`scores.txt` / `scores_h.txt`:"),
+            "Slash should preserve spaces around inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_slash_no_space_around_inline_code() {
+        // Test that slash has no space around inline code when original has no space
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_inline_element("`scores.txt`");
+        ctx.add_text("/");
+        ctx.add_inline_element("`scores_h.txt`");
+        ctx.add_text(":");
+
+        let formatted = ctx.format();
+
+        // The slash should have no space when original has no space
         assert!(
             formatted.contains("`scores.txt`/`scores_h.txt`:"),
-            "Slash should have no space around inline code: got {}",
+            "Slash should have no space when original has no space: got {}",
             formatted
         );
     }
@@ -1339,6 +1397,52 @@ mod tests {
         assert!(
             formatted.contains("`cmd/parallel.rs` (~1600 行)"),
             "Opening parenthesis should have leading space after inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_comma_space_after_inline_code() {
+        // Test that comma preserves trailing space after inline code when present
+        // Example: - 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: - 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）
+        ctx.add_text("- 行动: 添加 `--relationship` 标志（例如");
+        ctx.add_inline_element("`one-to-one`");
+        ctx.add_text(", ");
+        ctx.add_inline_element("`many-to-one`");
+        ctx.add_text("）在连接时验证键。");
+
+        let formatted = ctx.format();
+
+        // The comma should preserve the trailing space from original input
+        assert!(
+            formatted.contains("`one-to-one`, `many-to-one`"),
+            "Comma should preserve trailing space after inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_comma_no_space_after_inline_code() {
+        // Test that comma has no trailing space after inline code when original has no space
+        // Example: - 行动: 添加 `--relationship` 标志（例如 `one-to-one`,`many-to-one`）
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: - 行动: 添加 `--relationship` 标志（例如 `one-to-one`,`many-to-one`）
+        ctx.add_text("- 行动: 添加 `--relationship` 标志（例如");
+        ctx.add_inline_element("`one-to-one`");
+        ctx.add_text(",");
+        ctx.add_inline_element("`many-to-one`");
+        ctx.add_text("）在连接时验证键。");
+
+        let formatted = ctx.format();
+
+        // The comma should have no trailing space when original has no space
+        assert!(
+            formatted.contains("`one-to-one`,`many-to-one`"),
+            "Comma should have no trailing space when original has no space: got {}",
             formatted
         );
     }

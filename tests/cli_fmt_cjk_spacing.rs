@@ -380,6 +380,24 @@ fn test_fmt_cjk_punctuation_various_marks() {
 }
 
 #[test]
+fn test_fmt_cjk_comma_between_inline_codes() {
+    // Test that comma between inline codes has no extra spaces
+    // Example: `one-to-one`, `many-to-one`
+    let input = "- 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）在连接时验证键。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--width", "120"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The comma should have no space before it and one space after it
+    assert!(
+        cm.contains("`one-to-one`, `many-to-one`"),
+        "Comma between inline codes should have no space before and one space after: got {}",
+        cm
+    );
+}
+
+#[test]
 fn test_fmt_cjk_punctuation_at_line_start() {
     // Test CJK punctuation at the start of a line
     let input = "：这是以冒号开头的句子。".as_bytes();
