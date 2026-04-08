@@ -153,7 +153,11 @@ impl LineBreakingContext {
         // If next_word_no_leading_space is set and word needs leading space,
         // clear it unless the word starts with opening brackets that should have leading space
         // (e.g., `(`, `[`, `{` after inline code should have space, but `:`, `,`, `.` should not)
-        if self.next_word_no_leading_space && word.needs_leading_space {
+        // However, don't clear it if we're after inline code - let add_text handle that
+        if self.next_word_no_leading_space
+            && word.needs_leading_space
+            && !self.after_inline_code
+        {
             // Check if the word starts with opening brackets that should have leading space
             let first_char = word.text.chars().next();
             let is_opening_bracket =
@@ -268,6 +272,14 @@ impl LineBreakingContext {
                         {
                             word.needs_leading_space = false;
                         }
+                        // When after inline code, if original text doesn't start with whitespace
+                        // and it's not an opening bracket, don't add leading space (preserve original spacing)
+                        if self.after_inline_code
+                            && !starts_with_whitespace
+                            && !starts_with_bracket
+                        {
+                            word.needs_leading_space = false;
+                        }
                     } else {
                         // Previous element was not a Markdown marker (e.g., inline code)
                         // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
@@ -346,6 +358,25 @@ impl LineBreakingContext {
         self.next_word_no_leading_space = true;
         // Reset after_inline_code since this is a marker, not inline code
         self.after_inline_code = false;
+    }
+
+    /// Add a link/image close marker `)`
+    /// This sets after_inline_code to true so subsequent text preserves spacing
+    pub fn add_link_close_marker(&mut self, text: &str) {
+        let mut word = Word::new_mark(text);
+        // Check if previous word ends with CJK character
+        if let Some(prev_word) = self.words.last() {
+            if let Some(last_char) = prev_word.text.chars().last() {
+                if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
+                    word.needs_leading_space = true;
+                }
+            }
+        }
+        self.add_word(word);
+        // The next word should not have a leading space (unless it's CJK punctuation)
+        self.next_word_no_leading_space = true;
+        // Set after_inline_code to true so that subsequent `/` knows it's after a link
+        self.after_inline_code = true;
     }
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
@@ -517,6 +548,7 @@ impl LineBreakingContext {
     /// Format the paragraph with the computed line breaks
     pub fn format(&self) -> String {
         let breaks = self.compute_breaks();
+
         if breaks.is_empty() {
             // No breaks needed, return all words joined with first line prefix
             let mut result = self.first_line_prefix.clone();
@@ -603,6 +635,31 @@ impl LineBreakingContext {
             if break_point < self.words.len() {
                 let word = &self.words[break_point];
                 if is_punctuation_that_should_not_be_at_line_start(&word.text) {
+                    // Special case: `)` at line start when previous word is not `(`
+                    // This happens when a long URL is split across lines in a link
+                    // Keep the `)` with the previous line (the URL)
+                    if word.text == ")" && break_point > 0 {
+                        let prev_word = &self.words[break_point - 1];
+                        if prev_word.text != "(" {
+                            // prev_word is not "(", which means this is a long URL in a link
+                            // Include all remaining content (like `) b`) in the current line
+                            // Always use words.len() as the break point to include `)` and any following content
+                            let next_break = self.words.len();
+                            // Remove any existing breaks that are after break_point to ensure
+                            // `)` and following content stay on the same line as the URL
+                            adjusted.retain(|&b| b <= break_point);
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                            }
+                            continue;
+                        } else {
+                            // prev_word is "(", which means this is a link like `[text](url)`
+                            // The opening marker logic below will handle this case
+                            // Skip adding a break here to avoid duplication
+                            continue;
+                        }
+                    }
+
                     // Check if the previous word is a Markdown closing marker
                     // If so, we should keep the punctuation with the previous line
                     if break_point > 0 {
@@ -632,6 +689,25 @@ impl LineBreakingContext {
                     if break_point + 1 <= self.words.len() {
                         // Check if there's more content after this punctuation
                         if break_point + 1 < self.words.len() {
+                            // Special case: if current word is `]` and next word is `(`,
+                            // this is a link `[text](url)`. Find the closing `)` and include it.
+                            if word.text == "]"
+                                && self.words[break_point + 1].text == "("
+                            {
+                                // Find the closing `)` of the link
+                                for i in (break_point + 2)..self.words.len() {
+                                    if self.words[i].text == ")" {
+                                        // Found the closing `)`, include it and any following content
+                                        let next_break = i + 1;
+                                        if !adjusted.contains(&next_break) {
+                                            adjusted.push(next_break);
+                                        }
+                                        break;
+                                    }
+                                }
+                                continue;
+                            }
+
                             // Find the next non-punctuation word and the word after it
                             // We want to break after the word that follows the punctuation
                             // to ensure the punctuation stays with the previous line
@@ -729,20 +805,64 @@ impl LineBreakingContext {
                     }
                 }
 
-                // Check if the previous word is a Markdown opening marker (like `**`, `*`, `[`)
+                // Check if the previous word is a Markdown opening marker (like `**`, `*`, `[`, `(`)
                 // that shouldn't be at line end because it would split the Markdown syntax
+                // Also check if current word is `]` which means we're at the end of link text
                 if break_point > 0 {
                     let prev_word = &self.words[break_point - 1];
-                    if is_markdown_opening_marker(&prev_word.text) {
+                    let is_link_end = word.text == "]"
+                        && break_point > 1
+                        && self.words[break_point - 2].text == "[";
+                    // Special case: if prev_word is `[` or `(` but current word is not the corresponding closing marker,
+                    // this means we're in the middle of link text (e.g., `[URL` or `(URL`)
+                    // Don't apply the opening marker logic here, let the normal break handling apply
+                    let is_in_link_text = (prev_word.text == "[" && word.text != "]")
+                        || (prev_word.text == "(" && word.text != ")");
+                    if (is_markdown_opening_marker(&prev_word.text) && !is_in_link_text)
+                        || prev_word.text == "("
+                        || is_link_end
+                    {
                         // The opening marker is at line end, we should keep it with the next word
                         // Find the corresponding closing marker and add a break after it
+                        // Also include any following content (like `) b` should stay together)
                         for i in break_point..self.words.len() {
                             if is_markdown_closing_marker(&self.words[i].text) {
-                                // Found the closing marker, add break after it
-                                if i + 1 <= self.words.len()
-                                    && !adjusted.contains(&(i + 1))
+                                // Found the closing marker (e.g., `]` for links)
+                                // For links like `[text](url)`, we need to also include the `(url)` part
+                                // Check if the next word is `(` (start of link URL)
+                                let mut next_break = i + 1;
+                                if i + 1 < self.words.len()
+                                    && self.words[i + 1].text == "("
                                 {
-                                    adjusted.push(i + 1);
+                                    // This is a link `[text](url)`, find the closing `)`
+                                    for k in (i + 2)..self.words.len() {
+                                        if self.words[k].text == ")" {
+                                            // Found the closing `)`, include it and any following content
+                                            next_break = k + 1;
+                                            for j in (k + 1)..self.words.len() {
+                                                if !is_punctuation_that_should_not_be_at_line_start(
+                                                    &self.words[j].text,
+                                                ) {
+                                                    next_break = j + 1;
+                                                    break;
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    // Not a link, just find the next non-punctuation word
+                                    for j in (i + 1)..self.words.len() {
+                                        if !is_punctuation_that_should_not_be_at_line_start(
+                                            &self.words[j].text,
+                                        ) {
+                                            next_break = j + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if !adjusted.contains(&next_break) {
+                                    adjusted.push(next_break);
                                     break;
                                 }
                             }
@@ -826,7 +946,14 @@ impl LineBreakingContext {
             // This ensures `(` stays with its content like (`slice`)
             if break_point > 0 && break_point < self.words.len() {
                 let prev_word = &self.words[break_point - 1];
-                if is_opening_bracket_at_line_end(&prev_word.text) {
+                let current_word = &self.words[break_point];
+                // Special case: if prev_word is `[` or `(` but current word is not the corresponding closing marker,
+                // this means we're in the middle of link text (e.g., `[URL` or `(URL`)
+                // Don't apply the opening bracket logic here, let the normal break handling apply
+                let is_in_link_text = (prev_word.text == "["
+                    && current_word.text != "]")
+                    || (prev_word.text == "(" && current_word.text != ")");
+                if is_opening_bracket_at_line_end(&prev_word.text) && !is_in_link_text {
                     // The previous word ends with `(`, we should keep it with the next word
                     // Find the closing bracket and add a break after it
                     for i in break_point..self.words.len() {
@@ -868,8 +995,20 @@ impl LineBreakingContext {
                 }
             }
 
-            adjusted.push(break_point);
+            // Skip adding break_point if it's in the middle of a link
+            // This happens when prev_word is "]" and we're at the start of link URL
+            let is_in_link = break_point > 0
+                && self.words[break_point - 1].text == "]"
+                && break_point > 1
+                && self.words[break_point - 2].text == "[";
+            if !adjusted.contains(&break_point) && !is_in_link {
+                adjusted.push(break_point);
+            }
         }
+
+        // Sort adjusted breaks to ensure they are in order
+        adjusted.sort_unstable();
+        adjusted.dedup();
 
         // Post-process: ensure the last break includes all remaining words
         // This handles the case where the last word is punctuation like `)`
@@ -1840,6 +1979,178 @@ mod tests {
     }
 
     #[test]
+    fn test_slash_space_after_link() {
+        // Test that slash preserves spaces after link when present
+        // Example: [a](url) / [b](url)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("a");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" / ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("b");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+
+        let formatted = ctx.format();
+        println!("Formatted: {:?}", formatted);
+
+        // The slash should preserve spaces from original input
+        assert!(
+            formatted.contains("[a](url) / [b](url)"),
+            "Slash should preserve spaces after link: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_slash_no_space_after_link() {
+        // Test that slash has no space after link when original has no space
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("a");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+        ctx.add_text("/");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("b");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+
+        let formatted = ctx.format();
+        println!("Formatted: {:?}", formatted);
+
+        // The slash should have no space when original has no space
+        assert!(
+            formatted.contains("[a](url)/[b](url)"),
+            "Slash should have no space after link: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_slash_space_after_inline_code_with_link() {
+        // Test mixing inline code and links with slash
+        // Example: `code` / [link](url)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_inline_element("`code`");
+        ctx.add_text(" / ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("link");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+
+        let formatted = ctx.format();
+
+        assert!(
+            formatted.contains("`code` / [link](url)"),
+            "Slash should preserve spaces between inline code and link: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_slash_space_after_link_with_inline_code() {
+        // Test mixing link and inline code with slash
+        // Example: [link](url) / `code`
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("link");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" / ");
+        ctx.add_inline_element("`code`");
+
+        let formatted = ctx.format();
+
+        assert!(
+            formatted.contains("[link](url) / `code`"),
+            "Slash should preserve spaces between link and inline code: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_multiple_slashes_after_inline_code() {
+        // Test multiple slashes after inline code
+        // Example: `a` / `b` / `c`
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_inline_element("`a`");
+        ctx.add_text(" / ");
+        ctx.add_inline_element("`b`");
+        ctx.add_text(" / ");
+        ctx.add_inline_element("`c`");
+
+        let formatted = ctx.format();
+
+        assert!(
+            formatted.contains("`a` / `b` / `c`"),
+            "Multiple slashes should preserve spaces: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_multiple_slashes_after_link() {
+        // Test multiple slashes after links
+        // Example: [a](url) / [b](url) / [c](url)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("a");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" / ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("b");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+        ctx.add_text(" / ");
+        ctx.add_markdown_marker("[");
+        ctx.add_text("c");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("url");
+        ctx.add_link_close_marker(")");
+
+        let formatted = ctx.format();
+
+        assert!(
+            formatted.contains("[a](url) / [b](url) / [c](url)"),
+            "Multiple slashes after links should preserve spaces: got {:?}",
+            formatted
+        );
+    }
+
+    #[test]
     fn test_paren_space_after_inline_code() {
         // Test that opening parenthesis has space after inline code
         // Example: - **实现**: `cmd/parallel.rs` (~1600 行)
@@ -2381,6 +2692,30 @@ mod tests {
             formatted
         );
     }
+
+    #[test]
+    fn test_long_url_link_not_split() {
+        // Test that long URLs in links [text](url) are NOT split with `)` on its own line
+        // Example: [https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+        let mut ctx = LineBreakingContext::new(40, 50);
+
+        // Simulate: [https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+        ctx.add_markdown_marker("[");
+        ctx.add_text_as_word("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_markdown_marker("]");
+        ctx.add_markdown_marker("(");
+        ctx.add_text_as_word("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_link_close_marker(")");
+
+        let formatted = ctx.format();
+
+        // The `)` should NOT be on its own line
+        assert!(
+            !formatted.contains("\n)"),
+            "Closing parenthesis should NOT be on its own line. Formatted:\n{}",
+            formatted
+        );
+    }
 }
 
 /// Check if a string contains CJK characters
@@ -2419,12 +2754,13 @@ fn split_cjk_text(text: &str) -> Vec<String> {
 }
 
 /// Check if a character is an ASCII punctuation mark that should NOT have
-/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `)`, `[`, `]`, `{`, `}`, `/`)
+/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `)`, `[`, `]`, `{`, `}`)
 /// Note: `(` is excluded because it should have leading space after inline code
+/// Note: `/` is excluded to preserve spacing consistency around inline code (e.g., `code` / `code`)
 fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
     matches!(
         c,
-        ':' | ',' | '.' | ';' | '!' | '?' | ')' | '[' | ']' | '{' | '}' | '/'
+        ':' | ',' | '.' | ';' | '!' | '?' | ')' | '[' | ']' | '{' | '}'
     )
 }
 

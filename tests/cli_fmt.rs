@@ -506,3 +506,147 @@ fn test_fmt_multiple_lists_followed_by_heading_has_blank_line() {
         cm
     );
 }
+
+// Tests for slash spacing around inline code and links
+
+#[test]
+fn test_fmt_slash_space_around_inline_code() {
+    // Test that slash preserves spaces around inline code
+    let input = b"- `code1` / `code2`";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("`code1` / `code2`"),
+        "Slash should preserve spaces around inline code: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_no_space_around_inline_code() {
+    // Test that slash has no space when original has no space
+    let input = b"- `code1`/`code2`";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("`code1`/`code2`"),
+        "Slash should have no space when original has no space: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_space_around_links() {
+    // Test that slash preserves spaces around links
+    let input = b"- [link1](url1) / [link2](url2)";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("[link1](url1) / [link2](url2)"),
+        "Slash should preserve spaces around links: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_no_space_around_links() {
+    // Test that slash has no space when original has no space
+    let input = b"- [link1](url1)/[link2](url2)";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("[link1](url1)/[link2](url2)"),
+        "Slash should have no space when original has no space: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_mixed_inline_code_and_links() {
+    // Test slash between inline code and links
+    let input = b"- `code` / [link](url)";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("`code` / [link](url)"),
+        "Slash should preserve spaces between inline code and link: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_mixed_links_and_inline_code() {
+    // Test slash between links and inline code
+    let input = b"- [link](url) / `code`";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("[link](url) / `code`"),
+        "Slash should preserve spaces between link and inline code: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_multiple_slashes_inline_code() {
+    // Test multiple slashes with inline code
+    let input = b"- `a` / `b` / `c`";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("`a` / `b` / `c`"),
+        "Multiple slashes should preserve spaces: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_multiple_slashes_links() {
+    // Test multiple slashes with links
+    let input = b"- [a](u) / [b](u) / [c](u)";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        cm.contains("[a](u) / [b](u) / [c](u)"),
+        "Multiple slashes with links should preserve spaces: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_slash_with_long_urls() {
+    // Test slash with long URLs (may be wrapped)
+    let input = b"- [gawk](https://www.gnu.org/software/gawk/) / [mawk](https://invisible-island.net/mawk/) (C): description";
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+    // The slash should preserve spaces even with long URLs
+    assert!(
+        cm.contains(" / "),
+        "Slash should preserve spaces even with long URLs: {}",
+        cm
+    );
+    // Check that closing parenthesis is not on its own line
+    assert!(
+        !cm.contains("\n)"),
+        "Closing parenthesis should not be on its own line: {}",
+        cm
+    );
+}

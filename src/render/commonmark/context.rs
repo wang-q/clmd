@@ -248,6 +248,10 @@ pub trait NodeFormatterContext {
     /// Add an inline element (like code span) that should preserve surrounding spaces
     fn add_line_breaking_inline_element(&mut self, text: &str);
 
+    /// Add a link/image close marker `)`
+    /// This sets after_inline_code to true so subsequent text preserves spacing
+    fn add_line_breaking_link_close(&mut self, text: &str);
+
     /// Add a URL or path as a single word (not a markdown marker)
     /// This keeps the URL intact while allowing it to break lines if too long
     fn add_line_breaking_url(&mut self, text: &str);
@@ -519,6 +523,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn add_line_breaking_inline_element(&mut self, text: &str) {
         self.parent.add_line_breaking_inline_element(text);
+    }
+
+    fn add_line_breaking_link_close(&mut self, text: &str) {
+        self.parent.add_line_breaking_link_close(text);
     }
 
     fn add_line_breaking_url(&mut self, text: &str) {
@@ -816,6 +824,8 @@ mod tests {
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
+
+        fn add_line_breaking_link_close(&mut self, _text: &str) {}
 
         fn add_line_breaking_url(&mut self, _text: &str) {}
 

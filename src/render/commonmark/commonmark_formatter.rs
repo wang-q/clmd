@@ -758,7 +758,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                         link.title
                                     ));
                                 }
-                                ctx.add_line_breaking_word_text(")");
+                                ctx.add_line_breaking_link_close(")");
                             } else {
                                 // Close the link text bracket
                                 writer.append("]");
@@ -801,7 +801,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                         link.title
                                     ));
                                 }
-                                ctx.add_line_breaking_word_text(")");
+                                ctx.add_line_breaking_link_close(")");
                             } else {
                                 // Close the image alt bracket
                                 writer.append("]");
@@ -2447,6 +2447,8 @@ mod tests {
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
+
+        fn add_line_breaking_link_close(&mut self, _text: &str) {}
 
         fn add_line_breaking_url(&mut self, _text: &str) {}
 

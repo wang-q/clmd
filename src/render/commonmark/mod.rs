@@ -829,6 +829,12 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
+    fn add_line_breaking_link_close(&mut self, text: &str) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_link_close_marker(text);
+        }
+    }
+
     fn add_line_breaking_url(&mut self, text: &str) {
         if let Some(ref mut ctx) = self.line_breaking_context {
             ctx.add_text_as_word(text);
