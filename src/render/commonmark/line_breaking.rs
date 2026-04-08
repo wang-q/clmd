@@ -853,7 +853,15 @@ impl LineBreakingContext {
                             break;
                         }
                     }
-                    adjusted[i] = next_break;
+                    // Only update if the new break point is different and not already present
+                    if next_break != break_point && !adjusted.contains(&next_break) {
+                        adjusted[i] = next_break;
+                    } else if next_break == break_point || adjusted.contains(&next_break)
+                    {
+                        // Remove this break point as it would create a duplicate or empty line
+                        adjusted.remove(i);
+                        continue; // Don't increment i, we removed current element
+                    }
                 }
             }
             i += 1;
@@ -2230,6 +2238,45 @@ mod tests {
         assert!(
             formatted.contains("**只有匿名函数（lambda）**"),
             "The emphasized text should stay together. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_no_empty_blockquote_line() {
+        // Test that there's no empty blockquote line at the end
+        // Example: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
+        // Should NOT have an empty "> " line at the end
+
+        let mut ctx = LineBreakingContext::with_prefixes(50, 60, "> ", "> ");
+
+        ctx.add_markdown_marker("**");
+        ctx.add_text("保持简单");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("：tva 的表达式语言设计目标是");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("简单高效的数据处理");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("，不是通用编程语言。");
+
+        let formatted = ctx.format();
+
+        // Check that there's no empty "> " line at the end
+        let lines: Vec<&str> = formatted.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            assert!(
+                !trimmed.is_empty() && trimmed != ">",
+                "Line {} should not be empty or just a blockquote marker: {:?}",
+                i,
+                line
+            );
+        }
+
+        // The formatted output should not end with a newline followed by "> "
+        assert!(
+            !formatted.ends_with("> ") && !formatted.ends_with(">"),
+            "Formatted output should not end with empty blockquote marker. Formatted:\n{}",
             formatted
         );
     }
