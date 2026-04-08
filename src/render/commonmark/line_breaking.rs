@@ -203,7 +203,9 @@ impl LineBreakingContext {
                             // keep needs_leading_space = false (default from new_cjk)
                             // For opening brackets after Markdown marker, add space
                             // For opening brackets after inline code, don't add space
-                            if !is_no_space_punct || (starts_with_bracket && !self.after_inline_code) {
+                            if !is_no_space_punct
+                                || (starts_with_bracket && !self.after_inline_code)
+                            {
                                 w.needs_leading_space = true;
                             }
                         } else {
