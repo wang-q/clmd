@@ -228,59 +228,108 @@ impl LineBreakingContext {
                     self.add_word(w);
                 }
             } else {
-                // Non-CJK text: treat as single word
-                let mut word = Word::new(*segment);
-                // Check if this segment starts with punctuation that should NOT have leading space
-                let is_no_space_punct =
-                    starts_with_no_leading_space_punctuation(segment);
-                // Check if this segment starts with opening bracket
-                let starts_with_bracket = segment
-                    .chars()
-                    .next()
-                    .map_or(false, |c| matches!(c, '(' | '[' | '{'));
-
-                // Check if this is the first segment and original text starts with whitespace
-                let starts_with_whitespace =
-                    text.chars().next().map_or(false, |c| c.is_whitespace());
-
-                if self.next_word_no_leading_space || self.after_inline_code {
-                    // If the text starts with punctuation that should NOT have leading space,
-                    // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
-                    // But for `(`, `[`, etc., we should keep the leading space
-                    // For opening brackets after inline code, also add space
-                    // However, if original text starts with whitespace, preserve it
-                    if is_no_space_punct
-                        && !starts_with_bracket
-                        && !starts_with_whitespace
-                    {
-                        word.needs_leading_space = false;
+                // Non-CJK text: check if it's a long URL/path that should be split
+                let segment_width = unicode_width::width(*segment) as usize;
+                if segment_width > self.ideal_width && segment.contains('/') {
+                    // Long URL/path: split at '/' boundaries
+                    let parts: Vec<&str> = segment.split('/').collect();
+                    for (j, part) in parts.iter().enumerate() {
+                        if part.is_empty() {
+                            continue;
+                        }
+                        let mut word = Word::new(*part);
+                        // Add '/' back except for the last part
+                        if j < parts.len() - 1 {
+                            word.text.push('/');
+                            word.width = unicode_width::width(&word.text) as usize;
+                        }
+                        // First part: handle leading space
+                        if j == 0 {
+                            let is_no_space_punct =
+                                starts_with_no_leading_space_punctuation(part);
+                            let starts_with_whitespace =
+                                text.chars().next().map_or(false, |c| c.is_whitespace());
+                            if self.next_word_no_leading_space || self.after_inline_code
+                            {
+                                if is_no_space_punct && !starts_with_whitespace {
+                                    word.needs_leading_space = false;
+                                }
+                            } else {
+                                if is_no_space_punct && !starts_with_whitespace {
+                                    word.needs_leading_space = false;
+                                }
+                            }
+                        } else {
+                            // Subsequent parts: no leading space
+                            word.needs_leading_space = false;
+                        }
+                        // Last part: handle trailing space
+                        if j == parts.len() - 1 {
+                            if i == total_segments - 1 && !ends_with_whitespace {
+                                word.has_trailing_space = false;
+                            }
+                        } else {
+                            // Not the last part: no trailing space (the '/' is included)
+                            word.has_trailing_space = false;
+                        }
+                        self.add_word(word);
                     }
                 } else {
-                    // Previous element was not a Markdown marker (e.g., inline code)
-                    // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
-                    // don't add leading space
-                    if is_no_space_punct && !starts_with_whitespace {
-                        word.needs_leading_space = false;
-                    }
-                }
-                // For punctuation like `:`, `,`, `.` that are not at the end,
-                // we should add trailing space so that the next word has space before it
-                // This ensures `: 使用` has space after `:`
-                if i < total_segments - 1 && segment.len() == 1 && is_no_space_punct {
-                    word.has_trailing_space = true;
-                }
-                // If this is the last segment, check if the original text ends with whitespace
-                // If so, preserve the trailing space
-                if i == total_segments - 1 {
-                    if ends_with_whitespace {
-                        // Original text had whitespace at the end, preserve it
-                        word.has_trailing_space = true;
+                    // Normal non-CJK text: treat as single word
+                    let mut word = Word::new(*segment);
+                    // Check if this segment starts with punctuation that should NOT have leading space
+                    let is_no_space_punct =
+                        starts_with_no_leading_space_punctuation(segment);
+                    // Check if this segment starts with opening bracket
+                    let starts_with_bracket = segment
+                        .chars()
+                        .next()
+                        .map_or(false, |c| matches!(c, '(' | '[' | '{'));
+
+                    // Check if this is the first segment and original text starts with whitespace
+                    let starts_with_whitespace =
+                        text.chars().next().map_or(false, |c| c.is_whitespace());
+
+                    if self.next_word_no_leading_space || self.after_inline_code {
+                        // If the text starts with punctuation that should NOT have leading space,
+                        // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
+                        // But for `(`, `[`, etc., we should keep the leading space
+                        // For opening brackets after inline code, also add space
+                        // However, if original text starts with whitespace, preserve it
+                        if is_no_space_punct
+                            && !starts_with_bracket
+                            && !starts_with_whitespace
+                        {
+                            word.needs_leading_space = false;
+                        }
                     } else {
-                        // No trailing whitespace in original text
-                        word.has_trailing_space = false;
+                        // Previous element was not a Markdown marker (e.g., inline code)
+                        // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
+                        // don't add leading space
+                        if is_no_space_punct && !starts_with_whitespace {
+                            word.needs_leading_space = false;
+                        }
                     }
+                    // For punctuation like `:`, `,`, `.` that are not at the end,
+                    // we should add trailing space so that the next word has space before it
+                    // This ensures `: 使用` has space after `:`
+                    if i < total_segments - 1 && segment.len() == 1 && is_no_space_punct
+                    {
+                        word.has_trailing_space = true;
+                    }
+                    // If this is the last segment, check if the original text ends with whitespace
+                    // If so, preserve the trailing space
+                    if i == total_segments - 1 {
+                        if ends_with_whitespace {
+                            // Original text had whitespace at the end, preserve it
+                            word.has_trailing_space = true;
+                        } else {
+                            // No trailing whitespace in original text
+                            word.has_trailing_space = false;
+                        }
+                    }
+                    self.add_word(word);
                 }
-                self.add_word(word);
             }
         }
         // Reset after_inline_code after processing all segments
@@ -2279,6 +2328,35 @@ mod tests {
             "Formatted output should not end with empty blockquote marker. Formatted:\n{}",
             formatted
         );
+    }
+
+    #[test]
+    fn test_long_link_width_calculation() {
+        // Test that long links are correctly width-calculated and wrapped
+        // Example: 我们旨在重现 `https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md` 使用的严格基准测试策略。
+        // The link should not exceed the line width
+
+        let mut ctx = LineBreakingContext::new(50, 60);
+
+        // Simulate the text with a long link
+        ctx.add_text("我们旨在重现 ");
+        ctx.add_markdown_marker("`");
+        ctx.add_text("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
+        ctx.add_markdown_marker("`");
+        ctx.add_text(" 使用的严格基准测试策略。");
+
+        let formatted = ctx.format();
+
+        // Check that no line exceeds max width (60)
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(
+                width <= 60,
+                "Line exceeds max width ({} > 60): {}",
+                width,
+                line
+            );
+        }
     }
 }
 
