@@ -1295,6 +1295,29 @@ mod tests {
     }
 
     #[test]
+    fn test_slash_no_space_around_inline_code() {
+        // Test that slash has no space around inline code
+        // Example: - `scores.txt` / `scores_h.txt`: 成对的无表头/有表头示例。
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: - `scores.txt` / `scores_h.txt`:
+        ctx.add_text("- ");
+        ctx.add_inline_element("`scores.txt`");
+        ctx.add_text(" / ");
+        ctx.add_inline_element("`scores_h.txt`");
+        ctx.add_text(":");
+
+        let formatted = ctx.format();
+
+        // The slash should have no space around inline code
+        assert!(
+            formatted.contains("`scores.txt`/`scores_h.txt`:"),
+            "Slash should have no space around inline code: got {}",
+            formatted
+        );
+    }
+
+    #[test]
     fn test_line_breaking_single_word() {
         let mut ctx = LineBreakingContext::new(80, 80);
         ctx.add_text("Hello");
@@ -1476,11 +1499,11 @@ fn split_cjk_text(text: &str) -> Vec<String> {
 }
 
 /// Check if a character is an ASCII punctuation mark that should NOT have
-/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `(`, `)`, `[`, `]`, `{`, `}`)
+/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`, `(`, `)`, `[`, `]`, `{`, `}`, `/`)
 fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
     matches!(
         c,
-        ':' | ',' | '.' | ';' | '!' | '?' | '(' | ')' | '[' | ']' | '{' | '}'
+        ':' | ',' | '.' | ';' | '!' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '/'
     )
 }
 
