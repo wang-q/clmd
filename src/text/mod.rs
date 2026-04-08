@@ -15,6 +15,7 @@ pub mod unicode_width;
 // Additional text utilities
 pub mod html_utils;
 pub mod sequence;
+pub mod tokenizer;
 pub mod uri;
 
 // Re-export commonly used types

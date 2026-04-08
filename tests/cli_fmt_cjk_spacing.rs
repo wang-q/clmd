@@ -966,3 +966,28 @@ fn test_fmt_cjk_parentheses_with_punctuation() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_no_space_after_opening_paren() {
+    // Test that there is no space after opening parenthesis before inline code
+    // Example: （`benches/value_arc.rs`） should not have space after （
+    let input = "针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写了基准测试（`benches/value_arc.rs`），对比当前直接克隆与使用 `Arc` 包装后的性能差异。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--width", "80"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // There should be no space between （ and `
+    assert!(
+        !cm.contains("（ `"),
+        "There should be no space after opening parenthesis before inline code: got {}",
+        cm
+    );
+
+    // The opening parenthesis should be directly followed by the inline code
+    assert!(
+        cm.contains("（`benches/value_arc.rs`）"),
+        "Opening parenthesis should be directly followed by inline code: got {}",
+        cm
+    );
+}

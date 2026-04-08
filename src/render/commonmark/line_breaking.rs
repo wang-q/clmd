@@ -9,6 +9,7 @@
 //! Donald E. Knuth and Michael F. Plass (1981).
 
 use crate::text::char::{is_cjk, is_cjk_punctuation};
+use crate::text::tokenizer::split_cjk_text_smart;
 use crate::text::unicode_width;
 
 /// A word in the paragraph with its display width
@@ -313,13 +314,18 @@ impl LineBreakingContext {
         // Create a word that doesn't need leading space by default
         // This prevents space between "(" and "`code`", or between "`code`" and ")"
         let mut word = Word::new_without_space(text);
-        // Check if the previous word ends with CJK character
-        // If so, we need leading space for the inline element
+        // Check if the previous word ends with CJK character or CJK punctuation
+        // If it's CJK character, we need leading space for the inline element
+        // If it's CJK punctuation (like "（"), we don't need leading space
         if let Some(prev_word) = self.words.last() {
             if let Some(last_char) = prev_word.text.chars().last() {
-                if is_cjk(last_char) {
+                if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
+                    // Previous word ends with CJK character (not punctuation)
+                    // Add leading space for the inline element
                     word.needs_leading_space = true;
                 } else {
+                    // Previous word ends with non-CJK character or CJK punctuation
+                    // Don't add leading space
                     word.needs_leading_space = false;
                 }
             } else {
@@ -1133,25 +1139,43 @@ mod tests {
 
     #[test]
     fn test_split_cjk_text() {
-        // Test splitting at punctuation marks (not at CJK/ASCII boundaries)
-        // Punctuation is included with the preceding text
-        let result = split_cjk_text("数字123");
-        assert_eq!(result, vec!["数字123"]);
+        // Test splitting at word boundaries using Unicode UAX#29 standard
+        // Now splits at CJK/ASCII boundaries for better line breaking
 
+        // CJK and ASCII numbers are split at the boundary
+        let result = split_cjk_text("数字123");
+        assert_eq!(
+            result,
+            vec!["数字", "123"],
+            "Should split at CJK/ASCII boundary: {:?}",
+            result
+        );
+
+        // ASCII and CJK are split at the boundary
         let result = split_cjk_text("test中文");
-        assert_eq!(result, vec!["test中文"]);
+        assert_eq!(
+            result,
+            vec!["test", "中文"],
+            "Should split at ASCII/CJK boundary: {:?}",
+            result
+        );
 
         // Punctuation '，' is included with preceding text "示例"
         let result = split_cjk_text("示例，包含");
         assert_eq!(result, vec!["示例，", "包含"], "Failed: {:?}", result);
 
-        // Test longer text
+        // Test longer text - splits at CJK/number boundary
         let result = split_cjk_text("单词和数字123");
-        assert_eq!(result, vec!["单词和数字123"]);
+        assert_eq!(
+            result,
+            vec!["单词和数字", "123"],
+            "Should split at CJK/number boundary: {:?}",
+            result
+        );
 
         // Test with punctuation at end - punctuation is included with preceding text
         let result = split_cjk_text("单词和数字123。");
-        assert_eq!(result, vec!["单词和数字123。"], "Failed: {:?}", result);
+        assert_eq!(result, vec!["单词和数字", "123。"], "Failed: {:?}", result);
     }
 
     #[test]
@@ -1161,15 +1185,24 @@ mod tests {
         let mut ctx = LineBreakingContext::new(80, 80);
         ctx.add_text("单词和数字123。");
 
-        // Check the words (only split at punctuation, punctuation stays with preceding text)
-        assert_eq!(ctx.words.len(), 1);
-        assert_eq!(ctx.words[0].text, "单词和数字123。");
+        // Check the words - now splits at CJK/ASCII boundaries for better line breaking
+        // "单词和数字" and "123" are split, but "123" and "。" may be combined
+        assert_eq!(
+            ctx.words.len(),
+            2,
+            "Should split at CJK/ASCII boundary: {:?}",
+            ctx.words
+        );
+        assert_eq!(ctx.words[0].text, "单词和数字");
+        assert_eq!(ctx.words[1].text, "123。");
 
         let formatted = ctx.format();
-        // Without CJK spacing, there should be no space between CJK and number
+        // Note: add_text does NOT add spaces between CJK words (including at CJK/ASCII boundaries)
+        // This is intentional - CJK text typically doesn't use spaces
+        // The splitting is for line breaking purposes, not for adding spaces
         assert!(
             formatted.contains("单词和数字123"),
-            "Should NOT have space between CJK and number without CJK spacing: {}",
+            "CJK text should not have spaces between words: {}",
             formatted
         );
     }
@@ -1766,38 +1799,11 @@ fn contains_cjk(text: &str) -> bool {
     })
 }
 
-/// Split CJK text at punctuation marks for better line breaking
-/// Note: This function does NOT split at CJK/ASCII boundaries - that's handled by CJK spacing
+/// Split CJK text at word boundaries for better line breaking
+/// Uses Unicode UAX#29 word boundary rules via unicode-segmentation
 /// Returns a vector of string segments
 fn split_cjk_text(text: &str) -> Vec<String> {
-    let mut result = Vec::new();
-    let mut current_segment = String::new();
-
-    for c in text.chars() {
-        let is_punct = is_cjk_punctuation(c);
-
-        // If this is punctuation, add it to current segment and end the segment
-        // This allows line breaking after punctuation
-        if is_punct {
-            current_segment.push(c);
-            result.push(current_segment.clone());
-            current_segment.clear();
-        } else {
-            current_segment.push(c);
-        }
-    }
-
-    // Add any remaining text
-    if !current_segment.is_empty() {
-        result.push(current_segment);
-    }
-
-    // If no splits were made, return the whole text as one segment
-    if result.is_empty() && !text.is_empty() {
-        result.push(text.to_string());
-    }
-
-    result
+    split_cjk_text_smart(text)
 }
 
 /// Check if a character is an ASCII punctuation mark that should NOT have
