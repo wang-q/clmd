@@ -3,13 +3,16 @@
 //! These tests verify the library API using spec files.
 
 mod test_utils;
-use clmd::{markdown_to_html, Options, Plugins};
+use clmd::{markdown_to_html, unescape_string, Options, Plugins};
 use std::fs;
 use test_utils::spec_parser::{parse_api_spec_file, ApiSpecExample};
 
 fn run_api_example(example: &ApiSpecExample) -> String {
     match example.function.as_str() {
-        "html" => markdown_to_html(&example.input, &Options::default(), &Plugins::default()),
+        "html" => {
+            markdown_to_html(&example.input, &Options::default(), &Plugins::default())
+        }
+        "unescape" => unescape_string(&example.input),
         _ => panic!("Unknown API function: {}", example.function),
     }
 }
@@ -85,4 +88,29 @@ fn run_api_spec_file(spec_file: &str) {
 #[test]
 fn test_integration_spec() {
     run_api_spec_file("tests/fixtures/integration_spec.md");
+}
+
+#[test]
+fn test_unescape_spec() {
+    run_api_spec_file("tests/fixtures/unescape_spec.md");
+}
+
+#[test]
+fn test_link_reference_spec() {
+    run_api_spec_file("tests/fixtures/link_reference_spec.md");
+}
+
+#[test]
+fn test_emphasis_spec() {
+    run_api_spec_file("tests/fixtures/emphasis_spec.md");
+}
+
+#[test]
+fn test_entity_spec() {
+    run_api_spec_file("tests/fixtures/entity_spec.md");
+}
+
+#[test]
+fn test_edge_cases_spec() {
+    run_api_spec_file("tests/fixtures/edge_cases_spec.md");
 }

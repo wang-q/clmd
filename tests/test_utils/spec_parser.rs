@@ -48,6 +48,7 @@ pub struct FormatterSpecExample {
 /// A single CLI test example from a spec file
 /// CLI specs test command-line interface behavior
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CliSpecExample {
     /// Section name in the spec file
     pub section: String,
@@ -68,6 +69,7 @@ pub struct CliSpecExample {
 /// A single API test example from a spec file
 /// API specs test library function calls
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ApiSpecExample {
     /// Section name in the spec file
     pub section: String,
@@ -315,6 +317,7 @@ fn parse_example_header(line: &str) -> Option<(String, usize, Vec<String>)> {
 
 /// Parse a CLI spec file content and extract all test examples
 /// CLI specs use format: cli(command: subcommand) args(arg1, arg2)
+#[allow(dead_code)]
 pub fn parse_cli_spec_file(content: &str) -> Vec<CliSpecExample> {
     let mut examples = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -374,6 +377,7 @@ pub fn parse_cli_spec_file(content: &str) -> Vec<CliSpecExample> {
 
 /// Parse CLI header line
 /// Format: cli(command: subcommand) args(arg1, arg2) exit(code)
+#[allow(dead_code)]
 fn parse_cli_header(line: &str) -> Option<(String, Vec<String>, i32)> {
     let prefix = "```````````````````````````````` cli";
     if !line.starts_with(prefix) {
@@ -431,6 +435,7 @@ fn parse_cli_header(line: &str) -> Option<(String, Vec<String>, i32)> {
 
 /// Parse an API spec file content and extract all test examples
 /// API specs use format: api(function) options(...)
+#[allow(dead_code)]
 pub fn parse_api_spec_file(content: &str) -> Vec<ApiSpecExample> {
     let mut examples = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -489,6 +494,7 @@ pub fn parse_api_spec_file(content: &str) -> Vec<ApiSpecExample> {
 
 /// Parse API header line
 /// Format: api(function) options(opt1, opt2)
+#[allow(dead_code)]
 fn parse_api_header(line: &str) -> Option<(String, Vec<String>)> {
     let prefix = "```````````````````````````````` api";
     if !line.starts_with(prefix) {

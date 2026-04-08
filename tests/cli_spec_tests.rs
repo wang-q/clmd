@@ -66,7 +66,9 @@ fn run_cli_spec_file(spec_file: &str) {
         let expected_normalized = expected.trim_end();
         let actual_normalized = actual.trim_end();
 
-        if actual_normalized == expected_normalized && exit_code == example.expected_exit_code {
+        if actual_normalized == expected_normalized
+            && exit_code == example.expected_exit_code
+        {
             passed += 1;
         } else {
             failed += 1;
