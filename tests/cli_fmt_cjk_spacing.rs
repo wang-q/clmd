@@ -1,6 +1,9 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+// Import unicode_width for width calculation in tests
+use clmd::text::unicode_width;
+
 fn clmd_bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_clmd"))
 }
@@ -988,6 +991,42 @@ fn test_fmt_cjk_no_space_after_opening_paren() {
     assert!(
         cm.contains("（`benches/value_arc.rs`）"),
         "Opening parenthesis should be directly followed by inline code: got {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_long_url_in_inline_code() {
+    // Test that long URLs in inline code are properly wrapped
+    // Example: `https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md`
+    let input = "我们旨在重现 `https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md` 使用的严格基准测试策略。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--width", "50"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // Check that no line exceeds max width (50)
+    for line in cm.lines() {
+        let width = unicode_width::width(line) as usize;
+        assert!(
+            width <= 50,
+            "Line exceeds max width ({} > 50): {}",
+            width,
+            line
+        );
+    }
+
+    // The URL should be split across multiple lines
+    assert!(
+        cm.contains("https:/") || cm.contains("github.com/"),
+        "Long URL should be split at '/' boundaries: got {}",
+        cm
+    );
+
+    // The inline code markers should be preserved
+    assert!(
+        cm.contains("`"),
+        "Inline code markers should be preserved: got {}",
         cm
     );
 }

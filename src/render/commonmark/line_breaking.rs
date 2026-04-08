@@ -360,30 +360,88 @@ impl LineBreakingContext {
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
-        // Create a word that doesn't need leading space by default
-        // This prevents space between "(" and "`code`", or between "`code`" and ")"
-        let mut word = Word::new_without_space(text);
-        // Check if the previous word ends with CJK character or CJK punctuation
-        // If it's CJK character, we need leading space for the inline element
-        // If it's CJK punctuation (like "（"), we don't need leading space
-        if let Some(prev_word) = self.words.last() {
-            if let Some(last_char) = prev_word.text.chars().last() {
-                if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
-                    // Previous word ends with CJK character (not punctuation)
-                    // Add leading space for the inline element
-                    word.needs_leading_space = true;
+        // Check if this is a long inline element (like a code span with a long URL)
+        // that should be split for better line breaking
+        let text_width = unicode_width::width(text) as usize;
+        if text_width > self.ideal_width && text.contains('/') {
+            // Long URL/path in inline element: split at '/' boundaries
+            // First, check if it starts and ends with backticks (code span)
+            let is_code_span = text.starts_with('`') && text.ends_with('`');
+            let inner_text = if is_code_span {
+                &text[1..text.len() - 1]
+            } else {
+                text
+            };
+
+            // Split at '/' boundaries
+            let parts: Vec<&str> = inner_text.split('/').collect();
+            for (j, part) in parts.iter().enumerate() {
+                if part.is_empty() {
+                    continue;
+                }
+
+                // Build the part text
+                let mut part_text = String::new();
+                if j == 0 && is_code_span {
+                    part_text.push('`');
+                }
+                part_text.push_str(part);
+                if j < parts.len() - 1 {
+                    part_text.push('/');
+                }
+                if j == parts.len() - 1 && is_code_span {
+                    part_text.push('`');
+                }
+
+                let mut word = Word::new_without_space(&part_text);
+
+                // First part: handle leading space
+                if j == 0 {
+                    if let Some(prev_word) = self.words.last() {
+                        if let Some(last_char) = prev_word.text.chars().last() {
+                            if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
+                                word.needs_leading_space = true;
+                            } else {
+                                word.needs_leading_space = false;
+                            }
+                        } else {
+                            word.needs_leading_space = false;
+                        }
+                    } else {
+                        word.needs_leading_space = false;
+                    }
                 } else {
-                    // Previous word ends with non-CJK character or CJK punctuation
-                    // Don't add leading space
+                    // Subsequent parts: no leading space
+                    word.needs_leading_space = false;
+                }
+
+                self.add_word(word);
+            }
+        } else {
+            // Normal inline element: add as single word
+            let mut word = Word::new_without_space(text);
+            // Check if the previous word ends with CJK character or CJK punctuation
+            // If it's CJK character, we need leading space for the inline element
+            // If it's CJK punctuation (like "（"), we don't need leading space
+            if let Some(prev_word) = self.words.last() {
+                if let Some(last_char) = prev_word.text.chars().last() {
+                    if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
+                        // Previous word ends with CJK character (not punctuation)
+                        // Add leading space for the inline element
+                        word.needs_leading_space = true;
+                    } else {
+                        // Previous word ends with non-CJK character or CJK punctuation
+                        // Don't add leading space
+                        word.needs_leading_space = false;
+                    }
+                } else {
                     word.needs_leading_space = false;
                 }
             } else {
                 word.needs_leading_space = false;
             }
-        } else {
-            word.needs_leading_space = false;
+            self.add_word(word);
         }
-        self.add_word(word);
         // Set after_inline_code to true so that subsequent `(` knows it's after inline code
         self.after_inline_code = true;
     }
@@ -2336,23 +2394,23 @@ mod tests {
         // Example: 我们旨在重现 `https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md` 使用的严格基准测试策略。
         // The link should not exceed the line width
 
-        let mut ctx = LineBreakingContext::new(50, 60);
+        // Use narrower width to ensure the link needs to be wrapped
+        let mut ctx = LineBreakingContext::new(40, 50);
 
-        // Simulate the text with a long link
+        // Simulate the text with a long link using add_inline_element
+        // (which is the actual code path used by commonmark_formatter.rs)
         ctx.add_text("我们旨在重现 ");
-        ctx.add_markdown_marker("`");
-        ctx.add_text("https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md");
-        ctx.add_markdown_marker("`");
+        ctx.add_inline_element("`https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md`");
         ctx.add_text(" 使用的严格基准测试策略。");
 
         let formatted = ctx.format();
 
-        // Check that no line exceeds max width (60)
+        // Check that no line exceeds max width (50)
         for line in formatted.lines() {
             let width = unicode_width::width(line) as usize;
             assert!(
-                width <= 60,
-                "Line exceeds max width ({} > 60): {}",
+                width <= 50,
+                "Line exceeds max width ({} > 50): {}",
                 width,
                 line
             );
