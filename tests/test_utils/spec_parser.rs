@@ -154,28 +154,26 @@ pub fn parse_formatter_spec_file(content: &str) -> Vec<FormatterSpecExample> {
                 i += 1;
 
                 // Collect expected output (Markdown) until we hit a line with just "."
+                // OR until we hit the closing fence
                 let mut output_lines = Vec::new();
-                while i < lines.len() && lines[i] != "." {
+                while i < lines.len()
+                    && lines[i] != "."
+                    && !lines[i].starts_with("````````````````````````````````")
+                {
                     output_lines.push(lines[i]);
                     i += 1;
                 }
 
-                // Skip the "." separator
-                i += 1;
+                // Skip the "." separator if present
+                if i < lines.len() && lines[i] == "." {
+                    i += 1;
+                }
 
-                // Check if there's AST output (until the closing fence)
-                // AST is optional - if the next line is the closing fence, there's no AST
                 // Skip AST section if present (until the closing fence)
-                // AST is optional - if the next line is the closing fence, there's no AST
-                if i < lines.len()
+                while i < lines.len()
                     && !lines[i].starts_with("````````````````````````````````")
                 {
-                    // Skip AST lines until the closing fence
-                    while i < lines.len()
-                        && !lines[i].starts_with("````````````````````````````````")
-                    {
-                        i += 1;
-                    }
+                    i += 1;
                 }
 
                 // Skip the closing fence

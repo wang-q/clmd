@@ -272,6 +272,16 @@ pub trait NodeFormatterContext {
 
     /// Reset the "no leading space" flag after closing a mark
     fn reset_line_breaking_space(&mut self);
+
+    /// Enter link text mode (between `[` and `]`)
+    /// When inside link text, line breaks should not be added
+    fn enter_link_text(&mut self);
+
+    /// Exit link text mode and enter link URL mode
+    fn exit_link_text(&mut self);
+
+    /// Exit link URL mode (after `)`)
+    fn exit_link_url(&mut self);
 }
 
 /// A sub-context for nested formatting operations
@@ -554,6 +564,18 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn reset_line_breaking_space(&mut self) {
         self.parent.reset_line_breaking_space();
+    }
+
+    fn enter_link_text(&mut self) {
+        self.parent.enter_link_text();
+    }
+
+    fn exit_link_text(&mut self) {
+        self.parent.exit_link_text();
+    }
+
+    fn exit_link_url(&mut self) {
+        self.parent.exit_link_url();
     }
 }
 
@@ -851,6 +873,12 @@ mod tests {
         }
 
         fn reset_line_breaking_space(&mut self) {}
+
+        fn enter_link_text(&mut self) {}
+
+        fn exit_link_text(&mut self) {}
+
+        fn exit_link_url(&mut self) {}
     }
 
     #[test]

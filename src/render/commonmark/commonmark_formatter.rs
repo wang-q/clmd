@@ -730,6 +730,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         // Otherwise write directly to writer
                         if ctx.is_collecting_line_breaking() {
                             ctx.add_line_breaking_word_text("[");
+                            // Enter link text mode to prevent line breaks inside link text
+                            ctx.enter_link_text();
                         } else {
                             writer.append("[");
                         }
@@ -741,6 +743,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Link(link) = value {
                             if ctx.is_collecting_line_breaking() {
+                                // Exit link text mode before closing bracket
+                                ctx.exit_link_text();
                                 // Close the link text bracket and add URL as words
                                 ctx.add_line_breaking_word_text("]");
                                 ctx.add_line_breaking_word_text("(");
@@ -754,6 +758,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     ));
                                 }
                                 ctx.add_line_breaking_link_close(")");
+                                // Exit link URL mode after closing parenthesis
+                                ctx.exit_link_url();
                             } else {
                                 // Close the link text bracket
                                 writer.append("]");
@@ -774,6 +780,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         // Otherwise write directly to writer
                         if ctx.is_collecting_line_breaking() {
                             ctx.add_line_breaking_word_text("![");
+                            // Enter link text mode to prevent line breaks inside alt text
+                            ctx.enter_link_text();
                         } else {
                             writer.append("![");
                         }
@@ -785,6 +793,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         if let NodeValue::Image(link) = value {
                             if ctx.is_collecting_line_breaking() {
+                                // Exit link text mode before closing bracket
+                                ctx.exit_link_text();
                                 // Close the image alt bracket and add URL as words
                                 ctx.add_line_breaking_word_text("]");
                                 ctx.add_line_breaking_word_text("(");
@@ -797,6 +807,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     ));
                                 }
                                 ctx.add_line_breaking_link_close(")");
+                                // Exit link URL mode after closing parenthesis
+                                ctx.exit_link_url();
                             } else {
                                 // Close the image alt bracket
                                 writer.append("]");
@@ -2479,6 +2491,12 @@ mod tests {
         }
 
         fn reset_line_breaking_space(&mut self) {}
+
+        fn enter_link_text(&mut self) {}
+
+        fn exit_link_text(&mut self) {}
+
+        fn exit_link_url(&mut self) {}
     }
 
     #[test]

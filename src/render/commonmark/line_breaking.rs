@@ -23,6 +23,8 @@ pub struct Word {
     pub has_trailing_space: bool,
     /// Whether this word needs a leading space (false for punctuation/marks)
     pub needs_leading_space: bool,
+    /// Whether this word is part of a link and should not be broken
+    pub is_link_part: bool,
 }
 
 impl Word {
@@ -35,6 +37,7 @@ impl Word {
             width,
             has_trailing_space: true,
             needs_leading_space: true,
+            is_link_part: false,
         }
     }
 
@@ -47,6 +50,7 @@ impl Word {
             width,
             has_trailing_space: false,
             needs_leading_space: true,
+            is_link_part: false,
         }
     }
 
@@ -59,6 +63,7 @@ impl Word {
             width,
             has_trailing_space: false,
             needs_leading_space: false,
+            is_link_part: false,
         }
     }
 
@@ -71,6 +76,7 @@ impl Word {
             width,
             has_trailing_space: false,
             needs_leading_space: false,
+            is_link_part: false,
         }
     }
 }
@@ -110,6 +116,15 @@ pub struct LineBreakingContext {
     /// Whether the previous element was an end marker (like closing *, **)
     /// This is used to add space before normal text but not before CJK punctuation
     after_end_marker: bool,
+    /// Whether we are inside a link text (between `[` and `]`)
+    /// When inside link text, we should not break lines
+    in_link_text: bool,
+    /// Whether we are inside a link URL part (between `](` and `)`)
+    /// When inside link URL, we should not break lines
+    in_link_url: bool,
+    /// The index of the word that starts a link (the `[` marker)
+    /// Used to prevent line breaks inside links
+    link_start_index: Option<usize>,
 }
 
 impl LineBreakingContext {
@@ -125,6 +140,9 @@ impl LineBreakingContext {
             next_word_no_leading_space: false,
             after_inline_code: false,
             after_end_marker: false,
+            in_link_text: false,
+            in_link_url: false,
+            link_start_index: None,
         }
     }
 
@@ -145,6 +163,9 @@ impl LineBreakingContext {
             next_word_no_leading_space: false,
             after_inline_code: false,
             after_end_marker: false,
+            in_link_text: false,
+            in_link_url: false,
+            link_start_index: None,
         }
     }
 
@@ -153,8 +174,58 @@ impl LineBreakingContext {
         self.enabled
     }
 
+    /// Enter link text mode (between `[` and `]`)
+    /// Records the index of the `[` marker for preventing line breaks inside links
+    pub fn enter_link_text(&mut self) {
+        self.in_link_text = true;
+        // Record the index of the last word (should be `[` or `![`)
+        // and mark it as part of a link
+        if !self.words.is_empty() {
+            let idx = self.words.len() - 1;
+            self.link_start_index = Some(idx);
+            self.words[idx].is_link_part = true;
+        }
+    }
+
+    /// Exit link text mode and enter link URL mode
+    /// Marks all words from link_start_index to current as link parts
+    pub fn exit_link_text(&mut self) {
+        // Mark all words from link_start_index to current as link parts
+        if let Some(start_idx) = self.link_start_index {
+            for i in start_idx..self.words.len() {
+                self.words[i].is_link_part = true;
+            }
+        }
+        self.in_link_text = false;
+        // Enter link URL mode for the rest of the link
+        self.in_link_url = true;
+    }
+
+    /// Enter link URL mode (after `](`)
+    /// This is called when we start adding the URL part of a link
+    pub fn enter_link_url(&mut self) {
+        self.in_link_url = true;
+    }
+
+    /// Exit link URL mode (after `)`)
+    /// Marks all remaining words as link parts and clears link tracking
+    pub fn exit_link_url(&mut self) {
+        // Mark all words from link_start_index to current as link parts
+        if let Some(start_idx) = self.link_start_index {
+            for i in start_idx..self.words.len() {
+                self.words[i].is_link_part = true;
+            }
+        }
+        self.in_link_url = false;
+        self.link_start_index = None;
+    }
+
     /// Add a word to the context
     pub fn add_word(&mut self, mut word: Word) {
+        // If we're inside link text or link URL, mark this word as part of a link
+        if self.in_link_text || self.in_link_url {
+            word.is_link_part = true;
+        }
         // If next_word_no_leading_space is set and word needs leading space,
         // clear it unless the word starts with opening brackets that should have leading space
         // (e.g., `(`, `[`, `{` after inline code should have space, but `:`, `,`, `.` should not)
@@ -188,6 +259,7 @@ impl LineBreakingContext {
             // This is whitespace-only text (like a space from SoftBreak)
             // Mark the last word as having trailing space
             // BUT: Don't add trailing space after opening brackets like `(`, `[`, `{`
+            // AND: When inside link text, don't add trailing space (link text should be compact)
             if let Some(last_word) = self.words.last_mut() {
                 // Check if the last word ends with an opening bracket
                 let ends_with_opening_bracket = last_word
@@ -195,10 +267,24 @@ impl LineBreakingContext {
                     .chars()
                     .last()
                     .map_or(false, |c| matches!(c, '(' | '[' | '{'));
-                if !ends_with_opening_bracket {
+                if !ends_with_opening_bracket && !self.in_link_text {
                     last_word.has_trailing_space = true;
                 }
             }
+            return;
+        }
+
+        // When inside link text, add the entire text as a single word
+        // This prevents line breaks inside link text
+        if self.in_link_text {
+            // Trim the text to remove leading/trailing whitespace
+            // Link text should be compact without extra spaces
+            let trimmed = text.trim();
+            let mut w = Word::new(trimmed);
+            w.needs_leading_space = false; // Link text should be compact
+            w.has_trailing_space = false; // No trailing space for link text
+            w.is_link_part = true; // Mark as part of a link
+            self.words.push(w);
             return;
         }
 
@@ -529,6 +615,23 @@ impl LineBreakingContext {
             let mut best_badness = f64::INFINITY;
             let mut best_prev = None;
 
+            // Skip if this breakpoint would break inside a link
+            // We check if the word before the break (words[j-1]) is part of a link
+            // and if there are more words after this break that are also part of the same link
+            if j < n && j > 0 && self.words[j - 1].is_link_part {
+                // The word before this breakpoint is part of a link
+                // Check if the next word is also part of a link
+                // If so, don't break here
+                if self.words[j].is_link_part {
+                    breaks.push(BreakPoint {
+                        word_index: j,
+                        total_badness: breaks[j - 1].total_badness,
+                        prev_break: None, // No valid break here
+                    });
+                    continue;
+                }
+            }
+
             // Try all possible previous breakpoints
             for i in (0..j).rev() {
                 // Skip if this break point would put punctuation at line start
@@ -539,6 +642,17 @@ impl LineBreakingContext {
                     )
                     && !is_markdown_closing_marker(&self.words[j].text)
                 {
+                    continue;
+                }
+
+                // Skip if we would break inside a link
+                // Check if any word between i and j is a link part start
+                let would_break_link = (i..j).any(|k| {
+                    self.words[k].is_link_part
+                        && (k == 0
+                            || !self.words.get(k - 1).map_or(false, |w| w.is_link_part))
+                });
+                if would_break_link {
                     continue;
                 }
 
@@ -555,7 +669,8 @@ impl LineBreakingContext {
                     break; // Exceeds max width, stop searching
                 }
 
-                let badness = calculate_badness(line_width, self.ideal_width);
+                let badness =
+                    calculate_badness(line_width, self.ideal_width, self.max_width);
                 let total_badness = breaks[i].total_badness + badness;
 
                 if total_badness < best_badness {
@@ -763,9 +878,22 @@ impl LineBreakingContext {
                     if current_width + space_width + word_width > self.max_width
                         && i > current_start
                     {
+                        // Don't break inside a link - check if this word or adjacent words are link parts
+                        let is_inside_link = self.words[i].is_link_part
+                            || (i > 0
+                                && self.words[i - 1].is_link_part
+                                && i + 1 < end
+                                && self
+                                    .words
+                                    .get(i + 1)
+                                    .map_or(false, |w| w.is_link_part));
+
+                        if is_inside_link {
+                            // Don't break inside a link, keep it together
+                            current_width += space_width + word_width;
                         // Special case: if this word is `)` and previous word is not `(`,
                         // keep `)` with the previous word (it's a link URL closing)
-                        if self.words[i].text == ")"
+                        } else if self.words[i].text == ")"
                             && i > 0
                             && self.words[i - 1].text != "("
                         {
@@ -1661,18 +1789,19 @@ impl LineBreakingContext {
 /// Calculate the badness of a line with given width
 ///
 /// Badness is defined to encourage filling lines up to max_width.
-/// Lines shorter than max_width are penalized linearly to encourage filling.
-/// Lines at max_width have zero badness (they are considered ideal).
-fn calculate_badness(line_width: usize, ideal_width: usize) -> f64 {
-    // Calculate badness to encourage lines close to ideal_width
-    // Use quartic penalty for both short and long lines to encourage more balanced line lengths
-    let diff = if line_width > ideal_width {
-        line_width - ideal_width
+/// Lines shorter than max_width are penalized to encourage filling.
+/// Lines longer than max_width are penalized heavily.
+fn calculate_badness(line_width: usize, _ideal_width: usize, max_width: usize) -> f64 {
+    if line_width > max_width {
+        // Lines longer than max_width are penalized heavily
+        let diff = line_width - max_width;
+        (diff * diff * diff * diff) as f64
     } else {
-        ideal_width - line_width
-    };
-    // Quartic penalty encourages more balanced line lengths
-    (diff * diff * diff * diff) as f64
+        // Lines shorter than max_width are penalized to encourage filling
+        // Use quadratic penalty to encourage filling but not too aggressively
+        let diff = max_width - line_width;
+        (diff * diff) as f64
+    }
 }
 
 #[cfg(test)]
@@ -1738,16 +1867,16 @@ mod tests {
 
     #[test]
     fn test_badness_calculation() {
-        // Perfect match (at ideal width)
-        assert_eq!(calculate_badness(20, 20), 0.0);
+        // Lines shorter than max_width are penalized (quadratic)
+        assert_eq!(calculate_badness(20, 15, 25), 25.0); // (25-20)^2 = 25
+        assert_eq!(calculate_badness(15, 15, 25), 100.0); // (25-15)^2 = 100
 
-        // Lines beyond ideal width are penalized
-        assert_eq!(calculate_badness(21, 20), 1.0); // (21-20)^4 = 1
+        // Lines at max_width have zero badness
+        assert_eq!(calculate_badness(25, 15, 25), 0.0);
 
-        // Short lines are penalized with quartic penalty
-        assert_eq!(calculate_badness(19, 20), 1.0); // (20-19)^4 = 1
-        assert_eq!(calculate_badness(15, 20), 625.0); // (20-15)^4 = 625
-        assert_eq!(calculate_badness(10, 20), 10000.0); // (20-10)^4 = 10000
+        // Lines longer than max_width are penalized heavily (quartic)
+        assert_eq!(calculate_badness(26, 15, 25), 1.0); // (26-25)^4 = 1
+        assert_eq!(calculate_badness(30, 15, 25), 625.0); // (30-25)^4 = 625
     }
 
     #[test]

@@ -864,6 +864,24 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
             ctx.reset_next_word_no_leading_space();
         }
     }
+
+    fn enter_link_text(&mut self) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.enter_link_text();
+        }
+    }
+
+    fn exit_link_text(&mut self) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.exit_link_text();
+        }
+    }
+
+    fn exit_link_url(&mut self) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.exit_link_url();
+        }
+    }
 }
 
 /// Formatter builder for convenient configuration

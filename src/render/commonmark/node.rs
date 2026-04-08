@@ -1057,5 +1057,11 @@ mod tests {
         }
 
         fn reset_line_breaking_space(&mut self) {}
+
+        fn enter_link_text(&mut self) {}
+
+        fn exit_link_text(&mut self) {}
+
+        fn exit_link_url(&mut self) {}
     }
 }
