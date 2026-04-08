@@ -522,6 +522,7 @@ impl LineBreakingContext {
     /// Adjust breaks to prevent punctuation from being at line start
     /// This ensures that punctuation like `,`, `.`, `;`, `:` etc. stay with the previous word
     /// Also ensures that opening brackets like `(`, `[`, `{` stay with their content
+    /// And Markdown markers like `**`, `*`, `[`, `]` are not split across lines
     fn adjust_breaks_for_punctuation(&self, breaks: &[usize]) -> Vec<usize> {
         let mut adjusted = Vec::new();
 
@@ -586,6 +587,46 @@ impl LineBreakingContext {
                         }
                     }
                     continue;
+                }
+
+                // Check if the word at this break point is a Markdown closing marker
+                // (like `**`, `*`, `]`, `)`) that shouldn't be at line start
+                // because it would split the Markdown syntax across lines
+                if break_point > 0 && is_markdown_closing_marker(&word.text) {
+                    // Check if the previous word is the corresponding opening marker
+                    let prev_word = &self.words[break_point - 1];
+                    if is_markdown_opening_marker(&prev_word.text) {
+                        // Both markers are adjacent, don't split them
+                        // Move the break point after the closing marker
+                        if break_point + 1 <= self.words.len()
+                            && !adjusted.contains(&(break_point + 1))
+                        {
+                            adjusted.push(break_point + 1);
+                            continue;
+                        }
+                    }
+                }
+
+                // Check if the previous word is a Markdown opening marker (like `**`, `*`, `[`)
+                // that shouldn't be at line end because it would split the Markdown syntax
+                if break_point > 0 {
+                    let prev_word = &self.words[break_point - 1];
+                    if is_markdown_opening_marker(&prev_word.text) {
+                        // The opening marker is at line end, we should keep it with the next word
+                        // Find the corresponding closing marker and add a break after it
+                        for i in break_point..self.words.len() {
+                            if is_markdown_closing_marker(&self.words[i].text) {
+                                // Found the closing marker, add break after it
+                                if i + 1 <= self.words.len()
+                                    && !adjusted.contains(&(i + 1))
+                                {
+                                    adjusted.push(i + 1);
+                                    break;
+                                }
+                            }
+                        }
+                        continue;
+                    }
                 }
             }
 
@@ -1847,6 +1888,107 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_markdown_marker_not_split_across_lines() {
+        // Test that Markdown markers like `**` are not split across lines
+        // Example: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
+        // Should NOT become:
+        // > **保持简单**：tva 的表达式语言设计目标是**
+        // > 简单高效的数据处理**，不是通用编程语言。
+
+        let mut ctx = LineBreakingContext::with_prefixes(35, 45, "> ", "> ");
+
+        // Simulate: > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
+        ctx.add_markdown_marker("**");
+        ctx.add_text("保持简单");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("：tva 的表达式语言设计目标是");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("简单高效的数据处理");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("，不是通用编程语言。");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Check that no line ends with `**` while the next line starts with content
+        // (i.e., the `**` markers should stay together with their content)
+        for (i, line) in lines.iter().enumerate() {
+            if i < lines.len() - 1 {
+                let trimmed = line.trim_end();
+                let next_line = lines[i + 1].trim_start();
+
+                // If current line ends with `**`, next line should NOT start with content
+                // that would be part of the emphasized text
+                if trimmed.ends_with("**") && !trimmed.ends_with("****") {
+                    // Count the `**` at the end to see if it's an opening or closing marker
+                    let star_count =
+                        trimmed.chars().rev().take_while(|&c| c == '*').count();
+                    if star_count % 2 == 0 {
+                        // Even number of stars - this is a closing marker
+                        // Next line should NOT start with content that should be emphasized
+                        assert!(
+                            !next_line.starts_with("简单") && !next_line.starts_with("保持"),
+                            "Closing marker `**` should not be at line end while emphasized content is on next line.\nLine {}: {}\nLine {}: {}",
+                            i, line, i + 1, lines[i + 1]
+                        );
+                    }
+                }
+            }
+        }
+
+        // The emphasized text should stay together
+        assert!(
+            formatted.contains("**简单高效的数据处理**"),
+            "Emphasized text should stay together. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_markdown_strong_emphasis_not_split() {
+        // More specific test for the exact case reported
+        let mut ctx = LineBreakingContext::with_prefixes(30, 40, "> ", "> ");
+
+        ctx.add_markdown_marker("**");
+        ctx.add_text("保持简单");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("：tva 的表达式语言设计目标是");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("简单高效的数据处理");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("，不是通用编程语言。");
+
+        let formatted = ctx.format();
+
+        // Verify that `**` markers are not alone at line end/start
+        let lines: Vec<&str> = formatted.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+
+            // A line should not end with just `**` (opening marker)
+            if trimmed.ends_with("**") && !trimmed.ends_with("****") {
+                // Check if this is an opening marker by looking at context
+                let before_stars = trimmed.trim_end_matches('*');
+                if !before_stars.is_empty() {
+                    // This is likely an opening marker, it shouldn't be at line end
+                    assert!(
+                        i == lines.len() - 1 || !lines[i + 1].trim().starts_with("简单"),
+                        "Opening marker `**` should not be at line end: {}",
+                        line
+                    );
+                }
+            }
+        }
+
+        // The full emphasized phrase should be intact
+        assert!(
+            formatted.contains("**简单高效的数据处理**"),
+            "The emphasized phrase should be intact. Formatted:\n{}",
+            formatted
+        );
+    }
 }
 
 /// Check if a string contains CJK characters
@@ -1949,4 +2091,16 @@ fn is_opening_bracket_at_line_end(text: &str) -> bool {
         );
     }
     false
+}
+
+/// Check if a string is a Markdown opening marker
+/// This includes `**`, `*`, `[`, `(`, etc.
+fn is_markdown_opening_marker(text: &str) -> bool {
+    matches!(text, "**" | "*" | "[" | "(")
+}
+
+/// Check if a string is a Markdown closing marker
+/// This includes `**`, `*`, `]`, `)`, etc.
+fn is_markdown_closing_marker(text: &str) -> bool {
+    matches!(text, "**" | "*" | "]" | ")")
 }
