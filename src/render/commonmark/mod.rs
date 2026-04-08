@@ -823,6 +823,12 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
+    fn add_line_breaking_marker_end(&mut self, text: &str) {
+        if let Some(ref mut ctx) = self.line_breaking_context {
+            ctx.add_markdown_marker_end(text);
+        }
+    }
+
     fn add_line_breaking_inline_element(&mut self, text: &str) {
         if let Some(ref mut ctx) = self.line_breaking_context {
             ctx.add_inline_element(text);

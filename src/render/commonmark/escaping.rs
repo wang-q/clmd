@@ -981,6 +981,8 @@ mod tests {
 
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
+        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
+
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
 
         fn add_line_breaking_link_close(&mut self, _text: &str) {}

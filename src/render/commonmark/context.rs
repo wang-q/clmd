@@ -245,6 +245,9 @@ pub trait NodeFormatterContext {
     /// Add text as a single word to the line breaking context (no splitting)
     fn add_line_breaking_word_text(&mut self, text: &str);
 
+    /// Add a Markdown end marker (closing **, *, etc.) - does not suppress leading space
+    fn add_line_breaking_marker_end(&mut self, text: &str);
+
     /// Add an inline element (like code span) that should preserve surrounding spaces
     fn add_line_breaking_inline_element(&mut self, text: &str);
 
@@ -519,6 +522,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn add_line_breaking_word_text(&mut self, text: &str) {
         self.parent.add_line_breaking_word_text(text);
+    }
+
+    fn add_line_breaking_marker_end(&mut self, text: &str) {
+        self.parent.add_line_breaking_marker_end(text);
     }
 
     fn add_line_breaking_inline_element(&mut self, text: &str) {
@@ -822,6 +829,8 @@ mod tests {
         fn add_line_breaking_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
+
+        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
 
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
 

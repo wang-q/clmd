@@ -671,8 +671,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        // Use default marker in line breaking mode to avoid double rendering
-                        // The actual content is rendered by render_children
                         let marker = "*";
                         if ctx.is_collecting_line_breaking() {
                             ctx.add_line_breaking_word_text(marker);
@@ -687,9 +685,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "*";
                         if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text(marker);
-                            // Don't reset space flag here - let add_text handle it
-                            // This is important for CJK punctuation handling
+                            ctx.add_line_breaking_marker_end(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -716,9 +712,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "**";
                         if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text(marker);
-                            // Don't reset space flag here - let add_text handle it
-                            // This is important for CJK punctuation handling
+                            ctx.add_line_breaking_marker_end(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -2455,6 +2449,8 @@ mod tests {
         fn add_line_breaking_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
+
+        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
 
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
 

@@ -757,3 +757,87 @@ fn test_opening_bracket_no_space_after_full() {
         output
     );
 }
+
+// =============================================================================
+// Emphasis End Marker Spacing Tests
+// =============================================================================
+
+#[test]
+fn test_emphasis_end_marker_preserves_space() {
+    let mut ctx = LineBreakingContext::new(80, 80);
+
+    ctx.add_text("Genus ");
+    ctx.add_markdown_marker("*");
+    ctx.add_text("Trichoderma");
+    ctx.add_markdown_marker_end("*");
+    ctx.add_text(" as an example.");
+
+    let formatted = ctx.format();
+
+    assert!(
+        formatted.contains("*Trichoderma* as"),
+        "Space after emphasis end marker should be preserved. Got: {}",
+        formatted
+    );
+}
+
+#[test]
+fn test_strong_end_marker_preserves_space() {
+    let mut ctx = LineBreakingContext::new(80, 80);
+
+    ctx.add_text("This is ");
+    ctx.add_markdown_marker("**");
+    ctx.add_text("bold");
+    ctx.add_markdown_marker_end("**");
+    ctx.add_text(" text.");
+
+    let formatted = ctx.format();
+
+    assert!(
+        formatted.contains("**bold** text"),
+        "Space after strong end marker should be preserved. Got: {}",
+        formatted
+    );
+}
+
+#[test]
+fn test_emphasis_end_marker_full_api() {
+    use clmd::{format_commonmark, parse_document, Options, Plugins};
+
+    let mut options = Options::default();
+    options.render.width = 80;
+    let input = "Genus *Trichoderma* as an example.";
+    let (arena, root) = parse_document(input, &options);
+    let mut output = String::new();
+    format_commonmark(&arena, root, &options, &mut output, &Plugins::default()).unwrap();
+
+    assert!(
+        output.contains("*Trichoderma* as"),
+        "Space after emphasis should be preserved. Output:\n{}",
+        output
+    );
+}
+
+#[test]
+fn test_strong_end_marker_full_api() {
+    use clmd::{format_commonmark, parse_document, Options, Plugins};
+
+    let mut options = Options::default();
+    options.render.width = 80;
+    let input = "This is **bold** text and *italic* text.";
+    let (arena, root) = parse_document(input, &options);
+    let mut output = String::new();
+    format_commonmark(&arena, root, &options, &mut output, &Plugins::default()).unwrap();
+
+    assert!(
+        output.contains("**bold** text"),
+        "Space after strong should be preserved. Output:\n{}",
+        output
+    );
+
+    assert!(
+        output.contains("*italic* text"),
+        "Space after emphasis should be preserved. Output:\n{}",
+        output
+    );
+}

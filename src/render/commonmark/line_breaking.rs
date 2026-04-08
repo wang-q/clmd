@@ -107,6 +107,9 @@ pub struct LineBreakingContext {
     /// Whether the previous element was an inline code (not a Markdown marker)
     /// This is used to distinguish between `(` after inline code (no space) vs after marker (space)
     after_inline_code: bool,
+    /// Whether the previous element was an end marker (like closing *, **)
+    /// This is used to add space before normal text but not before CJK punctuation
+    after_end_marker: bool,
 }
 
 impl LineBreakingContext {
@@ -121,6 +124,7 @@ impl LineBreakingContext {
             continuation_prefix: String::new(),
             next_word_no_leading_space: false,
             after_inline_code: false,
+            after_end_marker: false,
         }
     }
 
@@ -140,6 +144,7 @@ impl LineBreakingContext {
             continuation_prefix: continuation_prefix.into(),
             next_word_no_leading_space: false,
             after_inline_code: false,
+            after_end_marker: false,
         }
     }
 
@@ -168,6 +173,7 @@ impl LineBreakingContext {
         }
         // Always reset the flags after processing a word
         self.next_word_no_leading_space = false;
+        self.after_end_marker = false;
         // Don't reset after_inline_code here, let add_inline_element set it
         // and let add_text check it before resetting
         self.words.push(word);
@@ -207,12 +213,19 @@ impl LineBreakingContext {
                     // First word of first segment: special handling
                     if i == 0 && j == 0 {
                         if self.next_word_no_leading_space {
-                            // Previous element was Markdown marker
+                            // Previous element was Markdown start marker
                             // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
                             // keep needs_leading_space = false (default from new_cjk)
                             // For opening brackets after Markdown marker, add space
                             // For opening brackets after inline code, also add space
                             if !is_no_space_punct || starts_with_bracket {
+                                w.needs_leading_space = true;
+                            }
+                        } else if self.after_end_marker {
+                            // Previous element was Markdown end marker (closing *, **, etc.)
+                            // For CJK text, do NOT add leading space (CJK doesn't use spaces)
+                            // Exception: only add space for opening brackets
+                            if starts_with_bracket {
                                 w.needs_leading_space = true;
                             }
                         } else {
@@ -277,6 +290,20 @@ impl LineBreakingContext {
                         if self.after_inline_code
                             && !starts_with_whitespace
                             && !starts_with_bracket
+                        {
+                            word.needs_leading_space = false;
+                        }
+                    } else if self.after_end_marker {
+                        // Previous element was Markdown end marker (closing *, **, etc.)
+                        // For non-CJK text, always add leading space (e.g., "*italic* text")
+                        // Unless it starts with punctuation that shouldn't have leading space
+                        // Or starts with Markdown marker followed by CJK punctuation (e.g., "*：测试")
+                        // Or is a single Markdown marker character (e.g., `*` before CJK punctuation)
+                        let is_marker_then_cjk =
+                            starts_with_marker_then_cjk_punctuation(segment);
+                        let is_single_marker = is_single_markdown_marker(segment);
+                        if (is_no_space_punct || is_marker_then_cjk || is_single_marker)
+                            && !starts_with_whitespace
                         {
                             word.needs_leading_space = false;
                         }
@@ -375,6 +402,22 @@ impl LineBreakingContext {
         self.add_word(word);
         // The next word should not have a leading space (unless it's CJK punctuation)
         self.next_word_no_leading_space = true;
+        // Reset after_inline_code since this is a marker, not inline code
+        self.after_inline_code = false;
+        // Reset after_end_marker since this is a start marker, not an end marker
+        self.after_end_marker = false;
+    }
+
+    /// Add a Markdown end marker (like closing **, *, etc.)
+    /// Unlike add_markdown_marker, this does NOT set next_word_no_leading_space
+    /// because text after the end marker should have normal spacing
+    /// However, it sets after_end_marker so CJK punctuation doesn't get leading space
+    pub fn add_markdown_marker_end(&mut self, text: &str) {
+        let word = Word::new_mark(text);
+        self.add_word(word);
+        // Set after_end_marker so that CJK punctuation doesn't get leading space
+        // but normal text does get space
+        self.after_end_marker = true;
         // Reset after_inline_code since this is a marker, not inline code
         self.after_inline_code = false;
     }
@@ -1481,6 +1524,78 @@ mod tests {
         assert!(
             !is_cjk_punctuation('1'),
             "'1' should NOT be CJK punctuation"
+        );
+    }
+
+    #[test]
+    fn test_starts_with_marker_then_cjk_punctuation() {
+        assert!(
+            starts_with_marker_then_cjk_punctuation("*：测试"),
+            "'*：测试' should match"
+        );
+        assert!(
+            starts_with_marker_then_cjk_punctuation("*，测试"),
+            "'*，测试' should match"
+        );
+        assert!(
+            starts_with_marker_then_cjk_punctuation("_。测试"),
+            "'_。测试' should match"
+        );
+        assert!(
+            !starts_with_marker_then_cjk_punctuation("*测试"),
+            "'*测试' should NOT match"
+        );
+        assert!(
+            !starts_with_marker_then_cjk_punctuation("*: test"),
+            "'*: test' should NOT match (ASCII colon)"
+        );
+        assert!(
+            !starts_with_marker_then_cjk_punctuation("：测试"),
+            "'：测试' should NOT match (no marker)"
+        );
+    }
+
+    #[test]
+    fn test_emphasis_end_marker_with_cjk_punctuation() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: *斜体*：测试
+        ctx.add_markdown_marker("*");
+        ctx.add_text("斜体");
+        ctx.add_markdown_marker_end("*");
+        ctx.add_text("：测试");
+
+        let formatted = ctx.format();
+        println!("Formatted: {}", formatted);
+
+        assert!(
+            formatted.contains("*斜体*：测试"),
+            "Should have no space before CJK punctuation. Got: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_emphasis_end_marker_with_marker_then_cjk() {
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: *斜体**：测试 (where *：测试 is literal text)
+        ctx.add_markdown_marker("*");
+        ctx.add_text("斜体");
+        ctx.add_markdown_marker_end("*");
+        ctx.add_text("*：测试");
+
+        let formatted = ctx.format();
+        println!("Formatted: {}", formatted);
+
+        // Debug: print the split result
+        let split_result = split_cjk_text("*：测试");
+        println!("Split result: {:?}", split_result);
+
+        assert!(
+            formatted.contains("*斜体**：测试"),
+            "Should have no space before '*：'. Got: {}",
+            formatted
         );
     }
 
@@ -3052,6 +3167,31 @@ fn starts_with_no_leading_space_punctuation(text: &str) -> bool {
     text.chars().next().map_or(false, |c| {
         is_cjk_punctuation(c) || is_ascii_punctuation_no_leading_space(c)
     })
+}
+
+/// Check if text starts with a Markdown marker character (*, _) followed by CJK punctuation
+/// This handles cases like `*：测试` where the `*` is literal text followed by CJK punctuation
+fn starts_with_marker_then_cjk_punctuation(text: &str) -> bool {
+    let mut chars = text.chars();
+    if let Some(first) = chars.next() {
+        if first == '*' || first == '_' {
+            if let Some(second) = chars.next() {
+                return is_cjk_punctuation(second);
+            }
+        }
+    }
+    false
+}
+
+/// Check if text is a single Markdown marker character (* or _)
+fn is_single_markdown_marker(text: &str) -> bool {
+    let mut chars = text.chars();
+    if let Some(first) = chars.next() {
+        if first == '*' || first == '_' {
+            return chars.next().is_none();
+        }
+    }
+    false
 }
 
 /// Check if a string is punctuation that should not be at the start of a line

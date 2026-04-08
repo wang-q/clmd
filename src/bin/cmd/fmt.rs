@@ -188,7 +188,7 @@ mod tests {
     fn test_toc_no_initial_content() {
         let input = "# Title\n\n[TOC levels=1-4]: #\n\n## First\n\n## Second";
         let toc_info = utils::find_toc_boundaries(input).unwrap();
-        
+
         let replaced = replace_toc_with_placeholder(input, &toc_info);
         assert!(replaced.contains(TOC_PLACEHOLDER));
         assert!(replaced.contains("## First"));
@@ -200,7 +200,7 @@ mod tests {
     fn test_toc_at_document_start() {
         let input = "[TOC]: #\n\n## Section\n\nContent";
         let toc_info = utils::find_toc_boundaries(input).unwrap();
-        
+
         let replaced = replace_toc_with_placeholder(input, &toc_info);
         assert!(replaced.starts_with(TOC_PLACEHOLDER));
         assert!(replaced.contains("## Section"));
@@ -208,9 +208,10 @@ mod tests {
 
     #[test]
     fn test_toc_with_existing_content() {
-        let input = "# Title\n\n[TOC]: #\n\n- [Old](#old)\n  - [Sub](#sub)\n\n## Section";
+        let input =
+            "# Title\n\n[TOC]: #\n\n- [Old](#old)\n  - [Sub](#sub)\n\n## Section";
         let toc_info = utils::find_toc_boundaries(input).unwrap();
-        
+
         let replaced = replace_toc_with_placeholder(input, &toc_info);
         assert!(replaced.contains(TOC_PLACEHOLDER));
         assert!(!replaced.contains("[Old](#old)"));
