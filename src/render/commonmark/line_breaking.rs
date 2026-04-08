@@ -525,20 +525,32 @@ impl LineBreakingContext {
             if break_point < self.words.len() {
                 let word = &self.words[break_point];
                 if is_punctuation_that_should_not_be_at_line_start(&word.text) {
-                    // Move this punctuation to the previous line by including it in the current line
-                    // We do this by pushing the next word index + 1
-                    // But only if there's more content after this punctuation
-                    if break_point + 1 < self.words.len() {
-                        if break_point > 0 && !adjusted.contains(&(break_point + 1)) {
-                            adjusted.push(break_point + 1);
-                            continue;
-                        }
-                    } else {
-                        // This is the last word, include it in the current line
-                        // by pushing the end of words
-                        if break_point > 0 && !adjusted.contains(&self.words.len()) {
-                            adjusted.push(self.words.len());
-                            continue;
+                    // This punctuation should not be at line start, move it to the previous line
+                    // by including it in the current line
+                    // We do this by pushing the end of words or the next break point
+                    if break_point + 1 <= self.words.len() {
+                        // Check if there's more content after this punctuation
+                        if break_point + 1 < self.words.len() {
+                            // Find the next non-punctuation word to break after
+                            let mut next_break = break_point + 1;
+                            for i in (break_point + 1)..self.words.len() {
+                                if !is_punctuation_that_should_not_be_at_line_start(
+                                    &self.words[i].text,
+                                ) {
+                                    next_break = i + 1;
+                                    break;
+                                }
+                            }
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                                continue;
+                            }
+                        } else {
+                            // This is the last word, include it in the current line
+                            if !adjusted.contains(&self.words.len()) {
+                                adjusted.push(self.words.len());
+                                continue;
+                            }
                         }
                     }
                 }
@@ -569,13 +581,32 @@ impl LineBreakingContext {
                 let prev_word = &self.words[break_point - 1];
                 if is_opening_bracket_at_line_end(&prev_word.text) {
                     // The previous word ends with `(`, we should keep it with the next word
-                    // Move the break point to after the next word
-                    if break_point + 1 <= self.words.len()
-                        && !adjusted.contains(&(break_point + 1))
-                    {
-                        adjusted.push(break_point + 1);
-                        continue;
+                    // Find the closing bracket and add a break after it
+                    for i in break_point..self.words.len() {
+                        if self.words[i].text.starts_with(')')
+                            || self.words[i].text.starts_with('）')
+                        {
+                            // Check if there are more punctuation words after the closing bracket
+                            // If so, include them in the current line
+                            let mut next_break = i + 1;
+                            for j in (i + 1)..self.words.len() {
+                                if is_punctuation_that_should_not_be_at_line_start(
+                                    &self.words[j].text,
+                                ) {
+                                    next_break = j + 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if next_break <= self.words.len()
+                                && !adjusted.contains(&next_break)
+                            {
+                                adjusted.push(next_break);
+                                break;
+                            }
+                        }
                     }
+                    continue;
                 }
             }
 

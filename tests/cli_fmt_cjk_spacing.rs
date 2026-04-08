@@ -910,3 +910,37 @@ fn test_fmt_cjk_list_marker_not_alone() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_parentheses_with_punctuation() {
+    // Test that parentheses and following punctuation stay together
+    // Example: (`benches/value_arc.rs`), should not have `(` at line end and content at line start
+    let input = "针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写了基准测试（`benches/value_arc.rs`），对比当前直接克隆与使用 `Arc` 包装后的性能差异。".as_bytes();
+    let output = run_with_stdin(&["fmt", "--width", "80"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The opening parenthesis should be on the same line as the content
+    assert!(
+        !cm.contains("测试（\n"),
+        "Opening parenthesis should not be at line end: got {}",
+        cm
+    );
+
+    // The closing parenthesis and comma should be on the same line as the content
+    // Check that `）` is not at line start (i.e., not preceded by a newline)
+    assert!(
+        !cm.contains("\n  ）"),
+        "Closing parenthesis should not be at line start: got {}",
+        cm
+    );
+
+    // The content should be on the same line as the parentheses
+    // Just check that the content is present and not broken across lines
+    assert!(
+        cm.contains("benches/value_arc.rs"),
+        "Content should be present: got {}",
+        cm
+    );
+}
