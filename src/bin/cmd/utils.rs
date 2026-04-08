@@ -5,16 +5,20 @@ use regex::Regex;
 
 /// Read input from file or stdin
 pub fn read_input(input_path: Option<&str>) -> anyhow::Result<String> {
-    if let Some(path) = input_path {
+    let content = if let Some(path) = input_path {
         fs::read_to_string(path)
-            .map_err(|e| anyhow::anyhow!("Failed to read file '{}': {}", path, e))
+            .map_err(|e| anyhow::anyhow!("Failed to read file '{}': {}", path, e))?
     } else {
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
             .map_err(|e| anyhow::anyhow!("Failed to read stdin: {}", e))?;
-        Ok(buffer)
-    }
+        buffer
+    };
+
+    // Remove UTF-8 BOM if present
+    let content = content.strip_prefix('\u{FEFF}').unwrap_or(&content);
+    Ok(content.to_string())
 }
 
 /// Write output to file or stdout

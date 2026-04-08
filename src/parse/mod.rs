@@ -117,6 +117,9 @@ use crate::parse::block::BlockParser;
 /// let (arena, root) = parse_document("# Hello\n\nWorld", &options);
 /// ```ignore
 pub fn parse_document(md: &str, options: &Options) -> (NodeArena, NodeId) {
+    // Remove UTF-8 BOM if present
+    let md = md.strip_prefix('\u{FEFF}').unwrap_or(md);
+
     // Use BlockParser for parsing (which includes proper inline parsing)
     let mut node_arena = NodeArena::new();
     let doc_id = BlockParser::parse_with_options(&mut node_arena, md, options.clone());
@@ -141,6 +144,9 @@ pub fn parse_document_with_limits(
     options: &Options,
     limits: ParserLimits,
 ) -> ClmdResult<(NodeArena, NodeId)> {
+    // Remove UTF-8 BOM if present
+    let md = md.strip_prefix('\u{FEFF}').unwrap_or(md);
+
     // Use BlockParser with limits for full limit checking
     let mut node_arena = NodeArena::new();
 

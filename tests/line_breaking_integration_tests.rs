@@ -841,3 +841,65 @@ fn test_strong_end_marker_full_api() {
         output
     );
 }
+
+// =============================================================================
+// BOM Handling Tests
+// =============================================================================
+
+#[test]
+fn test_utf8_bom_handling() {
+    use clmd::{format_commonmark, parse_document, Options, Plugins};
+
+    let mut options = Options::default();
+    options.render.width = 80;
+
+    // Input with UTF-8 BOM
+    let input = "\u{FEFF}- item1\n    - nested\n- item2\n";
+    let (arena, root) = parse_document(input, &options);
+    let mut output = String::new();
+    format_commonmark(&arena, root, &options, &mut output, &Plugins::default()).unwrap();
+
+    // BOM should be stripped, and nested list should be parsed correctly
+    assert!(
+        output.contains("- item1"),
+        "First item should be present. Output:\n{}",
+        output
+    );
+    assert!(
+        output.contains("- item2"),
+        "Second item should be present. Output:\n{}",
+        output
+    );
+    // Check that nested list is preserved (4-space indent for nested item)
+    assert!(
+        output.contains("    - nested"),
+        "Nested item should be preserved with proper indentation. Output:\n{}",
+        output
+    );
+}
+
+#[test]
+fn test_utf8_bom_with_cjk_list() {
+    use clmd::{format_commonmark, parse_document, Options, Plugins};
+
+    let mut options = Options::default();
+    options.render.width = 80;
+
+    // Input with UTF-8 BOM and CJK content
+    let input = "\u{FEFF}- **核心逻辑**:\n    - **特色功能**: 支持日期补全。\n";
+    let (arena, root) = parse_document(input, &options);
+    let mut output = String::new();
+    format_commonmark(&arena, root, &options, &mut output, &Plugins::default()).unwrap();
+
+    // BOM should be stripped, and nested list should be parsed correctly
+    assert!(
+        output.contains("**核心逻辑**"),
+        "CJK content should be preserved. Output:\n{}",
+        output
+    );
+    assert!(
+        output.contains("**特色功能**"),
+        "Nested CJK content should be preserved. Output:\n{}",
+        output
+    );
+}
