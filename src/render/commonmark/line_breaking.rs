@@ -144,10 +144,17 @@ impl LineBreakingContext {
 
     /// Add a word to the context
     pub fn add_word(&mut self, mut word: Word) {
-        // If next_word_no_leading_space is set and word needs leading space, clear it
-        // But if word already has needs_leading_space = false (e.g., CJK punctuation), keep it
+        // If next_word_no_leading_space is set and word needs leading space,
+        // clear it unless the word starts with opening brackets that should have leading space
+        // (e.g., `(`, `[`, `{` after inline code should have space, but `:`, `,`, `.` should not)
         if self.next_word_no_leading_space && word.needs_leading_space {
-            word.needs_leading_space = false;
+            // Check if the word starts with opening brackets that should have leading space
+            let first_char = word.text.chars().next();
+            let is_opening_bracket =
+                first_char.map_or(false, |c| matches!(c, '(' | '[' | '{'));
+            if !is_opening_bracket {
+                word.needs_leading_space = false;
+            }
         }
         // Always reset the flag after processing a word
         self.next_word_no_leading_space = false;
@@ -171,25 +178,27 @@ impl LineBreakingContext {
                 let total_cjk_words = cjk_words.len();
 
                 for (j, word_text) in cjk_words.iter().enumerate() {
-                    // Check if this word starts with CJK punctuation
-                    let is_cjk_punct = starts_with_cjk_punctuation(word_text);
-                    // Create word: CJK punctuation doesn't need spaces, normal CJK does
+                    // Check if this word starts with punctuation that should NOT have leading space
+                    // (CJK punctuation or specific ASCII punctuation like `:`, `,`, `.`)
+                    let is_no_space_punct =
+                        starts_with_no_leading_space_punctuation(word_text);
+                    // Create word: punctuation doesn't need spaces, normal CJK does
                     let mut w = Word::new_cjk(word_text.as_str());
                     // First word of first segment: special handling
                     if i == 0 && j == 0 {
                         if self.next_word_no_leading_space {
                             // Previous element was Markdown marker
-                            // CJK text after Markdown marker should not have leading space
-                            // add_word will clear the flag
-                            if is_cjk_punct {
-                                // CJK punctuation: definitely no leading space
-                                w.needs_leading_space = false;
+                            // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
+                            // keep needs_leading_space = false (default from new_cjk)
+                            // For other text (including `(`), set needs_leading_space = true
+                            // so that add_word can decide whether to keep it
+                            if !is_no_space_punct {
+                                w.needs_leading_space = true;
                             }
-                            // For normal CJK text, let add_word handle it
                         } else {
                             // Previous element was not a Markdown marker (e.g., inline code)
-                            // Normal CJK text should have leading space
-                            if !is_cjk_punct {
+                            // Normal text should have leading space
+                            if !is_no_space_punct {
                                 w.needs_leading_space = true;
                             }
                         }
@@ -207,6 +216,12 @@ impl LineBreakingContext {
                 let mut word = Word::new(*segment);
                 if self.next_word_no_leading_space {
                     word.has_trailing_space = false;
+                    // If the text starts with punctuation that should NOT have leading space,
+                    // don't add leading space (e.g., `:`, `,`, `.` after inline code)
+                    // But for `(`, `[`, etc., we should keep the leading space
+                    if starts_with_no_leading_space_punctuation(segment) {
+                        word.needs_leading_space = false;
+                    }
                 }
                 // If this is the last segment, don't add trailing space
                 // (the next element will decide if space is needed)
@@ -948,6 +963,138 @@ mod tests {
     }
 
     #[test]
+    fn test_ascii_punctuation_no_space_after_marker() {
+        // Test that ASCII punctuation like : doesn't get a leading space after Markdown marker
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: `replace_na`: 将显式 `NA`
+        ctx.add_markdown_marker("`");
+        ctx.add_inline_element("replace_na");
+        ctx.add_markdown_marker("`");
+        ctx.add_text(": 将显式");
+
+        let formatted = ctx.format();
+        // The colon should NOT have a leading space
+        assert!(
+            formatted.contains("`replace_na`:"),
+            "Colon should not have leading space after inline code: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_ascii_punctuation_various() {
+        // Test various ASCII punctuation marks
+        let test_cases = vec![
+            (":", "colon"),
+            (",", "comma"),
+            (".", "period"),
+            (";", "semicolon"),
+            ("!", "exclamation"),
+            ("?", "question"),
+        ];
+
+        for (punct, name) in test_cases {
+            let mut ctx = LineBreakingContext::new(80, 80);
+            ctx.add_markdown_marker("`");
+            ctx.add_inline_element("code");
+            ctx.add_markdown_marker("`");
+            ctx.add_text(&format!("{} text", punct));
+
+            let formatted = ctx.format();
+            let expected = format!("`code`{} text", punct);
+            assert!(
+                formatted.contains(&expected),
+                "{} should not have leading space after inline code: got '{}'",
+                name,
+                formatted
+            );
+        }
+    }
+
+    #[test]
+    fn test_left_paren_preserves_space() {
+        // Test that left parenthesis preserves leading space after inline code
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: `strbin` (字符串哈希分箱)
+        ctx.add_markdown_marker("`");
+        ctx.add_text("strbin");
+        ctx.add_markdown_marker("`");
+        ctx.add_text("(字符串哈希分箱)");
+
+        let formatted = ctx.format();
+
+        // The left parenthesis should have a leading space after the closing backtick
+        // Note: There might be a space before "strbin" due to formatting, but the key
+        // is that there IS a space before "("
+        assert!(
+            formatted.contains("` ("),
+            "Left parenthesis should have leading space after inline code: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_brackets_preserve_space() {
+        // Test that brackets preserve leading space after inline code
+        let test_cases = vec![
+            ("(", ")", "parentheses"),
+            ("[", "]", "brackets"),
+            ("{", "}", "braces"),
+        ];
+
+        for (open, close, name) in test_cases {
+            let mut ctx = LineBreakingContext::new(80, 80);
+            ctx.add_markdown_marker("`");
+            ctx.add_inline_element("code");
+            ctx.add_markdown_marker("`");
+            ctx.add_text(&format!("{}text{}", open, close));
+
+            let formatted = ctx.format();
+            let expected = format!("`code` {}text{}", open, close);
+            assert!(
+                formatted.contains(&expected),
+                "{} should have leading space after inline code: got '{}'",
+                name,
+                formatted
+            );
+        }
+    }
+
+    #[test]
+    fn test_parentheses_with_inline_code() {
+        // Test that parentheses with inline code inside don't have extra spaces
+        // Example: (`cat` 命令的 `--buffer-size`)
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: 输出顺序控制 (`cat` 命令的 `--buffer-size`)
+        ctx.add_text("输出顺序控制 (");
+        ctx.add_markdown_marker("`");
+        ctx.add_inline_element("cat");
+        ctx.add_markdown_marker("`");
+        ctx.add_text("命令的");
+        ctx.add_markdown_marker("`");
+        ctx.add_inline_element("--buffer-size");
+        ctx.add_markdown_marker("`");
+        ctx.add_text(")");
+
+        let formatted = ctx.format();
+
+        // The formatted output should NOT have spaces after ( or before )
+        assert!(
+            formatted.contains("(`cat`"),
+            "There should be no space after opening parenthesis: {}",
+            formatted
+        );
+        assert!(
+            formatted.contains("`--buffer-size`)"),
+            "There should be no space before closing parenthesis: {}",
+            formatted
+        );
+    }
+
+    #[test]
     fn test_line_breaking_single_word() {
         let mut ctx = LineBreakingContext::new(80, 80);
         ctx.add_text("Hello");
@@ -1128,7 +1275,16 @@ fn split_cjk_text(text: &str) -> Vec<String> {
     result
 }
 
-/// Check if a string starts with CJK punctuation
-fn starts_with_cjk_punctuation(text: &str) -> bool {
-    text.chars().next().map_or(false, is_cjk_punctuation)
+/// Check if a character is an ASCII punctuation mark that should NOT have
+/// leading space after inline code (like `:`, `,`, `.`, `;`, `!`, `?`)
+fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
+    matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
+}
+
+/// Check if a string starts with punctuation that should NOT have leading space
+/// after inline code (CJK punctuation or specific ASCII punctuation like `:`, `,`, `.`)
+fn starts_with_no_leading_space_punctuation(text: &str) -> bool {
+    text.chars().next().map_or(false, |c| {
+        is_cjk_punctuation(c) || is_ascii_punctuation_no_leading_space(c)
+    })
 }
