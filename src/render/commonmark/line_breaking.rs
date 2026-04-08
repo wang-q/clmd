@@ -257,7 +257,7 @@ impl LineBreakingContext {
                         word.needs_leading_space = false;
                     }
                 }
-                // If this is the last segment, don't add trailing space
+                // If this is the last segment, don't add trailing space by default
                 // (the next element will decide if space is needed)
                 if i == total_segments - 1 {
                     word.has_trailing_space = false;
@@ -266,6 +266,11 @@ impl LineBreakingContext {
                 // we should add trailing space so that the next word has space before it
                 // This ensures `: 使用` has space after `:`
                 if i < total_segments - 1 && segment.len() == 1 && is_no_space_punct {
+                    word.has_trailing_space = true;
+                }
+                // For punctuation like `:` at the end, we should also add trailing space
+                // so that the next element (e.g., inline code) has space before it
+                if i == total_segments - 1 && segment.len() == 1 && *segment == ":" {
                     word.has_trailing_space = true;
                 }
                 self.add_word(word);
@@ -1261,6 +1266,30 @@ mod tests {
         assert!(
             formatted.contains("**任务分发策略** ("),
             "Opening parenthesis should have leading space after marker: got {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_colon_space_before_inline_code() {
+        // Test that colon has trailing space before inline code
+        // Example: - **频率表型**: `FrequencyTables::merge()` 合并多个 `Counter`
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: - **频率表型**: `FrequencyTables::merge()`
+        ctx.add_text("- ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("频率表型");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(":");
+        ctx.add_inline_element("`FrequencyTables::merge()`");
+
+        let formatted = ctx.format();
+
+        // The colon should have a trailing space before inline code
+        assert!(
+            formatted.contains(": `FrequencyTables::merge()`"),
+            "Colon should have trailing space before inline code: got {}",
             formatted
         );
     }
