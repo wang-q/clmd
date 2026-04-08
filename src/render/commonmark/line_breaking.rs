@@ -103,6 +103,9 @@ pub struct LineBreakingContext {
     continuation_prefix: String,
     /// Whether the next word should not have a leading space
     next_word_no_leading_space: bool,
+    /// Whether the previous element was an inline code (not a Markdown marker)
+    /// This is used to distinguish between `(` after inline code (no space) vs after marker (space)
+    after_inline_code: bool,
 }
 
 impl LineBreakingContext {
@@ -116,6 +119,7 @@ impl LineBreakingContext {
             first_line_prefix: String::new(),
             continuation_prefix: String::new(),
             next_word_no_leading_space: false,
+            after_inline_code: false,
         }
     }
 
@@ -134,6 +138,7 @@ impl LineBreakingContext {
             first_line_prefix: first_line_prefix.into(),
             continuation_prefix: continuation_prefix.into(),
             next_word_no_leading_space: false,
+            after_inline_code: false,
         }
     }
 
@@ -156,8 +161,9 @@ impl LineBreakingContext {
                 word.needs_leading_space = false;
             }
         }
-        // Always reset the flag after processing a word
+        // Always reset the flags after processing a word
         self.next_word_no_leading_space = false;
+        self.after_inline_code = false;
         self.words.push(word);
     }
 
@@ -182,6 +188,11 @@ impl LineBreakingContext {
                     // (CJK punctuation or specific ASCII punctuation like `:`, `,`, `.`)
                     let is_no_space_punct =
                         starts_with_no_leading_space_punctuation(word_text);
+                    // Check if this word starts with opening bracket
+                    let starts_with_bracket = word_text
+                        .chars()
+                        .next()
+                        .map_or(false, |c| matches!(c, '(' | '[' | '{'));
                     // Create word: punctuation doesn't need spaces, normal CJK does
                     let mut w = Word::new_cjk(word_text.as_str());
                     // First word of first segment: special handling
@@ -190,9 +201,9 @@ impl LineBreakingContext {
                             // Previous element was Markdown marker
                             // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
                             // keep needs_leading_space = false (default from new_cjk)
-                            // For other text (including `(`), set needs_leading_space = true
-                            // so that add_word can decide whether to keep it
-                            if !is_no_space_punct {
+                            // For opening brackets after Markdown marker, add space
+                            // For opening brackets after inline code, don't add space
+                            if !is_no_space_punct || (starts_with_bracket && !self.after_inline_code) {
                                 w.needs_leading_space = true;
                             }
                         } else {
@@ -217,14 +228,24 @@ impl LineBreakingContext {
                 // Check if this segment starts with punctuation that should NOT have leading space
                 let is_no_space_punct =
                     starts_with_no_leading_space_punctuation(segment);
+                // Check if this segment starts with opening bracket
+                let starts_with_bracket = segment
+                    .chars()
+                    .next()
+                    .map_or(false, |c| matches!(c, '(' | '[' | '{'));
 
                 if self.next_word_no_leading_space {
                     word.has_trailing_space = false;
                     // If the text starts with punctuation that should NOT have leading space,
                     // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
                     // But for `(`, `[`, etc., we should keep the leading space
+                    // unless it's after inline code (after_inline_code is true)
                     if is_no_space_punct {
-                        word.needs_leading_space = false;
+                        // For opening brackets after inline code, don't add space
+                        // For opening brackets after Markdown marker, add space
+                        if !starts_with_bracket || self.after_inline_code {
+                            word.needs_leading_space = false;
+                        }
                     }
                 } else {
                     // Previous element was not a Markdown marker (e.g., inline code)
@@ -268,6 +289,8 @@ impl LineBreakingContext {
         self.add_word(Word::new_mark(text));
         // The next word should not have a leading space (unless it's CJK punctuation)
         self.next_word_no_leading_space = true;
+        // Reset after_inline_code since this is a marker, not inline code
+        self.after_inline_code = false;
     }
 
     /// Add an inline element (like code span) that should preserve surrounding spaces
@@ -291,8 +314,8 @@ impl LineBreakingContext {
             word.needs_leading_space = false;
         }
         self.add_word(word);
-        // Don't set next_word_no_leading_space here
-        // Subsequent text will have leading space via normal add_text logic
+        // Set after_inline_code to true so that subsequent `(` knows it's after inline code
+        self.after_inline_code = true;
     }
 
     /// Reset the "no leading space" flag
@@ -1203,6 +1226,39 @@ mod tests {
         assert!(
             formatted.contains("**计数/求和型**: 使用"),
             "Colon should have trailing space when followed by CJK text: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_paren_space_after_marker() {
+        // Test that opening parenthesis has space after Markdown marker
+        // Example: 1. **任务分发策略** (线程分配算法):
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: 1. **任务分发策略** (线程分配算法):
+        ctx.add_text("1. ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("任务分发策略");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(" (线程分配算法):");
+
+        // Debug: print all words
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let formatted = ctx.format();
+        println!("Formatted: {:?}", formatted);
+
+        // The opening parenthesis should have a leading space after the marker
+        assert!(
+            formatted.contains("**任务分发策略** ("),
+            "Opening parenthesis should have leading space after marker: got {}",
             formatted
         );
     }
