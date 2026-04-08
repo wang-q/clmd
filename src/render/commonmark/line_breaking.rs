@@ -597,8 +597,9 @@ impl LineBreakingContext {
                     // The previous word ends with `(`, we should keep it with the next word
                     // Find the closing bracket and add a break after it
                     for i in break_point..self.words.len() {
-                        if self.words[i].text.starts_with(')')
-                            || self.words[i].text.starts_with('）')
+                        // Check if this word contains closing bracket
+                        if self.words[i].text.contains(')')
+                            || self.words[i].text.contains('）')
                         {
                             // Check if there are more punctuation words after the closing bracket
                             // If so, include them in the current line
@@ -1768,6 +1769,83 @@ mod tests {
         assert_eq!(ctx.words[0].text, "`tva`");
         assert_eq!(ctx.words[1].text, "的开发者");
         assert!(ctx.words[1].needs_leading_space);
+    }
+
+    #[test]
+    fn test_opening_bracket_not_at_line_end() {
+        // Test that opening bracket ( stays with its content
+        // Example: - **数值提取**: `getnum` 从混合文本中提取数字（如 "zoom-123.45xyz" -> 123.45）。
+        // The `（` should not be at line end while `如` is on next line
+        let mut ctx = LineBreakingContext::new(40, 50);
+
+        // Simulate the text structure - add as single text to preserve spacing
+        ctx.add_text("- **数值提取**: `getnum` 从混合文本中提取数字（如 ");
+        ctx.add_inline_element("`zoom-123.45xyz`");
+        ctx.add_text(" -> 123.45）。");
+
+        let formatted = ctx.format();
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Check that no line ends with opening bracket ( while content is on next line
+        for (i, line) in lines.iter().enumerate() {
+            if i < lines.len() - 1 {
+                // Current line ends with opening bracket, next line starts with content
+                // This should not happen - the bracket should stay with content
+                let trimmed = line.trim_end();
+                if trimmed.ends_with('（') || trimmed.ends_with('(') {
+                    let next_line = lines[i + 1].trim_start();
+                    // The next line should NOT start with CJK characters like "如"
+                    // because the bracket should have stayed with them
+                    assert!(
+                        !next_line.starts_with('如'),
+                        "Opening bracket should not be at line end while '如' is on next line.\nLine {}: {}\nLine {}: {}",
+                        i, line, i + 1, lines[i + 1]
+                    );
+                }
+            }
+        }
+
+        // The formatted output should keep the bracket with its content
+        // Either `（如` should be on same line, or `（` should not be alone at line end
+        let has_bracket_with_content = formatted.contains("（如");
+        assert!(
+            has_bracket_with_content,
+            "Opening bracket should stay with content '如'. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_opening_bracket_with_content_not_split() {
+        // More specific test for the exact case reported
+        // - **数值提取**: `getnum` 从混合文本中提取数字（如 "zoom-123.45xyz" -> 123.45）。
+        // Should NOT become:
+        // - **数值提取**: `getnum` 从混合文本中提取数字（
+        //   如 "zoom-123.45xyz" -> 123.45）。
+
+        let mut ctx = LineBreakingContext::new(35, 45);
+        ctx.add_text("- **数值提取**: `getnum` 从混合文本中提取数字（如 ");
+        ctx.add_inline_element("`zoom-123.45xyz`");
+        ctx.add_text(" -> 123.45）。");
+
+        let formatted = ctx.format();
+
+        // Check that `（如` stays together
+        assert!(
+            formatted.contains("（如"),
+            "The opening bracket and '如' should stay on the same line. Formatted:\n{}",
+            formatted
+        );
+
+        // Also verify no line ends with just `（`
+        for line in formatted.lines() {
+            let trimmed = line.trim_end();
+            assert!(
+                !trimmed.ends_with('（'),
+                "No line should end with just opening bracket: {}",
+                line
+            );
+        }
     }
 }
 
