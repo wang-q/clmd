@@ -477,9 +477,26 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
         let c = chars[i];
         match c {
             '\\' => {
-                // Always escape backslash
-                result.push('\\');
-                result.push(c);
+                // Check if this backslash is escaping a special character
+                // If so, don't add another backslash to avoid double-escaping
+                let next_char = chars.get(i + 1);
+                let is_escaping_special = next_char.map_or(false, |&c| {
+                    matches!(
+                        c,
+                        '[' | ']' | '*' | '_' | '`' | '!' | '<' | '>' | '\\' | '#'
+                    )
+                });
+
+                if is_escaping_special {
+                    // This backslash is already escaping a special character
+                    // Just copy it as-is, don't add another backslash
+                    result.push(c);
+                } else {
+                    // This backslash is not escaping anything special
+                    // Escape it to avoid interpretation
+                    result.push('\\');
+                    result.push(c);
+                }
                 i += 1;
             }
             '`' => {
@@ -529,8 +546,22 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 result.push(c);
                 i += 1;
             }
-            '[' | ']' | '<' => {
-                // Escape these special characters
+            '[' => {
+                // In table cells, we don't escape '[' even if it forms a link
+                // because we want to preserve links as clickable elements
+                // Just output the character as-is
+                result.push(c);
+                i += 1;
+            }
+            ']' => {
+                // In table cells, we don't escape ']' even if it closes a link
+                // because we want to preserve links as clickable elements
+                // Just output the character as-is
+                result.push(c);
+                i += 1;
+            }
+            '<' => {
+                // Escape '<' as it could be interpreted as HTML tag
                 result.push('\\');
                 result.push(c);
                 i += 1;
@@ -542,10 +573,8 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
                 i += 1;
             }
             '!' => {
-                // '!' only needs escaping when followed by '[' (image syntax)
-                if i + 1 < chars.len() && chars[i + 1] == '[' {
-                    result.push('\\');
-                }
+                // In table cells, we don't escape '!' even if it forms an image
+                // because we want to preserve images as renderable elements
                 result.push(c);
                 i += 1;
             }
@@ -607,6 +636,62 @@ fn could_form_emphasis_simple(
 
     // Could form emphasis if at word boundary or surrounded by whitespace/punctuation
     !(prev_is_alphanumeric && next_is_alphanumeric)
+}
+
+/// Look ahead to check if '[' could be part of a link syntax
+/// Returns true if there's a matching ']' followed by '(' or '[' (link reference)
+fn look_ahead_for_link_simple(chars: &[char], pos: usize) -> bool {
+    // Find the next ']'
+    let mut i = pos + 1;
+    while i < chars.len() {
+        if chars[i] == ']' {
+            // Found ']', check if it's followed by '(' or '['
+            // This is the key indicator of a link: [text](url) or [text][ref]
+            if i + 1 < chars.len() {
+                let next = chars[i + 1];
+                if next == '(' || next == '[' {
+                    return true;
+                }
+            }
+            // If not followed by '(' or '[', it's not a link syntax
+            // e.g., [ms] is not a link, just text
+            return false;
+        }
+        i += 1;
+    }
+    false
+}
+
+/// Look back to check if ']' could close a link
+/// Returns true if there's a matching '[' before it that could form a link
+/// A link is only formed if ']' is followed by '(' or '['
+fn look_back_for_open_bracket_simple(chars: &[char], pos: usize) -> bool {
+    // First check if ']' is followed by '(' or '[' - this is required for a link
+    if pos + 1 < chars.len() {
+        let next = chars[pos + 1];
+        if next != '(' && next != '[' {
+            // Not followed by '(' or '[', so this is not a link
+            return false;
+        }
+    } else {
+        // ']' is at the end, not followed by anything
+        return false;
+    }
+
+    // Look back for '['
+    let mut i = pos;
+    while i > 0 {
+        i -= 1;
+        if chars[i] == '[' {
+            // Found '[', check if there's content between [ and ]
+            return pos > i + 1;
+        }
+        if chars[i] == ']' {
+            // Found another ']' before '[', this is not a matching pair
+            return false;
+        }
+    }
+    false
 }
 
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)
@@ -1287,16 +1372,27 @@ mod tests {
         // Test asterisk escaping
         assert_eq!(escape_markdown_for_table_simple("*text*"), "\\*text\\*");
 
-        // Test brackets escaping
-        assert_eq!(escape_markdown_for_table_simple("[link]"), "\\[link\\]");
+        // Test brackets - in table cells, we don't escape '[' and ']'
+        // to preserve links as clickable elements
+        assert_eq!(escape_markdown_for_table_simple("[link]"), "[link]");
+        assert_eq!(
+            escape_markdown_for_table_simple("[link](url)"),
+            "[link](url)"
+        );
+        assert_eq!(
+            escape_markdown_for_table_simple("[link][ref]"),
+            "[link][ref]"
+        );
 
         // Test less-than escaping
         assert_eq!(escape_markdown_for_table_simple("<tag>"), "\\<tag>");
 
-        // Test exclamation with bracket - both ! and [ get escaped
+        // Test exclamation with bracket - in table cells, we don't escape '['
+        // to preserve images as renderable elements
+        assert_eq!(escape_markdown_for_table_simple("![image]"), "![image]");
         assert_eq!(
-            escape_markdown_for_table_simple("![image]"),
-            "\\!\\[image\\]"
+            escape_markdown_for_table_simple("![image](url)"),
+            "![image](url)"
         );
 
         // Test standalone exclamation
@@ -1307,6 +1403,50 @@ mod tests {
 
         // Test hash followed by digit (not a heading)
         assert_eq!(escape_markdown_for_table_simple("#123"), "#123");
+    }
+
+    #[test]
+    fn test_escape_markdown_for_table_simple_no_double_escape() {
+        // Test that already-escaped text doesn't get double-escaped
+        // This is important for idempotent formatting
+
+        // Link syntax should not be escaped (preserved as clickable links)
+        assert_eq!(
+            escape_markdown_for_table_simple("[link](url)"),
+            "[link](url)"
+        );
+        // Already escaped link should stay as-is (backslash preserved)
+        assert_eq!(
+            escape_markdown_for_table_simple("\\[link\\](url)"),
+            "\\[link\\](url)"
+        );
+
+        // Image syntax should not be escaped
+        assert_eq!(
+            escape_markdown_for_table_simple("![image](url)"),
+            "![image](url)"
+        );
+        // Already escaped image should stay as-is
+        assert_eq!(
+            escape_markdown_for_table_simple("\\!\\[image\\](url)"),
+            "\\!\\[image\\](url)"
+        );
+
+        // Multiple formatting rounds should be stable for links
+        let text = "[link](http://example.com)";
+        let round1 = escape_markdown_for_table_simple(text);
+        let round2 = escape_markdown_for_table_simple(&round1);
+        let round3 = escape_markdown_for_table_simple(&round2);
+        assert_eq!(round1, text);
+        assert_eq!(round2, text);
+        assert_eq!(round3, text);
+
+        // Multiple formatting rounds should be stable for images
+        let text2 = "![image](http://example.com/img.png)";
+        let round1_2 = escape_markdown_for_table_simple(text2);
+        let round2_2 = escape_markdown_for_table_simple(&round1_2);
+        assert_eq!(round1_2, text2);
+        assert_eq!(round2_2, text2);
     }
 
     #[test]
