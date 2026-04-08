@@ -228,6 +228,15 @@ impl LineBreakingContext {
                 if i == total_segments - 1 {
                     word.has_trailing_space = false;
                 }
+                // For punctuation like `:`, `,`, `.` that are not at the end,
+                // we should add trailing space so that the next word has space before it
+                // This ensures `: 使用` has space after `:`
+                if i < total_segments - 1
+                    && segment.len() == 1
+                    && starts_with_no_leading_space_punctuation(segment)
+                {
+                    word.has_trailing_space = true;
+                }
                 self.add_word(word);
             }
         }
@@ -1090,6 +1099,28 @@ mod tests {
         assert!(
             formatted.contains("`--buffer-size`)"),
             "There should be no space before closing parenthesis: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_colon_space_after_marker() {
+        // Test that colon has space after it when followed by CJK text
+        // Example: **计数/求和型**: 使用 `AtomicU64`
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        // Simulate: **计数/求和型**: 使用
+        ctx.add_markdown_marker("**");
+        ctx.add_text("计数/求和型");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(": 使用");
+
+        let formatted = ctx.format();
+
+        // The colon should NOT have a leading space, but SHOULD have a trailing space
+        assert!(
+            formatted.contains("**计数/求和型**: 使用"),
+            "Colon should have trailing space when followed by CJK text: {}",
             formatted
         );
     }
