@@ -615,6 +615,11 @@ impl LineBreakingContext {
             }
         }
 
+        // If adjusted is empty, use the original breaks
+        if adjusted.is_empty() {
+            adjusted = breaks.to_vec();
+        }
+
         adjusted
     }
 

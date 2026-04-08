@@ -883,3 +883,30 @@ fn test_fmt_cjk_opening_paren_with_content() {
         cm
     );
 }
+
+#[test]
+fn test_fmt_cjk_list_marker_not_alone() {
+    // Test that list marker `-` is not placed alone on a line
+    // Example: `- **借鉴**: ` should not have `-` on one line and `**借鉴**` on the next
+    let input =
+        "- **借鉴**: \n    - 为 `tva` 的 `docs/data/` 提供成对的示例文件（有/无表头）。"
+            .as_bytes();
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // The list marker should be on the same line as the content
+    assert!(
+        !cm.contains("-\n"),
+        "List marker should not be alone on a line: got {}",
+        cm
+    );
+
+    // The list marker should be on the same line as the bold text
+    assert!(
+        cm.contains("- **借鉴**"),
+        "List marker should be on the same line as the bold text: got {}",
+        cm
+    );
+}
