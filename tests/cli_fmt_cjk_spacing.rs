@@ -1,9 +1,6 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-// Import unicode_width for width calculation in tests
-use clmd::text::unicode_width;
-
 fn clmd_bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_clmd"))
 }

@@ -749,7 +749,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 // Close the link text bracket and add URL as words
                                 ctx.add_line_breaking_word_text("]");
                                 ctx.add_line_breaking_word_text("(");
-                                ctx.add_line_breaking_word_text(&link.url);
+                                // Use add_line_breaking_url to add URL as a single word (not a markdown marker)
+                                // This allows long URLs to break lines properly without being split
+                                ctx.add_line_breaking_url(&link.url);
                                 if !link.title.is_empty() {
                                     ctx.add_line_breaking_word_text(&format!(
                                         " \"{}\"",
@@ -791,7 +793,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 // Close the image alt bracket and add URL as words
                                 ctx.add_line_breaking_word_text("]");
                                 ctx.add_line_breaking_word_text("(");
-                                ctx.add_line_breaking_word_text(&link.url);
+                                // Use add_line_breaking_url to add URL as a single word (not a markdown marker)
+                                ctx.add_line_breaking_url(&link.url);
                                 if !link.title.is_empty() {
                                     ctx.add_line_breaking_word_text(&format!(
                                         " \"{}\"",
@@ -2444,6 +2447,8 @@ mod tests {
         fn add_line_breaking_word_text(&mut self, _text: &str) {}
 
         fn add_line_breaking_inline_element(&mut self, _text: &str) {}
+
+        fn add_line_breaking_url(&mut self, _text: &str) {}
 
         fn finish_line_breaking(&mut self) -> Option<String> {
             None

@@ -326,8 +326,22 @@ impl LineBreakingContext {
             // Disabled: Long URL/path splitting at '/' boundaries
             // This was causing links to break because spaces were added between parts
         }
-        // Normal case: add as single word
-        self.add_word(Word::new_mark(text));
+        // Special handling for '[' and '![' (link/image start markers)
+        // These should have leading space if previous word ends with CJK character
+        let is_link_start = text == "[" || text == "![";
+        let mut word = Word::new_mark(text);
+        if is_link_start {
+            // Check if previous word ends with CJK character
+            if let Some(prev_word) = self.words.last() {
+                if let Some(last_char) = prev_word.text.chars().last() {
+                    if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
+                        // Previous word ends with CJK character, add leading space
+                        word.needs_leading_space = true;
+                    }
+                }
+            }
+        }
+        self.add_word(word);
         // The next word should not have a leading space (unless it's CJK punctuation)
         self.next_word_no_leading_space = true;
         // Reset after_inline_code since this is a marker, not inline code
@@ -427,6 +441,26 @@ impl LineBreakingContext {
                 if total_badness < best_badness {
                     best_badness = total_badness;
                     best_prev = Some(i);
+                }
+            }
+
+            // If no valid breakpoint found and this is a single word that exceeds max width,
+            // we need to force a break before this word (if not at the start)
+            if best_prev.is_none() && j > 0 {
+                // Check if the current word alone exceeds max width
+                let word_width = self.words[j - 1].width;
+                let is_first_line = j == 1;
+                let prefix_width = if is_first_line {
+                    first_prefix_width
+                } else {
+                    cont_prefix_width
+                };
+
+                if word_width + prefix_width > self.max_width {
+                    // This word alone exceeds max width, force break before it
+                    // Use the previous breakpoint or start from beginning
+                    best_prev = Some(j - 1);
+                    best_badness = 0.0; // Acceptable badness for forced break
                 }
             }
 
