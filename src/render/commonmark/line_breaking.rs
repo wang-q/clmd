@@ -306,7 +306,26 @@ impl LineBreakingContext {
                             word.has_trailing_space = false;
                         }
                     }
+
+                    // Special handling: if this is the first segment and it's just an opening bracket,
+                    // set has_trailing_space to false to prevent space after the bracket
+                    // This handles cases like "**HEPMASS** (\n  4.8GB)" -> "**HEPMASS** (4.8GB)"
+                    let is_opening_bracket =
+                        *segment == "(" || *segment == "[" || *segment == "{";
+                    // Check if this is a single opening bracket followed by whitespace in original text
+                    // This handles cases where the bracket is in one text node and the content is in another
+                    let is_single_opening_bracket =
+                        is_opening_bracket && segment.len() == 1;
+                    if i == 0 && is_single_opening_bracket {
+                        word.has_trailing_space = false;
+                    }
+
                     self.add_word(word);
+
+                    // Set next_word_no_leading_space after add_word to prevent space after the bracket
+                    if i == 0 && is_single_opening_bracket {
+                        self.next_word_no_leading_space = true;
+                    }
                 }
             }
         }
@@ -3283,6 +3302,107 @@ mod tests {
         assert!(
             formatted.contains("（`benches/value_arc.rs`）"),
             "Opening parenthesis should be directly followed by inline code. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_opening_bracket_no_space_after() {
+        // Test that opening bracket followed by text doesn't have space
+        // Example: **HEPMASS** (\n  4.8GB) should become **HEPMASS** (4.8GB)
+        let mut ctx = LineBreakingContext::new(80, 90);
+
+        ctx.add_markdown_marker("**");
+        ctx.add_text("HEPMASS");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(" (\n  4.8GB)");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // There should be no space after `(`
+        assert!(
+            !formatted.contains("( 4.8GB)"),
+            "There should be no space after `(`. Formatted:\n{}",
+            formatted
+        );
+
+        // The correct format should be `(4.8GB)`
+        assert!(
+            formatted.contains("(4.8GB)"),
+            "`(` should be directly followed by `4.8GB`. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_opening_bracket_no_space_after_full() {
+        // Test using the full format_commonmark function
+        use crate::{format_commonmark, parse_document, Options, Plugins};
+
+        let mut options = Options::default();
+        options.render.width = 80; // Set a large width to prevent line breaking
+        let input = "**HEPMASS** (\n  4.8GB)";
+        let (arena, root) = parse_document(input, &options);
+        let mut output = String::new();
+        format_commonmark(&arena, root, &options, &mut output, &Plugins::default())
+            .unwrap();
+
+        println!("Input: {:?}", input);
+        println!("Output: {:?}", output);
+
+        // There should be no space after `(`
+        assert!(
+            !output.contains("( 4.8GB)"),
+            "There should be no space after `(`. Output:\n{}",
+            output
+        );
+
+        // The correct format should be `(4.8GB)`
+        assert!(
+            output.contains("(4.8GB)"),
+            "`(` should be directly followed by `4.8GB`. Output:\n{}",
+            output
+        );
+    }
+
+    #[test]
+    fn test_debug_line_breaking_context() {
+        // Debug test to see what's happening in LineBreakingContext
+        let mut ctx = LineBreakingContext::new(80, 90);
+
+        // Simulate what happens in format_commonmark
+        ctx.add_markdown_marker("**");
+        ctx.add_text("HEPMASS");
+        ctx.add_markdown_marker("**");
+        ctx.add_text(" ("); // Note: this includes the leading space
+        ctx.add_text("4.8GB)");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // There should be no space after `(`
+        assert!(
+            !formatted.contains("( 4.8GB)"),
+            "There should be no space after `(`. Formatted:\n{}",
             formatted
         );
     }
