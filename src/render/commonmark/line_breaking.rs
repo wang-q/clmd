@@ -214,12 +214,23 @@ impl LineBreakingContext {
             } else {
                 // Non-CJK text: treat as single word
                 let mut word = Word::new(*segment);
+                // Check if this segment starts with punctuation that should NOT have leading space
+                let is_no_space_punct =
+                    starts_with_no_leading_space_punctuation(segment);
+
                 if self.next_word_no_leading_space {
                     word.has_trailing_space = false;
                     // If the text starts with punctuation that should NOT have leading space,
-                    // don't add leading space (e.g., `:`, `,`, `.` after inline code)
+                    // don't add leading space (e.g., `:`, `,`, `.` after Markdown marker)
                     // But for `(`, `[`, etc., we should keep the leading space
-                    if starts_with_no_leading_space_punctuation(segment) {
+                    if is_no_space_punct {
+                        word.needs_leading_space = false;
+                    }
+                } else {
+                    // Previous element was not a Markdown marker (e.g., inline code)
+                    // For punctuation that should NOT have leading space (e.g., `:`, `,`, `.`),
+                    // don't add leading space
+                    if is_no_space_punct {
                         word.needs_leading_space = false;
                     }
                 }
@@ -231,10 +242,7 @@ impl LineBreakingContext {
                 // For punctuation like `:`, `,`, `.` that are not at the end,
                 // we should add trailing space so that the next word has space before it
                 // This ensures `: 使用` has space after `:`
-                if i < total_segments - 1
-                    && segment.len() == 1
-                    && starts_with_no_leading_space_punctuation(segment)
-                {
+                if i < total_segments - 1 && segment.len() == 1 && is_no_space_punct {
                     word.has_trailing_space = true;
                 }
                 self.add_word(word);
@@ -987,6 +995,36 @@ mod tests {
         assert!(
             formatted.contains("`replace_na`:"),
             "Colon should not have leading space after inline code: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_colon_after_inline_code_with_cjk() {
+        // Test the exact scenario from user report:
+        // `longer`: 支持在 `--names-to` 中使用
+        let mut ctx = LineBreakingContext::new(80, 80);
+
+        ctx.add_markdown_marker("`");
+        ctx.add_inline_element("longer");
+        ctx.add_markdown_marker("`");
+        ctx.add_text(": 支持在 `--names-to` 中使用");
+
+        // Debug: print all words
+        for (i, word) in ctx.words.iter().enumerate() {
+            eprintln!(
+                "Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let formatted = ctx.format();
+        eprintln!("Formatted: {:?}", formatted);
+
+        // The colon should NOT have a leading space, but SHOULD have a trailing space
+        assert!(
+            formatted.contains("`longer`: 支持"),
+            "Colon should not have leading space but should have trailing space: {}",
             formatted
         );
     }

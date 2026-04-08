@@ -24,7 +24,7 @@ fn run_with_stdin(args: &[&str], input: &[u8]) -> std::process::Output {
 #[test]
 fn test_fmt_cjk_spacing_basic() {
     let input = "中文test示例".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -38,7 +38,7 @@ fn test_fmt_cjk_spacing_basic() {
 #[test]
 fn test_fmt_cjk_spacing_with_numbers() {
     let input = "数字123测试".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -52,7 +52,7 @@ fn test_fmt_cjk_spacing_with_numbers() {
 #[test]
 fn test_fmt_cjk_spacing_english_to_cjk() {
     let input = "test中文content".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -66,7 +66,7 @@ fn test_fmt_cjk_spacing_english_to_cjk() {
 #[test]
 fn test_fmt_cjk_spacing_mixed() {
     let input = "这是一个test示例，包含English单词和数字123。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -78,15 +78,15 @@ fn test_fmt_cjk_spacing_mixed() {
 }
 
 #[test]
-fn test_fmt_cjk_spacing_disabled_by_default() {
+fn test_fmt_cjk_spacing_enabled_by_default() {
     let input = "中文test示例".as_bytes();
     let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
     assert!(
-        cm.contains("中文test示例"),
-        "Should NOT add spaces when --cjk-spacing is not specified: {}",
+        cm.contains("中文 test 示例"),
+        "Should add spaces by default (CJK spacing is default behavior): {}",
         cm
     );
 }
@@ -94,7 +94,7 @@ fn test_fmt_cjk_spacing_disabled_by_default() {
 #[test]
 fn test_fmt_cjk_spacing_with_existing_spaces() {
     let input = "中文 test 示例".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -109,7 +109,7 @@ fn test_fmt_cjk_spacing_with_existing_spaces() {
 #[test]
 fn test_fmt_cjk_spacing_inline_code() {
     let input = "这是一个 `inline code` 示例".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -131,7 +131,7 @@ fn test_fmt_cjk_spacing_code_block() {
 
 结束。"#
         .as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -146,7 +146,7 @@ fn test_fmt_cjk_spacing_code_block() {
 #[test]
 fn test_fmt_cjk_spacing_with_heading() {
     let input = "# 标题test内容\n\n正文English文字123。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -165,7 +165,7 @@ fn test_fmt_cjk_spacing_with_heading() {
 #[test]
 fn test_fmt_cjk_spacing_with_list() {
     let input = "- 项目test内容\n- 数字123测试".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -184,7 +184,7 @@ fn test_fmt_cjk_spacing_with_list() {
 #[test]
 fn test_fmt_cjk_spacing_with_link() {
     let input = "这是一个[链接](https://example.com)test示例".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -206,7 +206,7 @@ fn test_fmt_cjk_spacing_with_link() {
 fn test_fmt_cjk_spacing_inline_code_text_order() {
     // Test case 1: CJK text with inline code
     let input = "本文档旨在为 `tva` 的开发者提供技术背景。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -227,10 +227,10 @@ fn test_fmt_cjk_spacing_inline_code_text_order() {
     );
 }
 
-/// Additional test for inline code text order without CJK spacing
-/// This ensures the fix works for all cases, not just with --cjk-spacing
+/// Additional test for inline code text order
+/// This ensures the fix works for all cases
 #[test]
-fn test_fmt_inline_code_text_order_without_cjk_spacing() {
+fn test_fmt_inline_code_text_order() {
     let input = "Hello `world` test.".as_bytes();
     let output = run_with_stdin(&["fmt"], input);
 
@@ -257,7 +257,7 @@ fn test_fmt_cjk_punctuation_no_space_with_markdown() {
     // Test that CJK punctuation does not have space added before/after Markdown markers
     // Issue: `**特性**：` was being formatted as `**特性** ：` (space before colon)
     let input = "- **特性**：datamash 提供大量逐行转换操作。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -279,7 +279,7 @@ fn test_fmt_cjk_punctuation_no_space_with_markdown() {
 fn test_fmt_cjk_punctuation_with_emphasis() {
     // Test CJK punctuation with emphasis markers
     let input = "*强调*，测试。*强调*。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -311,7 +311,7 @@ fn test_fmt_cjk_punctuation_with_emphasis() {
 fn test_fmt_cjk_punctuation_with_inline_code() {
     // Test CJK punctuation with inline code
     let input = "使用 `code`：示例。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -333,7 +333,7 @@ fn test_fmt_cjk_punctuation_with_inline_code() {
 fn test_fmt_cjk_punctuation_with_link() {
     // Test CJK punctuation with links
     let input = "[链接](https://example.com)：测试。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -365,7 +365,7 @@ fn test_fmt_cjk_punctuation_various_marks() {
 
     for (input_text, expected, desc) in test_cases {
         let input = format!("{}", input_text).as_bytes().to_vec();
-        let output = run_with_stdin(&["fmt", "--cjk-spacing"], &input);
+        let output = run_with_stdin(&["fmt"], &input);
 
         assert!(output.status.success());
         let cm = String::from_utf8(output.stdout).unwrap();
@@ -383,7 +383,7 @@ fn test_fmt_cjk_punctuation_various_marks() {
 fn test_fmt_cjk_punctuation_at_line_start() {
     // Test CJK punctuation at the start of a line
     let input = "：这是以冒号开头的句子。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -400,7 +400,7 @@ fn test_fmt_cjk_punctuation_at_line_start() {
 fn test_fmt_cjk_punctuation_between_cjk_and_markdown() {
     // Test CJK punctuation between CJK text and Markdown markers
     let input = "注意：**重要**，请查看。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -422,7 +422,7 @@ fn test_fmt_cjk_punctuation_between_cjk_and_markdown() {
 fn test_fmt_cjk_punctuation_multiple_marks() {
     // Test multiple CJK punctuation marks in sequence
     let input = "**粗体***斜体**：测试。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -439,7 +439,7 @@ fn test_fmt_cjk_punctuation_multiple_marks() {
 fn test_fmt_cjk_punctuation_with_nested_emphasis() {
     // Test nested emphasis with CJK punctuation
     let input = "***粗斜体***：测试。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -456,7 +456,7 @@ fn test_fmt_cjk_punctuation_with_nested_emphasis() {
 fn test_fmt_cjk_punctuation_with_strikethrough() {
     // Test strikethrough with CJK punctuation (if supported)
     let input = "~~删除~~：测试。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -473,7 +473,7 @@ fn test_fmt_cjk_punctuation_with_strikethrough() {
 fn test_fmt_cjk_inline_code_at_end_of_sentence() {
     // Test inline code at the end of sentence followed by CJK punctuation
     let input = "使用 `code`。这是下一句。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -495,7 +495,7 @@ fn test_fmt_cjk_inline_code_at_end_of_sentence() {
 fn test_fmt_cjk_inline_code_at_start_of_sentence() {
     // Test inline code at the start of sentence
     let input = "`code` 是代码示例。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -512,7 +512,7 @@ fn test_fmt_cjk_inline_code_at_start_of_sentence() {
 fn test_fmt_cjk_multiple_inline_codes() {
     // Test multiple inline codes in one sentence
     let input = "使用 `code1` 和 `code2` 测试。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -534,7 +534,7 @@ fn test_fmt_cjk_multiple_inline_codes() {
 fn test_fmt_cjk_link_with_cjk_punctuation() {
     // Test link followed by CJK punctuation
     let input = "[链接](https://example.com)：说明。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -551,7 +551,7 @@ fn test_fmt_cjk_link_with_cjk_punctuation() {
 fn test_fmt_cjk_image_with_cjk_punctuation() {
     // Test image followed by CJK punctuation
     let input = "![图片](image.png)：说明。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -568,7 +568,7 @@ fn test_fmt_cjk_image_with_cjk_punctuation() {
 fn test_fmt_cjk_heading_with_inline_code() {
     // Test heading with inline code
     let input = "# 标题 `code` 说明".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -585,7 +585,7 @@ fn test_fmt_cjk_heading_with_inline_code() {
 fn test_fmt_cjk_list_with_inline_code() {
     // Test list item with inline code
     let input = "- 项目 `code` 说明\n- 另一项".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -602,7 +602,7 @@ fn test_fmt_cjk_list_with_inline_code() {
 fn test_fmt_cjk_blockquote_with_inline_code() {
     // Test blockquote with inline code
     let input = "> 引用 `code` 说明".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -619,7 +619,7 @@ fn test_fmt_cjk_blockquote_with_inline_code() {
 fn test_fmt_cjk_mixed_english_and_cjk_punctuation() {
     // Test mixed English and CJK punctuation
     let input = "**粗体**：test，中文。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -657,7 +657,7 @@ fn test_fmt_cjk_all_punctuation_types() {
 
     for (punct, desc) in test_cases {
         let input = format!("**粗体**{}", punct).as_bytes().to_vec();
-        let output = run_with_stdin(&["fmt", "--cjk-spacing"], &input);
+        let output = run_with_stdin(&["fmt"], &input);
 
         assert!(output.status.success());
         let cm = String::from_utf8(output.stdout).unwrap();
@@ -676,7 +676,7 @@ fn test_fmt_cjk_all_punctuation_types() {
 fn test_fmt_cjk_emphasis_with_english() {
     // Test emphasis mixed with English and CJK
     let input = "**bold**中文和English混合。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -693,7 +693,7 @@ fn test_fmt_cjk_emphasis_with_english() {
 fn test_fmt_cjk_code_with_backticks() {
     // Test inline code with backticks inside
     let input = "使用 `` `backticks` `` 代码。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -707,26 +707,10 @@ fn test_fmt_cjk_code_with_backticks() {
 }
 
 #[test]
-fn test_fmt_cjk_without_cjk_spacing() {
-    // Test that without --cjk-spacing, no spaces are added
-    let input = "中文test示例".as_bytes();
-    let output = run_with_stdin(&["fmt"], input);
-
-    assert!(output.status.success());
-    let cm = String::from_utf8(output.stdout).unwrap();
-
-    assert!(
-        cm.contains("中文test示例"),
-        "Without --cjk-spacing, no spaces should be added: {}",
-        cm
-    );
-}
-
-#[test]
 fn test_fmt_cjk_empty_document() {
     // Test empty document
     let input = "".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
 }
@@ -735,7 +719,7 @@ fn test_fmt_cjk_empty_document() {
 fn test_fmt_cjk_only_whitespace() {
     // Test document with only whitespace
     let input = "   \n\n   ".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing"], input);
+    let output = run_with_stdin(&["fmt"], input);
 
     assert!(output.status.success());
 }
@@ -744,7 +728,7 @@ fn test_fmt_cjk_only_whitespace() {
 fn test_fmt_cjk_long_paragraph() {
     // Test long paragraph with line breaking
     let input = "这是一个很长的段落，包含很多中文字符和English单词，用来测试行断行功能是否正常工作，以及CJK标点的处理是否正确。".as_bytes();
-    let output = run_with_stdin(&["fmt", "--cjk-spacing", "--width", "40"], input);
+    let output = run_with_stdin(&["fmt", "--width", "40"], input);
 
     assert!(output.status.success());
     let cm = String::from_utf8(output.stdout).unwrap();
@@ -756,4 +740,53 @@ fn test_fmt_cjk_long_paragraph() {
         "Long paragraph should be wrapped into multiple lines: {}",
         cm
     );
+}
+
+#[test]
+fn test_fmt_cjk_ascii_colon_after_inline_code() {
+    // Test ASCII colon after inline code
+    // Issue: `longer`: 支持 was being formatted as `longer` : 支持 (space before colon)
+    let input = "- `longer`: 支持在 `--names-to` 中使用。".as_bytes();
+    let output = run_with_stdin(&["fmt"], input);
+
+    assert!(output.status.success());
+    let cm = String::from_utf8(output.stdout).unwrap();
+
+    // ASCII colon should NOT have space before it after inline code
+    assert!(
+        cm.contains("`longer`: 支持"),
+        "ASCII colon should not have space before it after inline code: {}",
+        cm
+    );
+    assert!(
+        !cm.contains("`longer` : 支持"),
+        "There should be no space between ` and ASCII colon: {}",
+        cm
+    );
+}
+
+#[test]
+fn test_fmt_cjk_ascii_colon_various() {
+    // Test various ASCII punctuation after inline code
+    let test_cases = vec![
+        ("`code`: 测试", "`code`: 测试", "ASCII colon"),
+        ("`code`, 测试", "`code`, 测试", "ASCII comma"),
+        ("`code`. 测试", "`code`. 测试", "ASCII period"),
+        ("`code`; 测试", "`code`; 测试", "ASCII semicolon"),
+    ];
+
+    for (input_text, expected, desc) in test_cases {
+        let input = input_text.as_bytes();
+        let output = run_with_stdin(&["fmt"], input);
+
+        assert!(output.status.success());
+        let cm = String::from_utf8(output.stdout).unwrap();
+
+        assert!(
+            cm.contains(expected),
+            "{} should not have space before it after inline code: got {}",
+            desc,
+            cm
+        );
+    }
 }

@@ -37,6 +37,12 @@ fn is_cjk_punctuation(c: char) -> bool {
     )
 }
 
+/// Check if a character is ASCII punctuation that should NOT have space added
+/// (like `:`, `,`, `.`, `;`, `!`, `?`, etc.)
+fn is_ascii_punctuation_no_space(c: char) -> bool {
+    matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
+}
+
 /// Check if spacing is needed between two characters
 pub fn needs_spacing(prev: char, next: char) -> bool {
     let prev_is_cjk = is_cjk(prev);
@@ -45,10 +51,24 @@ pub fn needs_spacing(prev: char, next: char) -> bool {
     let next_is_ascii_alnum = is_ascii_letter(next) || is_ascii_digit(next);
     let prev_is_cjk_punct = is_cjk_punctuation(prev);
     let next_is_cjk_punct = is_cjk_punctuation(next);
+    let prev_is_ascii_punct_no_space = is_ascii_punctuation_no_space(prev);
+    let next_is_ascii_punct_no_space = is_ascii_punctuation_no_space(next);
 
     // CJK punctuation should NOT have space added after it
     // and should NOT have space added before it
     if prev_is_cjk_punct || next_is_cjk_punct {
+        return false;
+    }
+
+    // ASCII punctuation like `:`, `,`, `.` should NOT have space added before it
+    // This is important for Markdown formatting like `code`: text
+    if next_is_ascii_punct_no_space {
+        return false;
+    }
+
+    // ASCII punctuation like `:`, `,`, `.` should NOT have space added after it
+    // when followed by CJK text (but may need space when followed by ASCII)
+    if prev_is_ascii_punct_no_space && next_is_cjk {
         return false;
     }
 

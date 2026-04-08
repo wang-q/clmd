@@ -307,8 +307,6 @@ pub struct FormatOptions {
     pub thematic_break_marker: char,
     /// Format flags
     pub format_flags: FormatFlags,
-    /// Enable CJK spacing (add spaces between CJK and ASCII)
-    pub cjk_spacing: bool,
 
     // Format control options
     /// Enable formatter control comments
@@ -379,7 +377,6 @@ impl Default for FormatOptions {
             thematic_break: None,
             thematic_break_marker: '*',
             format_flags: FormatFlags::DEFAULT,
-            cjk_spacing: false,
 
             formatter_tags_enabled: true,
             formatter_tags_accept_regex: false,
@@ -422,12 +419,6 @@ impl FormatOptions {
     /// Set max blank lines
     pub fn with_max_blank_lines(mut self, value: usize) -> Self {
         self.max_blank_lines = value;
-        self
-    }
-
-    /// Set CJK spacing
-    pub fn with_cjk_spacing(mut self, value: bool) -> Self {
-        self.cjk_spacing = value;
         self
     }
 

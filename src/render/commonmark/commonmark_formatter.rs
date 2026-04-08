@@ -591,14 +591,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 text_str.to_string()
                             };
 
-                            // Apply CJK spacing if enabled
-                            let final_text = if ctx.get_formatter_options().cjk_spacing {
-                                crate::text::cjk_spacing::add_cjk_spacing(
-                                    &processed_text,
-                                )
-                            } else {
-                                processed_text
-                            };
+                            // Apply CJK spacing by default
+                            let final_text = crate::text::cjk_spacing::add_cjk_spacing(
+                                &processed_text,
+                            );
 
                             // Check if we're collecting text for line breaking
                             if ctx.is_collecting_line_breaking() {

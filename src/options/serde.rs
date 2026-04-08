@@ -322,10 +322,6 @@ pub struct RenderConfig {
     /// Wrap width (0 = no wrapping)
     #[serde(default)]
     pub width: usize,
-
-    /// Enable CJK spacing
-    #[serde(default)]
-    pub cjk_spacing: bool,
 }
 
 /// Format configuration (serializable)
@@ -489,9 +485,6 @@ impl Config {
         }
         if other.render.width > 0 {
             self.render.width = other.render.width;
-        }
-        if other.render.cjk_spacing {
-            self.render.cjk_spacing = true;
         }
 
         if other.syntax.theme.is_some() {

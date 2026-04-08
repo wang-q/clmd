@@ -36,12 +36,6 @@ pub fn make_subcommand() -> Command {
                 .default_value("80")
                 .help("Line width limit for wrapping"),
         )
-        .arg(
-            Arg::new("cjk-spacing")
-                .long("cjk-spacing")
-                .action(ArgAction::SetTrue)
-                .help("Add spaces between CJK characters and English/numbers"),
-        )
 }
 
 pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<()> {
@@ -66,13 +60,9 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(80);
 
-    // Get cjk-spacing flag
-    let cjk_spacing = matches.get_flag("cjk-spacing");
-
     // Create options with width setting and enable extensions
     let mut options = options.clone();
     options.render.width = width;
-    options.render.cjk_spacing = cjk_spacing;
     options.extension.table = true;
     options.extension.tasklist = true;
 

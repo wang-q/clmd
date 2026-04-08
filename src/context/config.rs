@@ -134,7 +134,6 @@ impl Config {
         options.render.compact_html = self.render.compact;
         options.render.escape = self.render.escape;
         options.render.width = self.render.width;
-        options.render.cjk_spacing = self.render.cjk_spacing;
     }
 
     /// Get extensions as bitflags

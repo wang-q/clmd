@@ -564,9 +564,8 @@ pub fn format_commonmark(
     output: &mut dyn std::fmt::Write,
     _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    let opts = options::format::FormatOptions::new()
-        .with_right_margin(options.render.width)
-        .with_cjk_spacing(options.render.cjk_spacing);
+    let opts =
+        options::format::FormatOptions::new().with_right_margin(options.render.width);
 
     let mut formatter = render::commonmark::Formatter::with_options(opts);
     formatter.add_node_formatter(Box::new(
