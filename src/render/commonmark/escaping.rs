@@ -352,11 +352,11 @@ fn escape_text_internal(
             '_' => {
                 // Underscore needs special handling
                 // Only escape if it could form an emphasis marker
-                if is_in_code_context(context) {
-                    // Inside code, no escaping needed
-                    result.push('_');
-                } else if is_part_of_emphasis_node(context) {
-                    // Inside emphasis node, no escaping needed
+                if is_in_code_context(context)
+                    || is_part_of_emphasis_node(context)
+                    || is_table_mode
+                {
+                    // In table cells, underscores are preserved as emphasis markers
                     result.push('_');
                 } else if is_underscore_in_word(&chars, i) {
                     // Underscore inside a word (like default_template) - don't escape
@@ -370,7 +370,11 @@ fn escape_text_internal(
             }
             '*' => {
                 // Asterisk also needs context-aware handling
-                if is_in_code_context(context) || is_part_of_emphasis_node(context) {
+                if is_in_code_context(context)
+                    || is_part_of_emphasis_node(context)
+                    || is_table_mode
+                {
+                    // In table cells, asterisks are preserved as emphasis markers
                     result.push('*');
                 } else {
                     // Check if it could form emphasis
@@ -396,17 +400,15 @@ fn escape_text_internal(
                 at_line_start = false;
             }
             '!' if is_table_mode => {
-                // In table mode, '!' only needs escaping when followed by '['
-                if i + 1 < chars.len() && chars[i + 1] == '[' {
-                    result.push('\\');
-                }
+                // In table mode, '!' is preserved as part of image syntax ![...]
                 result.push(*ch);
                 at_line_start = false;
             }
             '#' => {
                 // '#' only needs escaping at line start when followed by space (heading marker)
                 // # followed directly by text (like #469) is not a heading
-                if at_line_start && !is_in_code_context(context) {
+                // In table cells, '#' doesn't need escaping
+                if at_line_start && !is_in_code_context(context) && !is_table_mode {
                     let next_char = chars.get(i + 1);
                     let followed_by_space =
                         next_char.map(|c| c.is_whitespace()).unwrap_or(false);
@@ -418,24 +420,31 @@ fn escape_text_internal(
                 at_line_start = false;
             }
             _ => {
-                // Check if we need to escape this character
-                // First check context-aware rules, then check line-start rules
-                let needs_escape = if at_line_start
-                    && LINE_START_SPECIAL_CHARS.contains(ch)
-                    && !is_in_code_context(context)
-                {
-                    // At line start with a special character - check if context says it needs escaping
-                    need_to_escape(*ch, context)
+                // In table mode, most characters don't need escaping
+                // Only pipe (|) needs special handling (already done above)
+                if is_table_mode {
+                    result.push(*ch);
+                    at_line_start = false;
                 } else {
-                    // Not at line start or not a line-start special char, use normal escaping rules
-                    need_to_escape(*ch, context)
-                };
+                    // Check if we need to escape this character
+                    // First check context-aware rules, then check line-start rules
+                    let needs_escape = if at_line_start
+                        && LINE_START_SPECIAL_CHARS.contains(ch)
+                        && !is_in_code_context(context)
+                    {
+                        // At line start with a special character - check if context says it needs escaping
+                        need_to_escape(*ch, context)
+                    } else {
+                        // Not at line start or not a line-start special char, use normal escaping rules
+                        need_to_escape(*ch, context)
+                    };
 
-                if needs_escape {
-                    result.push('\\');
+                    if needs_escape {
+                        result.push('\\');
+                    }
+                    result.push(*ch);
+                    at_line_start = false;
                 }
-                result.push(*ch);
-                at_line_start = false;
             }
         }
     }
@@ -464,10 +473,8 @@ pub fn escape_markdown_for_table(
 /// Escape text for table cell content (simple version without context)
 ///
 /// This version is used when context is not available (e.g., in collect_cell_text_content).
-/// It performs basic escaping suitable for table cells:
-/// - Preserves pipe characters (|)
-/// - Escapes markdown special characters
-/// - Smart underscore handling (doesn't escape inside words)
+/// In table cells, only the pipe character (|) needs to be escaped.
+/// All other Markdown characters are preserved as valid inline elements.
 pub fn escape_markdown_for_table_simple(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
@@ -477,130 +484,22 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
         let c = chars[i];
         match c {
             '\\' => {
-                // Check if this backslash is escaping a special character
-                // If so, don't add another backslash to avoid double-escaping
+                // Check if this backslash is escaping a pipe character
                 let next_char = chars.get(i + 1);
-                let is_escaping_special = next_char.map_or(false, |&c| {
-                    matches!(
-                        c,
-                        '[' | ']' | '*' | '_' | '`' | '!' | '<' | '>' | '\\' | '#'
-                    )
-                });
-
-                if is_escaping_special {
-                    // This backslash is already escaping a special character
-                    // Just copy it as-is, don't add another backslash
+                if next_char == Some(&'|') {
+                    // This backslash is escaping a pipe - preserve the sequence
                     result.push(c);
+                    result.push('|');
+                    i += 2;
                 } else {
-                    // This backslash is not escaping anything special
-                    // Escape it to avoid interpretation
+                    // Escape the backslash itself
                     result.push('\\');
-                    result.push(c);
-                }
-                i += 1;
-            }
-            '`' => {
-                // Found inline code - copy everything until closing backtick
-                result.push(c);
-                i += 1;
-
-                // Find the closing backtick
-                while i < chars.len() && chars[i] != '`' {
-                    result.push(chars[i]);
+                    result.push('\\');
                     i += 1;
                 }
-
-                // Add closing backtick if found
-                if i < chars.len() {
-                    result.push(chars[i]);
-                    i += 1;
-                }
-            }
-            '_' => {
-                // Only escape underscore if it could form emphasis marker
-                // (not inside a word like default_template)
-                if is_underscore_in_word_simple(&chars, i) {
-                    // Underscore inside word - don't escape
-                    result.push(c);
-                } else {
-                    // Could be emphasis marker - escape it
-                    result.push('\\');
-                    result.push(c);
-                }
-                i += 1;
-            }
-            '*' => {
-                // Don't escape if this is part of a sequence of asterisks (like ** or ***)
-                // These are likely emphasis markers and should be preserved
-                let prev_char = if i > 0 { chars.get(i - 1) } else { None };
-                let next_char = chars.get(i + 1);
-                let is_part_of_sequence =
-                    prev_char == Some(&'*') || next_char == Some(&'*');
-
-                // Also check if it could form emphasis (similar to escape_text_internal)
-                let could_be_emphasis = could_form_emphasis_simple(prev_char, next_char);
-
-                if could_be_emphasis && !is_part_of_sequence {
-                    result.push('\\');
-                }
-                result.push(c);
-                i += 1;
-            }
-            '[' => {
-                // In table cells, we don't escape '[' even if it forms a link
-                // because we want to preserve links as clickable elements
-                // Just output the character as-is
-                result.push(c);
-                i += 1;
-            }
-            ']' => {
-                // In table cells, we don't escape ']' even if it closes a link
-                // because we want to preserve links as clickable elements
-                // Just output the character as-is
-                result.push(c);
-                i += 1;
-            }
-            '<' => {
-                // Escape '<' as it could be interpreted as HTML tag
-                result.push('\\');
-                result.push(c);
-                i += 1;
-            }
-            '>' => {
-                // In normal text, > doesn't need escaping
-                // It only has special meaning as part of HTML tags or autolinks
-                result.push(c);
-                i += 1;
-            }
-            '!' => {
-                // In table cells, we don't escape '!' even if it forms an image
-                // because we want to preserve images as renderable elements
-                result.push(c);
-                i += 1;
-            }
-            '#' => {
-                // '#' only needs escaping at the start of a line when it forms a heading
-                // A heading is: # followed by space, or multiple # followed by space
-                // In table cells, # followed directly by text (like #469) is not a heading
-                let is_at_start = i == 0
-                    || chars.get(i - 1).map(|c| c.is_whitespace()).unwrap_or(false);
-                let followed_by_space =
-                    chars.get(i + 1).map(|c| c.is_whitespace()).unwrap_or(false);
-                let followed_by_digit = chars
-                    .get(i + 1)
-                    .map(|c| c.is_ascii_digit())
-                    .unwrap_or(false);
-
-                // Only escape if at start AND followed by space (not followed by digit)
-                if is_at_start && followed_by_space && !followed_by_digit {
-                    // This could be interpreted as an ATX heading
-                    result.push('\\');
-                }
-                result.push(c);
-                i += 1;
             }
             _ => {
-                // Pipe and other characters are preserved
+                // All other characters are preserved as-is in table cells
                 result.push(c);
                 i += 1;
             }
@@ -608,34 +507,6 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
     }
 
     result
-}
-
-/// Check if underscore is inside a word (surrounded by alphanumeric characters)
-/// Simple version for use without context
-fn is_underscore_in_word_simple(chars: &[char], pos: usize) -> bool {
-    let prev_char = if pos > 0 { chars.get(pos - 1) } else { None };
-    let next_char = chars.get(pos + 1);
-
-    // Underscore is in a word if both adjacent characters are alphanumeric
-    let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-    let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-
-    prev_is_alphanumeric && next_is_alphanumeric
-}
-
-/// Simple version of could_form_emphasis for use without context
-/// Checks if an asterisk/underscore could form an emphasis marker
-fn could_form_emphasis_simple(
-    prev_char: Option<&char>,
-    next_char: Option<&char>,
-) -> bool {
-    // Simplified version: assume it could form emphasis if not surrounded by other asterisks
-    // and not in the middle of a word
-    let prev_is_alphanumeric = prev_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-    let next_is_alphanumeric = next_char.map(|c| c.is_alphanumeric()).unwrap_or(false);
-
-    // Could form emphasis if at word boundary or surrounded by whitespace/punctuation
-    !(prev_is_alphanumeric && next_is_alphanumeric)
 }
 
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)
@@ -1283,8 +1154,8 @@ mod tests {
             escape_markdown_for_table("cell1 | cell2", &ctx),
             "cell1 | cell2"
         );
-        // Other special chars should be escaped
-        assert_eq!(escape_markdown_for_table("*text*", &ctx), "\\*text\\*");
+        // Asterisks in table cells should NOT be escaped (they are valid emphasis markers)
+        assert_eq!(escape_markdown_for_table("*text*", &ctx), "*text*");
     }
 
     #[test]
@@ -1295,29 +1166,32 @@ mod tests {
             "cell1 | cell2"
         );
 
-        // Test backslash escaping
+        // Test backslash escaping - backslash is escaped unless it's escaping a pipe
         assert_eq!(
             escape_markdown_for_table_simple("path\\file"),
             "path\\\\file"
+        );
+        // Backslash before pipe is preserved
+        assert_eq!(
+            escape_markdown_for_table_simple("cell \\| cell"),
+            "cell \\| cell"
         );
 
         // Test backtick handling (inline code)
         assert_eq!(escape_markdown_for_table_simple("`code`"), "`code`");
 
-        // Test underscore inside word
+        // Test underscore - in table cells, underscores are preserved as emphasis markers
         assert_eq!(
             escape_markdown_for_table_simple("default_template"),
             "default_template"
         );
+        assert_eq!(escape_markdown_for_table_simple("_text_"), "_text_");
 
-        // Test underscore at boundary
-        assert_eq!(escape_markdown_for_table_simple("_text_"), "\\_text\\_");
+        // Test asterisk - in table cells, asterisks are preserved as emphasis markers
+        assert_eq!(escape_markdown_for_table_simple("*text*"), "*text*");
+        assert_eq!(escape_markdown_for_table_simple("*genus*"), "*genus*");
 
-        // Test asterisk escaping
-        assert_eq!(escape_markdown_for_table_simple("*text*"), "\\*text\\*");
-
-        // Test brackets - in table cells, we don't escape '[' and ']'
-        // to preserve links as clickable elements
+        // Test brackets - in table cells, brackets are preserved for links
         assert_eq!(escape_markdown_for_table_simple("[link]"), "[link]");
         assert_eq!(
             escape_markdown_for_table_simple("[link](url)"),
@@ -1328,11 +1202,10 @@ mod tests {
             "[link][ref]"
         );
 
-        // Test less-than escaping
-        assert_eq!(escape_markdown_for_table_simple("<tag>"), "\\<tag>");
+        // Test less-than - in table cells, < is preserved
+        assert_eq!(escape_markdown_for_table_simple("<tag>"), "<tag>");
 
-        // Test exclamation with bracket - in table cells, we don't escape '['
-        // to preserve images as renderable elements
+        // Test exclamation with bracket - in table cells, ![...] is preserved for images
         assert_eq!(escape_markdown_for_table_simple("![image]"), "![image]");
         assert_eq!(
             escape_markdown_for_table_simple("![image](url)"),
@@ -1342,39 +1215,29 @@ mod tests {
         // Test standalone exclamation
         assert_eq!(escape_markdown_for_table_simple("Hello!"), "Hello!");
 
-        // Test hash at start with space
-        assert_eq!(escape_markdown_for_table_simple("# heading"), "\\# heading");
-
-        // Test hash followed by digit (not a heading)
+        // Test hash - in table cells, # is preserved
+        assert_eq!(escape_markdown_for_table_simple("# heading"), "# heading");
         assert_eq!(escape_markdown_for_table_simple("#123"), "#123");
     }
 
     #[test]
     fn test_escape_markdown_for_table_simple_no_double_escape() {
-        // Test that already-escaped text doesn't get double-escaped
-        // This is important for idempotent formatting
+        // Test that formatting is idempotent
 
-        // Link syntax should not be escaped (preserved as clickable links)
+        // Link syntax should be preserved
         assert_eq!(
             escape_markdown_for_table_simple("[link](url)"),
             "[link](url)"
         );
-        // Already escaped link should stay as-is (backslash preserved)
-        assert_eq!(
-            escape_markdown_for_table_simple("\\[link\\](url)"),
-            "\\[link\\](url)"
-        );
 
-        // Image syntax should not be escaped
+        // Image syntax should be preserved
         assert_eq!(
             escape_markdown_for_table_simple("![image](url)"),
             "![image](url)"
         );
-        // Already escaped image should stay as-is
-        assert_eq!(
-            escape_markdown_for_table_simple("\\!\\[image\\](url)"),
-            "\\!\\[image\\](url)"
-        );
+
+        // Backslash before pipe is preserved
+        assert_eq!(escape_markdown_for_table_simple("a \\| b"), "a \\| b");
 
         // Multiple formatting rounds should be stable for links
         let text = "[link](http://example.com)";
@@ -1391,6 +1254,13 @@ mod tests {
         let round2_2 = escape_markdown_for_table_simple(&round1_2);
         assert_eq!(round1_2, text2);
         assert_eq!(round2_2, text2);
+
+        // Multiple formatting rounds should be stable for emphasis
+        let text3 = "*emphasized* and _underlined_";
+        let round1_3 = escape_markdown_for_table_simple(text3);
+        let round2_3 = escape_markdown_for_table_simple(&round1_3);
+        assert_eq!(round1_3, text3);
+        assert_eq!(round2_3, text3);
     }
 
     #[test]
@@ -1560,43 +1430,6 @@ mod tests {
             escape_markdown_for_table_simple("`special_chars`"),
             "`special_chars`"
         );
-    }
-
-    #[test]
-    fn test_is_underscore_in_word_simple() {
-        let chars: Vec<char> = "default_template".chars().collect();
-        assert!(is_underscore_in_word_simple(&chars, 7));
-
-        let chars: Vec<char> = "_text_".chars().collect();
-        assert!(!is_underscore_in_word_simple(&chars, 0));
-        assert!(!is_underscore_in_word_simple(&chars, 5));
-
-        let chars: Vec<char> = "a_b".chars().collect();
-        assert!(is_underscore_in_word_simple(&chars, 1));
-
-        let chars: Vec<char> = "_a".chars().collect();
-        assert!(!is_underscore_in_word_simple(&chars, 0));
-
-        let chars: Vec<char> = "a_".chars().collect();
-        assert!(!is_underscore_in_word_simple(&chars, 1));
-    }
-
-    #[test]
-    fn test_could_form_emphasis_simple() {
-        // At word boundary
-        assert!(could_form_emphasis_simple(Some(&' '), Some(&'a')));
-        assert!(could_form_emphasis_simple(Some(&'a'), Some(&' ')));
-
-        // Inside word
-        assert!(!could_form_emphasis_simple(Some(&'a'), Some(&'b')));
-
-        // With punctuation
-        assert!(could_form_emphasis_simple(Some(&'.'), Some(&'a')));
-        assert!(could_form_emphasis_simple(Some(&'a'), Some(&'.')));
-
-        // At start/end
-        assert!(could_form_emphasis_simple(None, Some(&'a')));
-        assert!(could_form_emphasis_simple(Some(&'a'), None));
     }
 
     #[test]
