@@ -292,3 +292,8 @@ fn run_formatter_spec_file(spec_file: &str) {
 fn test_formatter_spec() {
     run_formatter_spec_file("tests/fixtures/formatter_spec.md");
 }
+
+#[test]
+fn test_formatter_regression_spec() {
+    run_formatter_spec_file("tests/fixtures/formatter_regression_spec.md");
+}
