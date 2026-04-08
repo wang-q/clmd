@@ -638,62 +638,6 @@ fn could_form_emphasis_simple(
     !(prev_is_alphanumeric && next_is_alphanumeric)
 }
 
-/// Look ahead to check if '[' could be part of a link syntax
-/// Returns true if there's a matching ']' followed by '(' or '[' (link reference)
-fn look_ahead_for_link_simple(chars: &[char], pos: usize) -> bool {
-    // Find the next ']'
-    let mut i = pos + 1;
-    while i < chars.len() {
-        if chars[i] == ']' {
-            // Found ']', check if it's followed by '(' or '['
-            // This is the key indicator of a link: [text](url) or [text][ref]
-            if i + 1 < chars.len() {
-                let next = chars[i + 1];
-                if next == '(' || next == '[' {
-                    return true;
-                }
-            }
-            // If not followed by '(' or '[', it's not a link syntax
-            // e.g., [ms] is not a link, just text
-            return false;
-        }
-        i += 1;
-    }
-    false
-}
-
-/// Look back to check if ']' could close a link
-/// Returns true if there's a matching '[' before it that could form a link
-/// A link is only formed if ']' is followed by '(' or '['
-fn look_back_for_open_bracket_simple(chars: &[char], pos: usize) -> bool {
-    // First check if ']' is followed by '(' or '[' - this is required for a link
-    if pos + 1 < chars.len() {
-        let next = chars[pos + 1];
-        if next != '(' && next != '[' {
-            // Not followed by '(' or '[', so this is not a link
-            return false;
-        }
-    } else {
-        // ']' is at the end, not followed by anything
-        return false;
-    }
-
-    // Look back for '['
-    let mut i = pos;
-    while i > 0 {
-        i -= 1;
-        if chars[i] == '[' {
-            // Found '[', check if there's content between [ and ]
-            return pos > i + 1;
-        }
-        if chars[i] == ']' {
-            // Found another ']' before '[', this is not a matching pair
-            return false;
-        }
-    }
-    false
-}
-
 /// Check if underscore is inside a word (surrounded by alphanumeric characters)
 ///
 /// Examples:
