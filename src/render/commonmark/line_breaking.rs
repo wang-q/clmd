@@ -228,53 +228,19 @@ impl LineBreakingContext {
                     self.add_word(w);
                 }
             } else {
-                // Non-CJK text: check if it's a long URL/path that should be split
+                // Non-CJK text: treat as single word (don't split URLs at '/' boundaries
+                // as this would break the link when spaces are added between words)
                 let segment_width = unicode_width::width(*segment) as usize;
-                if segment_width > self.ideal_width && segment.contains('/') {
-                    // Long URL/path: split at '/' boundaries
-                    let parts: Vec<&str> = segment.split('/').collect();
-                    for (j, part) in parts.iter().enumerate() {
-                        if part.is_empty() {
-                            continue;
-                        }
-                        let mut word = Word::new(*part);
-                        // Add '/' back except for the last part
-                        if j < parts.len() - 1 {
-                            word.text.push('/');
-                            word.width = unicode_width::width(&word.text) as usize;
-                        }
-                        // First part: handle leading space
-                        if j == 0 {
-                            let is_no_space_punct =
-                                starts_with_no_leading_space_punctuation(part);
-                            let starts_with_whitespace =
-                                text.chars().next().map_or(false, |c| c.is_whitespace());
-                            if self.next_word_no_leading_space || self.after_inline_code
-                            {
-                                if is_no_space_punct && !starts_with_whitespace {
-                                    word.needs_leading_space = false;
-                                }
-                            } else {
-                                if is_no_space_punct && !starts_with_whitespace {
-                                    word.needs_leading_space = false;
-                                }
-                            }
-                        } else {
-                            // Subsequent parts: no leading space
-                            word.needs_leading_space = false;
-                        }
-                        // Last part: handle trailing space
-                        if j == parts.len() - 1 {
-                            if i == total_segments - 1 && !ends_with_whitespace {
-                                word.has_trailing_space = false;
-                            }
-                        } else {
-                            // Not the last part: no trailing space (the '/' is included)
-                            word.has_trailing_space = false;
-                        }
-                        self.add_word(word);
-                    }
-                } else {
+                // Note: We no longer split long URLs at '/' boundaries because it breaks
+                // the link. Instead, URLs are kept as single words and allowed to exceed
+                // the ideal width. The line breaking algorithm will handle them gracefully
+                // by placing them on their own line if needed.
+                if false && segment_width > self.ideal_width && segment.contains('/') {
+                    // Disabled: Long URL/path splitting at '/' boundaries
+                    // This was causing links to break because spaces were added between parts
+                }
+                // Normal non-CJK text: treat as single word
+                {
                     // Normal non-CJK text: treat as single word
                     let mut word = Word::new(*segment);
                     // Check if this segment starts with punctuation that should NOT have leading space
@@ -351,6 +317,16 @@ impl LineBreakingContext {
     /// Add a Markdown marker (like **, *, [, ], etc.)
     /// This sets next_word_no_leading_space to prevent space after the marker
     pub fn add_markdown_marker(&mut self, text: &str) {
+        // Note: We no longer split long URLs at '/' boundaries because it breaks
+        // the link. Instead, URLs are kept as single words and allowed to exceed
+        // the ideal width. The line breaking algorithm will handle them gracefully
+        // by placing them on their own line if needed.
+        let text_width = unicode_width::width(text) as usize;
+        if false && text_width > self.ideal_width && text.contains('/') {
+            // Disabled: Long URL/path splitting at '/' boundaries
+            // This was causing links to break because spaces were added between parts
+        }
+        // Normal case: add as single word
         self.add_word(Word::new_mark(text));
         // The next word should not have a leading space (unless it's CJK punctuation)
         self.next_word_no_leading_space = true;
@@ -361,63 +337,17 @@ impl LineBreakingContext {
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
         // Check if this is a long inline element (like a code span with a long URL)
-        // that should be split for better line breaking
         let text_width = unicode_width::width(text) as usize;
-        if text_width > self.ideal_width && text.contains('/') {
-            // Long URL/path in inline element: split at '/' boundaries
-            // First, check if it starts and ends with backticks (code span)
-            let is_code_span = text.starts_with('`') && text.ends_with('`');
-            let inner_text = if is_code_span {
-                &text[1..text.len() - 1]
-            } else {
-                text
-            };
-
-            // Split at '/' boundaries
-            let parts: Vec<&str> = inner_text.split('/').collect();
-            for (j, part) in parts.iter().enumerate() {
-                if part.is_empty() {
-                    continue;
-                }
-
-                // Build the part text
-                let mut part_text = String::new();
-                if j == 0 && is_code_span {
-                    part_text.push('`');
-                }
-                part_text.push_str(part);
-                if j < parts.len() - 1 {
-                    part_text.push('/');
-                }
-                if j == parts.len() - 1 && is_code_span {
-                    part_text.push('`');
-                }
-
-                let mut word = Word::new_without_space(&part_text);
-
-                // First part: handle leading space
-                if j == 0 {
-                    if let Some(prev_word) = self.words.last() {
-                        if let Some(last_char) = prev_word.text.chars().last() {
-                            if is_cjk(last_char) && !is_cjk_punctuation(last_char) {
-                                word.needs_leading_space = true;
-                            } else {
-                                word.needs_leading_space = false;
-                            }
-                        } else {
-                            word.needs_leading_space = false;
-                        }
-                    } else {
-                        word.needs_leading_space = false;
-                    }
-                } else {
-                    // Subsequent parts: no leading space
-                    word.needs_leading_space = false;
-                }
-
-                self.add_word(word);
-            }
-        } else {
+        // Note: We no longer split long URLs at '/' boundaries because it breaks
+        // the link. Instead, URLs are kept as single words and allowed to exceed
+        // the ideal width. The line breaking algorithm will handle them gracefully
+        // by placing them on their own line if needed.
+        if false && text_width > self.ideal_width && text.contains('/') {
+            // Disabled: Long URL/path splitting at '/' boundaries
+            // This was causing links to break because spaces were added between parts
+        }
+        // Normal inline element: add as single word
+        {
             // Normal inline element: add as single word
             let mut word = Word::new_without_space(text);
             // Check if the previous word ends with CJK character or CJK punctuation
@@ -2389,32 +2319,33 @@ mod tests {
     }
 
     #[test]
-    fn test_long_link_width_calculation() {
-        // Test that long links are correctly width-calculated and wrapped
+    fn test_long_link_not_split() {
+        // Test that long URLs are NOT split at '/' boundaries
+        // because splitting would break the link when spaces are added between parts.
         // Example: 我们旨在重现 `https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md` 使用的严格基准测试策略。
-        // The link should not exceed the line width
 
-        // Use narrower width to ensure the link needs to be wrapped
         let mut ctx = LineBreakingContext::new(40, 50);
 
         // Simulate the text with a long link using add_inline_element
-        // (which is the actual code path used by commonmark_formatter.rs)
         ctx.add_text("我们旨在重现 ");
         ctx.add_inline_element("`https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md`");
         ctx.add_text(" 使用的严格基准测试策略。");
 
         let formatted = ctx.format();
 
-        // Check that no line exceeds max width (50)
-        for line in formatted.lines() {
-            let width = unicode_width::width(line) as usize;
-            assert!(
-                width <= 50,
-                "Line exceeds max width ({} > 50): {}",
-                width,
-                line
-            );
-        }
+        // The URL should NOT be split (no spaces within the URL)
+        assert!(
+            formatted.contains("`https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md`"),
+            "Long URL should NOT be split at '/' boundaries - it would break the link. Formatted:\n{}",
+            formatted
+        );
+
+        // The link should be usable (no spaces breaking it)
+        assert!(
+            !formatted.contains("https:/ ") && !formatted.contains("/ "),
+            "URL should not contain spaces that would break the link. Formatted:\n{}",
+            formatted
+        );
     }
 }
 
