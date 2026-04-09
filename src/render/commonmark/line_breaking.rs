@@ -2466,6 +2466,137 @@ mod paragraph_line_breaker_tests {
             formatted
         );
     }
+
+    #[test]
+    fn test_opening_bracket_no_space_after() {
+        // Test that opening bracket followed by text doesn't have space
+        // Example: **HEPMASS** (\n  4.8GB) should become **HEPMASS** (4.8GB)
+        let mut breaker = ParagraphLineBreaker::new(80, "".to_string());
+
+        // Use add_unbreakable_unit to simulate markdown markers
+        breaker.add_unbreakable_unit(UnitKind::Strong, "**", "HEPMASS", "**");
+        breaker.add_text(" (");
+        breaker.add_text("4.8GB)");
+
+        let formatted = breaker.format();
+
+        // There should be no space after `(`
+        assert!(
+            !formatted.contains("( 4.8GB)"),
+            "There should be no space after `(`. Formatted:\n{}",
+            formatted
+        );
+
+        // The correct format should be `(4.8GB)`
+        assert!(
+            formatted.contains("(4.8GB)"),
+            "`(` should be directly followed by `4.8GB`. Formatted:\n{}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_list_item_line_breaking_width() {
+        // Test for the bug: line breaks too early in list items
+        // Input: "- For projects that have finished downloading, but have renamed strains, you can run `reorder.sh` to avoid re-downloading"
+        // Expected: should fill the line closer to max_width
+        // Note: Using max_width = 78 with prefix "  " for continuation lines
+        let mut breaker = ParagraphLineBreaker::new(78, "  ".to_string());
+        breaker.add_text("For projects that have finished downloading, but have renamed strains, you can run");
+        breaker.add_unbreakable_unit(UnitKind::InlineCode, "`", "reorder.sh", "`");
+        breaker.add_text("to avoid re-downloading");
+
+        let breaks = breaker.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = breaker.format();
+        println!("Formatted:\n{}", formatted);
+
+        // Check that the first line is reasonably filled
+        let first_line = formatted.lines().next().unwrap();
+        let first_line_width = unicode_width::width(first_line);
+        println!("First line width: {}", first_line_width);
+
+        // The first line should be reasonably filled
+        // The first line should be at least 60 characters
+        assert!(
+            first_line_width >= 60,
+            "First line should be reasonably filled, but got {}:\n{}",
+            first_line_width,
+            first_line
+        );
+    }
+
+    #[test]
+    fn test_cjk_punctuation_not_at_line_start() {
+        // Test for the bug: Chinese comma appears at line start
+        // Input: "这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。"
+        // Expected: Chinese comma should NOT appear at line start
+        let mut breaker = ParagraphLineBreaker::new(60, "  ".to_string());
+        breaker.add_text("这些操作需要");
+        breaker.add_unbreakable_unit(UnitKind::InlineCode, "`", "list.iter().cloned().collect()", "`");
+        breaker.add_text("，比直接");
+        breaker.add_unbreakable_unit(UnitKind::InlineCode, "`", "list.clone()", "`");
+        breaker.add_text("慢得多。");
+
+        let breaks = breaker.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = breaker.format();
+        println!("Formatted:\n{}", formatted);
+
+        // Check that no line starts with Chinese comma
+        for line in formatted.lines() {
+            let trimmed = line.trim_start();
+            assert!(
+                !trimmed.starts_with('，'),
+                "Line should not start with Chinese comma: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_cjk_punctuation_not_at_line_start_real_case() {
+        // Test for the issue: single digit "0" should not be on its own line
+        // Input: "- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。"
+        // Note: Using max_width = 100 with prefix "  " for continuation lines
+        // The "- " prefix is added as text at the beginning
+        let mut breaker = ParagraphLineBreaker::new(100, "  ".to_string());
+        breaker.add_text("- ");
+        breaker.add_unbreakable_unit(UnitKind::Strong, "**", "特色功能", "**");
+        breaker.add_text(": 支持日期补全 (");
+        breaker.add_unbreakable_unit(UnitKind::InlineCode, "`", "--dates", "`");
+        breaker.add_text(")，自动填充缺失的日期并设为 0；支持间隙压缩 (");
+        breaker.add_unbreakable_unit(UnitKind::InlineCode, "`", "--compress-gaps", "`");
+        breaker.add_text(")，隐藏连续的 0 值。");
+
+        let breaks = breaker.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = breaker.format();
+        println!("Formatted:\n{}", formatted);
+
+        // Check that no line starts with Chinese comma
+        for line in formatted.lines() {
+            let trimmed = line.trim_start();
+            assert!(
+                !trimmed.starts_with('，'),
+                "Line should not start with Chinese comma: {}",
+                line
+            );
+        }
+
+        // Check that single digit "0" is not on its own line
+        for line in formatted.lines() {
+            let trimmed = line.trim();
+            assert!(
+                trimmed != "0" && trimmed != "0 值。",
+                "Single digit '0' should not be on its own line: {}",
+                line
+            );
+        }
+    }
 }
 
 /// Context for line breaking
@@ -3889,77 +4020,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_opening_bracket_no_space_after() {
-        // Test that opening bracket followed by text doesn't have space
-        // Example: **HEPMASS** (\n  4.8GB) should become **HEPMASS** (4.8GB)
-        let mut ctx = LineBreakingContext::new(80, 90);
-
-        ctx.add_markdown_marker("**");
-        ctx.add_text("HEPMASS");
-        ctx.add_markdown_marker("**");
-        ctx.add_text(" (\n  4.8GB)");
-
-        // Print words for debugging
-        println!("Words:");
-        for (i, word) in ctx.words().iter().enumerate() {
-            println!(
-                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
-                i, word.text, word.needs_leading_space, word.has_trailing_space
-            );
-        }
-
-        let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
-
-        // There should be no space after `(`
-        assert!(
-            !formatted.contains("( 4.8GB)"),
-            "There should be no space after `(`. Formatted:\n{}",
-            formatted
-        );
-
-        // The correct format should be `(4.8GB)`
-        assert!(
-            formatted.contains("(4.8GB)"),
-            "`(` should be directly followed by `4.8GB`. Formatted:\n{}",
-            formatted
-        );
-    }
-
-    #[test]
-    #[ignore = "TODO: Fix this test - ParagraphLineBreaker output differs from full format_commonmark output"]
-    fn test_opening_bracket_no_space_after_full() {
-        // Test using the full format_commonmark function
-        use crate::{format_commonmark, parse_document, Options, Plugins};
-
-        let mut options = Options::default();
-        options.render.width = 80; // Set a large width to prevent line breaking
-        let input = "**HEPMASS** (\n  4.8GB)";
-        let (arena, root) = parse_document(input, &options);
-        let mut output = String::new();
-        format_commonmark(&arena, root, &options, &mut output, &Plugins::default())
-            .unwrap();
-
-        println!("Input: {:?}", input);
-        println!("Output: {:?}", output);
-        println!("Output bytes: {:?}", output.as_bytes());
-
-        // There should be no space after `(`
-        assert!(
-            !output.contains("( 4.8GB)"),
-            "There should be no space after `(`. Output:\n{}",
-            output
-        );
-
-        // The correct format should be `(4.8GB)`
-        assert!(
-            output.contains("(4.8GB)"),
-            "`(` should be directly followed by `4.8GB`. Output:\n{}",
-            output
-        );
-    }
-
-    #[test]
     fn test_paragraph_line_breaker_debug() {
         // Debug test to see what's happening in ParagraphLineBreaker
         let mut breaker = ParagraphLineBreaker::new(80, "".to_string());
@@ -4013,163 +4073,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_debug_line_breaking_context() {
-        // Debug test to see what's happening in LineBreakingContext
-        let mut ctx = LineBreakingContext::new(80, 90);
-
-        // Simulate what happens in format_commonmark
-        ctx.add_markdown_marker("**");
-        ctx.add_text("HEPMASS");
-        ctx.add_markdown_marker("**");
-        ctx.add_text(" ("); // Note: this includes the leading space
-        ctx.add_text("4.8GB)");
-
-        // Print words for debugging
-        println!("Words:");
-        for (i, word) in ctx.words().iter().enumerate() {
-            println!(
-                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
-                i, word.text, word.needs_leading_space, word.has_trailing_space
-            );
-        }
-
-        let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
-
-        // There should be no space after `(`
-        assert!(
-            !formatted.contains("( 4.8GB)"),
-            "There should be no space after `(`. Formatted:\n{}",
-            formatted
-        );
-    }
-
-    #[test]
-    fn test_list_item_line_breaking_width() {
-        // Test for the bug: line breaks too early in list items
-        // Input: "- For projects that have finished downloading, but have renamed strains, you can run `reorder.sh` to avoid re-downloading"
-        // Expected: should fill the line closer to max_width
-        // Note: ideal_width is set to 75% of max_width to encourage balanced line lengths
-        let mut ctx = LineBreakingContext::with_prefixes(78, 78, "", "  ");
-        ctx.add_text("For projects that have finished downloading, but have renamed strains, you can run");
-        ctx.add_inline_element("`reorder.sh`");
-        ctx.add_text("to avoid re-downloading");
-
-        println!("Words:");
-        for (i, word) in ctx.words().iter().enumerate() {
-            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
-        }
-
-        let breaks = ctx.compute_breaks();
-        println!("Breaks: {:?}", breaks);
-
-        let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
-
-        // Check that the first line is reasonably filled
-        let first_line = formatted.lines().next().unwrap();
-        let first_line_width = unicode_width::width(first_line);
-        println!("First line width: {}", first_line_width);
-
-        // The first line should be reasonably filled
-        // With ideal_width = 75% of max_width, we expect balanced line lengths
-        // The first line should be at least 60 characters
-        assert!(
-            first_line_width >= 60,
-            "First line should be reasonably filled, but got {}:\n{}",
-            first_line_width,
-            first_line
-        );
-    }
-
-    #[test]
-    fn test_cjk_punctuation_not_at_line_start() {
-        // Test for the bug: Chinese comma appears at line start
-        // Input: "这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。"
-        // Expected: Chinese comma should NOT appear at line start
-        let mut ctx = LineBreakingContext::with_prefixes(60, 60, "", "  ");
-        ctx.add_text("这些操作需要");
-        ctx.add_inline_element("`list.iter().cloned().collect()`");
-        ctx.add_text("，比直接");
-        ctx.add_inline_element("`list.clone()`");
-        ctx.add_text("慢得多。");
-
-        // Print words for debugging
-        println!("Words:");
-        for (i, word) in ctx.words().iter().enumerate() {
-            println!(
-                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
-                i, word.text, word.needs_leading_space, word.has_trailing_space
-            );
-        }
-
-        let breaks = ctx.compute_breaks();
-        println!("Breaks: {:?}", breaks);
-
-        let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
-
-        // Check that no line starts with Chinese comma
-        for line in formatted.lines() {
-            let trimmed = line.trim_start();
-            assert!(
-                !trimmed.starts_with('，'),
-                "Line should not start with Chinese comma: {}",
-                line
-            );
-        }
-    }
-
-    #[test]
-    fn test_cjk_punctuation_not_at_line_start_real_case() {
-        // Test for the issue: single digit "0" should not be on its own line
-        // Input: "- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。"
-        let mut ctx = LineBreakingContext::with_prefixes(75, 100, "- ", "  ");
-        ctx.add_markdown_marker("**");
-        ctx.add_text("特色功能");
-        ctx.add_markdown_marker_end("**");
-        ctx.add_text(": 支持日期补全 (");
-        ctx.add_inline_element("`--dates`");
-        ctx.add_text(")，自动填充缺失的日期并设为 0；支持间隙压缩 (");
-        ctx.add_inline_element("`--compress-gaps`");
-        ctx.add_text(")，隐藏连续的 0 值。");
-
-        // Print words for debugging
-        println!("Words:");
-        for (i, word) in ctx.words().iter().enumerate() {
-            println!(
-                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}, width={}",
-                i, word.text, word.needs_leading_space, word.has_trailing_space, word.width
-            );
-        }
-
-        let breaks = ctx.compute_breaks();
-        println!("Breaks: {:?}", breaks);
-
-        let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
-
-        // Check that no line starts with Chinese comma
-        for line in formatted.lines() {
-            let trimmed = line.trim_start();
-            assert!(
-                !trimmed.starts_with('，'),
-                "Line should not start with Chinese comma: {}",
-                line
-            );
-        }
-
-        // Check that single digit "0" is not on its own line
-        for line in formatted.lines() {
-            let trimmed = line.trim();
-            assert!(
-                trimmed != "0" && trimmed != "0 值。",
-                "Single digit '0' should not be on its own line: {}",
-                line
-            );
-        }
-    }
 }
 
 /// Affinity of punctuation marks for line breaking
