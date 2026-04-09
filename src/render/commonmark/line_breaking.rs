@@ -1190,794 +1190,231 @@ impl LineBreakingContext {
         result
     }
 
-    /// Adjust breaks to prevent punctuation from being at line start
-    /// This ensures that punctuation like `,`, `.`, `;`, `:` etc. stay with the previous word
-    /// Also ensures that opening brackets like `(`, `[`, `{` stay with their content
-    /// And Markdown markers like `**`, `*`, `[`, `]` are not split across lines
+    /// Adjust breaks based on punctuation affinity
+    ///
+    /// Affinity determines where punctuation should stay when breaking lines:
+    /// - Left-affinity (逗号、句号、闭括号): stay with previous line, break after
+    /// - Right-affinity (开括号): stay with next line, break before
     fn adjust_breaks_for_punctuation(&self, breaks: &[usize]) -> Vec<usize> {
         let mut adjusted = Vec::new();
+        let mut last_adjusted_break = 0;
+        let mut skip_until: Option<usize> = None;
 
         for &break_point in breaks {
-            // Check if the word at this break point is punctuation that shouldn't be at line start
-            // Note: break_point is the index of the first word on the next line
-            if break_point < self.words.len() {
-                let word = &self.words[break_point];
-
-                // Check if the previous word is punctuation that shouldn't be at line end
-                // This handles cases like "text（" where the opening bracket should stay with the following content
-                // NOTE: This logic is for punctuation that should NOT be at line END
-                // Opening brackets like "（" "《" "「" "『" "【" should stay with the FOLLOWING content
-                // Punctuation like "，" "、" "；" "：" CAN be at line end (they should NOT be at line start)
-                if break_point > 0 {
-                    // Special case: if current word is `(` and previous word is `]`
-                    // this is a link `[text](url)`. Keep `](` together
-                    if word.text == "("
-                        && break_point > 0
-                        && self.words[break_point - 1].text == "]"
-                    {
-                        // Don't add break between `]` and `(`
-                        // Find the closing `)` and add break after it
-                        let mut found_closing = false;
-                        for k in break_point..self.words.len() {
-                            if self.words[k].text == ")" {
-                                let new_break = k + 1;
-                                if !adjusted.contains(&new_break) {
-                                    adjusted.push(new_break);
-                                }
-                                found_closing = true;
-                                break;
-                            }
-                        }
-                        if found_closing {
-                            continue;
-                        }
-                    }
-
-                    // Check if any word before the break point ends with an opening bracket
-                    // We need to look at all words from the previous break to this one
-                    let prev_break = adjusted.last().copied().unwrap_or(0);
-
-                    // Special case: Check if we have `](` pattern in the current line
-                    // If so, we should not break at the opening bracket
-                    // We need to check from the last break in the ORIGINAL breaks list, not from adjusted
-                    let original_prev_break = breaks
-                        .iter()
-                        .position(|&x| x == break_point)
-                        .map(|idx| if idx > 0 { breaks[idx - 1] } else { 0 })
-                        .unwrap_or(0);
-
-                    let has_link_pattern = (original_prev_break..break_point).any(|k| {
-                        k + 1 < self.words.len()
-                            && self.words[k].text == "]"
-                            && self.words[k + 1].text == "("
-                    });
-
-                    if has_link_pattern {
-                        // Found `](` pattern, find the closing `)` and add break after it
-                        let mut found_closing = false;
-                        for k in break_point..self.words.len() {
-                            if self.words[k].text == ")" {
-                                let new_break = k + 1;
-                                if !adjusted.contains(&new_break) {
-                                    adjusted.push(new_break);
-                                }
-                                found_closing = true;
-                                break;
-                            }
-                        }
-                        if found_closing {
-                            continue;
-                        }
-                    }
-
-                    // Check for opening brackets, but exclude the case where we have `](` pattern
-                    // because that should be handled above
-                    // Also check if there's a `](` pattern in the current line range
-                    let has_link_pattern_in_range = (prev_break..break_point).any(|k| {
-                        k + 1 < self.words.len()
-                            && self.words[k].text == "]"
-                            && self.words[k + 1].text == "("
-                    });
-
-                    let has_opening_bracket = if has_link_pattern_in_range {
-                        false // Skip opening bracket check if we have `](` pattern
-                    } else {
-                        (prev_break..break_point).any(|k| {
-                            self.words[k].text.chars().last().map_or(false, |c| {
-                                matches!(
-                                    c,
-                                    '（' | '《'
-                                        | '「'
-                                        | '『'
-                                        | '【'
-                                        | '〈'
-                                        | '“'
-                                        | '‘'
-                                        | '('
-                                        | '['
-                                        | '{'
-                                )
-                            })
-                        })
-                    };
-
-                    if has_opening_bracket {
-                        // Found an opening bracket in the current line
-                        // We need to include all content until the closing bracket
-                        // Find the closing bracket and move the break point after it
-                        let mut found_closing = false;
-                        for k in break_point..self.words.len() {
-                            // Check if this word starts with a closing bracket
-                            if self.words[k].text.chars().next().map_or(false, |c| {
-                                matches!(
-                                    c,
-                                    '）' | '》'
-                                        | '」'
-                                        | '』'
-                                        | '】'
-                                        | '〉'
-                                        | '"'
-                                        | '\''
-                                        | ')'
-                                        | ']'
-                                        | '}'
-                                )
-                            }) {
-                                // Special case: if this is `]` and next word is `(`,
-                                // this is a Markdown link `](`, not a closing bracket
-                                if self.words[k].text == "]"
-                                    && k + 1 < self.words.len()
-                                    && self.words[k + 1].text == "("
-                                {
-                                    // Skip this `]` and continue looking for the real closing bracket
-                                    continue;
-                                }
-
-                                // Found closing bracket, move break point after it
-                                let mut new_break = k + 1;
-
-                                // NEW: Check if new_break position is punctuation that shouldn't be at line start
-                                // If so, we need to include more content to avoid punctuation at line start
-                                while new_break < self.words.len()
-                                    && is_punctuation_that_should_not_be_at_line_start(
-                                        &self.words[new_break].text,
-                                    )
-                                {
-                                    // Skip this punctuation and find the next non-punctuation word
-                                    new_break += 1;
-                                }
-
-                                // NEW: Check if including up to new_break would make the line too long
-                                // or if new_break would isolate a short word
-                                // If so, we might need to use the original break_point instead
-                                let prev_break = adjusted.last().copied().unwrap_or(0);
-                                let is_first_line = prev_break == 0;
-                                let line_width = self.calculate_line_width_with_prefix(
-                                    prev_break,
-                                    new_break,
-                                    is_first_line,
-                                );
-
-                                // Also check if new_break would leave a very short last line
-                                let remaining_words = self.words.len() - new_break;
-                                let _remaining_width: usize = (new_break
-                                    ..self.words.len())
-                                    .map(|i| self.words[i].width)
-                                    .sum();
-
-                                if line_width > self.max_width && remaining_words > 0 {
-                                    // The line would be too long, but we have an opening bracket
-                                    // Priority: keep opening bracket with its content
-                                    // Use new_break (which includes content up to closing bracket)
-                                    // and let enforce_max_width handle any overflow
-                                    if !adjusted.contains(&new_break) {
-                                        adjusted.push(new_break);
-                                    }
-                                    found_closing = true;
-                                    break;
-                                }
-
-                                // Check if new_break would isolate a short word (like "0") on its own line
-                                if new_break < self.words.len()
-                                    && self.words[new_break].width <= 2
-                                    && new_break + 1 < self.words.len()
-                                    && self.words[new_break + 1].width > 2
-                                {
-                                    // Would isolate a short word, include the next word too
-                                    new_break += 1;
-                                }
-
-                                if !adjusted.contains(&new_break) {
-                                    adjusted.push(new_break);
-                                }
-                                found_closing = true;
-                                break;
-                            }
-                        }
-
-                        if found_closing {
-                            continue;
-                        }
-                        // If no closing bracket found, keep the original break
-                    }
-                }
-
-                // Check if we should keep content together after an opening parenthesis
-                // This handles cases like "我们编写了基准测试（`benches/value_arc.rs`）"
-                // where the opening parenthesis is in the middle of a word
-                if break_point >= 2 {
-                    // Check if the previous word is a backtick (inline code start)
-                    // and the word before that ends with an opening parenthesis
-                    let prev_word = &self.words[break_point - 1];
-                    let prev_prev_word = &self.words[break_point - 2];
-
-                    if prev_word.text == "`"
-                        && (prev_prev_word.text.ends_with('（')
-                            || prev_prev_word.text.ends_with('('))
-                    {
-                        // Found pattern: "（`" or "(`" followed by content
-                        // Find the closing parenthesis and add break after it
-                        let mut found_closing = false;
-                        for i in break_point..self.words.len() {
-                            if self.words[i].text.contains('）')
-                                || self.words[i].text.contains(')')
-                            {
-                                // Found the closing parenthesis, add break after it
-                                if i + 1 <= self.words.len()
-                                    && !adjusted.contains(&(i + 1))
-                                {
-                                    adjusted.push(i + 1);
-                                }
-                                found_closing = true;
-                                break;
-                            }
-                        }
-                        if found_closing {
-                            continue;
-                        }
-                    }
-                }
-
-                if is_punctuation_that_should_not_be_at_line_start(&word.text) {
-                    // Special case: `)` at line start when previous word is not `(`
-                    // This happens when a long URL is split across lines in a link
-                    // Keep the `)` with the previous line (the URL)
-                    if word.text == ")" && break_point > 0 {
-                        let prev_word = &self.words[break_point - 1];
-                        if prev_word.text != "(" {
-                            // prev_word is not "(", which means this is a long URL in a link
-                            // Try to keep `)` with the previous line by moving the break point
-                            // Check if adding `)` to the previous line would exceed max_width
-                            let prev_break = adjusted.last().copied().unwrap_or(0);
-                            let is_first_line = prev_break == 0;
-                            // Calculate width including the `)` (break_point is the index of `)`)
-                            let new_line_width = self.calculate_line_width_with_prefix(
-                                prev_break,
-                                break_point + 1, // Include the `)`
-                                is_first_line,
-                            );
-
-                            if new_line_width <= self.max_width {
-                                // Safe to include `)` in the previous line
-                                // Add break after `)`
-                                if !adjusted.contains(&(break_point + 1)) {
-                                    adjusted.push(break_point + 1);
-                                }
-                                continue;
-                            } else {
-                                // Would exceed max_width, but we still need to keep `)` with previous line
-                                // This is a trade-off: better to exceed max_width than have `)` alone
-                                if !adjusted.contains(&(break_point + 1)) {
-                                    adjusted.push(break_point + 1);
-                                }
-                                continue;
-                            }
-                        } else {
-                            // prev_word is "(", which means this is a link like `[text](url)`
-                            // The opening marker logic below will handle this case
-                            // Skip adding a break here to avoid duplication
-                            continue;
-                        }
-                    }
-
-                    // Check if the previous word is a Markdown closing marker
-                    // If so, we should keep the punctuation with the previous line
-                    if break_point > 0 {
-                        let prev_word = &self.words[break_point - 1];
-                        if is_markdown_closing_marker(&prev_word.text) {
-                            // Previous word is a closing marker, keep punctuation with it
-                            // Find the next non-punctuation word and break after it
-                            // But only if it doesn't exceed max_width
-                            let mut next_break = break_point + 1;
-                            for i in (break_point + 1)..self.words.len() {
-                                if !is_punctuation_that_should_not_be_at_line_start(
-                                    &self.words[i].text,
-                                ) {
-                                    next_break = i + 1;
-                                    break;
-                                }
-                            }
-
-                            // Check if the new break point would exceed max_width
-                            let prev_break = adjusted.last().copied().unwrap_or(0);
-                            // Determine if this is the first line (prev_break == 0)
-                            let is_first_line = prev_break == 0;
-                            let new_line_width = self.calculate_line_width_with_prefix(
-                                prev_break,
-                                next_break,
-                                is_first_line,
-                            );
-
-                            if new_line_width <= self.max_width {
-                                if !adjusted.contains(&next_break) {
-                                    adjusted.push(next_break);
-                                    continue;
-                                }
-                            } else {
-                                // Moving would exceed max_width, keep the original break
-                                if !adjusted.contains(&break_point) {
-                                    adjusted.push(break_point);
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    // This punctuation should not be at line start, move it to the previous line
-                    // by including it in the current line
-                    // We need to find the next appropriate break point after this punctuation
-                    if break_point + 1 <= self.words.len() {
-                        // Check if there's more content after this punctuation
-                        if break_point + 1 < self.words.len() {
-                            // Special case: if current word is `]` and next word is `(`
-                            // this is a link `[text](url)`. Keep `]` with the previous content
-                            // and let the opening bracket logic handle `(`.
-                            if word.text == "]"
-                                && self.words[break_point + 1].text == "("
-                            {
-                                // Don't add break at `]`, let it stay with previous content
-                                // The opening bracket logic below will handle `(`
-                                // and keep `(url)` together
-                                continue;
-                            }
-
-                            // Find the next non-punctuation word
-                            // We want to break after the punctuation to keep it with the previous line
-                            // But only if it doesn't exceed max_width
-                            let mut next_break = break_point + 1;
-                            for i in (break_point + 1)..self.words.len() {
-                                if !is_punctuation_that_should_not_be_at_line_start(
-                                    &self.words[i].text,
-                                ) {
-                                    // Found a non-punctuation word
-                                    // Just include the punctuation, not the following word
-                                    next_break = i;
-                                    break;
-                                }
-                            }
-
-                            // Check if the new break point would exceed max_width
-                            // Find the previous break point
-                            let prev_break = adjusted.last().copied().unwrap_or(0);
-                            // Determine if this is the first line (prev_break == 0)
-                            let _is_first_line = prev_break == 0;
-
-                            // Always include punctuation with the previous line
-                            // Even if it exceeds max_width, it's better than having punctuation at line start
-                            if !adjusted.contains(&next_break) {
-                                adjusted.push(next_break);
-                                continue;
-                            }
-                        } else {
-                            // This is the last word, include it in the current line
-                            if !adjusted.contains(&self.words.len()) {
-                                adjusted.push(self.words.len());
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                // Check if the previous word is an opening parenthesis and current word is backtick
-                // This handles cases like "切片 (`slice`)" where `(` should not be at line end
-                if break_point > 0 {
-                    let prev_word = &self.words[break_point - 1];
-                    if (prev_word.text == "(" || prev_word.text == "（")
-                        && (word.text.starts_with('`') || word.text.starts_with('「'))
-                    {
-                        // Found pattern: "(`" or "（`" at line break
-                        // Find the closing parenthesis and add break after it
-                        for i in break_point..self.words.len() {
-                            if self.words[i].text.ends_with(')')
-                                || self.words[i].text.ends_with('）')
-                            {
-                                // Found the closing parenthesis, add break after it
-                                if i + 1 <= self.words.len()
-                                    && !adjusted.contains(&(i + 1))
-                                {
-                                    adjusted.push(i + 1);
-                                }
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-                }
-
-                // Check if the word at this break point is an opening bracket
-                // Opening brackets like `(` should not be at line start
-                if word.text.starts_with('(') || word.text.starts_with('（') {
-                    // Check if previous word is `]` (this is a link `[text](url)`)
-                    // In this case, we want to keep `](` together
-                    if break_point > 0 && self.words[break_point - 1].text == "]" {
-                        // This is a link `[text](url)`, keep `](` together
-                        // Find the closing bracket and add a break after it
-                        for i in break_point..self.words.len() {
-                            if self.words[i].text.starts_with(')')
-                                || self.words[i].text.starts_with('）')
-                            {
-                                // Found the closing bracket, add break after it
-                                if i + 1 <= self.words.len()
-                                    && !adjusted.contains(&(i + 1))
-                                {
-                                    adjusted.push(i + 1);
-                                }
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-
-                    // `(` is at line start but not after `]`, keep it with previous content
-                    // Find the closing bracket and add a break after it
-                    for i in break_point..self.words.len() {
-                        if self.words[i].text.starts_with(')')
-                            || self.words[i].text.starts_with('）')
-                        {
-                            // Found the closing bracket, add break after it
-                            // and let the normal break handling handle the following content
-                            if i + 1 <= self.words.len() && !adjusted.contains(&(i + 1))
-                            {
-                                adjusted.push(i + 1);
-                            }
-                            break;
-                        }
-                    }
-                    // Skip adding a break at `(`, let it stay with previous content
+            // If we're skipping until a certain point, check if we've reached it
+            if let Some(skip_end) = skip_until {
+                if break_point < skip_end {
+                    // Still inside the skip range, don't add this break
                     continue;
-                }
-
-                // Check if the word at this break point is a Markdown closing marker
-                // (like `**`, `*`, `]`, `)`) that shouldn't be at line start
-                // because it would split the Markdown syntax across lines
-                if break_point > 0 && is_markdown_closing_marker(&word.text) {
-                    // Check if the previous word is the corresponding opening marker
-                    let prev_word = &self.words[break_point - 1];
-                    if is_markdown_opening_marker(&prev_word.text) {
-                        // Both markers are adjacent, don't split them
-                        // Move the break point after the closing marker
-                        if break_point + 1 <= self.words.len()
-                            && !adjusted.contains(&(break_point + 1))
-                        {
-                            adjusted.push(break_point + 1);
-                            continue;
-                        }
-                    } else {
-                        // Previous word is not an opening marker
-                        // This means we have content like `**text**` where `**` is at line start
-                        // We should not split here - find the opening marker and include all content
-                        // Move break point after the closing marker and any following content
-                        let mut next_break = break_point + 1;
-                        // Include any following words that should stay with the closing marker
-                        for i in (break_point + 1)..self.words.len() {
-                            // Stop at the next natural break point (e.g., after a space or punctuation)
-                            if self.words[i].needs_leading_space {
-                                next_break = i;
-                                break;
-                            }
-                            next_break = i + 1;
-                        }
-                        if next_break <= self.words.len()
-                            && !adjusted.contains(&next_break)
-                        {
-                            adjusted.push(next_break);
-                            continue;
-                        }
-                    }
-                }
-
-                // Check if the word at this break point is a Markdown closing marker
-                // and the next word is punctuation that shouldn't be at line start
-                // This handles cases like `**`， where `**` is at line end and `，` is at line start
-                if is_markdown_closing_marker(&word.text) {
-                    if break_point + 1 < self.words.len() {
-                        let next_word = &self.words[break_point + 1];
-                        if is_punctuation_that_should_not_be_at_line_start(
-                            &next_word.text,
-                        ) {
-                            // Closing marker followed by punctuation
-                            // Move the break point after the punctuation and its following content
-                            let mut next_break = break_point + 2;
-                            for i in (break_point + 2)..self.words.len() {
-                                if !is_punctuation_that_should_not_be_at_line_start(
-                                    &self.words[i].text,
-                                ) {
-                                    next_break = i + 1;
-                                    break;
-                                }
-                            }
-                            if !adjusted.contains(&next_break) {
-                                adjusted.push(next_break);
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                // Check if the previous word is a Markdown opening marker (like `**`, `*`, `[`, `(`)
-                // that shouldn't be at line end because it would split the Markdown syntax
-                // Also check if current word is `]` which means we're at the end of link text
-                if break_point > 0 {
-                    let prev_word = &self.words[break_point - 1];
-                    let is_link_end = word.text == "]"
-                        && break_point > 1
-                        && self.words[break_point - 2].text == "[";
-
-                    // Special case: if prev_word is `(` and the word before that is `]`,
-                    // this is a link `[text](url)` - don't break here
-                    let is_link_url_start = prev_word.text == "("
-                        && break_point > 1
-                        && self.words[break_point - 2].text == "]";
-
-                    if is_link_url_start {
-                        // This is a link `[text](url)`, find the closing `)` and add break after it
-                        for i in break_point..self.words.len() {
-                            if self.words[i].text == ")" {
-                                // Found the closing `)`, add break after it
-                                if i + 1 <= self.words.len()
-                                    && !adjusted.contains(&(i + 1))
-                                {
-                                    adjusted.push(i + 1);
-                                }
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-
-                    // Special case: if prev_word is `[` or `(` but current word is not the corresponding closing marker,
-                    // this means we're in the middle of link text (e.g., `[URL` or `(URL`)
-                    // Don't apply the opening marker logic here, let the normal break handling apply
-                    let is_in_link_text = (prev_word.text == "[" && word.text != "]")
-                        || (prev_word.text == "(" && word.text != ")");
-                    // Apply this logic if:
-                    // 1. Previous word is a Markdown opening marker AND we're NOT in link text
-                    // 2. OR previous word is `(` AND we're NOT in link text (this handles cases like `text (content`)
-                    // 3. OR this is a link end (word is `]` and previous word is `[`)
-                    if (is_markdown_opening_marker(&prev_word.text) && !is_in_link_text)
-                        || (prev_word.text == "(" && !is_in_link_text)
-                        || is_link_end
-                    {
-                        // The opening marker is at line end, we should keep it with the next word
-                        // Find the corresponding closing marker and add a break after it
-                        // Also include any following content (like `) b` should stay together)
-                        for i in break_point..self.words.len() {
-                            if is_markdown_closing_marker(&self.words[i].text) {
-                                // Found the closing marker (e.g., `]` for links)
-                                // For links like `[text](url)`, we need to also include the `(url)` part
-                                // Check if the next word is `(` (start of link URL)
-                                let mut next_break = i + 1;
-                                if i + 1 < self.words.len()
-                                    && self.words[i + 1].text == "("
-                                {
-                                    // This is a link `[text](url)`, find the closing `)`
-                                    for k in (i + 2)..self.words.len() {
-                                        if self.words[k].text == ")" {
-                                            // Found the closing `)`, include it and any following content
-                                            next_break = k + 1;
-                                            for j in (k + 1)..self.words.len() {
-                                                if !is_punctuation_that_should_not_be_at_line_start(
-                                                    &self.words[j].text,
-                                                ) {
-                                                    next_break = j + 1;
-                                                    break;
-                                                }
-                                            }
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    // Not a link, just find the next non-punctuation word
-                                    for j in (i + 1)..self.words.len() {
-                                        if !is_punctuation_that_should_not_be_at_line_start(
-                                            &self.words[j].text,
-                                        ) {
-                                            next_break = j + 1;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if !adjusted.contains(&next_break) {
-                                    adjusted.push(next_break);
-                                    break;
-                                }
-                            }
-                        }
-                        continue;
-                    }
-
-                    // Check if the current word at break_point is a Markdown closing marker
-                    // that would be at line start (which we want to avoid)
-                    if break_point < self.words.len() {
-                        let current_word = &self.words[break_point];
-                        if is_markdown_closing_marker(&current_word.text) {
-                            // The next word is a closing marker like `**`
-                            // This should stay with the previous content
-                            // Check if the word after the closing marker is punctuation
-                            // that should not be at line start
-                            if break_point + 1 < self.words.len() {
-                                let next_word = &self.words[break_point + 1];
-                                if is_punctuation_that_should_not_be_at_line_start(
-                                    &next_word.text,
-                                ) {
-                                    // The word after closing marker is punctuation
-                                    // Include it in the current line
-                                    if break_point + 2 <= self.words.len()
-                                        && !adjusted.contains(&(break_point + 2))
-                                    {
-                                        adjusted.push(break_point + 2);
-                                        continue;
-                                    }
-                                }
-                            }
-                            // Just add the break point as is
-                            // The closing marker will be at line start, but that's acceptable
-                            if !adjusted.contains(&break_point) {
-                                adjusted.push(break_point);
-                                continue;
-                            }
-                        }
-                    }
+                } else {
+                    // We've passed the skip range
+                    skip_until = None;
                 }
             }
 
-            // Check if the previous word ends with opening bracket that shouldn't be at line end
-            // This ensures `(` stays with its content like (`slice`)
-            if break_point > 0 && break_point < self.words.len() {
-                let prev_word = &self.words[break_point - 1];
-                let current_word = &self.words[break_point];
-                // Special case: if prev_word is `[` or `(` but current word is not the corresponding closing marker,
-                // this means we're in the middle of link text (e.g., `[URL` or `(URL`)
-                // Don't apply the opening bracket logic here, let the normal break handling apply
-                let is_in_link_text = (prev_word.text == "["
-                    && current_word.text != "]")
-                    || (prev_word.text == "(" && current_word.text != ")");
-                if is_opening_bracket_at_line_end(&prev_word.text) && !is_in_link_text {
-                    // The previous word ends with `(`, we should keep it with the next word
-                    // Find the closing bracket and add a break after it
-                    for i in break_point..self.words.len() {
-                        // Check if this word contains closing bracket
-                        if self.words[i].text.contains(')')
-                            || self.words[i].text.contains('）')
-                        {
-                            // Check if there are more punctuation words after the closing bracket
-                            // If so, include them in the current line
-                            let mut next_break = i + 1;
-                            for j in (i + 1)..self.words.len() {
-                                if is_punctuation_that_should_not_be_at_line_start(
-                                    &self.words[j].text,
-                                ) {
-                                    next_break = j + 1;
-                                } else {
-                                    break;
-                                }
-                            }
-                            if next_break <= self.words.len()
-                                && !adjusted.contains(&next_break)
-                            {
-                                adjusted.push(next_break);
-                                break;
-                            }
-                        }
-                    }
-                    continue;
-                }
-            }
+            let mut new_break = break_point;
 
-            // Special case: if break_point equals words.len(), check if the last word is punctuation
-            // This handles the case where `)` is the last word and would be alone on a line
-            if break_point == self.words.len() && break_point > 0 {
-                let last_word = &self.words[break_point - 1];
-                if is_punctuation_that_should_not_be_at_line_start(&last_word.text) {
-                    // Don't add this break, the last word will be included in the previous line
-                    continue;
-                }
-            }
-
-            // Skip adding break_point if it's in the middle of a link
-            // This happens when prev_word is "]" and we're at the start of link URL
-            let is_in_link = break_point > 0
-                && self.words[break_point - 1].text == "]"
-                && break_point > 1
-                && self.words[break_point - 2].text == "[";
-
-            if !adjusted.contains(&break_point) && !is_in_link {
-                adjusted.push(break_point);
-            }
-        }
-
-        // Sort adjusted breaks to ensure they are in order
-        adjusted.sort_unstable();
-        adjusted.dedup();
-
-        // Post-process: ensure the last break includes all remaining words
-        // This handles the case where the last word is punctuation like `)`
-        if let Some(&last_break) = adjusted.last() {
-            if last_break < self.words.len() {
-                // Check if any remaining word starts with punctuation that shouldn't be at line start
-                let mut should_extend = false;
-                for i in last_break..self.words.len() {
-                    if is_punctuation_that_should_not_be_at_line_start(
-                        &self.words[i].text,
-                    ) {
-                        should_extend = true;
+            // Handle link pattern `](` - keep together
+            // Check if break_point is at `]` and next word is `(`
+            if break_point < self.words.len()
+                && self.words[break_point].text == "]"
+                && break_point + 1 < self.words.len()
+                && self.words[break_point + 1].text == "("
+            {
+                // This is `](` pattern, find closing `)` and break after it
+                for k in (break_point + 1)..self.words.len() {
+                    if self.words[k].text == ")" {
+                        new_break = k + 1;
+                        skip_until = Some(new_break);
                         break;
                     }
                 }
-                if should_extend {
-                    // Extend the last break to include all remaining words
-                    if let Some(last) = adjusted.last_mut() {
-                        *last = self.words.len();
+                adjusted.push(new_break);
+                last_adjusted_break = new_break;
+                continue;
+            }
+
+            // Also check if break_point is right after `](` pattern
+            // (i.e., break_point is at the position of `(`)
+            if break_point > 0
+                && break_point < self.words.len()
+                && self.words[break_point].text == "("
+                && self.words[break_point - 1].text == "]"
+            {
+                // This is `](` pattern, find closing `)` and break after it
+                for k in break_point..self.words.len() {
+                    if self.words[k].text == ")" {
+                        new_break = k + 1;
+                        skip_until = Some(new_break);
+                        break;
                     }
                 }
+                adjusted.push(new_break);
+                last_adjusted_break = new_break;
+                continue;
             }
-        }
 
-        // If adjusted is empty, use the original breaks
-        if adjusted.is_empty() {
-            adjusted = breaks.to_vec();
-        }
-
-        // Post-process: ensure Markdown closing markers are not at line end
-        // when followed by punctuation at line start
-        // This handles cases like `**`， where `**` is at line end and `，` is at line start
-        let mut i = 0;
-        while i < adjusted.len() {
-            let break_point = adjusted[i];
-            if break_point > 0 && break_point < self.words.len() {
-                let prev_word = &self.words[break_point - 1];
-                let current_word = &self.words[break_point];
-                if is_markdown_closing_marker(&prev_word.text)
-                    && is_punctuation_that_should_not_be_at_line_start(
-                        &current_word.text,
-                    )
-                {
-                    // Closing marker at line end, punctuation at line start
-                    // Move the break point after the punctuation and its following content
-                    let mut next_break = break_point + 1;
-                    for j in (break_point + 1)..self.words.len() {
-                        if !is_punctuation_that_should_not_be_at_line_start(
-                            &self.words[j].text,
-                        ) {
-                            next_break = j + 1;
-                            break;
+            // Check for any word in the current line range (from last break to current break)
+            // that ends with a right-affinity character (opening bracket)
+            // If found, extend the break to include up to the matching closing bracket
+            // Skip if the opening bracket is part of a link pattern `](`
+            // Skip if this is a Markdown link start `[` (followed by text and `]`)
+            let line_start = last_adjusted_break;
+            for i in line_start..break_point {
+                let word = &self.words[i];
+                // Skip if this is `]` followed by `(` (link pattern)
+                if word.text == "]" && i + 1 < self.words.len() && self.words[i + 1].text == "(" {
+                    continue;
+                }
+                // Skip if this is `[` that starts a Markdown link
+                // (i.e., it's followed by text and eventually `]`)
+                if word.text == "[" {
+                    continue;
+                }
+                // Skip if this is `(` that is part of a link pattern `](`
+                // (i.e., it's preceded by `]`)
+                if word.text == "(" && i > 0 && self.words[i - 1].text == "]" {
+                    continue;
+                }
+                if let Some(last_char) = word.text.chars().last() {
+                    if is_right_affinity_char(last_char) {
+                        // Found opening bracket in current line
+                        // Find matching closing bracket
+                        if let Some(closing_idx) =
+                            self.find_matching_closing_bracket_by_char(i, last_char)
+                        {
+                            // Extend break to after the closing bracket
+                            if closing_idx + 1 > new_break {
+                                new_break = closing_idx + 1;
+                            }
                         }
                     }
-                    // Only update if the new break point is different and not already present
-                    if next_break != break_point && !adjusted.contains(&next_break) {
-                        adjusted[i] = next_break;
-                    } else if next_break == break_point || adjusted.contains(&next_break)
-                    {
-                        // Remove this break point as it would create a duplicate or empty line
-                        adjusted.remove(i);
-                        continue; // Don't increment i, we removed current element
-                    }
                 }
             }
-            i += 1;
+
+            // Check word at break point (first word of next line)
+            if break_point < self.words.len() {
+                let word = &self.words[break_point];
+
+                // Handle right-affinity: opening brackets should stay with next line
+                // But skip if this is `(` after `]` (link pattern, handled above)
+                if word.text == "(" && break_point > 0 && self.words[break_point - 1].text == "]" {
+                    // This is a link pattern, already handled above
+                    // Don't add this break
+                    continue;
+                }
+
+                if let Some(Affinity::Right) = get_punctuation_affinity(&word.text) {
+                    // Opening bracket at line start - move it to previous line
+                    // Find the matching closing bracket and break after it
+                    if let Some(closing_idx) =
+                        self.find_matching_closing_bracket(break_point, &word.text)
+                    {
+                        new_break = closing_idx + 1;
+                    }
+                    adjusted.push(new_break);
+                    last_adjusted_break = new_break;
+                    continue;
+                }
+
+                // Handle left-affinity: punctuation should stay with previous line
+                // Move break point forward to include punctuation
+                if let Some(Affinity::Left) = get_punctuation_affinity(&word.text) {
+                    // Find next non-left-affinity word
+                    new_break = break_point + 1;
+                    for k in (break_point + 1)..self.words.len() {
+                        if get_punctuation_affinity(&self.words[k].text).is_none() {
+                            new_break = k;
+                            break;
+                        }
+                        new_break = k + 1;
+                    }
+                    adjusted.push(new_break);
+                    last_adjusted_break = new_break;
+                    continue;
+                }
+            }
+
+            // Default: use original break point (possibly adjusted for opening brackets)
+            if !adjusted.contains(&new_break) {
+                adjusted.push(new_break);
+                last_adjusted_break = new_break;
+            }
+        }
+
+        // Sort and deduplicate
+        adjusted.sort_unstable();
+        adjusted.dedup();
+
+        // Ensure last break includes all words
+        if let Some(&last) = adjusted.last() {
+            if last < self.words.len() {
+                adjusted.push(self.words.len());
+            }
+        } else if !self.words.is_empty() {
+            adjusted.push(self.words.len());
         }
 
         adjusted
+    }
+
+    /// Check if a break point is inside a Markdown link
+    fn is_inside_link(&self, break_point: usize, line_start: usize) -> bool {
+        // Check if there's a `](` pattern before this break point within the current line
+        for i in line_start..break_point {
+            if self.words[i].text == "]"
+                && i + 1 < self.words.len()
+                && self.words[i + 1].text == "("
+            {
+                // Found `](`, now check if the closing `)` is after this break point
+                for k in (i + 2)..self.words.len() {
+                    if self.words[k].text == ")" {
+                        // Found closing `)`
+                        return break_point <= k;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Find the index of the matching closing bracket for an opening bracket
+    fn find_matching_closing_bracket(&self, opening_idx: usize, opening_text: &str) -> Option<usize> {
+        let opening_char = opening_text.chars().next()?;
+        self.find_matching_closing_bracket_by_char(opening_idx, opening_char)
+    }
+
+    /// Find the index of the matching closing bracket by opening character
+    fn find_matching_closing_bracket_by_char(
+        &self,
+        opening_idx: usize,
+        opening_char: char,
+    ) -> Option<usize> {
+        let closing_char = match opening_char {
+            '(' => ')',
+            '[' => ']',
+            '{' => '}',
+            '（' => '）',
+            '《' => '》',
+            '「' => '」',
+            '『' => '』',
+            '【' => '】',
+            '〈' => '〉',
+            '“' => '”',
+            '‘' => '’',
+            _ => return None,
+        };
+
+        // Find the first word that contains the closing character
+        // Check both starts_with and ends_with to handle cases like "123.45）"
+        for k in (opening_idx + 1)..self.words.len() {
+            let word = &self.words[k];
+            if word.text.starts_with(closing_char) || word.text.ends_with(closing_char) {
+                return Some(k);
+            }
+        }
+
+        None
     }
 
     /// Get the words
@@ -2944,7 +2381,17 @@ mod tests {
         ctx.add_inline_element("`zoom-123.45xyz`");
         ctx.add_text(" -> 123.45）。");
 
+        // Debug: print words
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
         let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
         let lines: Vec<&str> = formatted.lines().collect();
 
         // Check that no line ends with opening bracket ( while content is on next line
@@ -3321,7 +2768,11 @@ mod tests {
         }
 
         let breaks = ctx.compute_breaks();
-        println!("Breaks: {:?}", breaks);
+        println!("Original Breaks: {:?}", breaks);
+
+        // Test adjust_breaks_for_punctuation directly
+        let adjusted = ctx.adjust_breaks_for_punctuation(&breaks);
+        println!("Adjusted Breaks: {:?}", adjusted);
 
         let formatted = ctx.format();
 
@@ -3844,13 +3295,11 @@ fn get_punctuation_affinity(text: &str) -> Option<Affinity> {
         ',' | '.' | ';' | ':' | '!' | '?' | ')' | ']' | '}' |
         // Special case: closing backtick for inline code
         '`' => Some(Affinity::Left),
-        
         // Right-affinity: these should stay with the next line
         // Chinese opening brackets
         '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘' |
         // English opening brackets
         '(' | '[' | '{' => Some(Affinity::Right),
-        
         _ => None,
     }
 }
@@ -3859,17 +3308,42 @@ fn get_punctuation_affinity(text: &str) -> Option<Affinity> {
 fn is_left_affinity_punctuation(c: char) -> bool {
     matches!(
         c,
-        '，' | '。' | '；' | '：' | '！' | '？' | '）' | '》' | '」' | '』' | '】' | '〉' | '”' | '’' |
-        ',' | '.' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '`'
+        '，' | '。'
+            | '；'
+            | '：'
+            | '！'
+            | '？'
+            | '）'
+            | '》'
+            | '」'
+            | '』'
+            | '】'
+            | '〉'
+            | '”'
+            | '’'
+            | ','
+            | '.'
+            | ';'
+            | ':'
+            | '!'
+            | '?'
+            | ')'
+            | ']'
+            | '}'
+            | '`'
     )
 }
 
 /// Check if a character is a right-affinity punctuation mark
 fn is_right_affinity_punctuation(c: char) -> bool {
+    is_right_affinity_char(c)
+}
+
+/// Check if a character has right affinity (opening brackets)
+fn is_right_affinity_char(c: char) -> bool {
     matches!(
         c,
-        '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘' |
-        '(' | '[' | '{'
+        '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘' | '(' | '[' | '{'
     )
 }
 
