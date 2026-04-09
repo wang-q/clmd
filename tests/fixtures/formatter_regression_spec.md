@@ -72,8 +72,7 @@ CJK punctuation (，。；：) should NOT be at line start, but CAN be at line e
 - **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。
 .
 - **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，
-  隐藏连续的
-  0 值。
+  隐藏连续的 0 值。
 ````````````````````````````````
 
 

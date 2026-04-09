@@ -787,9 +787,11 @@ impl LineBreakingContext {
 
         // Post-process breaks to prevent punctuation from being at line start
         let adjusted_breaks = self.adjust_breaks_for_punctuation(&breaks);
+        eprintln!("DEBUG format: adjusted_breaks = {:?}", adjusted_breaks);
 
         // Post-process to ensure no line exceeds max_width
         let final_breaks = self.enforce_max_width(&adjusted_breaks);
+        eprintln!("DEBUG format: final_breaks = {:?}", final_breaks);
 
         let mut result = String::new();
         let mut start = 0;
@@ -1007,6 +1009,14 @@ impl LineBreakingContext {
                         }) {
                             // Don't break if there's an unclosed opening bracket in current line
                             current_width += space_width + word_width;
+                        // NEW: Don't break if this word is very short (1-2 chars) and would be alone on the next line
+                        } else if word_width <= 2
+                            && i + 1 < end
+                            && self.words[i + 1].width > 2
+                        {
+                            // Short word followed by longer word - keep short word with current line
+                            // to avoid orphan words on the next line
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -1153,6 +1163,14 @@ impl LineBreakingContext {
                         }) {
                             // Don't break if there's an unclosed opening bracket in current line
                             current_width += space_width + word_width;
+                        // NEW: Don't break if this word is very short (1-2 chars) and would be alone on the next line
+                        } else if word_width <= 2
+                            && i + 1 < self.words.len()
+                            && self.words[i + 1].width > 2
+                        {
+                            // Short word followed by longer word - keep short word with current line
+                            // to avoid orphan words on the next line
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -1182,6 +1200,11 @@ impl LineBreakingContext {
         let mut adjusted = Vec::new();
 
         for &break_point in breaks {
+            eprintln!(
+                "DEBUG adjust_breaks: Processing break_point={}, adjusted={:?}",
+                break_point, adjusted
+            );
+
             // Check if the word at this break point is punctuation that shouldn't be at line start
             // Note: break_point is the index of the first word on the next line
             if break_point < self.words.len() {
@@ -1318,7 +1341,153 @@ impl LineBreakingContext {
                                 }
 
                                 // Found closing bracket, move break point after it
-                                let new_break = k + 1;
+                                let mut new_break = k + 1;
+
+                                // NEW: Check if new_break position is punctuation that shouldn't be at line start
+                                // If so, we need to include more content to avoid punctuation at line start
+                                while new_break < self.words.len()
+                                    && is_punctuation_that_should_not_be_at_line_start(
+                                        &self.words[new_break].text,
+                                    )
+                                {
+                                    // Skip this punctuation and find the next non-punctuation word
+                                    new_break += 1;
+                                }
+
+                                // NEW: Check if including up to new_break would make the line too long
+                                // or if new_break would isolate a short word
+                                // If so, we might need to use the original break_point instead
+                                let prev_break = adjusted.last().copied().unwrap_or(0);
+                                let is_first_line = prev_break == 0;
+                                let line_width = self.calculate_line_width_with_prefix(
+                                    prev_break,
+                                    new_break,
+                                    is_first_line,
+                                );
+
+                                // Also check if new_break would leave a very short last line
+                                let remaining_words = self.words.len() - new_break;
+                                let _remaining_width: usize = (new_break
+                                    ..self.words.len())
+                                    .map(|i| self.words[i].width)
+                                    .sum();
+
+                                if line_width > self.max_width && remaining_words > 0 {
+                                    // The line would be too long, and there's more content
+                                    // Try to find a better break point between break_point and new_break
+                                    // We need to:
+                                    // 1. Not break at punctuation
+                                    // 2. Not leave opening bracket at line end
+                                    // 3. Not isolate short words
+
+                                    // First, try to find a good break point working backwards from new_break
+                                    let mut alt_break = new_break;
+
+                                    // Don't break at punctuation
+                                    while alt_break > break_point
+                                        && alt_break < self.words.len()
+                                        && is_punctuation_that_should_not_be_at_line_start(
+                                            &self.words[alt_break].text,
+                                        )
+                                    {
+                                        alt_break -= 1;
+                                    }
+
+                                    // Check if this would leave an opening bracket at line end
+                                    // If so, we need to include more content
+                                    while alt_break > break_point {
+                                        let would_leave_opening =
+                                            (prev_break..alt_break).any(|k| {
+                                                self.words[k].text.chars().last().map_or(
+                                                    false,
+                                                    |c| {
+                                                        matches!(
+                                                            c,
+                                                            '（' | '《'
+                                                                | '「'
+                                                                | '『'
+                                                                | '【'
+                                                                | '〈'
+                                                                | '“'
+                                                                | '‘'
+                                                                | '('
+                                                                | '['
+                                                                | '{'
+                                                        )
+                                                    },
+                                                )
+                                            });
+
+                                        // Check if any opening bracket in range is closed after alt_break
+                                        let has_unclosed_opening = if would_leave_opening
+                                        {
+                                            // Check if there's a closing bracket after alt_break
+                                            // that matches an opening bracket before alt_break
+                                            let has_closing_after =
+                                                (alt_break..self.words.len()).any(|k| {
+                                                    self.words[k]
+                                                        .text
+                                                        .chars()
+                                                        .next()
+                                                        .map_or(false, |c| {
+                                                            matches!(
+                                                                c,
+                                                                '）' | '》'
+                                                                    | '」'
+                                                                    | '』'
+                                                                    | '】'
+                                                                    | '〉'
+                                                                    | ')'
+                                                                    | ']'
+                                                                    | '}'
+                                                            )
+                                                        })
+                                                });
+                                            has_closing_after
+                                        } else {
+                                            false
+                                        };
+
+                                        if would_leave_opening && has_unclosed_opening {
+                                            // There's an unclosed opening bracket, move alt_break forward
+                                            alt_break += 1;
+                                            // But don't go beyond new_break
+                                            if alt_break > new_break {
+                                                alt_break = new_break;
+                                                break;
+                                            }
+                                        } else {
+                                            break;
+                                        }
+                                    }
+
+                                    // Check if alt_break would isolate a short word
+                                    if alt_break < self.words.len()
+                                        && self.words[alt_break].width <= 2
+                                        && alt_break + 1 < self.words.len()
+                                        && self.words[alt_break + 1].width > 2
+                                    {
+                                        // Would isolate a short word, try to include the next word too
+                                        alt_break += 1;
+                                    }
+
+                                    if !adjusted.contains(&alt_break) {
+                                        adjusted.push(alt_break);
+                                    }
+                                    found_closing = true;
+                                    break;
+                                }
+
+                                // Check if new_break would isolate a short word (like "0") on its own line
+                                if new_break < self.words.len()
+                                    && self.words[new_break].width <= 2
+                                    && new_break + 1 < self.words.len()
+                                    && self.words[new_break + 1].width > 2
+                                {
+                                    // Would isolate a short word, include the next word too
+                                    new_break += 1;
+                                }
+
                                 if !adjusted.contains(&new_break) {
                                     adjusted.push(new_break);
                                 }
@@ -3715,20 +3884,17 @@ mod tests {
 
     #[test]
     fn test_cjk_punctuation_not_at_line_start_real_case() {
-        // Test for the real bug case from user report
-        // This simulates the exact text from the user's report
-        // Using margin[100] (max_width = 100)
+        // Test for the issue: single digit "0" should not be on its own line
+        // Input: "- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。"
         let mut ctx = LineBreakingContext::with_prefixes(75, 100, "- ", "  ");
         ctx.add_markdown_marker("**");
-        ctx.add_text("建议");
+        ctx.add_text("特色功能");
         ctx.add_markdown_marker_end("**");
-        ctx.add_text(": 增强");
-        ctx.add_inline_element("`tva filter`");
-        ctx.add_text(" 或新增");
-        ctx.add_inline_element("`tva search`");
-        ctx.add_text("，集成");
-        ctx.add_inline_element("`aho-corasick`");
-        ctx.add_text(" crate 以支持高性能的多模式匹配。");
+        ctx.add_text(": 支持日期补全 (");
+        ctx.add_inline_element("`--dates`");
+        ctx.add_text(")，自动填充缺失的日期并设为 0；支持间隙压缩 (");
+        ctx.add_inline_element("`--compress-gaps`");
+        ctx.add_text(")，隐藏连续的 0 值。");
 
         // Print words for debugging
         println!("Words:");
@@ -3738,15 +3904,6 @@ mod tests {
                 i, word.text, word.needs_leading_space, word.has_trailing_space, word.width
             );
         }
-
-        // Calculate total width
-        let total_width: usize = ctx
-            .words()
-            .iter()
-            .map(|w| w.width + if w.needs_leading_space { 1 } else { 0 })
-            .sum();
-        println!("Total width (without prefix): {}", total_width);
-        println!("With prefix '- ': {}", total_width + 2);
 
         let breaks = ctx.compute_breaks();
         println!("Breaks: {:?}", breaks);
@@ -3760,6 +3917,16 @@ mod tests {
             assert!(
                 !trimmed.starts_with('，'),
                 "Line should not start with Chinese comma: {}",
+                line
+            );
+        }
+
+        // Check that single digit "0" is not on its own line
+        for line in formatted.lines() {
+            let trimmed = line.trim();
+            assert!(
+                trimmed != "0" && trimmed != "0 值。",
+                "Single digit '0' should not be on its own line: {}",
                 line
             );
         }
