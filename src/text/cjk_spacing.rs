@@ -152,6 +152,10 @@ mod tests {
         assert_eq!(add_cjk_spacing("数字123"), "数字 123");
         assert_eq!(add_cjk_spacing("123数字"), "123 数字");
         assert_eq!(add_cjk_spacing("中文 test"), "中文 test"); // Already has space
+
+        // Test that trailing space is preserved
+        assert_eq!(add_cjk_spacing("This is "), "This is ");
+        assert_eq!(add_cjk_spacing("hello "), "hello ");
     }
 
     #[test]

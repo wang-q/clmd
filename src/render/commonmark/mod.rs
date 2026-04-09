@@ -844,13 +844,13 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn add_paragraph_unbreakable_unit(
         &mut self,
-        kind: line_breaking::UnitKind,
+        _kind: line_breaking::UnitKind,
         prefix: &str,
         content: &str,
         suffix: &str,
     ) {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
-            breaker.add_unbreakable_unit(kind, prefix, content, suffix);
+            breaker.add_unbreakable_unit(prefix, content, suffix);
         }
     }
 
@@ -868,6 +868,20 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
             breaker.remove_trailing_space();
         }
+    }
+
+    fn paragraph_ends_with_whitespace(&self) -> bool {
+        self.paragraph_line_breaker
+            .as_ref()
+            .map(|breaker| breaker.ends_with_whitespace())
+            .unwrap_or(false)
+    }
+
+    fn paragraph_ends_with_cjk(&self) -> bool {
+        self.paragraph_line_breaker
+            .as_ref()
+            .map(|breaker| breaker.ends_with_cjk())
+            .unwrap_or(false)
     }
 }
 
@@ -1136,6 +1150,48 @@ mod tests {
         // Check the full format with proper spacing
         assert!(
             result.contains("This is **bold** text"),
+            "Should have proper spacing around emphasis. Result: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_document_with_emphasis_and_width() {
+        use crate::render::commonmark::CommonMarkNodeFormatter;
+        use crate::options::format::FormatOptions;
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        // "This is "
+        let text1 = arena.alloc(Node::with_value(NodeValue::make_text("This is ")));
+        TreeOps::append_child(&mut arena, para, text1);
+
+        // *italic*
+        let emph = arena.alloc(Node::with_value(NodeValue::Emph));
+        let emph_text = arena.alloc(Node::with_value(NodeValue::make_text("italic")));
+        TreeOps::append_child(&mut arena, emph, emph_text);
+        TreeOps::append_child(&mut arena, para, emph);
+
+        // " text"
+        let text2 = arena.alloc(Node::with_value(NodeValue::make_text(" text")));
+        TreeOps::append_child(&mut arena, para, text2);
+
+        TreeOps::append_child(&mut arena, root, para);
+
+        // Test with right_margin = 80 (like CLI)
+        let opts = FormatOptions::new().with_right_margin(80);
+        let mut formatter = Formatter::with_options(opts);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        println!("Result with width 80: {:?}", result);
+        println!("Expected: {:?}", "This is *italic* text\n\n");
+        
+        // Check the full format with proper spacing
+        assert!(
+            result == "This is *italic* text\n\n",
             "Should have proper spacing around emphasis. Result: {:?}",
             result
         );

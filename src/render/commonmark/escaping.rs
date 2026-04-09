@@ -1003,6 +1003,14 @@ mod tests {
         }
 
         fn remove_paragraph_trailing_space(&mut self) {}
+
+        fn paragraph_ends_with_whitespace(&self) -> bool {
+            false
+        }
+
+        fn paragraph_ends_with_cjk(&self) -> bool {
+            false
+        }
     }
 
     #[test]

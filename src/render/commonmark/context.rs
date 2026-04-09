@@ -264,6 +264,12 @@ pub trait NodeFormatterContext {
     /// Remove trailing space from the paragraph line breaker
     /// This is used before adding markdown markers to remove unwanted spaces
     fn remove_paragraph_trailing_space(&mut self);
+
+    /// Check if the paragraph line breaker ends with whitespace
+    fn paragraph_ends_with_whitespace(&self) -> bool;
+
+    /// Check if the paragraph line breaker ends with CJK character
+    fn paragraph_ends_with_cjk(&self) -> bool;
 }
 
 /// A sub-context for nested formatting operations
@@ -538,6 +544,14 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn remove_paragraph_trailing_space(&mut self) {
         self.parent.remove_paragraph_trailing_space();
+    }
+
+    fn paragraph_ends_with_whitespace(&self) -> bool {
+        self.parent.paragraph_ends_with_whitespace()
+    }
+
+    fn paragraph_ends_with_cjk(&self) -> bool {
+        self.parent.paragraph_ends_with_cjk()
     }
 }
 
@@ -840,6 +854,14 @@ mod tests {
         }
 
         fn remove_paragraph_trailing_space(&mut self) {}
+
+        fn paragraph_ends_with_whitespace(&self) -> bool {
+            false
+        }
+
+        fn paragraph_ends_with_cjk(&self) -> bool {
+            false
+        }
     }
 
     #[test]
