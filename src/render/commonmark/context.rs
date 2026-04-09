@@ -255,6 +255,9 @@ pub trait NodeFormatterContext {
         suffix: &str,
     );
 
+    /// Add an atomic unit (internal absolutely no breaks)
+    fn add_paragraph_atomic(&mut self, content: &str, kind: crate::render::commonmark::AtomicKind);
+
     /// Add a hard line break to the paragraph line breaker
     fn add_paragraph_hard_break(&mut self);
 
@@ -532,6 +535,10 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
     ) {
         self.parent
             .add_paragraph_unbreakable_unit(kind, prefix, content, suffix);
+    }
+
+    fn add_paragraph_atomic(&mut self, content: &str, kind: crate::render::commonmark::AtomicKind) {
+        self.parent.add_paragraph_atomic(content, kind);
     }
 
     fn add_paragraph_hard_break(&mut self) {
@@ -846,6 +853,8 @@ mod tests {
             _suffix: &str,
         ) {
         }
+
+        fn add_paragraph_atomic(&mut self, _content: &str, _kind: crate::render::commonmark::AtomicKind) {}
 
         fn add_paragraph_hard_break(&mut self) {}
 

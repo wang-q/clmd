@@ -689,12 +689,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "*";
                         if ctx.is_paragraph_line_breaking() {
-                            // Only remove trailing space if the last fragment ends with CJK character
-                            // This handles the CJK spacing issue while preserving normal spacing
-                            if ctx.paragraph_ends_with_cjk() {
-                                ctx.remove_paragraph_trailing_space();
-                            }
-                            // Use add_paragraph_word to prevent internal breaks
+                            // Simply add the marker as a word
+                            // CJK spacing is handled by the text nodes
                             ctx.add_paragraph_word(marker);
                         } else {
                             // Flush any pending text in word wrap buffer to ensure
@@ -715,12 +711,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "*";
                         if ctx.is_paragraph_line_breaking() {
-                            // Use add_paragraph_word to prevent internal breaks
+                            // Simply add the marker as a word
                             ctx.add_paragraph_word(marker);
-                            // Remove trailing space after the marker for CJK spacing
-                            if ctx.paragraph_ends_with_whitespace() {
-                                ctx.remove_paragraph_trailing_space();
-                            }
                         } else {
                             writer.append(marker);
                         }
@@ -735,12 +727,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "**";
                         if ctx.is_paragraph_line_breaking() {
-                            // Only remove trailing space if the last fragment ends with CJK character
-                            // This handles the CJK spacing issue while preserving normal spacing
-                            if ctx.paragraph_ends_with_cjk() {
-                                ctx.remove_paragraph_trailing_space();
-                            }
-                            // Use add_paragraph_word to prevent internal breaks
+                            // Simply add the marker as a word
                             ctx.add_paragraph_word(marker);
                         } else {
                             // Flush any pending text in word wrap buffer to ensure
@@ -761,12 +748,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      writer: &mut MarkdownWriter| {
                         let marker = "**";
                         if ctx.is_paragraph_line_breaking() {
-                            // Use add_paragraph_word to prevent internal breaks
+                            // Simply add the marker as a word
                             ctx.add_paragraph_word(marker);
-                            // Remove trailing space after the marker for CJK spacing
-                            if ctx.paragraph_ends_with_whitespace() {
-                                ctx.remove_paragraph_trailing_space();
-                            }
                         } else {
                             writer.append(marker);
                         }
@@ -2549,6 +2532,8 @@ mod tests {
         }
 
         fn add_paragraph_hard_break(&mut self) {}
+
+        fn add_paragraph_atomic(&mut self, _content: &str, _kind: crate::render::commonmark::AtomicKind) {}
 
         fn is_paragraph_line_breaking(&self) -> bool {
             false

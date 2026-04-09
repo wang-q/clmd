@@ -43,7 +43,7 @@ pub use context::{
     SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
 };
 // Re-export line breaking types
-pub use line_breaking::{ParagraphLineBreaker, UnitHandle, UnitKind, Word};
+pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
@@ -248,6 +248,8 @@ pub struct MainFormatterContext<'a> {
     delegation_requested: bool,
     /// Paragraph line breaker for AST-based line breaking
     paragraph_line_breaker: Option<line_breaking::ParagraphLineBreaker>,
+    /// Text collection buffer for render_children_to_string
+    text_collection_buffer: Option<String>,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -294,6 +296,7 @@ impl<'a> MainFormatterContext<'a> {
             format_off_buffer: None,
             delegation_requested: false,
             paragraph_line_breaker: None,
+            text_collection_buffer: None,
         };
         context.build_handler_map();
         context.collect_nodes();
@@ -775,14 +778,20 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         let old_skip_children = self.skip_children;
         self.skip_children = false;
 
-        // Temporarily disable paragraph line breaking to capture text output
+        // Temporarily disable paragraph line breaking to avoid double-adding text
         let old_line_breaker = self.paragraph_line_breaker.take();
+
+        // Set up text collection buffer
+        self.text_collection_buffer = Some(String::new());
 
         // Create a temporary writer to capture output
         let mut temp_writer = writer::MarkdownWriter::new(self.options.format_flags);
 
         // Render children to the temporary writer
         self.render_children(node_id, &mut temp_writer);
+
+        // Collect the text and clear the buffer
+        let result = self.text_collection_buffer.take().unwrap_or_default();
 
         // Restore paragraph line breaker
         self.paragraph_line_breaker = old_line_breaker;
@@ -791,7 +800,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         self.skip_children = old_skip_children;
 
         // Return the captured content
-        temp_writer.to_string()
+        result
     }
 
     // Line breaking methods (legacy - deprecated, use paragraph line breaking methods instead)
@@ -813,11 +822,21 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
             breaker.add_text(text);
         }
+        // Also add to text collection buffer if active
+        if let Some(ref mut buffer) = self.text_collection_buffer {
+            buffer.push_str(text);
+        }
     }
 
     fn add_paragraph_word(&mut self, text: &str) {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            // For markdown markers like * and **, add as regular word
+            // The emphasis/strong content will be handled as a unit by start_unit/end_unit
             breaker.add_word(text);
+        }
+        // Also add to text collection buffer if active
+        if let Some(ref mut buffer) = self.text_collection_buffer {
+            buffer.push_str(text);
         }
     }
 
@@ -852,6 +871,22 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
             breaker.add_unbreakable_unit(prefix, content, suffix);
         }
+        // Also add to text collection buffer if active
+        if let Some(ref mut buffer) = self.text_collection_buffer {
+            buffer.push_str(prefix);
+            buffer.push_str(content);
+            buffer.push_str(suffix);
+        }
+    }
+
+    fn add_paragraph_atomic(&mut self, content: &str, kind: AtomicKind) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.add_atomic(content, kind);
+        }
+        // Also add to text collection buffer if active
+        if let Some(ref mut buffer) = self.text_collection_buffer {
+            buffer.push_str(content);
+        }
     }
 
     fn add_paragraph_hard_break(&mut self) {
@@ -861,7 +896,8 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     }
 
     fn is_paragraph_line_breaking(&self) -> bool {
-        self.paragraph_line_breaker.is_some()
+        // Return true if either paragraph line breaker is active or we're collecting text
+        self.paragraph_line_breaker.is_some() || self.text_collection_buffer.is_some()
     }
 
     fn remove_paragraph_trailing_space(&mut self) {

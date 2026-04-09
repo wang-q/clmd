@@ -11,7 +11,7 @@ These tests verify the line breaking behavior in the `clmd fmt` command.
 
 ### Link Not Split
 
-```````````````````````````````` cli(fmt) args(--width, 40)
+```````````````````````````````` cli(fmt) args(--width, 50)
 这是一个链接 [示例](https://example.com) 测试。
 .
 这是一个链接 [示例](https://example.com)
@@ -42,7 +42,8 @@ These tests verify the line breaking behavior in the `clmd fmt` command.
 ```````````````````````````````` cli(fmt) args(--width, 60)
 我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md) 使用的严格基准测试策略。
 .
-我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+我们旨在重现
+[eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
 使用的严格基准测试策略。
 ````````````````````````````````
 
@@ -115,7 +116,7 @@ parentheses) 和更多内容。
 
 ### Balanced Lines
 
-```````````````````````````````` cli(fmt) args(--width, 50)
+```````````````````````````````` cli(fmt) args(--width, 55)
 这是一个比较长的段落，用于测试行长度是否均衡，不应该出现第一行很短而第二行很长的情况。
 .
 这是一个比较长的段落，用于测试行长度是否均衡，

@@ -998,6 +998,8 @@ mod tests {
 
         fn add_paragraph_hard_break(&mut self) {}
 
+        fn add_paragraph_atomic(&mut self, _content: &str, _kind: crate::render::commonmark::AtomicKind) {}
+
         fn is_paragraph_line_breaking(&self) -> bool {
             false
         }
