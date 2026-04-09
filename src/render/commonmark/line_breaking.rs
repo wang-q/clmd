@@ -1366,106 +1366,12 @@ impl LineBreakingContext {
                                     .sum();
 
                                 if line_width > self.max_width && remaining_words > 0 {
-                                    // The line would be too long, and there's more content
-                                    // Try to find a better break point between break_point and new_break
-                                    // We need to:
-                                    // 1. Not break at punctuation
-                                    // 2. Not leave opening bracket at line end
-                                    // 3. Not isolate short words
-
-                                    // First, try to find a good break point working backwards from new_break
-                                    let mut alt_break = new_break;
-
-                                    // Don't break at punctuation
-                                    while alt_break > break_point
-                                        && alt_break < self.words.len()
-                                        && is_punctuation_that_should_not_be_at_line_start(
-                                            &self.words[alt_break].text,
-                                        )
-                                    {
-                                        alt_break -= 1;
-                                    }
-
-                                    // Check if this would leave an opening bracket at line end
-                                    // If so, we need to include more content
-                                    while alt_break > break_point {
-                                        let would_leave_opening =
-                                            (prev_break..alt_break).any(|k| {
-                                                self.words[k].text.chars().last().map_or(
-                                                    false,
-                                                    |c| {
-                                                        matches!(
-                                                            c,
-                                                            '（' | '《'
-                                                                | '「'
-                                                                | '『'
-                                                                | '【'
-                                                                | '〈'
-                                                                | '“'
-                                                                | '‘'
-                                                                | '('
-                                                                | '['
-                                                                | '{'
-                                                        )
-                                                    },
-                                                )
-                                            });
-
-                                        // Check if any opening bracket in range is closed after alt_break
-                                        let has_unclosed_opening = if would_leave_opening
-                                        {
-                                            // Check if there's a closing bracket after alt_break
-                                            // that matches an opening bracket before alt_break
-                                            let has_closing_after =
-                                                (alt_break..self.words.len()).any(|k| {
-                                                    self.words[k]
-                                                        .text
-                                                        .chars()
-                                                        .next()
-                                                        .map_or(false, |c| {
-                                                            matches!(
-                                                                c,
-                                                                '）' | '》'
-                                                                    | '」'
-                                                                    | '』'
-                                                                    | '】'
-                                                                    | '〉'
-                                                                    | ')'
-                                                                    | ']'
-                                                                    | '}'
-                                                            )
-                                                        })
-                                                });
-                                            has_closing_after
-                                        } else {
-                                            false
-                                        };
-
-                                        if would_leave_opening && has_unclosed_opening {
-                                            // There's an unclosed opening bracket, move alt_break forward
-                                            alt_break += 1;
-                                            // But don't go beyond new_break
-                                            if alt_break > new_break {
-                                                alt_break = new_break;
-                                                break;
-                                            }
-                                        } else {
-                                            break;
-                                        }
-                                    }
-
-                                    // Check if alt_break would isolate a short word
-                                    if alt_break < self.words.len()
-                                        && self.words[alt_break].width <= 2
-                                        && alt_break + 1 < self.words.len()
-                                        && self.words[alt_break + 1].width > 2
-                                    {
-                                        // Would isolate a short word, try to include the next word too
-                                        alt_break += 1;
-                                    }
-
-                                    if !adjusted.contains(&alt_break) {
-                                        adjusted.push(alt_break);
+                                    // The line would be too long, but we have an opening bracket
+                                    // Priority: keep opening bracket with its content
+                                    // Use new_break (which includes content up to closing bracket)
+                                    // and let enforce_max_width handle any overflow
+                                    if !adjusted.contains(&new_break) {
+                                        adjusted.push(new_break);
                                     }
                                     found_closing = true;
                                     break;
@@ -3915,6 +3821,56 @@ mod tests {
             );
         }
     }
+}
+
+/// Affinity of punctuation marks for line breaking
+/// Left: punctuation stays with the previous line (break after)
+/// Right: punctuation stays with the next line (break before)
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Affinity {
+    Left,
+    Right,
+}
+
+/// Get the affinity of a punctuation mark
+/// Returns Some(Affinity) if the first char is a punctuation mark, None otherwise
+fn get_punctuation_affinity(text: &str) -> Option<Affinity> {
+    let first_char = text.chars().next()?;
+    match first_char {
+        // Left-affinity: these should stay with the previous line
+        // Chinese punctuation
+        '，' | '。' | '；' | '：' | '！' | '？' | '）' | '》' | '」' | '』' | '】' | '〉' | '”' | '’' |
+        // English punctuation
+        ',' | '.' | ';' | ':' | '!' | '?' | ')' | ']' | '}' |
+        // Special case: closing backtick for inline code
+        '`' => Some(Affinity::Left),
+        
+        // Right-affinity: these should stay with the next line
+        // Chinese opening brackets
+        '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘' |
+        // English opening brackets
+        '(' | '[' | '{' => Some(Affinity::Right),
+        
+        _ => None,
+    }
+}
+
+/// Check if a character is a left-affinity punctuation mark
+fn is_left_affinity_punctuation(c: char) -> bool {
+    matches!(
+        c,
+        '，' | '。' | '；' | '：' | '！' | '？' | '）' | '》' | '」' | '』' | '】' | '〉' | '”' | '’' |
+        ',' | '.' | ';' | ':' | '!' | '?' | ')' | ']' | '}' | '`'
+    )
+}
+
+/// Check if a character is a right-affinity punctuation mark
+fn is_right_affinity_punctuation(c: char) -> bool {
+    matches!(
+        c,
+        '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘' |
+        '(' | '[' | '{'
+    )
 }
 
 /// Check if a string contains CJK characters
