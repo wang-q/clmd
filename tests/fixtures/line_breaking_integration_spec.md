@@ -15,8 +15,8 @@ These tests verify the line breaking behavior using the full formatter API.
 First line with some text. Second part with more text here.
 .
 First line with some
-text. Second part
-with more text here.
+text. Second part with
+more text here.
 ````````````````````````````````
 
 
@@ -43,8 +43,8 @@ This is a paragraph that should fit on a single line because the max width is ve
 ```````````````````````````````` example(Paragraph: 4) options(margin[12])
 This is a test
 .
-This is
-a test
+This is a
+test
 ````````````````````````````````
 
 
@@ -53,9 +53,9 @@ a test
 ```````````````````````````````` example(Paragraph: 5) options(margin[25])
 Version 1.2.3 is released on 2024-01-15! Check it out.
 .
-Version 1.2.3 is
-released on 2024-01-15!
-Check it out.
+Version 1.2.3 is released
+on 2024-01-15! Check it
+out.
 ````````````````````````````````
 
 
@@ -97,8 +97,8 @@ Check it out.
 ```````````````````````````````` example(List: 1) options(margin[30])
 - This is a list item with some text
 .
-- This is a list item
-  with some text
+- This is a list item with
+  some text
 ````````````````````````````````
 
 
@@ -240,8 +240,8 @@ Check it out.
 ```````````````````````````````` example(Emphasis: 2) options(margin[45])
 tva **只有匿名函数（lambda）**且主要用于 TSV 数据处理
 .
-tva **只有匿名函数（lambda）**且主要用于
-TSV 数据处理
+tva **只有匿名函数（lambda）**且主要用于 TSV
+数据处理
 ````````````````````````````````
 
 

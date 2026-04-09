@@ -669,8 +669,18 @@ impl LineBreakingContext {
                     break; // Exceeds max width, stop searching
                 }
 
-                let badness =
-                    calculate_badness(line_width, self.ideal_width, self.max_width);
+                // Check if the remaining content (from j to n) can fit in one line
+                // The current line is the last line only if there's no content after it (j == n)
+                // If remaining content fits in one line, current line is NOT the last line
+                // (the next line will be the last line)
+                let is_last_line = j == n;
+
+                let badness = calculate_badness(
+                    line_width,
+                    self.ideal_width,
+                    self.max_width,
+                    is_last_line,
+                );
                 let total_badness = breaks[i].total_badness + badness;
 
                 if total_badness < best_badness {
@@ -878,6 +888,13 @@ impl LineBreakingContext {
                     if current_width + space_width + word_width > self.max_width
                         && i > current_start
                     {
+                        // Check if the next word is punctuation that should not be at line start
+                        // If so, we should include it in the current line
+                        let next_is_punct = i + 1 < end
+                            && is_punctuation_that_should_not_be_at_line_start(
+                                &self.words[i + 1].text,
+                            );
+
                         // Don't break inside a link - check if this word or adjacent words are link parts
                         let is_inside_link = self.words[i].is_link_part
                             || (i > 0
@@ -973,6 +990,23 @@ impl LineBreakingContext {
                         {
                             // Don't break before opening bracket, keep it with previous content
                             current_width += space_width + word_width;
+                        // NEW: If next word is punctuation, include current word and punctuation in current line
+                        } else if next_is_punct {
+                            // Don't break before a word that is followed by punctuation
+                            // Include current word and the punctuation in current line
+                            current_width += space_width + word_width;
+                        // NEW: Check if any word in current line ends with CJK opening bracket
+                        // If so, we need to include all content until the closing bracket
+                        } else if (current_start..i).any(|k| {
+                            self.words[k].text.chars().last().map_or(false, |c| {
+                                matches!(
+                                    c,
+                                    '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘'
+                                )
+                            })
+                        }) {
+                            // Don't break if there's an unclosed opening bracket in current line
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -1033,6 +1067,13 @@ impl LineBreakingContext {
                     if current_width + space_width + word_width > self.max_width
                         && i > current_start
                     {
+                        // Check if the next word is punctuation that should not be at line start
+                        // If so, we should include it in the current line
+                        let next_is_punct = i + 1 < self.words.len()
+                            && is_punctuation_that_should_not_be_at_line_start(
+                                &self.words[i + 1].text,
+                            );
+
                         // Special case: if this word is `)` and previous word is not `(`,
                         // keep `)` with the previous word (it's a link URL closing)
                         if self.words[i].text == ")"
@@ -1095,6 +1136,23 @@ impl LineBreakingContext {
                         {
                             // Don't break before comma, keep it with previous content
                             current_width += space_width + word_width;
+                        // NEW: If next word is punctuation, include current word and punctuation in current line
+                        } else if next_is_punct {
+                            // Don't break before a word that is followed by punctuation
+                            // Include current word and the punctuation in current line
+                            current_width += space_width + word_width;
+                        // NEW: Check if any word in current line ends with CJK opening bracket
+                        // If so, we need to include all content until the closing bracket
+                        } else if (current_start..i).any(|k| {
+                            self.words[k].text.chars().last().map_or(false, |c| {
+                                matches!(
+                                    c,
+                                    '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘'
+                                )
+                            })
+                        }) {
+                            // Don't break if there's an unclosed opening bracket in current line
+                            current_width += space_width + word_width;
                         } else {
                             // Add break before this word
                             result.push(i);
@@ -1130,57 +1188,149 @@ impl LineBreakingContext {
                 let word = &self.words[break_point];
 
                 // Check if the previous word is punctuation that shouldn't be at line end
-                // This handles cases like "text，" where the comma should stay with the following word
+                // This handles cases like "text（" where the opening bracket should stay with the following content
+                // NOTE: This logic is for punctuation that should NOT be at line END
+                // Opening brackets like "（" "《" "「" "『" "【" should stay with the FOLLOWING content
+                // Punctuation like "，" "、" "；" "：" CAN be at line end (they should NOT be at line start)
                 if break_point > 0 {
-                    let prev_word = &self.words[break_point - 1];
-                    // CJK punctuation like "，" "。" "、" should stay with the following word
-                    let is_cjk_punctuation_at_line_end =
-                        prev_word.text.chars().next().map_or(false, |c| {
-                            matches!(
-                                c,
-                                '，' | '。'
-                                    | '、'
-                                    | '；'
-                                    | '：'
-                                    | '！'
-                                    | '？'
-                                    | '）'
-                                    | '」'
-                                    | '』'
-                                    | '】'
-                            )
-                        });
-                    if is_cjk_punctuation_at_line_end {
-                        // Don't break after CJK punctuation, find the next appropriate break point
-                        // Find the next non-punctuation word and break after it
-                        let mut next_break = break_point + 1;
-                        for i in (break_point + 1)..self.words.len() {
-                            if !is_punctuation_that_should_not_be_at_line_start(
-                                &self.words[i].text,
-                            ) {
-                                next_break = i + 1;
+                    // Special case: if current word is `(` and previous word is `]`
+                    // this is a link `[text](url)`. Keep `](` together
+                    if word.text == "("
+                        && break_point > 0
+                        && self.words[break_point - 1].text == "]"
+                    {
+                        // Don't add break between `]` and `(`
+                        // Find the closing `)` and add break after it
+                        let mut found_closing = false;
+                        for k in break_point..self.words.len() {
+                            if self.words[k].text == ")" {
+                                let new_break = k + 1;
+                                if !adjusted.contains(&new_break) {
+                                    adjusted.push(new_break);
+                                }
+                                found_closing = true;
                                 break;
                             }
                         }
-                        // Check if the new break point would exceed max_width
-                        let prev_break = adjusted.last().copied().unwrap_or(0);
-                        let is_first_line = prev_break == 0;
-                        let new_line_width = self.calculate_line_width_with_prefix(
-                            prev_break,
-                            next_break,
-                            is_first_line,
-                        );
-                        if new_line_width <= self.max_width {
-                            if !adjusted.contains(&next_break) {
-                                adjusted.push(next_break);
-                            }
-                        } else {
-                            // Would exceed max_width, but we still need to keep punctuation with following word
-                            if !adjusted.contains(&next_break) {
-                                adjusted.push(next_break);
+                        if found_closing {
+                            continue;
+                        }
+                    }
+
+                    // Check if any word before the break point ends with an opening bracket
+                    // We need to look at all words from the previous break to this one
+                    let prev_break = adjusted.last().copied().unwrap_or(0);
+
+                    // Special case: Check if we have `](` pattern in the current line
+                    // If so, we should not break at the opening bracket
+                    // We need to check from the last break in the ORIGINAL breaks list, not from adjusted
+                    let original_prev_break = breaks
+                        .iter()
+                        .position(|&x| x == break_point)
+                        .map(|idx| if idx > 0 { breaks[idx - 1] } else { 0 })
+                        .unwrap_or(0);
+
+                    let has_link_pattern = (original_prev_break..break_point).any(|k| {
+                        k + 1 < self.words.len()
+                            && self.words[k].text == "]"
+                            && self.words[k + 1].text == "("
+                    });
+
+                    if has_link_pattern {
+                        // Found `](` pattern, find the closing `)` and add break after it
+                        let mut found_closing = false;
+                        for k in break_point..self.words.len() {
+                            if self.words[k].text == ")" {
+                                let new_break = k + 1;
+                                if !adjusted.contains(&new_break) {
+                                    adjusted.push(new_break);
+                                }
+                                found_closing = true;
+                                break;
                             }
                         }
-                        continue;
+                        if found_closing {
+                            continue;
+                        }
+                    }
+
+                    // Check for opening brackets, but exclude the case where we have `](` pattern
+                    // because that should be handled above
+                    // Also check if there's a `](` pattern in the current line range
+                    let has_link_pattern_in_range = (prev_break..break_point).any(|k| {
+                        k + 1 < self.words.len()
+                            && self.words[k].text == "]"
+                            && self.words[k + 1].text == "("
+                    });
+
+                    let has_opening_bracket = if has_link_pattern_in_range {
+                        false // Skip opening bracket check if we have `](` pattern
+                    } else {
+                        (prev_break..break_point).any(|k| {
+                            self.words[k].text.chars().last().map_or(false, |c| {
+                                matches!(
+                                    c,
+                                    '（' | '《'
+                                        | '「'
+                                        | '『'
+                                        | '【'
+                                        | '〈'
+                                        | '“'
+                                        | '‘'
+                                        | '('
+                                        | '['
+                                        | '{'
+                                )
+                            })
+                        })
+                    };
+
+                    if has_opening_bracket {
+                        // Found an opening bracket in the current line
+                        // We need to include all content until the closing bracket
+                        // Find the closing bracket and move the break point after it
+                        let mut found_closing = false;
+                        for k in break_point..self.words.len() {
+                            // Check if this word starts with a closing bracket
+                            if self.words[k].text.chars().next().map_or(false, |c| {
+                                matches!(
+                                    c,
+                                    '）' | '》'
+                                        | '」'
+                                        | '』'
+                                        | '】'
+                                        | '〉'
+                                        | '"'
+                                        | '\''
+                                        | ')'
+                                        | ']'
+                                        | '}'
+                                )
+                            }) {
+                                // Special case: if this is `]` and next word is `(`,
+                                // this is a Markdown link `](`, not a closing bracket
+                                if self.words[k].text == "]"
+                                    && k + 1 < self.words.len()
+                                    && self.words[k + 1].text == "("
+                                {
+                                    // Skip this `]` and continue looking for the real closing bracket
+                                    continue;
+                                }
+
+                                // Found closing bracket, move break point after it
+                                let new_break = k + 1;
+                                if !adjusted.contains(&new_break) {
+                                    adjusted.push(new_break);
+                                }
+                                found_closing = true;
+                                break;
+                            }
+                        }
+
+                        if found_closing {
+                            continue;
+                        }
+                        // If no closing bracket found, keep the original break
                     }
                 }
 
@@ -1778,16 +1928,26 @@ impl LineBreakingContext {
 /// Badness is defined to encourage filling lines up to max_width.
 /// Lines shorter than max_width are penalized to encourage filling.
 /// Lines longer than max_width are penalized heavily.
-fn calculate_badness(line_width: usize, _ideal_width: usize, max_width: usize) -> f64 {
+fn calculate_badness(
+    line_width: usize,
+    _ideal_width: usize,
+    max_width: usize,
+    is_last_line: bool,
+) -> f64 {
     if line_width > max_width {
         // Lines longer than max_width are penalized heavily
         let diff = line_width - max_width;
         (diff * diff * diff * diff) as f64
     } else {
-        // Lines shorter than max_width are penalized to encourage filling
-        // Use quadratic penalty to encourage filling but not too aggressively
         let diff = max_width - line_width;
-        (diff * diff) as f64
+        if is_last_line {
+            // Last line can be short, use quadratic penalty
+            (diff * diff) as f64
+        } else {
+            // Non-last lines should be as long as possible
+            // Use quartic penalty to encourage filling
+            (diff * diff * diff * diff) as f64
+        }
     }
 }
 
@@ -1854,16 +2014,24 @@ mod tests {
 
     #[test]
     fn test_badness_calculation() {
-        // Lines shorter than max_width are penalized (quadratic)
-        assert_eq!(calculate_badness(20, 15, 25), 25.0); // (25-20)^2 = 25
-        assert_eq!(calculate_badness(15, 15, 25), 100.0); // (25-15)^2 = 100
+        // Lines shorter than max_width are penalized
+        // For non-last lines, use quartic penalty
+        assert_eq!(calculate_badness(20, 15, 25, false), 625.0); // (25-20)^4 = 625
+        assert_eq!(calculate_badness(15, 15, 25, false), 10000.0); // (25-15)^4 = 10000
+
+        // For last line, use quadratic penalty
+        assert_eq!(calculate_badness(20, 15, 25, true), 25.0); // (25-20)^2 = 25
+        assert_eq!(calculate_badness(15, 15, 25, true), 100.0); // (25-15)^2 = 100
 
         // Lines at max_width have zero badness
-        assert_eq!(calculate_badness(25, 15, 25), 0.0);
+        assert_eq!(calculate_badness(25, 15, 25, false), 0.0);
+        assert_eq!(calculate_badness(25, 15, 25, true), 0.0);
 
         // Lines longer than max_width are penalized heavily (quartic)
-        assert_eq!(calculate_badness(26, 15, 25), 1.0); // (26-25)^4 = 1
-        assert_eq!(calculate_badness(30, 15, 25), 625.0); // (30-25)^4 = 625
+        assert_eq!(calculate_badness(26, 15, 25, false), 1.0); // (26-25)^4 = 1
+        assert_eq!(calculate_badness(30, 15, 25, false), 625.0); // (30-25)^4 = 625
+        assert_eq!(calculate_badness(26, 15, 25, true), 1.0); // (26-25)^4 = 1
+        assert_eq!(calculate_badness(30, 15, 25, true), 625.0); // (30-25)^4 = 625
     }
 
     #[test]
@@ -3505,6 +3673,96 @@ mod tests {
             first_line_width,
             first_line
         );
+    }
+
+    #[test]
+    fn test_cjk_punctuation_not_at_line_start() {
+        // Test for the bug: Chinese comma appears at line start
+        // Input: "这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。"
+        // Expected: Chinese comma should NOT appear at line start
+        let mut ctx = LineBreakingContext::with_prefixes(60, 60, "", "  ");
+        ctx.add_text("这些操作需要");
+        ctx.add_inline_element("`list.iter().cloned().collect()`");
+        ctx.add_text("，比直接");
+        ctx.add_inline_element("`list.clone()`");
+        ctx.add_text("慢得多。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space
+            );
+        }
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // Check that no line starts with Chinese comma
+        for line in formatted.lines() {
+            let trimmed = line.trim_start();
+            assert!(
+                !trimmed.starts_with('，'),
+                "Line should not start with Chinese comma: {}",
+                line
+            );
+        }
+    }
+
+    #[test]
+    fn test_cjk_punctuation_not_at_line_start_real_case() {
+        // Test for the real bug case from user report
+        // This simulates the exact text from the user's report
+        // Using margin[100] (max_width = 100)
+        let mut ctx = LineBreakingContext::with_prefixes(75, 100, "- ", "  ");
+        ctx.add_markdown_marker("**");
+        ctx.add_text("建议");
+        ctx.add_markdown_marker_end("**");
+        ctx.add_text(": 增强");
+        ctx.add_inline_element("`tva filter`");
+        ctx.add_text(" 或新增");
+        ctx.add_inline_element("`tva search`");
+        ctx.add_text("，集成");
+        ctx.add_inline_element("`aho-corasick`");
+        ctx.add_text(" crate 以支持高性能的多模式匹配。");
+
+        // Print words for debugging
+        println!("Words:");
+        for (i, word) in ctx.words().iter().enumerate() {
+            println!(
+                "  Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}, width={}",
+                i, word.text, word.needs_leading_space, word.has_trailing_space, word.width
+            );
+        }
+
+        // Calculate total width
+        let total_width: usize = ctx
+            .words()
+            .iter()
+            .map(|w| w.width + if w.needs_leading_space { 1 } else { 0 })
+            .sum();
+        println!("Total width (without prefix): {}", total_width);
+        println!("With prefix '- ': {}", total_width + 2);
+
+        let breaks = ctx.compute_breaks();
+        println!("Breaks: {:?}", breaks);
+
+        let formatted = ctx.format();
+        println!("Formatted:\n{}", formatted);
+
+        // Check that no line starts with Chinese comma
+        for line in formatted.lines() {
+            let trimmed = line.trim_start();
+            assert!(
+                !trimmed.starts_with('，'),
+                "Line should not start with Chinese comma: {}",
+                line
+            );
+        }
     }
 }
 

@@ -54,8 +54,8 @@ These tests verify the line breaking behavior in the `clmd fmt` command.
 ```````````````````````````````` cli(fmt) args(--width, 100)
 - **建议**: 增强 `tva filter` 或新增 `tva search`，集成 `aho-corasick` crate 以支持高性能的多模式匹配。
 .
-- **建议**: 增强 `tva filter` 或新增 `tva search`，集成 `aho-corasick`
-  crate 以支持高性能的多模式匹配。
+- **建议**: 增强 `tva filter` 或新增 `tva search`，集成 `aho-corasick` crate
+  以支持高性能的多模式匹配。
 ````````````````````````````````
 
 
@@ -64,8 +64,9 @@ These tests verify the line breaking behavior in the `clmd fmt` command.
 ```````````````````````````````` cli(fmt) args(--width, 100)
 - **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。
 .
-- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为
-  0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。
+- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，
+  隐藏连续的
+  0 值。
 ````````````````````````````````
 
 
@@ -130,8 +131,8 @@ parentheses) 和更多内容。
 ```````````````````````````````` cli(fmt) args(--width, 30)
 * Paragraph with hard break and more text.
 .
-- Paragraph with hard
-  break and more text.
+- Paragraph with hard break
+  and more text.
 ````````````````````````````````
 
 
@@ -140,8 +141,8 @@ parentheses) 和更多内容。
 ```````````````````````````````` cli(fmt) args(--width, 30)
 1. Paragraph with soft break and more text.
 .
-1. Paragraph with soft
-   break and more text.
+1. Paragraph with soft break
+   and more text.
 ````````````````````````````````
 
 

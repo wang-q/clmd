@@ -115,17 +115,17 @@ Lines should be balanced in length.
 ```````````````````````````````` example(Line Balance: 2) options(margin[60])
 For projects that have finished downloading, but have renamed strains, you can run `reorder.sh` to avoid re-downloading.
 .
-For projects that have finished downloading,
-but have renamed strains, you can run
-`reorder.sh` to avoid re-downloading.
+For projects that have finished downloading, but have
+renamed strains, you can run `reorder.sh` to avoid
+re-downloading.
 ````````````````````````````````
 
 
 ```````````````````````````````` example(Line Balance: 3) options(margin[40])
 This is a long paragraph that tests line balance behavior.
 .
-This is a long paragraph that
-tests line balance behavior.
+This is a long paragraph that tests line
+balance behavior.
 ````````````````````````````````
 
 
@@ -188,16 +188,16 @@ List items should wrap correctly with proper indentation.
 ```````````````````````````````` example(List Item: 1) options(margin[30])
 * Paragraph with hard break and more text.
 .
-- Paragraph with hard
-  break and more text.
+- Paragraph with hard break
+  and more text.
 ````````````````````````````````
 
 
 ```````````````````````````````` example(List Item: 2) options(margin[30])
 1. Paragraph with soft break and more text.
 .
-1. Paragraph with soft
-   break and more text.
+1. Paragraph with soft break
+   and more text.
 ````````````````````````````````
 
 
@@ -224,8 +224,8 @@ Block quotes should wrap correctly with proper markers.
 ```````````````````````````````` example(Block Quote: 1) options(margin[30])
 > This is a blockquote with some text.
 .
-> This is a blockquote
-> with some text.
+> This is a blockquote with
+> some text.
 ````````````````````````````````
 
 
@@ -259,8 +259,8 @@ English punctuation should be handled correctly.
 ```````````````````````````````` example(English Punctuation: 3) options(margin[50])
 这是一个测试 (with English parentheses) 和更多内容。
 .
-这是一个测试 (with English
-parentheses) 和更多内容。
+这是一个测试 (with English parentheses)
+和更多内容。
 ````````````````````````````````
 
 

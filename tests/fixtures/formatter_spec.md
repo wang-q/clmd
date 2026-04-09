@@ -48,8 +48,8 @@ wrapped at the specified margin width.
 This is a very long paragraph that needs to be wrapped at a smaller margin.
 .
 This is a very long paragraph
-that needs to be wrapped
-at a smaller margin.
+that needs to be wrapped at a
+smaller margin.
 ````````````````````````````````
 
 
