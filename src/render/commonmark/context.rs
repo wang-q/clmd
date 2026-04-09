@@ -6,7 +6,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
-use crate::render::commonmark::line_breaking::{LineBreakingContext, Word};
+
 use crate::render::commonmark::node::NodeValueType;
 use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::purpose::RenderPurpose;
@@ -217,73 +217,7 @@ pub trait NodeFormatterContext {
             .is_some_and(|node_id| self.get_arena().get(node_id).prev.is_some())
     }
 
-    // Line breaking methods
-
-    /// Start collecting text for line breaking
-    ///
-    /// Called when entering a paragraph to begin collecting words for optimal line breaking.
-    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize);
-
-    /// Start collecting text for line breaking with prefixes
-    ///
-    /// Called when entering a paragraph in a list item to begin collecting words
-    /// with proper indentation prefixes.
-    fn start_line_breaking_with_prefixes(
-        &mut self,
-        ideal_width: usize,
-        max_width: usize,
-        first_line_prefix: String,
-        continuation_prefix: String,
-    );
-
-    /// Add a word to the line breaking context
-    fn add_line_breaking_word(&mut self, word: Word);
-
-    /// Add text to the line breaking context
-    fn add_line_breaking_text(&mut self, text: &str);
-
-    /// Add text as a single word to the line breaking context (no splitting)
-    fn add_line_breaking_word_text(&mut self, text: &str);
-
-    /// Add a Markdown end marker (closing **, *, etc.) - does not suppress leading space
-    fn add_line_breaking_marker_end(&mut self, text: &str);
-
-    /// Add an inline element (like code span) that should preserve surrounding spaces
-    fn add_line_breaking_inline_element(&mut self, text: &str);
-
-    /// Add a link/image close marker `)`
-    /// This sets after_inline_code to true so subsequent text preserves spacing
-    fn add_line_breaking_link_close(&mut self, text: &str);
-
-    /// Add a URL or path as a single word (not a markdown marker)
-    /// This keeps the URL intact while allowing it to break lines if too long
-    fn add_line_breaking_url(&mut self, text: &str);
-
-    /// Finish line breaking and get the formatted result
-    ///
-    /// Called when exiting a paragraph to compute optimal line breaks and return the formatted text.
-    fn finish_line_breaking(&mut self) -> Option<String>;
-
-    /// Check if we're currently collecting text for line breaking
-    fn is_collecting_line_breaking(&self) -> bool;
-
-    /// Get the line breaking context
-    fn get_line_breaking_context(&self) -> Option<&LineBreakingContext>;
-
-    /// Reset the "no leading space" flag after closing a mark
-    fn reset_line_breaking_space(&mut self);
-
-    /// Enter link text mode (between `[` and `]`)
-    /// When inside link text, line breaks should not be added
-    fn enter_link_text(&mut self);
-
-    /// Exit link text mode and enter link URL mode
-    fn exit_link_text(&mut self);
-
-    /// Exit link URL mode (after `)`)
-    fn exit_link_url(&mut self);
-
-    // New ParagraphLineBreaker methods
+    // ParagraphLineBreaker methods
 
     /// Start paragraph line breaking with the new AST-based breaker
     fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String);
@@ -547,83 +481,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn render_children_to_string(&mut self, node_id: NodeId) -> String {
         self.parent.render_children_to_string(node_id)
-    }
-
-    // Line breaking methods - delegate to parent
-
-    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize) {
-        self.parent.start_line_breaking(ideal_width, max_width);
-    }
-
-    fn start_line_breaking_with_prefixes(
-        &mut self,
-        ideal_width: usize,
-        max_width: usize,
-        first_line_prefix: String,
-        continuation_prefix: String,
-    ) {
-        self.parent.start_line_breaking_with_prefixes(
-            ideal_width,
-            max_width,
-            first_line_prefix,
-            continuation_prefix,
-        );
-    }
-
-    fn add_line_breaking_word(&mut self, word: Word) {
-        self.parent.add_line_breaking_word(word);
-    }
-
-    fn add_line_breaking_text(&mut self, text: &str) {
-        self.parent.add_line_breaking_text(text);
-    }
-
-    fn add_line_breaking_word_text(&mut self, text: &str) {
-        self.parent.add_line_breaking_word_text(text);
-    }
-
-    fn add_line_breaking_marker_end(&mut self, text: &str) {
-        self.parent.add_line_breaking_marker_end(text);
-    }
-
-    fn add_line_breaking_inline_element(&mut self, text: &str) {
-        self.parent.add_line_breaking_inline_element(text);
-    }
-
-    fn add_line_breaking_link_close(&mut self, text: &str) {
-        self.parent.add_line_breaking_link_close(text);
-    }
-
-    fn add_line_breaking_url(&mut self, text: &str) {
-        self.parent.add_line_breaking_url(text);
-    }
-
-    fn finish_line_breaking(&mut self) -> Option<String> {
-        self.parent.finish_line_breaking()
-    }
-
-    fn is_collecting_line_breaking(&self) -> bool {
-        self.parent.is_collecting_line_breaking()
-    }
-
-    fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
-        self.parent.get_line_breaking_context()
-    }
-
-    fn reset_line_breaking_space(&mut self) {
-        self.parent.reset_line_breaking_space();
-    }
-
-    fn enter_link_text(&mut self) {
-        self.parent.enter_link_text();
-    }
-
-    fn exit_link_text(&mut self) {
-        self.parent.exit_link_text();
-    }
-
-    fn exit_link_url(&mut self) {
-        self.parent.exit_link_url();
     }
 
     fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String) {
@@ -939,51 +796,6 @@ mod tests {
         fn render_children_to_string(&mut self, _node_id: NodeId) -> String {
             String::new()
         }
-
-        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
-
-        fn start_line_breaking_with_prefixes(
-            &mut self,
-            _ideal_width: usize,
-            _max_width: usize,
-            _first_line_prefix: String,
-            _continuation_prefix: String,
-        ) {
-        }
-
-        fn add_line_breaking_word(&mut self, _word: Word) {}
-
-        fn add_line_breaking_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_word_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
-
-        fn add_line_breaking_inline_element(&mut self, _text: &str) {}
-
-        fn add_line_breaking_link_close(&mut self, _text: &str) {}
-
-        fn add_line_breaking_url(&mut self, _text: &str) {}
-
-        fn finish_line_breaking(&mut self) -> Option<String> {
-            None
-        }
-
-        fn is_collecting_line_breaking(&self) -> bool {
-            false
-        }
-
-        fn get_line_breaking_context(&self) -> Option<&LineBreakingContext> {
-            None
-        }
-
-        fn reset_line_breaking_space(&mut self) {}
-
-        fn enter_link_text(&mut self) {}
-
-        fn exit_link_text(&mut self) {}
-
-        fn exit_link_url(&mut self) {}
 
         fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
         }

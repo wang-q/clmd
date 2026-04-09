@@ -596,13 +596,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 &processed_text,
                             );
 
-                            // Check if we're using the new paragraph line breaking system
+                            // Check if we're using paragraph line breaking
                             if ctx.is_paragraph_line_breaking() {
                                 // Add text to paragraph line breaker
                                 ctx.add_paragraph_text(&final_text);
-                            } else if ctx.is_collecting_line_breaking() {
-                                // Add text to legacy line breaking context
-                                ctx.add_line_breaking_text(&final_text);
                             } else {
                                 // Use context-aware escaping
                                 let escaped = escape_text(&final_text, ctx);
@@ -660,18 +657,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                     &content,
                                     &suffix,
                                 );
-                            } else if ctx.is_collecting_line_breaking() {
-                                // Add code span as an inline element to preserve surrounding spaces
-                                let mut code_text = backticks.clone();
-                                if needs_leading_space {
-                                    code_text.push(' ');
-                                }
-                                code_text.push_str(&code.literal);
-                                if needs_trailing_space {
-                                    code_text.push(' ');
-                                }
-                                code_text.push_str(&backticks);
-                                ctx.add_line_breaking_inline_element(&code_text);
                             } else {
                                 writer.append(&backticks);
 
@@ -704,8 +689,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             ctx.remove_paragraph_trailing_space();
                             // Use add_paragraph_word to prevent internal breaks
                             ctx.add_paragraph_word(marker);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -719,8 +702,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         if ctx.is_paragraph_line_breaking() {
                             // Use add_paragraph_word to prevent internal breaks
                             ctx.add_paragraph_word(marker);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_marker_end(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -739,8 +720,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             ctx.remove_paragraph_trailing_space();
                             // Use add_paragraph_word to prevent internal breaks
                             ctx.add_paragraph_word(marker);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -754,8 +733,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         if ctx.is_paragraph_line_breaking() {
                             // Use add_paragraph_word to prevent internal breaks
                             ctx.add_paragraph_word(marker);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_marker_end(marker);
                         } else {
                             writer.append(marker);
                         }
@@ -773,10 +750,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // For paragraph line breaking, we collect the entire link as a unit
                             // Skip rendering children here - we'll collect them in the close handler
                             ctx.set_skip_children(true);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text("[");
-                            // Enter link text mode to prevent line breaks inside link text
-                            ctx.enter_link_text();
                         } else {
                             _writer.append("[");
                         }
@@ -813,24 +786,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 }
                                 // Re-enable children rendering
                                 ctx.set_skip_children(false);
-                            } else if ctx.is_collecting_line_breaking() {
-                                // Exit link text mode before closing bracket
-                                ctx.exit_link_text();
-                                // Close the link text bracket and add URL as words
-                                ctx.add_line_breaking_word_text("]");
-                                ctx.add_line_breaking_word_text("(");
-                                // Use add_line_breaking_url to add URL as a single word (not a markdown marker)
-                                // This allows long URLs to break lines properly without being split
-                                ctx.add_line_breaking_url(&link.url);
-                                if !link.title.is_empty() {
-                                    ctx.add_line_breaking_word_text(&format!(
-                                        " \"{}\"",
-                                        link.title
-                                    ));
-                                }
-                                ctx.add_line_breaking_link_close(")");
-                                // Exit link URL mode after closing parenthesis
-                                ctx.exit_link_url();
                             } else {
                                 // Close the link text bracket
                                 writer.append("]");
@@ -852,10 +807,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // For paragraph line breaking, we collect the entire image as a unit
                             // Skip rendering children here - we'll collect them in the close handler
                             ctx.set_skip_children(true);
-                        } else if ctx.is_collecting_line_breaking() {
-                            ctx.add_line_breaking_word_text("![");
-                            // Enter link text mode to prevent line breaks inside alt text
-                            ctx.enter_link_text();
                         } else {
                             _writer.append("![");
                         }
@@ -886,23 +837,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 }
                                 // Re-enable children rendering
                                 ctx.set_skip_children(false);
-                            } else if ctx.is_collecting_line_breaking() {
-                                // Exit link text mode before closing bracket
-                                ctx.exit_link_text();
-                                // Close the image alt bracket and add URL as words
-                                ctx.add_line_breaking_word_text("]");
-                                ctx.add_line_breaking_word_text("(");
-                                // Use add_line_breaking_url to add URL as a single word (not a markdown marker)
-                                ctx.add_line_breaking_url(&link.url);
-                                if !link.title.is_empty() {
-                                    ctx.add_line_breaking_word_text(&format!(
-                                        " \"{}\"",
-                                        link.title
-                                    ));
-                                }
-                                ctx.add_line_breaking_link_close(")");
-                                // Exit link URL mode after closing parenthesis
-                                ctx.exit_link_url();
                             } else {
                                 // Close the image alt bracket
                                 writer.append("]");
@@ -946,9 +880,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                         if ctx.is_paragraph_line_breaking() {
                             // Add space for soft break
                             ctx.add_paragraph_text(" ");
-                        } else if ctx.is_collecting_line_breaking() {
-                            // Add space to line breaking context for proper wrapping
-                            ctx.add_line_breaking_text(" ");
                         } else if ctx.is_in_tight_list() {
                             // In tight lists, soft breaks become spaces
                             writer.append(" ");
@@ -2546,58 +2477,6 @@ mod tests {
         ) -> String {
             String::new()
         }
-
-        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
-
-        fn start_line_breaking_with_prefixes(
-            &mut self,
-            _ideal_width: usize,
-            _max_width: usize,
-            _first_line_prefix: String,
-            _continuation_prefix: String,
-        ) {
-        }
-
-        fn add_line_breaking_word(
-            &mut self,
-            _word: crate::render::commonmark::line_breaking::Word,
-        ) {
-        }
-
-        fn add_line_breaking_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_word_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
-
-        fn add_line_breaking_inline_element(&mut self, _text: &str) {}
-
-        fn add_line_breaking_link_close(&mut self, _text: &str) {}
-
-        fn add_line_breaking_url(&mut self, _text: &str) {}
-
-        fn finish_line_breaking(&mut self) -> Option<String> {
-            None
-        }
-
-        fn is_collecting_line_breaking(&self) -> bool {
-            false
-        }
-
-        fn get_line_breaking_context(
-            &self,
-        ) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext>
-        {
-            None
-        }
-
-        fn reset_line_breaking_space(&mut self) {}
-
-        fn enter_link_text(&mut self) {}
-
-        fn exit_link_text(&mut self) {}
-
-        fn exit_link_url(&mut self) {}
 
         fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
         }

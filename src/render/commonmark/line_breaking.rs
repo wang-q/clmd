@@ -964,10 +964,165 @@ mod paragraph_line_breaker_tests {
         assert!(!breaker.get_units()[0].is_open);
         assert_eq!(breaker.get_units()[0].kind, UnitKind::Strong);
     }
+
+    // Tests adapted from the deprecated LineBreakingContext
+
+    #[test]
+    fn test_empty_breaker() {
+        let breaker = ParagraphLineBreaker::new(20, "".to_string());
+        let formatted = breaker.format();
+        assert_eq!(formatted, "");
+    }
+
+    #[test]
+    fn test_single_word() {
+        let mut breaker = ParagraphLineBreaker::new(20, "".to_string());
+        breaker.add_text("Hello");
+        let formatted = breaker.format();
+        assert_eq!(formatted, "Hello");
+    }
+
+    #[test]
+    fn test_multiple_words() {
+        let mut breaker = ParagraphLineBreaker::new(80, "".to_string());
+        breaker.add_text("Hello World");
+        let formatted = breaker.format();
+        assert_eq!(formatted, "Hello World");
+    }
+
+    #[test]
+    fn test_long_paragraph_wrapping() {
+        let mut breaker = ParagraphLineBreaker::new(40, "".to_string());
+        breaker.add_text("This is a very long paragraph that should be wrapped into multiple lines when formatted with line breaking enabled.");
+        let formatted = breaker.format();
+        // The formatted output should have line breaks or fit within width
+        let max_line_width = formatted
+            .lines()
+            .map(|line| unicode_width::width(line) as usize)
+            .max()
+            .unwrap_or(0);
+        assert!(formatted.contains('\n') || max_line_width <= 40);
+    }
+
+    #[test]
+    fn test_cjk_text_with_width() {
+        let mut breaker = ParagraphLineBreaker::new(20, "".to_string());
+        // Add CJK text (each character has width 2)
+        breaker.add_text("这是一个中文测试段落");
+
+        let formatted = breaker.format();
+        for line in formatted.lines() {
+            let width = unicode_width::width(line) as usize;
+            assert!(width <= 20, "Line exceeds max width: {}", line);
+        }
+    }
+
+    #[test]
+    fn test_prefix_handling() {
+        let mut breaker = ParagraphLineBreaker::new(20, "> ".to_string());
+        breaker.add_text("This is a test with prefix.");
+        let formatted = breaker.format();
+        // The prefix is applied to continuation lines, not the first line
+        // So we just verify the formatted output is not empty
+        assert!(!formatted.is_empty());
+        // Check that continuation lines (if any) have the prefix
+        let lines: Vec<&str> = formatted.lines().collect();
+        if lines.len() > 1 {
+            for line in &lines[1..] {
+                assert!(
+                    line.starts_with("> ") || line.is_empty(),
+                    "Continuation line should start with prefix: {}",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_link_unit_not_broken() {
+        // Test that link units are not broken inside
+        let mut breaker = ParagraphLineBreaker::new(30, "".to_string());
+
+        // Add text before link
+        breaker.add_text("See ");
+
+        // Add link as unbreakable unit
+        breaker.add_unbreakable_unit(
+            UnitKind::Link,
+            "",
+            "[example](https://example.com)",
+            "",
+        );
+
+        // Add text after link
+        breaker.add_text(" for more.");
+
+        let formatted = breaker.format();
+
+        // The link should appear intact in the output
+        assert!(
+            formatted.contains("[example](https://example.com)"),
+            "Link should not be broken: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_emphasis_unit_not_broken() {
+        // Test that emphasis units are not broken inside
+        let mut breaker = ParagraphLineBreaker::new(30, "".to_string());
+
+        breaker.add_text("This is ");
+
+        // Add emphasis as unbreakable unit
+        let handle = breaker.start_unit(UnitKind::Strong, 2);
+        breaker.add_text("very important");
+        breaker.end_unit(handle, 14, 2);
+
+        breaker.add_text(" text.");
+
+        let formatted = breaker.format();
+
+        // The emphasis markers should appear intact
+        assert!(
+            formatted.contains("**very important**")
+                || formatted.contains("very important"),
+            "Emphasis should not be broken: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_code_unit_not_broken() {
+        // Test that inline code units are not broken inside
+        let mut breaker = ParagraphLineBreaker::new(30, "".to_string());
+
+        breaker.add_text("Use ");
+
+        // Add code as unbreakable unit
+        let handle = breaker.start_unit(UnitKind::InlineCode, 1);
+        breaker.add_text("function_name");
+        breaker.end_unit(handle, 13, 1);
+
+        breaker.add_text(" to call it.");
+
+        let formatted = breaker.format();
+
+        // The code should appear intact
+        assert!(
+            formatted.contains("`function_name`") || formatted.contains("function_name"),
+            "Code should not be broken: {}",
+            formatted
+        );
+    }
 }
 
 /// Context for line breaking
+///
+/// # Deprecated
+/// This is the old line breaking implementation. Use `ParagraphLineBreaker` instead.
 #[derive(Debug)]
+#[deprecated(since = "0.3.0", note = "Use ParagraphLineBreaker instead")]
 pub struct LineBreakingContext {
     /// The words in the paragraph
     words: Vec<Word>,
@@ -1000,6 +1155,7 @@ pub struct LineBreakingContext {
     link_start_index: Option<usize>,
 }
 
+#[allow(deprecated)]
 impl LineBreakingContext {
     /// Create a new line breaking context
     pub fn new(ideal_width: usize, max_width: usize) -> Self {

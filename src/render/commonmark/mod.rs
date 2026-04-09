@@ -42,9 +42,8 @@ pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
     SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
 };
-pub use line_breaking::{
-    LineBreakingContext, ParagraphLineBreaker, UnitHandle, UnitKind, Word,
-};
+// Re-export line breaking types
+pub use line_breaking::{ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
@@ -247,9 +246,7 @@ pub struct MainFormatterContext<'a> {
     format_off_buffer: Option<String>,
     /// Whether delegation was requested by the current handler
     delegation_requested: bool,
-    /// Line breaking context for optimal paragraph formatting (legacy)
-    line_breaking_context: Option<line_breaking::LineBreakingContext>,
-    /// New paragraph line breaker for AST-based line breaking
+    /// Paragraph line breaker for AST-based line breaking
     paragraph_line_breaker: Option<line_breaking::ParagraphLineBreaker>,
 }
 
@@ -296,7 +293,6 @@ impl<'a> MainFormatterContext<'a> {
             format_control,
             format_off_buffer: None,
             delegation_requested: false,
-            line_breaking_context: None,
             paragraph_line_breaker: None,
         };
         context.build_handler_map();
@@ -798,110 +794,9 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         temp_writer.to_string()
     }
 
-    // Line breaking methods
+    // Line breaking methods (legacy - deprecated, use paragraph line breaking methods instead)
 
-    fn start_line_breaking(&mut self, ideal_width: usize, max_width: usize) {
-        self.line_breaking_context = Some(line_breaking::LineBreakingContext::new(
-            ideal_width,
-            max_width,
-        ));
-    }
-
-    fn start_line_breaking_with_prefixes(
-        &mut self,
-        ideal_width: usize,
-        max_width: usize,
-        first_line_prefix: String,
-        continuation_prefix: String,
-    ) {
-        self.line_breaking_context =
-            Some(line_breaking::LineBreakingContext::with_prefixes(
-                ideal_width,
-                max_width,
-                first_line_prefix,
-                continuation_prefix,
-            ));
-    }
-
-    fn add_line_breaking_word(&mut self, word: line_breaking::Word) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_word(word);
-        }
-    }
-
-    fn add_line_breaking_text(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_text(text);
-        }
-    }
-
-    fn add_line_breaking_word_text(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_markdown_marker(text);
-        }
-    }
-
-    fn add_line_breaking_marker_end(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_markdown_marker_end(text);
-        }
-    }
-
-    fn add_line_breaking_inline_element(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_inline_element(text);
-        }
-    }
-
-    fn add_line_breaking_link_close(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_link_close_marker(text);
-        }
-    }
-
-    fn add_line_breaking_url(&mut self, text: &str) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.add_text_as_word(text);
-        }
-    }
-
-    fn finish_line_breaking(&mut self) -> Option<String> {
-        self.line_breaking_context.take().map(|ctx| ctx.format())
-    }
-
-    fn is_collecting_line_breaking(&self) -> bool {
-        self.line_breaking_context.is_some()
-    }
-
-    fn get_line_breaking_context(&self) -> Option<&line_breaking::LineBreakingContext> {
-        self.line_breaking_context.as_ref()
-    }
-
-    fn reset_line_breaking_space(&mut self) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.reset_next_word_no_leading_space();
-        }
-    }
-
-    fn enter_link_text(&mut self) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.enter_link_text();
-        }
-    }
-
-    fn exit_link_text(&mut self) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.exit_link_text();
-        }
-    }
-
-    fn exit_link_url(&mut self) {
-        if let Some(ref mut ctx) = self.line_breaking_context {
-            ctx.exit_link_url();
-        }
-    }
-
-    // New ParagraphLineBreaker methods
+    // ParagraphLineBreaker methods
 
     fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String) {
         self.paragraph_line_breaker =

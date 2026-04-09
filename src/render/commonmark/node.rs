@@ -1012,58 +1012,6 @@ mod tests {
             String::new()
         }
 
-        fn start_line_breaking(&mut self, _ideal_width: usize, _max_width: usize) {}
-
-        fn start_line_breaking_with_prefixes(
-            &mut self,
-            _ideal_width: usize,
-            _max_width: usize,
-            _first_line_prefix: String,
-            _continuation_prefix: String,
-        ) {
-        }
-
-        fn add_line_breaking_word(
-            &mut self,
-            _word: crate::render::commonmark::line_breaking::Word,
-        ) {
-        }
-
-        fn add_line_breaking_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_word_text(&mut self, _text: &str) {}
-
-        fn add_line_breaking_marker_end(&mut self, _text: &str) {}
-
-        fn add_line_breaking_inline_element(&mut self, _text: &str) {}
-
-        fn add_line_breaking_link_close(&mut self, _text: &str) {}
-
-        fn add_line_breaking_url(&mut self, _text: &str) {}
-
-        fn finish_line_breaking(&mut self) -> Option<String> {
-            None
-        }
-
-        fn is_collecting_line_breaking(&self) -> bool {
-            false
-        }
-
-        fn get_line_breaking_context(
-            &self,
-        ) -> Option<&crate::render::commonmark::line_breaking::LineBreakingContext>
-        {
-            None
-        }
-
-        fn reset_line_breaking_space(&mut self) {}
-
-        fn enter_link_text(&mut self) {}
-
-        fn exit_link_text(&mut self) {}
-
-        fn exit_link_url(&mut self) {}
-
         fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
         }
 
