@@ -1199,6 +1199,12 @@ impl LineBreakingContext {
 
             let mut new_break = break_point;
 
+            // Check if this break point is inside a link (between `](` and `)`)
+            // If so, skip it and let the link handling logic handle it
+            if self.is_break_inside_link(break_point) {
+                continue;
+            }
+
             // Handle link pattern `](` - keep together
             // Check if we're at `]` followed by `(` or at `(` preceded by `]`
             let is_link_start = (break_point < self.words.len()
@@ -1220,6 +1226,68 @@ impl LineBreakingContext {
                 for k in search_start..self.words.len() {
                     if self.words[k].text == ")" {
                         new_break = k + 1;
+                        // Also include any following left-affinity punctuation
+                        // (e.g., CJK punctuation like `。`, `,`, `、`)
+                        while new_break < self.words.len()
+                            && get_punctuation_affinity(&self.words[new_break].text)
+                                == Some(Affinity::Left)
+                        {
+                            new_break += 1;
+                        }
+                        skip_until = Some(new_break);
+                        break;
+                    }
+                }
+                adjusted.push(new_break);
+                last_adjusted_break = new_break;
+                continue;
+            }
+
+            // Handle Markdown emphasis markers `**` and `*`
+            // Check if break_point is at a marker, or right after a marker
+            let marker_type = if break_point < self.words.len() {
+                let word = &self.words[break_point];
+                if word.text == "**" || word.text == "*" {
+                    Some((word.text.as_str(), true)) // (marker, is_at_current_position)
+                } else if break_point > 0 {
+                    let prev_word = &self.words[break_point - 1];
+                    if prev_word.text == "**" || prev_word.text == "*" {
+                        Some((prev_word.text.as_str(), false)) // (marker, is_at_current_position)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else if break_point > 0 {
+                let prev_word = &self.words[break_point - 1];
+                if prev_word.text == "**" || prev_word.text == "*" {
+                    Some((prev_word.text.as_str(), false)) // (marker, is_at_current_position)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some((marker, is_at_current)) = marker_type {
+                // Find the matching closing marker
+                let search_start = if is_at_current {
+                    break_point + 1
+                } else {
+                    break_point
+                };
+                for k in search_start..self.words.len() {
+                    if self.words[k].text == marker {
+                        // Found closing marker, break after it
+                        new_break = k + 1;
+                        // Also include any following left-affinity punctuation
+                        while new_break < self.words.len()
+                            && get_punctuation_affinity(&self.words[new_break].text)
+                                == Some(Affinity::Left)
+                        {
+                            new_break += 1;
+                        }
                         skip_until = Some(new_break);
                         break;
                     }
@@ -1366,6 +1434,26 @@ impl LineBreakingContext {
         }
 
         None
+    }
+
+    /// Check if a break point is inside a Markdown link (between `](` and `)`)
+    fn is_break_inside_link(&self, break_point: usize) -> bool {
+        // Look backwards for `](` pattern
+        for i in (0..break_point).rev() {
+            if self.words[i].text == "]"
+                && i + 1 < self.words.len()
+                && self.words[i + 1].text == "("
+            {
+                // Found `](`, now check if the closing `)` is after this break point
+                for k in (i + 2)..self.words.len() {
+                    if self.words[k].text == ")" {
+                        // Found closing `)`
+                        return break_point <= k;
+                    }
+                }
+            }
+        }
+        false
     }
 
     /// Get the words
@@ -2338,11 +2426,7 @@ mod tests {
             println!("  Word {}: text={:?}, width={}", i, word.text, word.width);
         }
 
-        let breaks = ctx.compute_breaks();
-        println!("Breaks: {:?}", breaks);
-
         let formatted = ctx.format();
-        println!("Formatted:\n{}", formatted);
         let lines: Vec<&str> = formatted.lines().collect();
 
         // Check that no line ends with opening bracket ( while content is on next line
@@ -2924,6 +3008,10 @@ mod tests {
 
         let breaks = ctx.compute_breaks();
         println!("Breaks: {:?}", breaks);
+
+        // Test adjust_breaks_for_punctuation directly
+        let adjusted = ctx.adjust_breaks_for_punctuation(&breaks);
+        println!("Adjusted breaks: {:?}", adjusted);
 
         let formatted = ctx.format();
         println!("Formatted:\n{}", formatted);
