@@ -43,6 +43,12 @@ fn is_ascii_punctuation_no_space(c: char) -> bool {
     matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
 }
 
+/// Check if a character is a closing bracket (`,`, `)`, `]`, `}`, `>`)
+/// These should have space added after them when followed by ASCII alphanumeric
+fn is_closing_bracket(c: char) -> bool {
+    matches!(c, ')' | ']' | '}' | '>')
+}
+
 /// Check if spacing is needed between two characters
 pub fn needs_spacing(prev: char, next: char) -> bool {
     let prev_is_cjk = is_cjk(prev);
@@ -53,6 +59,7 @@ pub fn needs_spacing(prev: char, next: char) -> bool {
     let next_is_cjk_punct = is_cjk_punctuation(next);
     let prev_is_ascii_punct_no_space = is_ascii_punctuation_no_space(prev);
     let next_is_ascii_punct_no_space = is_ascii_punctuation_no_space(next);
+    let prev_is_closing_bracket = is_closing_bracket(prev);
 
     // CJK punctuation should NOT have space added after it
     // and should NOT have space added before it
@@ -70,6 +77,12 @@ pub fn needs_spacing(prev: char, next: char) -> bool {
     // when followed by CJK text (but may need space when followed by ASCII)
     if prev_is_ascii_punct_no_space && next_is_cjk {
         return false;
+    }
+
+    // Closing brackets (like `)` from links) should have space added after them
+    // when followed by ASCII alphanumeric (like English words)
+    if prev_is_closing_bracket && next_is_ascii_alnum {
+        return true;
     }
 
     // CJK <-> ASCII alphanumeric needs spacing

@@ -386,13 +386,12 @@ impl ParagraphLineBreaker {
         self.units.push(unit);
 
         // Add a break opportunity BEFORE the unit (if not at start)
-        // This allows breaking before the unit, but with a very strong penalty
-        // to keep unbreakable units (like links) with preceding text
+        // This allows breaking before the unit
         if self.current_position > 0 {
             self.break_opportunities.push(BreakOpportunity {
                 position: self.current_position,
                 width_before: self.current_width,
-                affinity: Affinity::Right, // Right affinity: prefer NOT to break before unbreakable units
+                affinity: Affinity::Left,
                 is_forced: false,
             });
         }
@@ -504,9 +503,7 @@ impl ParagraphLineBreaker {
                 if line_width > self.max_width && !is_forced_break {
                     // If this is not the first possible break, stop searching
                     // because earlier breaks will only make the line longer
-                    // However, if current break opportunity has Right affinity (don't break here),
-                    // we should continue searching to find a better break point
-                    if i < j - 1 && current_opp.affinity != Affinity::Right {
+                    if i < j - 1 {
                         break;
                     }
                     // Otherwise, this is the only option, so we have to accept it
@@ -528,7 +525,7 @@ impl ParagraphLineBreaker {
                     // Adjust badness based on affinity of the current break opportunity
                     let affinity_bonus = match current_opp.affinity {
                         Affinity::Left => -500.0, // Strong reward for breaking after left-affinity punctuation
-                        Affinity::Right => 2000.0, // Very strong penalty for breaking before right-affinity punctuation
+                        Affinity::Right => 500.0, // Strong penalty for breaking before right-affinity punctuation
                     };
                     (base_badness + affinity_bonus).max(0.0) // Ensure badness is not negative
                 };
@@ -655,7 +652,9 @@ impl ParagraphLineBreaker {
     /// Returns the formatted text with optimal line breaks.
     pub fn format(&self) -> String {
         let (breaks, forced_breaks) = self.compute_breaks_internal();
-        self.format_with_breaks_internal(&breaks, &forced_breaks)
+        let formatted = self.format_with_breaks_internal(&breaks, &forced_breaks);
+        // Apply CJK spacing to the formatted text
+        crate::text::cjk_spacing::add_cjk_spacing(&formatted)
     }
 
     /// Format the collected content with line breaks at the specified positions

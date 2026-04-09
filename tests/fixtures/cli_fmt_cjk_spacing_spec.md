@@ -255,7 +255,7 @@ test 中文 content
 ```````````````````````````````` cli(fmt)
 这是一个[链接](https://example.com)test示例
 .
-这是一个 [链接](https://example.com)test 示例
+这是一个[链接](https://example.com) test 示例
 ````````````````````````````````
 
 
@@ -275,10 +275,9 @@ test 中文 content
 ```````````````````````````````` cli(fmt) args(--width, 40)
 这是一个很长的段落，包含很多中文字符和English单词，用来测试行断行功能是否正常工作，以及CJK标点的处理是否正确。
 .
-这是一个很长的段落，
-包含很多中文字符和 English 单词，
-用来测试行断行功能是否正常工作，以及 CJK
-标点的处理是否正确。
+这是一个很长的段落，包含很多中文字符和
+English 单词，用来测试行断行功能是否
+正常工作，以及 CJK 标点的处理是否正确。
 ````````````````````````````````
 
 
@@ -287,8 +286,8 @@ test 中文 content
 ```````````````````````````````` cli(fmt) args(--width, 50)
 - 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）在连接时验证键。
 .
-- 行动: 添加 `--relationship` 标志（例如 `one-to-one`, `many-to-one`）
-  在连接时验证键。
+- 行动: 添加 `--relationship` 标志（例如
+  `one-to-one`, `many-to-one`）在连接时验证键。
 ````````````````````````````````
 
 
@@ -321,7 +320,8 @@ test 中文 content
 ```````````````````````````````` cli(fmt) args(--width, 60)
 我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md) 使用的严格基准测试策略。
 .
-我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+我们旨在重现
+[eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
 使用的严格基准测试策略。
 ````````````````````````````````
 
