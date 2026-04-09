@@ -11,7 +11,7 @@ These tests verify the line breaking behavior in the `clmd fmt` command.
 
 ### Link Not Split
 
-```````````````````````````````` cli(fmt) args(--width, 50)
+```````````````````````````````` cli(fmt) args(--width, 40)
 这是一个链接 [示例](https://example.com) 测试。
 .
 这是一个链接 [示例](https://example.com)

@@ -593,12 +593,37 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 text_str.to_string()
                             };
 
+                            // Check if previous and next siblings are markdown markers
+                            let (prev_is_marker, next_is_marker) =
+                                check_sibling_markers(ctx);
+
+                            // Check if previous sibling is a Link (for CJK spacing)
+                            let prev_is_link_node = prev_is_link(ctx);
+
                             // Apply CJK spacing by default
                             // NOTE: We apply CJK spacing even when using paragraph line breaking
                             // to ensure proper spacing around markdown markers
-                            let final_text = crate::text::cjk_spacing::add_cjk_spacing(
+                            let cjk_text = crate::text::cjk_spacing::add_cjk_spacing(
                                 &processed_text,
                             );
+
+                            // Adjust spacing around markdown markers for CJK text
+                            // This removes spaces between CJK characters and markdown markers
+                            let mut final_text = adjust_cjk_marker_spacing(
+                                &cjk_text,
+                                prev_is_marker,
+                                next_is_marker,
+                            );
+
+                            // If previous sibling is a Link and this text starts with ASCII,
+                            // add a leading space for CJK spacing
+                            if prev_is_link_node && !final_text.is_empty() {
+                                if let Some(first_char) = final_text.chars().next() {
+                                    if first_char.is_ascii_alphanumeric() {
+                                        final_text = format!(" {}", final_text);
+                                    }
+                                }
+                            }
 
                             // Check if we're using paragraph line breaking
                             if ctx.is_paragraph_line_breaking() {
@@ -698,7 +723,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             writer.flush_word_wrap_buffer();
                             // Ensure there's a space before the marker if not at start of line
                             // and previous content doesn't end with whitespace
-                            if !writer.is_beginning_of_line() && !writer.ends_with_whitespace() {
+                            if !writer.is_beginning_of_line()
+                                && !writer.ends_with_whitespace()
+                            {
                                 writer.append_raw(" ");
                             }
                             writer.append(marker);
@@ -735,7 +762,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             writer.flush_word_wrap_buffer();
                             // Ensure there's a space before the marker if not at start of line
                             // and previous content doesn't end with whitespace
-                            if !writer.is_beginning_of_line() && !writer.ends_with_whitespace() {
+                            if !writer.is_beginning_of_line()
+                                && !writer.ends_with_whitespace()
+                            {
                                 writer.append_raw(" ");
                             }
                             writer.append(marker);
@@ -1742,6 +1771,154 @@ fn skip_task_marker(text: &str) -> String {
     }
 }
 
+/// Normalize whitespace in text, especially around parentheses
+/// Removes leading/trailing whitespace and normalizes multiple spaces
+fn normalize_whitespace(text: &str) -> String {
+    // Replace newlines and multiple spaces with a single space
+    let result = text
+        .lines()
+        .map(|line| line.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    
+    // Normalize multiple spaces to single space
+    let result = result.split_whitespace().collect::<Vec<_>>().join(" ");
+    
+    result
+}
+
+/// Check if a character is a CJK character
+fn is_cjk_char(c: char) -> bool {
+    crate::text::char::is_cjk(c)
+}
+
+/// Check if previous and next siblings are markdown markers that should not have
+/// spaces around them in CJK text (only Emph and Strong)
+/// Note: Code and Link should have spaces around them in CJK text
+fn check_sibling_markers(ctx: &dyn NodeFormatterContext) -> (bool, bool) {
+    use crate::core::nodes::NodeValue;
+
+    let mut prev_is_marker = false;
+    let mut next_is_marker = false;
+
+    if let Some(current_node) = ctx.get_current_node() {
+        let arena = ctx.get_arena();
+        let node = arena.get(current_node);
+
+        // Check if parent is Emph or Strong (for text inside emphasis)
+        let parent_is_emph_or_strong = if let Some(parent_id) = node.parent {
+            let parent_node = arena.get(parent_id);
+            matches!(parent_node.value, NodeValue::Emph | NodeValue::Strong)
+        } else {
+            false
+        };
+
+        // Check previous sibling - only Emph and Strong
+        // Code and Link should have spaces around them
+        if let Some(prev_id) = node.prev {
+            let prev_node = arena.get(prev_id);
+            prev_is_marker =
+                matches!(prev_node.value, NodeValue::Emph | NodeValue::Strong);
+        } else if parent_is_emph_or_strong {
+            // If no previous sibling but parent is a marker,
+            // then the previous node is the parent's opening marker
+            prev_is_marker = true;
+        }
+
+        // Check next sibling - only Emph and Strong
+        // Code and Link should have spaces around them
+        if let Some(next_id) = node.next {
+            let next_node = arena.get(next_id);
+            next_is_marker =
+                matches!(next_node.value, NodeValue::Emph | NodeValue::Strong);
+        } else if parent_is_emph_or_strong {
+            // If no next sibling but parent is a marker,
+            // then the next node is the parent's closing marker
+            next_is_marker = true;
+        }
+    }
+
+    (prev_is_marker, next_is_marker)
+}
+
+/// Check if previous sibling is a Link (for CJK spacing)
+fn prev_is_link(ctx: &dyn NodeFormatterContext) -> bool {
+    use crate::core::nodes::NodeValue;
+
+    if let Some(current_node) = ctx.get_current_node() {
+        let arena = ctx.get_arena();
+        let node = arena.get(current_node);
+
+        if let Some(prev_id) = node.prev {
+            let prev_node = arena.get(prev_id);
+            return matches!(prev_node.value, NodeValue::Link(_));
+        }
+    }
+
+    false
+}
+
+/// Check if text ends with CJK character
+fn ends_with_cjk(text: &str) -> bool {
+    text.chars()
+        .rev()
+        .find(|c| !c.is_whitespace())
+        .map_or(false, is_cjk_char)
+}
+
+/// Check if text starts with CJK character
+fn starts_with_cjk(text: &str) -> bool {
+    text.chars()
+        .find(|c| !c.is_whitespace())
+        .map_or(false, is_cjk_char)
+}
+
+/// Adjust spacing around markdown markers for CJK text
+///
+/// In CJK typography, markdown markers like **, *, ` should not have spaces
+/// around them when adjacent to CJK characters.
+/// This function removes spaces between CJK characters and markdown markers.
+fn adjust_cjk_marker_spacing(
+    text: &str,
+    prev_is_marker: bool,
+    next_is_marker: bool,
+) -> String {
+    let mut result = text.to_string();
+
+    // Only adjust if the text is purely whitespace - in that case, we may want to remove it
+    // if it's between CJK and a marker
+    if result.trim().is_empty() {
+        // Text is only whitespace - check if we should keep it
+        // If previous is marker and next would be CJK, or vice versa,
+        // we might want to remove it
+        return result;
+    }
+
+    // If previous node is a marker and this text starts with CJK,
+    // remove leading space
+    if prev_is_marker {
+        // Check if the first non-whitespace character is CJK
+        if let Some(first_char) = result.chars().find(|c| !c.is_whitespace()) {
+            if is_cjk_char(first_char) {
+                result = result.trim_start().to_string();
+            }
+        }
+    }
+
+    // If next node is a marker and this text ends with CJK,
+    // remove trailing space
+    if next_is_marker {
+        // Check if the last non-whitespace character is CJK
+        if let Some(last_char) = result.chars().rev().find(|c| !c.is_whitespace()) {
+            if is_cjk_char(last_char) {
+                result = result.trim_end().to_string();
+            }
+        }
+    }
+
+    result
+}
+
 /// Calculate the prefixes for list item line breaking
 ///
 /// Returns (first_line_prefix, continuation_prefix) where:
@@ -2533,7 +2710,12 @@ mod tests {
 
         fn add_paragraph_hard_break(&mut self) {}
 
-        fn add_paragraph_atomic(&mut self, _content: &str, _kind: crate::render::commonmark::AtomicKind) {}
+        fn add_paragraph_atomic(
+            &mut self,
+            _content: &str,
+            _kind: crate::render::commonmark::AtomicKind,
+        ) {
+        }
 
         fn is_paragraph_line_breaking(&self) -> bool {
             false

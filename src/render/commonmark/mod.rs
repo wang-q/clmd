@@ -863,13 +863,13 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn add_paragraph_unbreakable_unit(
         &mut self,
-        _kind: line_breaking::UnitKind,
+        kind: line_breaking::UnitKind,
         prefix: &str,
         content: &str,
         suffix: &str,
     ) {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
-            breaker.add_unbreakable_unit(prefix, content, suffix);
+            breaker.add_unbreakable_unit(kind, prefix, content, suffix);
         }
         // Also add to text collection buffer if active
         if let Some(ref mut buffer) = self.text_collection_buffer {
@@ -1193,8 +1193,8 @@ mod tests {
 
     #[test]
     fn test_format_document_with_emphasis_and_width() {
-        use crate::render::commonmark::CommonMarkNodeFormatter;
         use crate::options::format::FormatOptions;
+        use crate::render::commonmark::CommonMarkNodeFormatter;
 
         let mut arena = NodeArena::new();
         let root = arena.alloc(Node::with_value(NodeValue::Document));
@@ -1224,7 +1224,7 @@ mod tests {
         let result = formatter.render(&arena, root);
         println!("Result with width 80: {:?}", result);
         println!("Expected: {:?}", "This is *italic* text\n\n");
-        
+
         // Check the full format with proper spacing
         assert!(
             result == "This is *italic* text\n\n",

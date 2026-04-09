@@ -211,7 +211,13 @@ impl ParagraphLineBreaker {
     /// Remove trailing space from the last text fragment
     pub fn remove_trailing_space(&mut self) {
         if let Some(last_fragment) = self.fragments.last_mut() {
-            if let ContentFragment::Text { content, width, break_points, break_widths } = last_fragment {
+            if let ContentFragment::Text {
+                content,
+                width,
+                break_points,
+                break_widths,
+            } = last_fragment
+            {
                 if content.ends_with(' ') {
                     *content = content.trim_end().to_string();
                     *width = unicode_width::width(content) as usize;
@@ -231,14 +237,14 @@ impl ParagraphLineBreaker {
 
     /// Check if the content ends with whitespace
     pub fn ends_with_whitespace(&self) -> bool {
-        self.fragments.last().map_or(false, |fragment| {
-            match fragment {
+        self.fragments
+            .last()
+            .map_or(false, |fragment| match fragment {
                 ContentFragment::Text { content, .. } => {
                     content.ends_with(|c: char| c.is_whitespace())
                 }
                 ContentFragment::Atomic { .. } => false,
-            }
-        })
+            })
     }
 
     /// Check if the content before the last fragment ends with CJK character
@@ -260,7 +266,7 @@ impl ParagraphLineBreaker {
     }
 
     /// Add text content with break points at word boundaries
-    /// 
+    ///
     /// This method adds text and automatically identifies break points at:
     /// - Whitespace characters (break after)
     /// - Punctuation marks (according to affinity rules)
@@ -272,14 +278,14 @@ impl ParagraphLineBreaker {
         let width = unicode_width::width(text) as usize;
         let mut break_points = Vec::new();
         let mut break_widths = Vec::new();
-        
+
         let mut accumulated_width = 0;
         let mut char_iter = text.char_indices().peekable();
-        
+
         while let Some((byte_pos, c)) = char_iter.next() {
             let char_str = c.to_string();
             let char_width = unicode_width::width(&char_str) as usize;
-            
+
             // Check if we can break after this character
             let can_break = if c.is_whitespace() {
                 // Always break after whitespace
@@ -290,12 +296,12 @@ impl ParagraphLineBreaker {
             } else {
                 false
             };
-            
+
             if can_break {
                 break_points.push(byte_pos + char_str.len());
                 break_widths.push(self.current_width + accumulated_width + char_width);
             }
-            
+
             accumulated_width += char_width;
         }
 
@@ -311,7 +317,7 @@ impl ParagraphLineBreaker {
     }
 
     /// Add an atomic unit - internal absolutely no breaks
-    /// 
+    ///
     /// This is used for:
     /// - Emphasis (*text*, **text**)
     /// - Inline code (`code`)
@@ -360,15 +366,33 @@ impl ParagraphLineBreaker {
     }
 
     /// End an unbreakable unit (legacy, for backward compatibility)
-    pub fn end_unit(&mut self, _handle: UnitHandle, _content_width: usize, _marker_width: usize) {
+    pub fn end_unit(
+        &mut self,
+        _handle: UnitHandle,
+        _content_width: usize,
+        _marker_width: usize,
+    ) {
         // In the new implementation, this is a no-op
     }
 
-    /// Add an unbreakable unit with prefix, content, suffix (legacy, for backward compatibility)
-    pub fn add_unbreakable_unit(&mut self, prefix: &str, content: &str, suffix: &str) {
+    /// Add an unbreakable unit with prefix, content, suffix
+    pub fn add_unbreakable_unit(
+        &mut self,
+        kind: UnitKind,
+        prefix: &str,
+        content: &str,
+        suffix: &str,
+    ) {
         // Combine them into a single atomic unit
         let full_content = format!("{}{}{}", prefix, content, suffix);
-        self.add_atomic(&full_content, AtomicKind::Other);
+        // Map UnitKind to AtomicKind
+        let atomic_kind = match kind {
+            UnitKind::Emph => AtomicKind::Emph,
+            UnitKind::Strong => AtomicKind::Strong,
+            UnitKind::Code | UnitKind::InlineCode => AtomicKind::Code,
+            UnitKind::Link => AtomicKind::Link,
+        };
+        self.add_atomic(&full_content, atomic_kind);
     }
 
     /// Compute the optimal line breaks using the Knuth-Plass algorithm
@@ -386,7 +410,13 @@ impl ParagraphLineBreaker {
 
         for fragment in &self.fragments {
             match fragment {
-                ContentFragment::Text { content, width, break_points, break_widths, .. } => {
+                ContentFragment::Text {
+                    content,
+                    width,
+                    break_points,
+                    break_widths,
+                    ..
+                } => {
                     // Add break points within this text fragment
                     for (i, &bp) in break_points.iter().enumerate() {
                         let absolute_pos = current_pos + bp;
@@ -400,20 +430,30 @@ impl ParagraphLineBreaker {
                     current_pos += content.len();
                     current_width += width;
                 }
-                ContentFragment::Atomic { content, width, .. } => {
+                ContentFragment::Atomic {
+                    content,
+                    width,
+                    kind,
+                } => {
                     // For atomic units, we can break before and after, but not inside
                     // Break before
                     break_positions.push((current_pos, current_width));
                     // Break after
                     current_pos += content.len();
                     current_width += width;
-                    break_positions.push((current_pos, current_width));
+                    // For Code, don't add break after to preserve CJK spacing
+                    if !matches!(kind, AtomicKind::Code) {
+                        break_positions.push((current_pos, current_width));
+                    }
                 }
             }
         }
 
         // Ensure the end position is included
-        if break_positions.last().map_or(true, |(pos, _)| *pos != self.current_position) {
+        if break_positions
+            .last()
+            .map_or(true, |(pos, _)| *pos != self.current_position)
+        {
             break_positions.push((self.current_position, self.current_width));
         }
 
@@ -436,7 +476,7 @@ impl ParagraphLineBreaker {
                 let cost = if line_width <= self.max_width {
                     // Standard Knuth-Plass: penalize slack quadratically
                     let slack = self.max_width - line_width;
-                    
+
                     // For the last line, don't penalize shortness
                     let is_last_line = i == n - 1;
                     if is_last_line {
@@ -479,7 +519,7 @@ impl ParagraphLineBreaker {
     /// Format the paragraph with optimal line breaks
     pub fn format(&self) -> String {
         let breaks = self.compute_breaks();
-        
+
         if breaks.is_empty() {
             return String::new();
         }
@@ -495,6 +535,7 @@ impl ParagraphLineBreaker {
 
             // Collect content from last_break_pos up to this break point
             let mut pos = 0;
+            let mut prev_fragment_was_code = false;
             for fragment in &self.fragments {
                 match fragment {
                     ContentFragment::Text { content, .. } => {
@@ -513,11 +554,17 @@ impl ParagraphLineBreaker {
                         }
 
                         // This fragment overlaps with the current line
-                        let start_in_fragment = last_break_pos.saturating_sub(fragment_start);
-                        let end_in_fragment = (break_point.position - fragment_start).min(content.len());
+                        let start_in_fragment =
+                            last_break_pos.saturating_sub(fragment_start);
+                        let end_in_fragment =
+                            (break_point.position - fragment_start).min(content.len());
 
                         // For continuation lines, skip leading spaces
-                        let actual_start = if line_idx > 0 && start_in_fragment == 0 {
+                        // But preserve leading space if previous fragment was Code (for CJK spacing)
+                        let mut actual_start = if line_idx > 0
+                            && start_in_fragment == 0
+                            && !prev_fragment_was_code
+                        {
                             // Find first non-space character
                             content[start_in_fragment..end_in_fragment]
                                 .find(|c: char| !c.is_whitespace())
@@ -526,14 +573,27 @@ impl ParagraphLineBreaker {
                         } else {
                             start_in_fragment
                         };
+                        
+                        // If result ends with '(' (possibly with trailing spaces), 
+                        // skip leading spaces in this fragment
+                        // This handles cases like "( 4.8GB)" -> "(4.8GB)"
+                        let result_trimmed = result.trim_end();
+                        if result_trimmed.ends_with('(') {
+                            actual_start = content[actual_start..end_in_fragment]
+                                .find(|c: char| !c.is_whitespace())
+                                .map(|i| actual_start + i)
+                                .unwrap_or(end_in_fragment); // If all spaces, skip to end
+                        }
 
-                        if actual_start < content.len() && end_in_fragment > actual_start {
+                        if actual_start < content.len() && end_in_fragment > actual_start
+                        {
                             result.push_str(&content[actual_start..end_in_fragment]);
                         }
 
                         pos = fragment_end;
+                        prev_fragment_was_code = false;
                     }
-                    ContentFragment::Atomic { content, .. } => {
+                    ContentFragment::Atomic { content, kind, .. } => {
                         let fragment_start = pos;
                         let fragment_end = pos + content.len();
 
@@ -555,6 +615,7 @@ impl ParagraphLineBreaker {
                         }
 
                         pos = fragment_end;
+                        prev_fragment_was_code = matches!(kind, AtomicKind::Code);
                     }
                 }
 
@@ -589,7 +650,9 @@ impl ParagraphLineBreaker {
 fn get_punctuation_affinity(char_str: &str) -> Option<Affinity> {
     match char_str {
         // Left-affinity: break AFTER these characters (they stay with left side)
-        "," | "." | "!" | "?" | ";" | ":" | "}" | ")" | "]" | "\\" => Some(Affinity::Left),
+        "," | "." | "!" | "?" | ";" | ":" | "}" | ")" | "]" | "\\" => {
+            Some(Affinity::Left)
+        }
 
         // Right-affinity: break BEFORE these characters (they stay with right side)
         "{" | "(" | "[" | "/" => Some(Affinity::Right),
@@ -667,18 +730,26 @@ mod tests {
         breaker.add_text(" text");
         let result = breaker.format();
         println!("Result: {:?}", result);
-        assert!(result.contains(" *italic* "), "Expected ' *italic* ' but got {:?}", result);
+        assert!(
+            result.contains(" *italic* "),
+            "Expected ' *italic* ' but got {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_with_prefix() {
         let mut breaker = ParagraphLineBreaker::new(20, "  ".to_string());
-        breaker.add_text("This is a long paragraph that should be wrapped with a prefix");
+        breaker
+            .add_text("This is a long paragraph that should be wrapped with a prefix");
         let result = breaker.format();
         let lines: Vec<&str> = result.lines().collect();
         if lines.len() > 1 {
             for line in &lines[1..] {
-                assert!(line.starts_with("  "), "Continuation line should have prefix");
+                assert!(
+                    line.starts_with("  "),
+                    "Continuation line should have prefix"
+                );
             }
         }
     }
