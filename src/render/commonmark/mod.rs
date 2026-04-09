@@ -42,7 +42,9 @@ pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
     SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
 };
-pub use line_breaking::{LineBreakingContext, Word};
+pub use line_breaking::{
+    LineBreakingContext, ParagraphLineBreaker, UnitHandle, UnitKind, Word,
+};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
@@ -245,8 +247,10 @@ pub struct MainFormatterContext<'a> {
     format_off_buffer: Option<String>,
     /// Whether delegation was requested by the current handler
     delegation_requested: bool,
-    /// Line breaking context for optimal paragraph formatting
+    /// Line breaking context for optimal paragraph formatting (legacy)
     line_breaking_context: Option<line_breaking::LineBreakingContext>,
+    /// New paragraph line breaker for AST-based line breaking
+    paragraph_line_breaker: Option<line_breaking::ParagraphLineBreaker>,
 }
 
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
@@ -293,6 +297,7 @@ impl<'a> MainFormatterContext<'a> {
             format_off_buffer: None,
             delegation_requested: false,
             line_breaking_context: None,
+            paragraph_line_breaker: None,
         };
         context.build_handler_map();
         context.collect_nodes();
@@ -770,11 +775,24 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     }
 
     fn render_children_to_string(&mut self, node_id: NodeId) -> String {
+        // Temporarily reset skip_children to allow rendering
+        let old_skip_children = self.skip_children;
+        self.skip_children = false;
+
+        // Temporarily disable paragraph line breaking to capture text output
+        let old_line_breaker = self.paragraph_line_breaker.take();
+
         // Create a temporary writer to capture output
         let mut temp_writer = writer::MarkdownWriter::new(self.options.format_flags);
 
         // Render children to the temporary writer
         self.render_children(node_id, &mut temp_writer);
+
+        // Restore paragraph line breaker
+        self.paragraph_line_breaker = old_line_breaker;
+
+        // Restore skip_children
+        self.skip_children = old_skip_children;
 
         // Return the captured content
         temp_writer.to_string()
@@ -880,6 +898,80 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     fn exit_link_url(&mut self) {
         if let Some(ref mut ctx) = self.line_breaking_context {
             ctx.exit_link_url();
+        }
+    }
+
+    // New ParagraphLineBreaker methods
+
+    fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String) {
+        self.paragraph_line_breaker =
+            Some(line_breaking::ParagraphLineBreaker::new(max_width, prefix));
+    }
+
+    fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
+        self.paragraph_line_breaker
+            .take()
+            .map(|breaker| breaker.format())
+    }
+
+    fn add_paragraph_text(&mut self, text: &str) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.add_text(text);
+        }
+    }
+
+    fn add_paragraph_word(&mut self, text: &str) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.add_word(text);
+        }
+    }
+
+    fn start_paragraph_unit(
+        &mut self,
+        kind: line_breaking::UnitKind,
+        marker_width: usize,
+    ) -> Option<line_breaking::UnitHandle> {
+        self.paragraph_line_breaker
+            .as_mut()
+            .map(|breaker| breaker.start_unit(kind, marker_width))
+    }
+
+    fn end_paragraph_unit(
+        &mut self,
+        handle: line_breaking::UnitHandle,
+        content_width: usize,
+        marker_width: usize,
+    ) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.end_unit(handle, content_width, marker_width);
+        }
+    }
+
+    fn add_paragraph_unbreakable_unit(
+        &mut self,
+        kind: line_breaking::UnitKind,
+        prefix: &str,
+        content: &str,
+        suffix: &str,
+    ) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.add_unbreakable_unit(kind, prefix, content, suffix);
+        }
+    }
+
+    fn add_paragraph_hard_break(&mut self) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.add_hard_break();
+        }
+    }
+
+    fn is_paragraph_line_breaking(&self) -> bool {
+        self.paragraph_line_breaker.is_some()
+    }
+
+    fn remove_paragraph_trailing_space(&mut self) {
+        if let Some(ref mut breaker) = self.paragraph_line_breaker {
+            breaker.remove_trailing_space();
         }
     }
 }

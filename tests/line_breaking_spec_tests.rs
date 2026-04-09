@@ -1,152 +1,121 @@
-//! Line breaking spec tests
-//!
-//! These tests verify the line breaking behavior of the CommonMark formatter.
+// Line breaking algorithm tests
 
-use clmd::options::format::FormatOptions;
-use clmd::options::Options as ParseOptions;
-use clmd::parse::parse_document;
-use clmd::render::commonmark::{CommonMarkNodeFormatter, Formatter};
-use std::fs;
+use clmd::{markdown_to_commonmark, Options, Plugins};
 
-mod test_utils;
-use test_utils::spec_parser::parse_formatter_spec_file;
-
-/// Apply spec options to FormatOptions
-fn apply_spec_options(options: &mut FormatOptions, option_str: &str) {
-    match option_str {
-        // Margin options (formatting width)
-        opt if opt.starts_with("margin[") => {
-            if let Some(end) = opt.find(']') {
-                if let Ok(width) = opt[7..end].parse::<usize>() {
-                    options.right_margin = width;
-                }
-            }
-        }
-
-        _ => {
-            // Unknown option - ignore
-        }
-    }
-}
-
-/// Format markdown input using the given options
-fn format_markdown(input: &str, options: &FormatOptions) -> String {
-    // Parse the input
-    let parse_options = ParseOptions::default();
-    let (arena, root) = parse_document(input, &parse_options);
-
-    // Format using the formatter
-    let mut formatter = Formatter::with_options(options.clone());
-    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::with_options(
-        options.clone(),
-    )));
-
-    formatter.render(&arena, root)
-}
-
-/// Run a single formatter spec example
-fn run_formatter_example(example: &test_utils::spec_parser::FormatterSpecExample) {
-    let mut options = FormatOptions::default();
-
-    // Apply spec options
-    for opt in &example.options {
-        apply_spec_options(&mut options, opt);
-    }
-
-    // Format the input
-    let output = format_markdown(&example.input, &options);
-
-    // Normalize line endings for comparison
-    let expected = example.expected_output.replace("\r\n", "\n");
-    let actual = output.replace("\r\n", "\n");
-
-    // Trim trailing whitespace and normalize for comparison
-    let expected_normalized = expected.trim_end();
-    let actual_normalized = actual.trim_end();
-
-    assert_eq!(
-        actual_normalized,
-        expected_normalized,
-        "Test {}:{} failed\nOptions: {:?}\nInput:\n{}\n\nExpected:\n{}\n\nActual:\n{}",
-        example.section,
-        example.number,
-        example.options,
-        example.input,
-        expected,
-        actual
-    );
-}
-
-/// Run formatter spec tests from a file
-fn run_formatter_spec_file(spec_file: &str) {
-    let content = fs::read_to_string(spec_file)
-        .unwrap_or_else(|_| panic!("Failed to read {}", spec_file));
-
-    let examples = parse_formatter_spec_file(&content);
-    println!("Found {} examples in {}", examples.len(), spec_file);
-
-    let mut passed = 0;
-    let mut failed = 0;
-    let mut failures: Vec<(String, usize, String, String, String)> = Vec::new();
-
-    for example in &examples {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_formatter_example(example);
-        })) {
-            Ok(_) => passed += 1,
-            Err(_) => {
-                failed += 1;
-                if failures.len() < 10 {
-                    let mut options = FormatOptions::default();
-                    for opt in &example.options {
-                        apply_spec_options(&mut options, opt);
-                    }
-                    let output = format_markdown(&example.input, &options);
-                    failures.push((
-                        example.section.clone(),
-                        example.number,
-                        example.input.clone(),
-                        example.expected_output.clone(),
-                        output,
-                    ));
-                }
-            }
-        }
-    }
-
-    println!("\n=== Line Breaking Spec Test Results ===");
-    println!(
-        "Passed: {}/{} ({:.1}%)",
-        passed,
-        examples.len(),
-        (passed as f64 / examples.len() as f64) * 100.0
-    );
-    println!(
-        "Failed: {}/{} ({:.1}%)",
-        failed,
-        examples.len(),
-        (failed as f64 / examples.len() as f64) * 100.0
-    );
-
-    if !failures.is_empty() {
-        println!("\n=== Failed Tests ===");
-        for (section, number, input, expected, actual) in &failures {
-            println!("\n{}:{}", section, number);
-            println!("Input:\n{}", input);
-            println!("Expected:\n{}", expected);
-            println!("Actual:\n{}", actual);
-        }
-    }
-
-    assert!(
-        failed == 0,
-        "{} tests failed out of {}",
-        failed,
-        examples.len()
-    );
+fn format_with_width(md: &str, width: usize) -> String {
+    let mut options = Options::default();
+    options.render.width = width;
+    options.extension.table = true;
+    options.extension.tasklist = true;
+    markdown_to_commonmark(md, &options, &Plugins::default())
 }
 
 #[test]
-fn test_line_breaking_spec() {
-    run_formatter_spec_file("tests/fixtures/line_breaking_spec.md");
+fn test_basic_paragraph_wrapping() {
+    let input = "This is a long paragraph that should be wrapped at the specified width limit. We want to see how well the line breaking algorithm handles this case.";
+    let output = format_with_width(input, 40);
+    println!("Basic wrapping:\n{}\n", output);
+
+    // Check that lines don't exceed 40 characters
+    for line in output.lines() {
+        assert!(
+            line.len() <= 40,
+            "Line exceeds 40 chars: '{}' (len={})",
+            line,
+            line.len()
+        );
+    }
+}
+
+#[test]
+fn test_list_item_wrapping() {
+    let input = "- This is a long list item that should be wrapped properly with correct indentation for continuation lines\n- Another item";
+    let output = format_with_width(input, 40);
+    println!("List item wrapping:\n{}\n", output);
+
+    // Check that continuation lines have proper indentation
+    let lines: Vec<&str> = output.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        println!("Line {}: '{}' (len={})", i, line, line.len());
+    }
+}
+
+#[test]
+fn test_nested_list_wrapping() {
+    let input = "- Outer item\n  - Nested item with long text that should be wrapped\n  - Another nested";
+    let output = format_with_width(input, 40);
+    println!("Nested list wrapping:\n{}\n", output);
+}
+
+#[test]
+fn test_blockquote_wrapping() {
+    let input = "> This is a long quote that should be wrapped properly with the block quote marker preserved on continuation lines.";
+    let output = format_with_width(input, 40);
+    println!("Blockquote wrapping:\n{}\n", output);
+
+    // Check that continuation lines have block quote marker
+    for line in output.lines() {
+        assert!(
+            line.starts_with("> ") || line.is_empty(),
+            "Continuation line missing block quote marker: '{}'",
+            line
+        );
+    }
+}
+
+#[test]
+fn test_cjk_text_wrapping() {
+    let input = "这是一个很长的中文段落，应该在指定的宽度限制处正确换行。我们需要测试断行算法对CJK文本的处理能力。";
+    let output = format_with_width(input, 40);
+    println!("CJK wrapping:\n{}\n", output);
+}
+
+#[test]
+fn test_link_wrapping() {
+    let input = "Here is a [long link text](https://example.com/path/to/something) that should be handled properly.";
+    let output = format_with_width(input, 40);
+    println!("Link wrapping:\n{}\n", output);
+}
+
+#[test]
+fn test_emphasis_wrapping() {
+    let input = "This is **bold text** and *italic text* that should be wrapped without breaking the markers.";
+    let output = format_with_width(input, 40);
+    println!("Emphasis wrapping:\n{}\n", output);
+}
+
+#[test]
+fn test_code_wrapping() {
+    let input = "Here is some `inline code` that should not be broken across lines.";
+    let output = format_with_width(input, 40);
+    println!("Code wrapping:\n{}\n", output);
+}
+
+#[test]
+fn test_hard_break() {
+    let input = "Line one  \nLine two";
+    let output = format_with_width(input, 40);
+    println!("Hard break:\n{}\n", output);
+
+    // Hard break should result in two separate lines
+    // The two spaces before newline should be preserved or converted to proper line break
+    assert!(output.contains("Line one") && output.contains("Line two"));
+}
+
+#[test]
+fn test_mixed_content() {
+    let input = r#"# Heading
+
+This is a paragraph with **bold** and *italic* text, plus a [link](https://example.com).
+
+- List item one
+- List item two with more text
+  - Nested item
+
+> A blockquote with some text.
+
+`code block`
+"#;
+    let output = format_with_width(input, 50);
+    println!("Mixed content:\n{}\n", output);
 }

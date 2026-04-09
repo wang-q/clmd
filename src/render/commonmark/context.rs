@@ -282,6 +282,54 @@ pub trait NodeFormatterContext {
 
     /// Exit link URL mode (after `)`)
     fn exit_link_url(&mut self);
+
+    // New ParagraphLineBreaker methods
+
+    /// Start paragraph line breaking with the new AST-based breaker
+    fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String);
+
+    /// Finish paragraph line breaking and return formatted text
+    fn finish_paragraph_line_breaking(&mut self) -> Option<String>;
+
+    /// Add text to the paragraph line breaker
+    fn add_paragraph_text(&mut self, text: &str);
+
+    /// Add a word to the paragraph line breaker
+    fn add_paragraph_word(&mut self, text: &str);
+
+    /// Start an unbreakable unit in the paragraph line breaker
+    fn start_paragraph_unit(
+        &mut self,
+        kind: crate::render::commonmark::line_breaking::UnitKind,
+        marker_width: usize,
+    ) -> Option<crate::render::commonmark::line_breaking::UnitHandle>;
+
+    /// End an unbreakable unit in the paragraph line breaker
+    fn end_paragraph_unit(
+        &mut self,
+        handle: crate::render::commonmark::line_breaking::UnitHandle,
+        content_width: usize,
+        marker_width: usize,
+    );
+
+    /// Add an unbreakable unit with markers (prefix, content, suffix)
+    fn add_paragraph_unbreakable_unit(
+        &mut self,
+        kind: crate::render::commonmark::line_breaking::UnitKind,
+        prefix: &str,
+        content: &str,
+        suffix: &str,
+    );
+
+    /// Add a hard line break to the paragraph line breaker
+    fn add_paragraph_hard_break(&mut self);
+
+    /// Check if paragraph line breaking is active
+    fn is_paragraph_line_breaking(&self) -> bool;
+
+    /// Remove trailing space from the paragraph line breaker
+    /// This is used before adding markdown markers to remove unwanted spaces
+    fn remove_paragraph_trailing_space(&mut self);
 }
 
 /// A sub-context for nested formatting operations
@@ -576,6 +624,63 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn exit_link_url(&mut self) {
         self.parent.exit_link_url();
+    }
+
+    fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String) {
+        self.parent.start_paragraph_line_breaking(max_width, prefix);
+    }
+
+    fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
+        self.parent.finish_paragraph_line_breaking()
+    }
+
+    fn add_paragraph_text(&mut self, text: &str) {
+        self.parent.add_paragraph_text(text);
+    }
+
+    fn add_paragraph_word(&mut self, text: &str) {
+        self.parent.add_paragraph_word(text);
+    }
+
+    fn start_paragraph_unit(
+        &mut self,
+        kind: crate::render::commonmark::line_breaking::UnitKind,
+        marker_width: usize,
+    ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
+        self.parent.start_paragraph_unit(kind, marker_width)
+    }
+
+    fn end_paragraph_unit(
+        &mut self,
+        handle: crate::render::commonmark::line_breaking::UnitHandle,
+        content_width: usize,
+        marker_width: usize,
+    ) {
+        self.parent
+            .end_paragraph_unit(handle, content_width, marker_width);
+    }
+
+    fn add_paragraph_unbreakable_unit(
+        &mut self,
+        kind: crate::render::commonmark::line_breaking::UnitKind,
+        prefix: &str,
+        content: &str,
+        suffix: &str,
+    ) {
+        self.parent
+            .add_paragraph_unbreakable_unit(kind, prefix, content, suffix);
+    }
+
+    fn add_paragraph_hard_break(&mut self) {
+        self.parent.add_paragraph_hard_break();
+    }
+
+    fn is_paragraph_line_breaking(&self) -> bool {
+        self.parent.is_paragraph_line_breaking()
+    }
+
+    fn remove_paragraph_trailing_space(&mut self) {
+        self.parent.remove_paragraph_trailing_space();
     }
 }
 
@@ -879,6 +984,50 @@ mod tests {
         fn exit_link_text(&mut self) {}
 
         fn exit_link_url(&mut self) {}
+
+        fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
+        }
+
+        fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
+            None
+        }
+
+        fn add_paragraph_text(&mut self, _text: &str) {}
+
+        fn add_paragraph_word(&mut self, _text: &str) {}
+
+        fn start_paragraph_unit(
+            &mut self,
+            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _marker_width: usize,
+        ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
+            None
+        }
+
+        fn end_paragraph_unit(
+            &mut self,
+            _handle: crate::render::commonmark::line_breaking::UnitHandle,
+            _content_width: usize,
+            _marker_width: usize,
+        ) {
+        }
+
+        fn add_paragraph_unbreakable_unit(
+            &mut self,
+            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _prefix: &str,
+            _content: &str,
+            _suffix: &str,
+        ) {
+        }
+
+        fn add_paragraph_hard_break(&mut self) {}
+
+        fn is_paragraph_line_breaking(&self) -> bool {
+            false
+        }
+
+        fn remove_paragraph_trailing_space(&mut self) {}
     }
 
     #[test]

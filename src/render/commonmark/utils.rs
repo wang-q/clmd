@@ -456,6 +456,50 @@ mod tests {
         fn exit_link_text(&mut self) {}
 
         fn exit_link_url(&mut self) {}
+
+        fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
+        }
+
+        fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
+            None
+        }
+
+        fn add_paragraph_text(&mut self, _text: &str) {}
+
+        fn add_paragraph_word(&mut self, _text: &str) {}
+
+        fn start_paragraph_unit(
+            &mut self,
+            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _marker_width: usize,
+        ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
+            None
+        }
+
+        fn end_paragraph_unit(
+            &mut self,
+            _handle: crate::render::commonmark::line_breaking::UnitHandle,
+            _content_width: usize,
+            _marker_width: usize,
+        ) {
+        }
+
+        fn add_paragraph_unbreakable_unit(
+            &mut self,
+            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _prefix: &str,
+            _content: &str,
+            _suffix: &str,
+        ) {
+        }
+
+        fn add_paragraph_hard_break(&mut self) {}
+
+        fn is_paragraph_line_breaking(&self) -> bool {
+            false
+        }
+
+        fn remove_paragraph_trailing_space(&mut self) {}
     }
 
     #[test]
