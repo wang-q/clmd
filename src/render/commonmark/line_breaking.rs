@@ -237,7 +237,7 @@ impl LineBreakingContext {
             // Check if the word starts with opening brackets that should have leading space
             let first_char = word.text.chars().next();
             let is_opening_bracket =
-                first_char.map_or(false, |c| matches!(c, '(' | '[' | '{'));
+                first_char.is_some_and(|c| matches!(c, '(' | '[' | '{'));
             if !is_opening_bracket {
                 word.needs_leading_space = false;
             }
@@ -266,7 +266,7 @@ impl LineBreakingContext {
                     .text
                     .chars()
                     .last()
-                    .map_or(false, |c| matches!(c, '(' | '[' | '{'));
+                    .is_some_and(|c| matches!(c, '(' | '[' | '{'));
                 if !ends_with_opening_bracket && !self.in_link_text {
                     last_word.has_trailing_space = true;
                 }
@@ -293,7 +293,7 @@ impl LineBreakingContext {
         let total_segments = whitespace_separated.len();
         // Check if the original text ends with whitespace
         let ends_with_whitespace =
-            text.chars().last().map_or(false, |c| c.is_whitespace());
+            text.chars().last().is_some_and(|c| c.is_whitespace());
 
         for (i, segment) in whitespace_separated.iter().enumerate() {
             // Check if this segment contains CJK characters
@@ -312,7 +312,7 @@ impl LineBreakingContext {
                     let starts_with_bracket = word_text
                         .chars()
                         .next()
-                        .map_or(false, |c| matches!(c, '(' | '[' | '{'));
+                        .is_some_and(|c| matches!(c, '(' | '[' | '{'));
                     // Create word: punctuation doesn't need spaces, normal CJK does
                     let mut w = Word::new_cjk(word_text.as_str());
                     // First word of first segment: special handling
@@ -352,15 +352,10 @@ impl LineBreakingContext {
             } else {
                 // Non-CJK text: treat as single word (don't split URLs at '/' boundaries
                 // as this would break the link when spaces are added between words)
-                let segment_width = unicode_width::width(*segment) as usize;
                 // Note: We no longer split long URLs at '/' boundaries because it breaks
                 // the link. Instead, URLs are kept as single words and allowed to exceed
                 // the ideal width. The line breaking algorithm will handle them gracefully
                 // by placing them on their own line if needed.
-                if false && segment_width > self.ideal_width && segment.contains('/') {
-                    // Disabled: Long URL/path splitting at '/' boundaries
-                    // This was causing links to break because spaces were added between parts
-                }
                 // Normal non-CJK text: treat as single word
                 {
                     // Normal non-CJK text: treat as single word
@@ -372,11 +367,11 @@ impl LineBreakingContext {
                     let starts_with_bracket = segment
                         .chars()
                         .next()
-                        .map_or(false, |c| matches!(c, '(' | '[' | '{'));
+                        .is_some_and(|c| matches!(c, '(' | '[' | '{'));
 
                     // Check if this is the first segment and original text starts with whitespace
                     let starts_with_whitespace =
-                        text.chars().next().map_or(false, |c| c.is_whitespace());
+                        text.chars().next().is_some_and(|c| c.is_whitespace());
 
                     if self.next_word_no_leading_space || self.after_inline_code {
                         // If the text starts with punctuation that should NOT have leading space,
@@ -484,11 +479,6 @@ impl LineBreakingContext {
         // the link. Instead, URLs are kept as single words and allowed to exceed
         // the ideal width. The line breaking algorithm will handle them gracefully
         // by placing them on their own line if needed.
-        let text_width = unicode_width::width(text) as usize;
-        if false && text_width > self.ideal_width && text.contains('/') {
-            // Disabled: Long URL/path splitting at '/' boundaries
-            // This was causing links to break because spaces were added between parts
-        }
         // Special handling for '[' and '![' (link/image start markers)
         // These should have leading space if previous word ends with CJK character
         let is_link_start = text == "[" || text == "![";
@@ -549,15 +539,10 @@ impl LineBreakingContext {
     /// Add an inline element (like code span) that should preserve surrounding spaces
     pub fn add_inline_element(&mut self, text: &str) {
         // Check if this is a long inline element (like a code span with a long URL)
-        let text_width = unicode_width::width(text) as usize;
         // Note: We no longer split long URLs at '/' boundaries because it breaks
         // the link. Instead, URLs are kept as single words and allowed to exceed
         // the ideal width. The line breaking algorithm will handle them gracefully
         // by placing them on their own line if needed.
-        if false && text_width > self.ideal_width && text.contains('/') {
-            // Disabled: Long URL/path splitting at '/' boundaries
-            // This was causing links to break because spaces were added between parts
-        }
         // Normal inline element: add as single word
         {
             // Normal inline element: add as single word
@@ -650,7 +635,7 @@ impl LineBreakingContext {
                 let would_break_link = (i..j).any(|k| {
                     self.words[k].is_link_part
                         && (k == 0
-                            || !self.words.get(k - 1).map_or(false, |w| w.is_link_part))
+                            || !self.words.get(k - 1).is_some_and(|w| w.is_link_part))
                 });
                 if would_break_link {
                     continue;
@@ -903,7 +888,7 @@ impl LineBreakingContext {
                                 && self
                                     .words
                                     .get(i + 1)
-                                    .map_or(false, |w| w.is_link_part));
+                                    .is_some_and(|w| w.is_link_part));
 
                         if is_inside_link {
                             // Don't break inside a link, keep it together
@@ -978,7 +963,7 @@ impl LineBreakingContext {
                             .text
                             .chars()
                             .next()
-                            .map_or(false, is_cjk_punctuation)
+                            .is_some_and(is_cjk_punctuation)
                         {
                             // Don't break before CJK punctuation (。，；：！？、 etc.), keep it with previous content
                             current_width += space_width + word_width;
@@ -998,7 +983,7 @@ impl LineBreakingContext {
                         // NEW: Check if any word in current line ends with CJK opening bracket
                         // If so, we need to include all content until the closing bracket
                         } else if (current_start..i).any(|k| {
-                            self.words[k].text.chars().last().map_or(false, |c| {
+                            self.words[k].text.chars().last().is_some_and(|c| {
                                 matches!(
                                     c,
                                     '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘'
@@ -1152,7 +1137,7 @@ impl LineBreakingContext {
                         // NEW: Check if any word in current line ends with CJK opening bracket
                         // If so, we need to include all content until the closing bracket
                         } else if (current_start..i).any(|k| {
-                            self.words[k].text.chars().last().map_or(false, |c| {
+                            self.words[k].text.chars().last().is_some_and(|c| {
                                 matches!(
                                     c,
                                     '（' | '《' | '「' | '『' | '【' | '〈' | '“' | '‘'
@@ -1215,34 +1200,24 @@ impl LineBreakingContext {
             let mut new_break = break_point;
 
             // Handle link pattern `](` - keep together
-            // Check if break_point is at `]` and next word is `(`
-            if break_point < self.words.len()
+            // Check if we're at `]` followed by `(` or at `(` preceded by `]`
+            let is_link_start = (break_point < self.words.len()
                 && self.words[break_point].text == "]"
                 && break_point + 1 < self.words.len()
-                && self.words[break_point + 1].text == "("
-            {
-                // This is `](` pattern, find closing `)` and break after it
-                for k in (break_point + 1)..self.words.len() {
-                    if self.words[k].text == ")" {
-                        new_break = k + 1;
-                        skip_until = Some(new_break);
-                        break;
-                    }
-                }
-                adjusted.push(new_break);
-                last_adjusted_break = new_break;
-                continue;
-            }
+                && self.words[break_point + 1].text == "(")
+                || (break_point > 0
+                    && break_point < self.words.len()
+                    && self.words[break_point].text == "("
+                    && self.words[break_point - 1].text == "]");
 
-            // Also check if break_point is right after `](` pattern
-            // (i.e., break_point is at the position of `(`)
-            if break_point > 0
-                && break_point < self.words.len()
-                && self.words[break_point].text == "("
-                && self.words[break_point - 1].text == "]"
-            {
-                // This is `](` pattern, find closing `)` and break after it
-                for k in break_point..self.words.len() {
+            if is_link_start {
+                // Find closing `)` and break after it
+                let search_start = if self.words[break_point].text == "]" {
+                    break_point + 1
+                } else {
+                    break_point
+                };
+                for k in search_start..self.words.len() {
                     if self.words[k].text == ")" {
                         new_break = k + 1;
                         skip_until = Some(new_break);
@@ -1307,10 +1282,12 @@ impl LineBreakingContext {
                 if let Some(Affinity::Right) = get_punctuation_affinity(&word.text) {
                     // Opening bracket at line start - move it to previous line
                     // Find the matching closing bracket and break after it
-                    if let Some(closing_idx) =
-                        self.find_matching_closing_bracket(break_point, &word.text)
-                    {
-                        new_break = closing_idx + 1;
+                    if let Some(opening_char) = word.text.chars().next() {
+                        if let Some(closing_idx) =
+                            self.find_matching_closing_bracket_by_char(break_point, opening_char)
+                        {
+                            new_break = closing_idx + 1;
+                        }
                     }
                     adjusted.push(new_break);
                     last_adjusted_break = new_break;
@@ -1356,32 +1333,6 @@ impl LineBreakingContext {
         }
 
         adjusted
-    }
-
-    /// Check if a break point is inside a Markdown link
-    fn is_inside_link(&self, break_point: usize, line_start: usize) -> bool {
-        // Check if there's a `](` pattern before this break point within the current line
-        for i in line_start..break_point {
-            if self.words[i].text == "]"
-                && i + 1 < self.words.len()
-                && self.words[i + 1].text == "("
-            {
-                // Found `](`, now check if the closing `)` is after this break point
-                for k in (i + 2)..self.words.len() {
-                    if self.words[k].text == ")" {
-                        // Found closing `)`
-                        return break_point <= k;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    /// Find the index of the matching closing bracket for an opening bracket
-    fn find_matching_closing_bracket(&self, opening_idx: usize, opening_text: &str) -> Option<usize> {
-        let opening_char = opening_text.chars().next()?;
-        self.find_matching_closing_bracket_by_char(opening_idx, opening_char)
     }
 
     /// Find the index of the matching closing bracket by opening character
@@ -3304,41 +3255,6 @@ fn get_punctuation_affinity(text: &str) -> Option<Affinity> {
     }
 }
 
-/// Check if a character is a left-affinity punctuation mark
-fn is_left_affinity_punctuation(c: char) -> bool {
-    matches!(
-        c,
-        '，' | '。'
-            | '；'
-            | '：'
-            | '！'
-            | '？'
-            | '）'
-            | '》'
-            | '」'
-            | '』'
-            | '】'
-            | '〉'
-            | '”'
-            | '’'
-            | ','
-            | '.'
-            | ';'
-            | ':'
-            | '!'
-            | '?'
-            | ')'
-            | ']'
-            | '}'
-            | '`'
-    )
-}
-
-/// Check if a character is a right-affinity punctuation mark
-fn is_right_affinity_punctuation(c: char) -> bool {
-    is_right_affinity_char(c)
-}
-
 /// Check if a character has right affinity (opening brackets)
 fn is_right_affinity_char(c: char) -> bool {
     matches!(
@@ -3396,7 +3312,7 @@ fn is_ascii_punctuation_no_leading_space(c: char) -> bool {
 /// Check if a string starts with punctuation that should NOT have leading space
 /// after inline code (CJK punctuation or specific ASCII punctuation like `:`, `,`, `.`)
 fn starts_with_no_leading_space_punctuation(text: &str) -> bool {
-    text.chars().next().map_or(false, |c| {
+    text.chars().next().is_some_and(|c| {
         is_cjk_punctuation(c) || is_ascii_punctuation_no_leading_space(c)
     })
 }
@@ -3465,26 +3381,6 @@ fn is_punctuation_that_should_not_be_at_line_start(text: &str) -> bool {
         );
     }
     false
-}
-
-/// Check if a string ends with opening bracket that should not be at line end
-/// This includes `(`, `[`, `{`, `（`, `「`, `【`, etc.
-fn is_opening_bracket_at_line_end(text: &str) -> bool {
-    // Check if the text ends with opening bracket
-    let last_char = text.chars().last();
-    if let Some(c) = last_char {
-        return matches!(
-            c,
-            '(' | '[' | '{' | '（' | '「' | '【' | '『' | '《' | '〈' | '“' | '‘'
-        );
-    }
-    false
-}
-
-/// Check if a string is a Markdown opening marker
-/// This includes `**`, `*`, `[`, `(`, etc.
-fn is_markdown_opening_marker(text: &str) -> bool {
-    matches!(text, "**" | "*" | "[" | "(")
 }
 
 /// Check if a string is a Markdown closing marker
