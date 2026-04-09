@@ -787,11 +787,9 @@ impl LineBreakingContext {
 
         // Post-process breaks to prevent punctuation from being at line start
         let adjusted_breaks = self.adjust_breaks_for_punctuation(&breaks);
-        eprintln!("DEBUG format: adjusted_breaks = {:?}", adjusted_breaks);
 
         // Post-process to ensure no line exceeds max_width
         let final_breaks = self.enforce_max_width(&adjusted_breaks);
-        eprintln!("DEBUG format: final_breaks = {:?}", final_breaks);
 
         let mut result = String::new();
         let mut start = 0;
@@ -1200,11 +1198,6 @@ impl LineBreakingContext {
         let mut adjusted = Vec::new();
 
         for &break_point in breaks {
-            eprintln!(
-                "DEBUG adjust_breaks: Processing break_point={}, adjusted={:?}",
-                break_point, adjusted
-            );
-
             // Check if the word at this break point is punctuation that shouldn't be at line start
             // Note: break_point is the index of the first word on the next line
             if break_point < self.words.len() {
@@ -2370,16 +2363,7 @@ mod tests {
         ctx.add_markdown_marker("`");
         ctx.add_text(": 支持在 `--names-to` 中使用");
 
-        // Debug: print all words
-        for (i, word) in ctx.words.iter().enumerate() {
-            eprintln!(
-                "Word {}: text={:?}, needs_leading_space={}, has_trailing_space={}",
-                i, word.text, word.needs_leading_space, word.has_trailing_space
-            );
-        }
-
         let formatted = ctx.format();
-        eprintln!("Formatted: {:?}", formatted);
 
         // The colon should NOT have a leading space, but SHOULD have a trailing space
         assert!(
