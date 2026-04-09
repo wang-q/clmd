@@ -1342,26 +1342,13 @@ impl LineBreakingContext {
                             // Find the previous break point
                             let prev_break = adjusted.last().copied().unwrap_or(0);
                             // Determine if this is the first line (prev_break == 0)
-                            let is_first_line = prev_break == 0;
-                            let new_line_width = self.calculate_line_width_with_prefix(
-                                prev_break,
-                                next_break,
-                                is_first_line,
-                            );
+                            let _is_first_line = prev_break == 0;
 
-                            if new_line_width <= self.max_width {
-                                // Safe to move the break point
-                                if !adjusted.contains(&next_break) {
-                                    adjusted.push(next_break);
-                                    continue;
-                                }
-                            } else {
-                                // Moving would exceed max_width, keep the original break
-                                // The punctuation will be at line start, but that's better than exceeding max_width
-                                if !adjusted.contains(&break_point) {
-                                    adjusted.push(break_point);
-                                    continue;
-                                }
+                            // Always include punctuation with the previous line
+                            // Even if it exceeds max_width, it's better than having punctuation at line start
+                            if !adjusted.contains(&next_break) {
+                                adjusted.push(next_break);
+                                continue;
                             }
                         } else {
                             // This is the last word, include it in the current line
