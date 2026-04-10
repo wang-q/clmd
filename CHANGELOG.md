@@ -2,8 +2,6 @@
 
 ## Unreleased - ReleaseDate
 
-## 0.2.3 - 2026-04-10
-
 ### 🎉 Major Changes
 
 #### IO Module Restructuring
@@ -67,6 +65,16 @@
 - **TeX Module**: Removed unused `MacroDefinition` and math command detection
 - **Slides Module**: Removed inline reveal.js/beamer rendering (now in writers)
 
+#### CommonMark Module Restructuring
+- **Translation Removal**: Removed translation-related code and placeholder functionality
+  - Deleted `translation.rs` and `purpose.rs` modules
+- **Module Consolidation**: Merged related modules for better organization
+  - Consolidated `phased.rs` into `phase.rs` for unified phase-based formatting
+  - Merged `table.rs` into `handlers/table.rs` to consolidate table formatting logic
+  - Removed unused `utils.rs` module (dead code elimination)
+- **Link Reference Formatter**: Renamed `repository_formatter.rs` to `link_reference.rs` for clarity
+  - Improved module documentation and naming consistency
+
 #### Testing Framework
 - **Spec-Based Testing**: Migrated tests to spec-based CLI test framework
   - Unit tests migrated to spec files for better maintainability
@@ -78,6 +86,7 @@
 - **Consistent APIs**: Unified writer and reader trait definitions
 - **Better Documentation**: Added comprehensive module and function documentation
 - **Reduced Duplication**: Shared rendering logic between similar formats
+- **Handler Cleanup**: Removed unimplemented placeholder functions from handlers
 
 ### 🐛 Bug Fixes
 
