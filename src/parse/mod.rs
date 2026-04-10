@@ -29,7 +29,6 @@ pub mod util {
     //! for building parsers. It includes character handling and scanning functions.
 
     // Core parsing utilities
-    pub mod char;
     pub mod scanners;
 
     // Source and chunk handling

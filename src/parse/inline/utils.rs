@@ -1,9 +1,7 @@
 //! Utility functions for inline parsing
 
 /// Re-export character type utilities from scanners module
-pub use crate::parse::util::scanners::ctype::{
-    is_escapable, is_punctuation, is_punctuation_fast,
-};
+pub use crate::parse::util::scanners::ctype::{is_escapable, is_punctuation};
 /// Re-export reference normalization from scanners module
 pub use crate::parse::util::scanners::normalize_reference;
 /// Re-export special character check functions from scanners module
@@ -54,7 +52,6 @@ mod tests {
     fn test_reexported_functions() {
         // Test that re-exported functions work correctly
         assert!(is_punctuation('!'));
-        assert!(is_punctuation_fast(b'!'));
         assert!(is_special_char('*', false));
         assert!(is_special_byte(b'*', false));
         assert!(is_escapable('!'));
