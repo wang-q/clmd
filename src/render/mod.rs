@@ -1,7 +1,7 @@
 //! Rendering modules for Arena-based AST
 //!
 //! This module provides output generation for documents parsed using the Arena-based parser.
-//! Supported formats: HTML, XML, CommonMark, LaTeX, and Man page.
+//! Supported formats: HTML, XML, CommonMark, and LaTeX.
 //!
 //! # Overview
 //!
@@ -11,7 +11,6 @@
 //! - **XML**: Structured data representation
 //! - **CommonMark**: Round-trip Markdown format
 //! - **LaTeX**: Typesetting for academic documents
-//! - **Man**: Unix manual page format
 //!
 //! # Example
 //!
@@ -128,14 +127,6 @@ pub fn render_to_latex(arena: &NodeArena, root: NodeId, options: u32) -> String 
     crate::io::writer::latex::render(arena, root, options)
 }
 
-/// Render to Man page format
-///
-/// This is a convenience function that uses the Man page renderer.
-pub fn render_to_man(arena: &NodeArena, root: NodeId) -> String {
-    let options = crate::options::WriterOptions::default();
-    crate::io::writer::man::write_man(arena, root, &options).unwrap_or_default()
-}
-
 /// Available output formats
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,8 +139,6 @@ pub enum OutputFormat {
     CommonMark,
     /// LaTeX output
     Latex,
-    /// Man page output
-    Man,
 }
 
 /// Render to the specified format
@@ -189,7 +178,6 @@ pub fn render(
         OutputFormat::Xml => render_to_xml(arena, root),
         OutputFormat::CommonMark => render_to_commonmark(arena, root, width),
         OutputFormat::Latex => render_to_latex(arena, root, 0),
-        OutputFormat::Man => render_to_man(arena, root),
     }
 }
 
@@ -213,7 +201,6 @@ mod tests {
         assert_eq!(OutputFormat::Xml as u8, 1);
         assert_eq!(OutputFormat::CommonMark as u8, 2);
         assert_eq!(OutputFormat::Latex as u8, 3);
-        assert_eq!(OutputFormat::Man as u8, 4);
     }
 
     #[test]
@@ -275,9 +262,6 @@ mod tests {
 
         let latex = render(OutputFormat::Latex, &arena, root, &options, 0);
         assert!(latex.contains("\\par") || latex.contains("Hello"));
-
-        let man = render(OutputFormat::Man, &arena, root, &options, 0);
-        assert!(man.contains(".PP") || man.contains("Hello"));
     }
 
     #[test]
@@ -300,7 +284,6 @@ mod tests {
         assert!(format!("{:?}", OutputFormat::Xml).contains("Xml"));
         assert!(format!("{:?}", OutputFormat::CommonMark).contains("CommonMark"));
         assert!(format!("{:?}", OutputFormat::Latex).contains("Latex"));
-        assert!(format!("{:?}", OutputFormat::Man).contains("Man"));
     }
 
     #[test]

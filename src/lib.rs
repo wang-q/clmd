@@ -248,11 +248,6 @@ pub mod plugin;
 /// Rendering modules for HTML, CommonMark, and other output formats.
 pub mod render;
 
-/// Utility modules for internal use.
-pub mod util;
-
-// Text and parsing utilities are accessed through their respective modules
-
 /// Text processing utilities.
 ///
 /// This module provides utilities for text processing, character handling,
@@ -279,18 +274,8 @@ pub mod extensions {
 /// Re-export extension types for convenience.
 pub use crate::ext::flags::{ExtensionFlags, ExtensionKind};
 
-/// Document conversion pipeline.
-pub mod pipeline;
-
 /// Context system for IO operations and resource management.
 pub mod context;
-
-// Transform utilities are accessed through `util::transform` directly
-
-/// Filter system for document transformation.
-pub mod filter {
-    pub use crate::util::filter::*;
-}
 
 /// Template system for document rendering.
 pub mod template;
@@ -610,42 +595,6 @@ pub fn format_xml(
     io::writer::xml::format_document_with_plugins(arena, root, options, output, plugins)
 }
 
-/// Format an existing AST to Typst.
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Configuration options
-/// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
-///
-/// # Returns
-///
-/// A `std::fmt::Result` indicating success or failure
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{parse_document, format_typst, Options, Plugins};
-///
-/// let options = Options::default();
-/// let (arena, root) = parse_document("Hello *world*", &options);
-/// let mut typst = String::new();
-/// format_typst(&arena, root, &options, &mut typst, &Plugins::default()).unwrap();
-/// ```ignore
-pub fn format_typst(
-    arena: &Arena,
-    root: NodeId,
-    options: &Options,
-    output: &mut dyn std::fmt::Write,
-    plugins: &Plugins<'_>,
-) -> std::fmt::Result {
-    io::writer::typst::format_document_with_plugins(
-        arena, root, options, output, plugins,
-    )
-}
-
 /// Return the version of the crate.
 ///
 /// # Returns
@@ -663,33 +612,6 @@ pub fn format_typst(
 #[inline]
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
-}
-
-/// Render Markdown to Typst.
-///
-/// # Arguments
-///
-/// * `md` - The Markdown text to convert
-/// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
-///
-/// # Returns
-///
-/// The Typst output as a String
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::{markdown_to_typst, Options, Plugins};
-///
-/// let options = Options::default();
-/// let typst = markdown_to_typst("Hello *world*", &options, &Plugins::default());
-/// ```ignore
-pub fn markdown_to_typst(md: &str, options: &Options, plugins: &Plugins<'_>) -> String {
-    let (arena, root) = parse::parse_document(md, options);
-    let mut out = String::new();
-    format_typst(&arena, root, options, &mut out, plugins).unwrap();
-    out
 }
 
 // =============================================================================

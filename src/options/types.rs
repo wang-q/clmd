@@ -72,22 +72,14 @@ pub enum OutputFormat {
     Xml,
     /// LaTeX
     Latex,
-    /// Man page
-    Man,
     /// Plain text
     Plain,
-    /// PDF
-    Pdf,
     /// Docx
     Docx,
     /// ODT
     Odt,
-    /// RTF
-    Rtf,
     /// EPUB
     Epub,
-    /// Typst
-    Typst,
     /// Beamer (LaTeX slides)
     Beamer,
     /// RevealJS (HTML slides)
@@ -106,14 +98,10 @@ impl OutputFormat {
             OutputFormat::Xhtml => "xhtml",
             OutputFormat::Xml => "xml",
             OutputFormat::Latex => "latex",
-            OutputFormat::Man => "man",
             OutputFormat::Plain => "plain",
-            OutputFormat::Pdf => "pdf",
             OutputFormat::Docx => "docx",
             OutputFormat::Odt => "odt",
-            OutputFormat::Rtf => "rtf",
             OutputFormat::Epub => "epub",
-            OutputFormat::Typst => "typst",
             OutputFormat::Beamer => "beamer",
             OutputFormat::RevealJs => "revealjs",
             OutputFormat::Bibtex => "bibtex",
@@ -124,11 +112,7 @@ impl OutputFormat {
     pub fn is_binary(&self) -> bool {
         matches!(
             self,
-            OutputFormat::Pdf
-                | OutputFormat::Docx
-                | OutputFormat::Odt
-                | OutputFormat::Epub
-                | OutputFormat::Rtf
+            OutputFormat::Docx | OutputFormat::Odt | OutputFormat::Epub
         )
     }
 
@@ -155,14 +139,10 @@ impl std::str::FromStr for OutputFormat {
             "xhtml" => Ok(OutputFormat::Xhtml),
             "xml" => Ok(OutputFormat::Xml),
             "latex" | "tex" => Ok(OutputFormat::Latex),
-            "man" => Ok(OutputFormat::Man),
             "plain" | "text" => Ok(OutputFormat::Plain),
-            "pdf" => Ok(OutputFormat::Pdf),
             "docx" => Ok(OutputFormat::Docx),
             "odt" => Ok(OutputFormat::Odt),
-            "rtf" => Ok(OutputFormat::Rtf),
             "epub" => Ok(OutputFormat::Epub),
-            "typst" => Ok(OutputFormat::Typst),
             "beamer" => Ok(OutputFormat::Beamer),
             "revealjs" => Ok(OutputFormat::RevealJs),
             "bibtex" | "bib" => Ok(OutputFormat::Bibtex),
@@ -259,11 +239,8 @@ mod tests {
         assert_eq!(OutputFormat::Xhtml.as_str(), "xhtml");
         assert_eq!(OutputFormat::Xml.as_str(), "xml");
         assert_eq!(OutputFormat::Latex.as_str(), "latex");
-        assert_eq!(OutputFormat::Man.as_str(), "man");
         assert_eq!(OutputFormat::Plain.as_str(), "plain");
-        assert_eq!(OutputFormat::Pdf.as_str(), "pdf");
         assert_eq!(OutputFormat::Docx.as_str(), "docx");
-        assert_eq!(OutputFormat::Typst.as_str(), "typst");
         assert_eq!(OutputFormat::Beamer.as_str(), "beamer");
         assert_eq!(OutputFormat::RevealJs.as_str(), "revealjs");
         assert_eq!(OutputFormat::Bibtex.as_str(), "bibtex");
@@ -299,7 +276,6 @@ mod tests {
 
     #[test]
     fn test_output_format_is_binary() {
-        assert!(OutputFormat::Pdf.is_binary());
         assert!(OutputFormat::Docx.is_binary());
         assert!(OutputFormat::Epub.is_binary());
         assert!(!OutputFormat::Html.is_binary());
@@ -311,7 +287,7 @@ mod tests {
         assert!(OutputFormat::Beamer.is_slides());
         assert!(OutputFormat::RevealJs.is_slides());
         assert!(!OutputFormat::Html.is_slides());
-        assert!(!OutputFormat::Pdf.is_slides());
+        assert!(!OutputFormat::Docx.is_slides());
     }
 
     #[test]

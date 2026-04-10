@@ -10,7 +10,7 @@
 //! - **`shared`**: Shared utilities (escape functions, text collection, etc.)
 //! - **`html_renderer`**: Shared HTML/Reveal.js rendering core
 //! - **`latex_shared`**: Shared LaTeX/Beamer rendering core
-//! - **Format-specific writers**: `html`, `latex`, `typst`, `man`, `xml`, etc.
+//! - **Format-specific writers**: `html`, `latex`, `xml`, etc.
 //!
 //! ## Format vs Writer Distinction
 //!
@@ -26,12 +26,8 @@
 //! | `LatexWriter` | LaTeX | LaTeX document format |
 //! | `BeamerWriter` | Beamer | LaTeX slides |
 //! | `RevealJsWriter` | Reveal.js | HTML slides |
-//! | `TypstWriter` | Typst | Typst format |
-//! | `ManWriter` | Man | Unix man page |
 //! | `XmlWriter` | XML | CommonMark XML |
-//! | `RtfWriter` | RTF | Rich Text Format |
 //! | `BibTeXWriter` | BibTeX | Bibliography format |
-//! | `PdfWriter` | PDF | ⚠️ Placeholder only |
 //!
 //! # Example
 //!
@@ -64,9 +60,5 @@ pub use latex_shared::*;
 pub mod beamer;
 pub mod bibtex;
 pub mod latex;
-pub mod man;
-pub mod pdf;
 pub mod revealjs;
-pub mod rtf;
-pub mod typst;
 pub mod xml;

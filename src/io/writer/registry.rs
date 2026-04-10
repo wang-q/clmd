@@ -34,7 +34,6 @@ use crate::options::{OutputFormat, WriterOptions};
 use crate::io::writer::beamer::BeamerWriter;
 use crate::io::writer::bibtex::BibTeXWriter;
 use crate::io::writer::revealjs::RevealJsWriter;
-use crate::io::writer::rtf::RtfWriter;
 
 /// Type alias for boxed writer trait objects.
 pub type BoxedWriter = Box<dyn Writer>;
@@ -335,10 +334,7 @@ impl WriterRegistry {
         self.register(Box::new(CommonMarkWriter));
         self.register(Box::new(XmlWriter));
         self.register(Box::new(LatexWriter));
-        self.register(Box::new(ManWriter));
-        self.register(Box::new(TypstWriter));
         self.register(Box::new(BibTeXWriter));
-        self.register(Box::new(RtfWriter));
         self.register(Box::new(BeamerWriter));
         self.register(Box::new(RevealJsWriter));
     }
@@ -479,66 +475,6 @@ impl Writer for LatexWriter {
 
     fn mime_type(&self) -> &'static str {
         "application/x-latex"
-    }
-}
-
-/// Man page document writer.
-///
-/// Renders documents to Unix man page (groff) format.
-#[derive(Debug, Clone, Copy)]
-pub struct ManWriter;
-
-impl Writer for ManWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::man::write_man(arena, root, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Man
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["man", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "application/x-troff-man"
-    }
-}
-
-/// Typst document writer.
-///
-/// Renders documents to Typst format.
-#[derive(Debug, Clone, Copy)]
-pub struct TypstWriter;
-
-impl Writer for TypstWriter {
-    fn write(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        _ctx: &dyn ClmdContext<Error = ClmdError>,
-        options: &WriterOptions,
-    ) -> ClmdResult<String> {
-        crate::io::writer::typst::write_typst(arena, root, options)
-    }
-
-    fn format(&self) -> OutputFormat {
-        OutputFormat::Typst
-    }
-
-    fn extensions(&self) -> &[&'static str] {
-        &["typ", "typst"]
-    }
-
-    fn mime_type(&self) -> &'static str {
-        "text/typst"
     }
 }
 
@@ -883,14 +819,5 @@ mod tests {
         assert!(writer.extensions().contains(&"tex"));
         assert!(writer.extensions().contains(&"latex"));
         assert_eq!(writer.mime_type(), "application/x-latex");
-    }
-
-    #[test]
-    fn test_man_writer_trait() {
-        let writer = ManWriter;
-        assert_eq!(writer.format(), OutputFormat::Man);
-        assert!(writer.extensions().contains(&"man"));
-        assert!(writer.extensions().contains(&"1"));
-        assert_eq!(writer.mime_type(), "application/x-troff-man");
     }
 }
