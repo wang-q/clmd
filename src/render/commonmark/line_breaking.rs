@@ -257,7 +257,7 @@ impl ParagraphLineBreaker {
             match fragment {
                 ContentFragment::Text { content, .. } => {
                     if let Some(c) = content.chars().rev().find(|c| !c.is_whitespace()) {
-                        return crate::text::char::is_cjk(c);
+                        return crate::text::unicode::is_cjk(c);
                     }
                 }
                 ContentFragment::Atomic { .. } => {
@@ -1099,7 +1099,7 @@ fn get_punctuation_affinity(
     prev_char: Option<char>,
 ) -> Option<Affinity> {
     // Check if the previous character is CJK (affects how we treat ASCII punctuation)
-    let prev_is_cjk = prev_char.map_or(false, crate::text::char::is_cjk);
+    let prev_is_cjk = prev_char.map_or(false, crate::text::unicode::is_cjk);
 
     match char_str {
         // ASCII punctuation that can appear in both CJK and English contexts

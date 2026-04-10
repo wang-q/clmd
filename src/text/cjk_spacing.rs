@@ -4,22 +4,10 @@
 //! characters and ASCII letters/numbers for better typography.
 
 use crate::text::char::{
-    is_ascii_digit, is_ascii_letter, is_ascii_punctuation_no_space, is_cjk,
+    is_ascii_digit, is_ascii_letter, is_ascii_punctuation_no_space, is_cjk_punctuation,
     is_closing_bracket,
 };
-
-/// Check if a character is CJK punctuation
-fn is_cjk_punctuation(c: char) -> bool {
-    matches!(c,
-        // CJK Symbols and Punctuation
-        '\u{3000}'..='\u{303F}' |
-        // Fullwidth ASCII variants
-        '\u{FF01}'..='\u{FF0F}' |
-        '\u{FF1A}'..='\u{FF20}' |
-        '\u{FF3B}'..='\u{FF40}' |
-        '\u{FF5B}'..='\u{FF65}'
-    )
-}
+use crate::text::unicode::is_cjk;
 
 /// Check if spacing is needed between two characters
 pub fn needs_spacing(prev: char, next: char) -> bool {
@@ -94,17 +82,6 @@ pub fn add_cjk_spacing(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_is_cjk() {
-        assert!(is_cjk('中'));
-        assert!(is_cjk('文'));
-        assert!(is_cjk('あ')); // Hiragana
-        assert!(is_cjk('ア')); // Katakana
-        assert!(is_cjk('한')); // Hangul
-        assert!(!is_cjk('a'));
-        assert!(!is_cjk('1'));
-    }
 
     #[test]
     fn test_needs_spacing() {

@@ -179,7 +179,7 @@ pub fn is_line_breaking_active(ctx: &dyn NodeFormatterContext) -> bool {
 /// This function uses the text module's CJK detection.
 #[inline]
 pub fn is_cjk_char(c: char) -> bool {
-    crate::text::char::is_cjk(c)
+    crate::text::unicode::is_cjk(c)
 }
 
 /// Check if previous and next siblings are markdown markers
