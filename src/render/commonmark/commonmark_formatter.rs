@@ -711,24 +711,12 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 Box::new(
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
-                     writer: &mut MarkdownWriter| {
-                        let marker = "*";
+                     _writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // Simply add the marker as a word
-                            // CJK spacing is handled by the text nodes
-                            ctx.add_paragraph_word(marker);
+                            // For paragraph line breaking, add the marker as prefix
+                            ctx.add_paragraph_word("*");
                         } else {
-                            // Flush any pending text in word wrap buffer to ensure
-                            // ends_with_whitespace check works correctly
-                            writer.flush_word_wrap_buffer();
-                            // Ensure there's a space before the marker if not at start of line
-                            // and previous content doesn't end with whitespace
-                            if !writer.is_beginning_of_line()
-                                && !writer.ends_with_whitespace()
-                            {
-                                writer.append_raw(" ");
-                            }
-                            writer.append(marker);
+                            _writer.append("*");
                         }
                     },
                 ),
@@ -736,12 +724,11 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        let marker = "*";
                         if ctx.is_paragraph_line_breaking() {
-                            // Simply add the marker as a word
-                            ctx.add_paragraph_word(marker);
+                            // Add the closing marker as suffix
+                            ctx.add_paragraph_word("*");
                         } else {
-                            writer.append(marker);
+                            writer.append("*");
                         }
                     },
                 ),
@@ -751,25 +738,24 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 Box::new(
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
-                     writer: &mut MarkdownWriter| {
-                        let marker = "**";
+                     _writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // Simply add the marker as a word
-                            ctx.add_paragraph_word(marker);
+                            // For paragraph line breaking, add the marker as prefix
+                            ctx.add_paragraph_word("**");
                         } else {
                             // Flush any pending text in word wrap buffer to ensure
                             // ends_with_whitespace check works correctly
-                            writer.flush_word_wrap_buffer();
+                            _writer.flush_word_wrap_buffer();
                             // Ensure there's a space before the marker if not at start of line
                             // and previous content doesn't end with whitespace
                             // But don't add space if previous char is '*' (for *** emphasis)
-                            if !writer.is_beginning_of_line()
-                                && !writer.ends_with_whitespace()
-                                && !writer.ends_with_char('*')
+                            if !_writer.is_beginning_of_line()
+                                && !_writer.ends_with_whitespace()
+                                && !_writer.ends_with_char('*')
                             {
-                                writer.append_raw(" ");
+                                _writer.append_raw(" ");
                             }
-                            writer.append(marker);
+                            _writer.append("**");
                         }
                     },
                 ),
@@ -777,12 +763,11 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     |_value: &NodeValue,
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
-                        let marker = "**";
                         if ctx.is_paragraph_line_breaking() {
-                            // Simply add the marker as a word
-                            ctx.add_paragraph_word(marker);
+                            // Add the closing marker as suffix
+                            ctx.add_paragraph_word("**");
                         } else {
-                            writer.append(marker);
+                            writer.append("**");
                         }
                     },
                 ),
