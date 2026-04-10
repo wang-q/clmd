@@ -551,7 +551,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     // NOTE: We apply CJK spacing even when using paragraph line breaking
                     // to ensure proper spacing around markdown markers
                     let cjk_text =
-                        crate::text::cjk_spacing::add_cjk_spacing(&processed_text);
+                        crate::text::unicode::add_cjk_spacing(&processed_text);
 
                     // Adjust spacing around markdown markers for CJK text
                     // This removes spaces between CJK characters and markdown markers
