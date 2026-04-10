@@ -22,7 +22,6 @@ pub mod format_control;
 pub mod handler_utils;
 pub mod handlers;
 pub mod line_breaking;
-pub mod link_reference;
 pub mod node;
 pub mod phase;
 pub mod writer;
@@ -40,9 +39,6 @@ pub use context::{
 };
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
-pub use link_reference::{
-    LinkReferenceFormatter, NodeRepositoryFormatter, ReferenceEntry, ReferenceRepository,
-};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
