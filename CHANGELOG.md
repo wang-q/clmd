@@ -2,6 +2,104 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.3 - 2026-04-10
+
+### 🎉 Major Changes
+
+#### IO Module Restructuring
+- **Writer Consolidation**: Moved all format writers to `io/writer` module with improved organization
+  - Consolidated writer registry with unified `Writer` trait
+  - Added shared utilities module (`shared.rs`) for common writer operations
+  - Extracted LaTeX shared core (`latex_shared.rs`) for LaTeX/Beamer code reuse
+  - Added unified HTML renderer (`html_renderer.rs`) for HTML/Reveal.js output
+- **Reader Simplification**: Streamlined reader registry and trait definitions
+  - Simplified `Reader` trait with consistent API
+  - Unified reader registration mechanism
+
+#### Format Support Changes
+- **Removed Formats**: Removed DOCX and EPUB output support (binary formats)
+  - PDF output now returns a placeholder with helpful error message
+- **Enhanced Writers**: Added LaTeX, Beamer, Reveal.js, RTF, BibTeX, Man, and Typst writers to registry
+
+#### API Changes
+- **Plugins Parameter**: All markdown conversion functions now require `Plugins` parameter
+  - `markdown_to_html(input, &options, &Plugins::default())`
+  - `markdown_to_commonmark(input, &options, &Plugins::default())`
+- **Benchmark Updates**: Updated all benchmark tests to use new API with `Plugins`
+
+### ✨ New Features
+
+#### Markdown Formatting Engine (Major Enhancement)
+- **Knuth-Plass Algorithm**: Implemented optimal paragraph line breaking algorithm for beautiful text wrapping
+- **AST-Based Line Breaking**: Complete rewrite using AST-aware line breaking instead of text-based approach
+- **Atomic Units**: Introduced atomic text units to prevent Markdown markers from being split across lines
+- **CJK Text Handling**: Comprehensive CJK (Chinese, Japanese, Korean) text support
+  - CJK tokenizer for proper character boundary detection
+  - CJK punctuation handling with proper spacing rules
+  - CJK bracket and parenthesis preservation
+  - CJK spacing now default behavior (removed `--cjk-spacing` flag)
+
+#### Line Breaking Improvements
+- **Inline Element Preservation**: Links, inline code, emphasis, and strong markers are kept intact
+- **URL Handling**: Long URLs in inline code are properly handled without breaking
+- **Punctuation Rules**: Prevent punctuation marks from appearing at line start
+- **Bracket Handling**: Opening brackets stay with their content, prevent orphans
+- **Width Calculation**: Improved Unicode-aware width calculation for accurate line breaking
+- **Prefix Support**: Support for blockquote prefixes and other line prefixes in wrapping
+
+#### Shared Writer Utilities
+- **Escape Functions**: Added comprehensive escaping functions for all output formats
+  - `escape_html`, `escape_latex`, `escape_typst`, `escape_man`, `escape_xml`, `escape_rtf`
+- **Text Utilities**: Added `collect_text`, `extract_title`, `normalize_whitespace`, `wrap_text`
+- **HTML Renderer**: Unified HTML/Reveal.js rendering with `HtmlRenderer` and `HtmlMode`
+- **LaTeX Shared Core**: State-driven LaTeX/Beamer rendering inspired by Pandoc's architecture
+
+#### TOC Preservation in Formatter
+- **TOC Placeholder**: `fmt` command now preserves `[TOC]: #` markers during formatting
+- **TOC Regeneration**: Automatically regenerates table of contents after formatting
+
+### 🏗️ Architecture Improvements
+
+#### Module Organization
+- **IO Module**: Reorganized with clear separation between `reader`, `writer`, and `format`
+- **Test Utilities**: Added `io::test_utils` module for common test helpers
+- **CSS Module**: Removed unused color and unit utilities
+- **TeX Module**: Removed unused `MacroDefinition` and math command detection
+- **Slides Module**: Removed inline reveal.js/beamer rendering (now in writers)
+
+#### Testing Framework
+- **Spec-Based Testing**: Migrated tests to spec-based CLI test framework
+  - Unit tests migrated to spec files for better maintainability
+  - Integration tests replaced with spec-based testing
+  - Added comprehensive test coverage for CommonMark modules
+  - Added regression tests for formatter behavior
+
+#### Code Quality
+- **Consistent APIs**: Unified writer and reader trait definitions
+- **Better Documentation**: Added comprehensive module and function documentation
+- **Reduced Duplication**: Shared rendering logic between similar formats
+
+### 🐛 Bug Fixes
+
+- **HTML Escaping**: Fixed XML escaping to use shared utility function
+- **LaTeX Rendering**: Fixed list rendering to use proper `itemize`/`enumerate` environments
+- **Beamer Slides**: Code blocks now use `[fragile]` frame option
+- **CJK Punctuation**: Fixed spacing around CJK punctuation with Markdown markers
+- **Inline Code**: Prevented text order corruption in inline code elements
+- **Link URLs**: Prevent line breaks in markdown link URLs
+- **Whitespace**: Improved handling of whitespace around emphasis markers and inline elements
+- **HTML Comments**: Handle single-line HTML comments without extra blank lines
+- **Table Escaping**: Improved markdown escaping logic for table cells
+- **Blockquote**: Prevent duplicate or empty blockquote lines
+- **Empty URLs**: Allow empty URLs per CommonMark spec
+
+### 🛠️ Technical Improvements
+
+- **Pandoc-Inspired Architecture**: LaTeX/Beamer shared core with state-driven differentiation
+- **Writer Registry**: Simplified registration with `OutputFormat` enum keys
+- **Error Handling**: Improved error messages for unimplemented features (PDF)
+- **UTF-8 BOM**: Handle UTF-8 BOM in document parsing and file reading
+
 ## 0.2.2 - 2026-04-03
 
 ### 🎉 Major Changes
