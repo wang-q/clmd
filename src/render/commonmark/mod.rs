@@ -24,7 +24,6 @@ pub mod handlers;
 pub mod line_breaking;
 pub mod node;
 pub mod phase;
-pub mod phased;
 pub mod repository_formatter;
 pub mod writer;
 
@@ -45,8 +44,9 @@ pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
     NodeFormattingHandler, NodeValueType,
 };
-pub use phase::FormattingPhase;
-pub use phased::{ComposedPhasedFormatter, PhasedNodeFormatter, SimplePhasedFormatter};
+pub use phase::{
+    ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter, SimplePhasedFormatter,
+};
 pub use repository_formatter::{
     LinkReferenceFormatter, NodeRepositoryFormatter, ReferenceEntry, ReferenceRepository,
 };
@@ -66,7 +66,7 @@ pub struct Formatter {
     /// Node formatters
     node_formatters: node::ComposedNodeFormatter,
     /// Phased formatters
-    phased_formatters: phased::ComposedPhasedFormatter,
+    phased_formatters: phase::ComposedPhasedFormatter,
     /// Translation placeholder generator
     placeholder_generator: Box<dyn context::TranslationPlaceholderGenerator>,
 }
@@ -92,7 +92,7 @@ impl Formatter {
         Self {
             options,
             node_formatters: node::ComposedNodeFormatter::new(),
-            phased_formatters: phased::ComposedPhasedFormatter::new(),
+            phased_formatters: phase::ComposedPhasedFormatter::new(),
             placeholder_generator: Box::new(context::DefaultPlaceholderGenerator::new()),
         }
     }
@@ -105,7 +105,7 @@ impl Formatter {
     /// Add a phased formatter
     pub fn add_phased_formatter(
         &mut self,
-        formatter: Box<dyn phased::PhasedNodeFormatter>,
+        formatter: Box<dyn phase::PhasedNodeFormatter>,
     ) {
         self.phased_formatters.add_formatter(formatter);
     }
@@ -842,7 +842,7 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 pub struct FormatterBuilder {
     options: FormatOptions,
     node_formatters: Vec<Box<dyn node::NodeFormatter>>,
-    phased_formatters: Vec<Box<dyn phased::PhasedNodeFormatter>>,
+    phased_formatters: Vec<Box<dyn phase::PhasedNodeFormatter>>,
 }
 
 impl std::fmt::Debug for FormatterBuilder {
@@ -883,7 +883,7 @@ impl FormatterBuilder {
     /// Add a phased formatter
     pub fn add_phased_formatter(
         mut self,
-        formatter: Box<dyn phased::PhasedNodeFormatter>,
+        formatter: Box<dyn phase::PhasedNodeFormatter>,
     ) -> Self {
         self.phased_formatters.push(formatter);
         self

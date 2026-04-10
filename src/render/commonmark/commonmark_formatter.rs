@@ -39,8 +39,7 @@ use crate::render::commonmark::handlers::table::{
 use crate::render::commonmark::node::{
     NodeFormatter, NodeFormattingHandler, NodeValueType,
 };
-use crate::render::commonmark::phase::FormattingPhase;
-use crate::render::commonmark::phased::PhasedNodeFormatter;
+use crate::render::commonmark::phase::{FormattingPhase, PhasedNodeFormatter};
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// CommonMark node formatter
