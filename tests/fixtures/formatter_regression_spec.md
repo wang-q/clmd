@@ -470,3 +470,41 @@ When there's a comma-separated list inside parentheses, the break should occur a
   specifying the delimiter (e.g.,
   `cut -f1`).
 ````````````````````````````````
+
+
+## Link Trailing Space Issues
+
+### Issue: Space after link should be preserved
+
+When a link is followed by a space and then text, the space should not be removed.
+
+```````````````````````````````` example(Link Trailing Space: 1) options(margin[100])
+All tools use a unified syntax to identify fields (columns). See [Field Syntax Documentation](help/fields.md) for details.
+.
+All tools use a unified syntax to identify fields (columns). See
+[Field Syntax Documentation](help/fields.md) for details.
+````````````````````````````````
+
+
+### Issue: Space after inline code should also be preserved
+
+Similar to links, spaces after inline code spans should be preserved.
+
+```````````````````````````````` example(Link Trailing Space: 4) options(margin[60])
+Use the `filter` command to process data and then output results.
+.
+Use the `filter` command to process data and then output
+results.
+````````````````````````````````
+
+
+### Issue: Space after emphasis should also be preserved
+
+Spaces after emphasis (bold/italic) should also be preserved.
+
+```````````````````````````````` example(Link Trailing Space: 5) options(margin[50])
+This is **important** information that you should read carefully.
+.
+This is **important** information that you should
+read carefully.
+````````````````````````````````
