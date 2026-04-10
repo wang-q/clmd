@@ -419,3 +419,17 @@ Strong (`**text**`) and emphasis (`*text*`) markers should not be split across l
 这是一个包含*斜体文本*的段落，
 用于测试斜体标记不会被错误地断开。
 ````````````````````````````````
+
+
+## Comma List Inside Parentheses Issues
+
+### Issue: Comma list inside parentheses should not be split
+
+When there's a comma-separated list inside parentheses, the break should occur after the closing parenthesis or at a better position, not in the middle of the list.
+
+```````````````````````````````` example(Comma List: 1) options(margin[100])
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by specifying the delimiter (e.g., `cut -f1`).
+.
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by
+  specifying the delimiter (e.g., `cut -f1`).
+````````````````````````````````
