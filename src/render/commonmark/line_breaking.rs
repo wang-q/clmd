@@ -577,8 +577,6 @@ impl ParagraphLineBreaker {
 
         let mut current_pos = 0;
         let mut current_width = 0;
-        // Track the content of the previous fragment for context-aware handling
-        let mut prev_fragment_content: Option<String> = None;
 
         for fragment in &self.fragments {
             match fragment {
@@ -608,8 +606,6 @@ impl ParagraphLineBreaker {
                     }
                     current_pos += content.len();
                     current_width += width;
-                    // Update previous fragment content
-                    prev_fragment_content = Some(content.clone());
                 }
                 ContentFragment::Atomic {
                     content: atomic_content,
@@ -619,79 +615,10 @@ impl ParagraphLineBreaker {
                     // For atomic units, we can break before and after, but not inside
                     // Break before (only if not at the very beginning)
                     if current_pos > 0 {
-                        // Check if the previous fragment ends with an opening bracket
-                        // We need to look at the actual previous fragment, not last_text_fragment
-                        let prev_fragment_ends_with_bracket = prev_fragment_content
-                            .as_ref()
-                            .and_then(|s| s.chars().rev().find(|c| !c.is_whitespace()))
-                            .map_or(false, |c| {
-                                matches!(
-                                    c,
-                                    '(' | '['
-                                        | '{'
-                                        | '\u{ff08}'
-                                        | '\u{ff3b}'
-                                        | '\u{ff5b}'
-                                        | '\u{300c}'
-                                        | '\u{300e}'
-                                        | '\u{3008}'
-                                        | '\u{300a}'
-                                        | '\u{3010}'
-                                        | '\u{3014}'
-                                )
-                            });
-
-                        // Check if there's a space before the opening bracket in the previous fragment
-                        // We need to check if there's a CJK character before the opening bracket
-                        // If the character before the bracket (skipping whitespace) is CJK,
-                        // then we should NOT consider this as "has space before bracket"
-                        // because the space is just for readability, not a word separator
-                        let has_space_before_bracket = prev_fragment_content
-                            .as_ref()
-                            .and_then(|s| {
-                                let chars = s.chars().rev();
-                                // Find the last non-whitespace char (should be the bracket)
-                                let last = chars.clone().find(|c| !c.is_whitespace())?;
-                                if !matches!(
-                                    last,
-                                    '(' | '['
-                                        | '{'
-                                        | '\u{ff08}'
-                                        | '\u{ff3b}'
-                                        | '\u{ff5b}'
-                                        | '\u{300c}'
-                                        | '\u{300e}'
-                                        | '\u{3008}'
-                                        | '\u{300a}'
-                                        | '\u{3010}'
-                                        | '\u{3014}'
-                                ) {
-                                    return None;
-                                }
-                                // Skip the bracket and any whitespace after it
-                                // to find the character before the bracket
-                                let chars = s.chars().rev();
-                                let mut chars = chars.skip_while(|c| c.is_whitespace());
-                                chars.next()?; // Skip bracket
-                                               // Now find the first non-whitespace char before the bracket
-                                let prev_char = chars.find(|c| !c.is_whitespace())?;
-                                // If the char before the bracket is whitespace, return true
-                                // But if it's CJK, we should return false (the space is not a word separator)
-                                if prev_char.is_whitespace() {
-                                    Some(prev_char)
-                                } else {
-                                    None
-                                }
-                            })
-                            .is_some();
-
-                        // Only skip adding break point if:
-                        // 1. The previous fragment ends with an opening bracket, AND
-                        // 2. There's NO space before that bracket
-                        // If there's a space, we should allow the break at the space
-                        if !prev_fragment_ends_with_bracket || has_space_before_bracket {
-                            break_positions.push((current_pos, current_width));
-                        }
+                        // Always add break point before atomic units
+                        // The cost function will penalize breaking after opening brackets
+                        // if that's not desirable, allowing the algorithm to choose optimally
+                        break_positions.push((current_pos, current_width));
                     }
                     // Break after
                     current_pos += atomic_content.len();
@@ -701,8 +628,6 @@ impl ParagraphLineBreaker {
                     if !matches!(kind, AtomicKind::Code | AtomicKind::Link) {
                         break_positions.push((current_pos, current_width));
                     }
-                    // Update previous fragment content
-                    prev_fragment_content = Some(atomic_content.clone());
                 }
             }
         }
@@ -769,37 +694,36 @@ impl ParagraphLineBreaker {
                     ContentFragment::Text { content, .. } => {
                         let fragment_start = current_pos;
                         let fragment_end = current_pos + content.len();
-                        if pos > fragment_start {
-                            // The position is after the start of this fragment
-                            let end_in_fragment = if pos <= fragment_end {
-                                pos - fragment_start
-                            } else {
-                                content.len()
-                            };
+                        if pos > fragment_start && pos <= fragment_end {
+                            // The position is within this fragment
+                            let end_in_fragment = pos - fragment_start;
                             if end_in_fragment > 0 {
                                 return content[..end_in_fragment]
                                     .chars()
                                     .rev()
                                     .find(|c| !c.is_whitespace());
                             }
+                        } else if pos <= fragment_start {
+                            // We've gone past the position, stop searching
+                            break;
                         }
                         current_pos = fragment_end;
                     }
                     ContentFragment::Atomic { content, .. } => {
                         let fragment_start = current_pos;
                         let fragment_end = current_pos + content.len();
-                        if pos > fragment_start {
-                            let end_in_fragment = if pos <= fragment_end {
-                                pos - fragment_start
-                            } else {
-                                content.len()
-                            };
+                        if pos > fragment_start && pos <= fragment_end {
+                            // The position is within this fragment
+                            let end_in_fragment = pos - fragment_start;
                             if end_in_fragment > 0 {
                                 return content[..end_in_fragment]
                                     .chars()
                                     .rev()
                                     .find(|c| !c.is_whitespace());
                             }
+                        } else if pos <= fragment_start {
+                            // We've gone past the position, stop searching
+                            break;
                         }
                         current_pos = fragment_end;
                     }
@@ -886,12 +810,13 @@ impl ParagraphLineBreaker {
                     };
 
                     // Additional penalty for breaking before or after punctuation
-                    let punctuation_penalty = if let Some(c) =
-                        get_next_char_at(break_positions[i].0)
-                    {
+                    let next_char = get_next_char_at(break_positions[i].0);
+                    let prev_char = get_prev_char_at(break_positions[i].0);
+                    let at_atomic_start = is_at_atomic_start(break_positions[i].0);
+
+                    let punctuation_penalty = if let Some(c) = next_char {
                         // Don't penalize breaking before opening brackets if the next thing is an atomic unit
                         // (like a link or code span) - we want to break before atomic units
-                        let at_atomic_start = is_at_atomic_start(break_positions[i].0);
 
                         if matches!(
                             c,
@@ -908,9 +833,7 @@ impl ParagraphLineBreaker {
                         }
                     } else {
                         0.0
-                    } + if let Some(c) =
-                        get_prev_char_at(break_positions[i].0)
-                    {
+                    } + if let Some(c) = prev_char {
                         // Penalty for breaking after opening brackets
                         if matches!(
                             c,
