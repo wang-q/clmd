@@ -13,6 +13,7 @@
 //! - `phased`: Phased formatter support
 //! - `writer`: Markdown output writer
 //! - `utils`: Utility functions for formatting
+//! - `handler_utils`: Handler factory functions and context helpers
 //! - `table`: Table formatter for GFM tables
 //! - `commonmark_formatter`: CommonMark output formatter
 
@@ -20,6 +21,8 @@ pub mod commonmark_formatter;
 pub mod context;
 pub mod escaping;
 pub mod format_control;
+pub mod handler_utils;
+pub mod handlers;
 pub mod line_breaking;
 pub mod node;
 pub mod phase;
