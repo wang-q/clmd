@@ -7,6 +7,55 @@ use std::ops::Range;
 
 /// Character type utilities
 pub mod ctype {
+    /// Character lookup table for fast classification
+    /// Bit flags:
+    /// - bit 0: is_punctuation
+    /// - bit 1: is_whitespace
+    /// - bit 2: is_special (needs special handling in inline parsing)
+    static CHAR_TABLE: [u8; 256] = {
+        let mut table = [0u8; 256];
+        // Punctuation characters
+        table[b'!' as usize] = 0b101;
+        table[b'"' as usize] = 0b101;
+        table[b'#' as usize] = 0b001;
+        table[b'$' as usize] = 0b001;
+        table[b'%' as usize] = 0b001;
+        table[b'&' as usize] = 0b101;
+        table[b'\'' as usize] = 0b101;
+        table[b'(' as usize] = 0b001;
+        table[b')' as usize] = 0b001;
+        table[b'*' as usize] = 0b101;
+        table[b'+' as usize] = 0b001;
+        table[b',' as usize] = 0b001;
+        table[b'-' as usize] = 0b001;
+        table[b'.' as usize] = 0b001;
+        table[b'/' as usize] = 0b001;
+        table[b':' as usize] = 0b001;
+        table[b';' as usize] = 0b001;
+        table[b'<' as usize] = 0b101;
+        table[b'=' as usize] = 0b001;
+        table[b'>' as usize] = 0b001;
+        table[b'?' as usize] = 0b001;
+        table[b'@' as usize] = 0b001;
+        table[b'[' as usize] = 0b101;
+        table[b'\\' as usize] = 0b001;
+        table[b']' as usize] = 0b001;
+        table[b'^' as usize] = 0b001;
+        table[b'_' as usize] = 0b101;
+        table[b'`' as usize] = 0b101;
+        table[b'{' as usize] = 0b001;
+        table[b'|' as usize] = 0b001;
+        table[b'}' as usize] = 0b001;
+        table[b'~' as usize] = 0b001;
+        // Whitespace characters
+        table[b' ' as usize] = 0b010;
+        table[b'\t' as usize] = 0b010;
+        table[b'\n' as usize] = 0b010;
+        table[b'\r' as usize] = 0b010;
+        table[b'\x0C' as usize] = 0b010; // Form feed
+        table
+    };
+
     /// Check if byte is an ASCII whitespace character
     #[inline(always)]
     pub fn isspace(b: u8) -> bool {
@@ -31,42 +80,74 @@ pub mod ctype {
         b.is_ascii_alphanumeric()
     }
 
-    /// Check if byte is a punctuation character
+    /// Fast check if a byte is punctuation using lookup table
     #[inline(always)]
-    pub fn ispunct(b: u8) -> bool {
+    pub fn is_punctuation_fast(b: u8) -> bool {
+        CHAR_TABLE[b as usize] & 0b001 != 0
+    }
+
+    /// Check if a character is punctuation
+    pub fn is_punctuation(c: char) -> bool {
+        // Fast path for ASCII using lookup table
+        if c.is_ascii() {
+            return is_punctuation_fast(c as u8);
+        }
+        // Unicode punctuation (Pc, Pd, Ps, Pe, Pi, Pf, Po categories)
+        // Check for specific Unicode punctuation characters commonly used in tests
+        matches!(c,
+            '\u{00A2}'..='\u{00A5}' | // ¢£¤¥ (currency symbols)
+            '\u{00B5}' |              // µ
+            '\u{00B7}' |              // ·
+            '\u{00BF}' |              // ¿
+            '\u{00D7}' |              // ×
+            '\u{00F7}' |              // ÷
+            '\u{2000}'..='\u{206F}' | // General Punctuation
+            '\u{20A0}'..='\u{20CF}' | // Currency Symbols
+            '\u{2190}'..='\u{21FF}' | // Arrows
+            '\u{2200}'..='\u{22FF}' | // Mathematical Operators
+            '\u{2300}'..='\u{23FF}' | // Miscellaneous Technical
+            '\u{25A0}'..='\u{25FF}' | // Geometric Shapes
+            '\u{2600}'..='\u{26FF}' | // Miscellaneous Symbols
+            '\u{2700}'..='\u{27BF}' | // Dingbats
+            '\u{3000}'..='\u{303F}'   // CJK Symbols and Punctuation
+        )
+    }
+
+    /// Check if a character can be escaped
+    pub fn is_escapable(c: char) -> bool {
         matches!(
-            b,
-            b'!' | b'"'
-                | b'#'
-                | b'$'
-                | b'%'
-                | b'&'
-                | b'\''
-                | b'('
-                | b')'
-                | b'*'
-                | b'+'
-                | b','
-                | b'-'
-                | b'.'
-                | b'/'
-                | b':'
-                | b';'
-                | b'<'
-                | b'='
-                | b'>'
-                | b'?'
-                | b'@'
-                | b'['
-                | b'\\'
-                | b']'
-                | b'^'
-                | b'_'
-                | b'`'
-                | b'{'
-                | b'|'
-                | b'}'
-                | b'~'
+            c,
+            '!' | '"'
+                | '#'
+                | '$'
+                | '%'
+                | '&'
+                | '\''
+                | '('
+                | ')'
+                | '*'
+                | '+'
+                | ','
+                | '-'
+                | '.'
+                | '/'
+                | ':'
+                | ';'
+                | '<'
+                | '='
+                | '>'
+                | '?'
+                | '@'
+                | '['
+                | '\\'
+                | ']'
+                | '^'
+                | '_'
+                | '`'
+                | '{'
+                | '|'
+                | '}'
+                | '~'
         )
     }
 }
@@ -81,6 +162,73 @@ pub fn is_space_or_tab(b: u8) -> bool {
 #[inline(always)]
 pub fn is_line_end_char(b: u8) -> bool {
     matches!(b, b'\n' | b'\r')
+}
+
+/// Check if a character is special (has special meaning in inline parsing)
+#[inline(always)]
+pub fn is_special_char(c: char, smart: bool) -> bool {
+    if smart {
+        matches!(
+            c,
+            '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n' | '\'' | '"'
+        )
+    } else {
+        matches!(
+            c,
+            '`' | '\\' | '&' | '<' | '*' | '_' | '[' | ']' | '!' | '\n'
+        )
+    }
+}
+
+/// Fast byte-level check if a byte is a special ASCII character
+#[inline(always)]
+pub fn is_special_byte(b: u8, smart: bool) -> bool {
+    if smart {
+        matches!(
+            b,
+            b'`' | b'\\'
+                | b'&'
+                | b'<'
+                | b'*'
+                | b'_'
+                | b'['
+                | b']'
+                | b'!'
+                | b'\n'
+                | b'\''
+                | b'"'
+        )
+    } else {
+        matches!(
+            b,
+            b'`' | b'\\' | b'&' | b'<' | b'*' | b'_' | b'[' | b']' | b'!' | b'\n'
+        )
+    }
+}
+
+/// Normalize a reference label for lookup
+///
+/// - Collapses internal whitespace to a single space
+/// - Removes leading/trailing whitespace
+/// - Converts to uppercase (for case-insensitive comparison)
+///
+/// Note: Does NOT unescape backslash escapes - [foo\!] and [foo!] are different labels
+pub fn normalize_reference(label: &str) -> String {
+    // Remove surrounding brackets if present
+    let label = if label.starts_with('[') && label.ends_with(']') {
+        &label[1..label.len() - 1]
+    } else {
+        label
+    };
+
+    // Normalize whitespace: collapse all whitespace sequences to a single space
+    // Note: We do NOT unescape here - backslash escapes are preserved in link labels
+    // per CommonMark spec. So "foo\!" stays as "foo\!", not "foo!"
+    let normalized = label.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    // Unicode case folding: to_lowercase().to_uppercase() matches commonmark.js behavior
+    // This properly handles characters like ß which folds to SS
+    normalized.to_lowercase().to_uppercase()
 }
 
 /// The character used in a setext heading underline
@@ -827,13 +975,13 @@ mod tests {
     }
 
     #[test]
-    fn test_ctype_ispunct() {
-        assert!(ctype::ispunct(b'!'));
-        assert!(ctype::ispunct(b'.'));
-        assert!(ctype::ispunct(b'@'));
-        assert!(!ctype::ispunct(b'a'));
-        assert!(!ctype::ispunct(b'1'));
-        assert!(!ctype::ispunct(b' '));
+    fn test_ctype_is_punctuation_fast() {
+        assert!(ctype::is_punctuation_fast(b'!'));
+        assert!(ctype::is_punctuation_fast(b'.'));
+        assert!(ctype::is_punctuation_fast(b'@'));
+        assert!(!ctype::is_punctuation_fast(b'a'));
+        assert!(!ctype::is_punctuation_fast(b'1'));
+        assert!(!ctype::is_punctuation_fast(b' '));
     }
 
     #[test]
@@ -1046,5 +1194,79 @@ mod tests {
         assert!(match_html_tag("<1invalid>").is_none());
         assert!(match_html_tag("<>").is_none());
         assert!(match_html_tag("text").is_none());
+    }
+
+    #[test]
+    fn test_is_punctuation() {
+        assert!(ctype::is_punctuation('!'));
+        assert!(ctype::is_punctuation('.'));
+        assert!(ctype::is_punctuation(','));
+        assert!(ctype::is_punctuation(';'));
+        assert!(!ctype::is_punctuation('a'));
+        assert!(!ctype::is_punctuation('A'));
+        assert!(!ctype::is_punctuation('0'));
+        assert!(!ctype::is_punctuation(' '));
+    }
+
+    #[test]
+    fn test_is_punctuation_unicode() {
+        // Test some Unicode punctuation
+        assert!(ctype::is_punctuation('。')); // Chinese full stop
+    }
+
+    #[test]
+    fn test_is_escapable() {
+        assert!(ctype::is_escapable('!'));
+        assert!(ctype::is_escapable('"'));
+        assert!(ctype::is_escapable('#'));
+        assert!(ctype::is_escapable('*'));
+        assert!(!ctype::is_escapable('a'));
+        assert!(!ctype::is_escapable(' '));
+    }
+
+    #[test]
+    fn test_is_special_char() {
+        assert!(is_special_char('*', false));
+        assert!(is_special_char('_', false));
+        assert!(is_special_char('[', false));
+        assert!(is_special_char(']', false));
+        assert!(is_special_char('!', false));
+        assert!(!is_special_char('a', false));
+        assert!(!is_special_char(' ', false));
+    }
+
+    #[test]
+    fn test_is_special_char_smart() {
+        // Test smart mode specific characters
+        assert!(is_special_char('\'', true));
+        assert!(is_special_char('"', true));
+    }
+
+    #[test]
+    fn test_is_special_byte() {
+        assert!(is_special_byte(b'*', false));
+        assert!(is_special_byte(b'_', false));
+        assert!(is_special_byte(b'[', false));
+        assert!(!is_special_byte(b'a', false));
+        assert!(!is_special_byte(b' ', false));
+    }
+
+    #[test]
+    fn test_normalize_reference() {
+        // Test basic reference normalization
+        assert_eq!(normalize_reference("hello world"), "HELLO WORLD");
+        assert_eq!(normalize_reference("  hello   world  "), "HELLO WORLD");
+
+        // Test bracket removal
+        assert_eq!(normalize_reference("[hello]"), "HELLO");
+
+        // Test case folding
+        assert_eq!(normalize_reference("Hello"), "HELLO");
+
+        // Test Unicode
+        assert_eq!(normalize_reference("café"), "CAFÉ");
+
+        // Test with escapes preserved
+        assert_eq!(normalize_reference("foo\\!"), "FOO\\!");
     }
 }

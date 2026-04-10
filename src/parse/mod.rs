@@ -26,15 +26,11 @@ pub mod util {
     //! Parsing utilities for clmd.
     //!
     //! This module provides low-level parsing primitives, combinators, and utilities
-    //! for building parsers. It includes character handling, scanning functions,
-    //! and parsing state management.
+    //! for building parsers. It includes character handling and scanning functions.
 
-    // Core parsing primitives
+    // Core parsing utilities
     pub mod char;
-    pub mod combinator;
-    pub mod primitives;
     pub mod scanners;
-    pub mod state;
 
     // Source and chunk handling
     pub mod chunks;
