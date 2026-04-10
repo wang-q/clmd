@@ -31,15 +31,13 @@ pub mod util {
     // Core parsing utilities
     pub mod scanners;
 
-    // Source and chunk handling
-    pub mod chunks;
+    // Source handling
     pub mod sources;
 
     // Re-export error types
     pub use crate::core::error::{ClmdError, ClmdResult, Position};
 
     // Re-export commonly used types
-    pub use chunks::Chunk;
     pub use sources::{Source, SourcePos};
 
     /// A boxed parser for type erasure.

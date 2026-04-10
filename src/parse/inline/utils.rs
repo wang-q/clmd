@@ -1,9 +1,9 @@
 //! Utility functions for inline parsing
 
-/// Re-export character type utilities from scanners module
-pub use crate::parse::util::scanners::ctype::{is_escapable, is_punctuation};
 /// Re-export reference normalization from scanners module
 pub use crate::parse::util::scanners::normalize_reference;
+/// Re-export character type utilities from scanners module
+pub use crate::parse::util::scanners::{is_escapable, is_punctuation};
 /// Re-export special character check functions from scanners module
 pub use crate::parse::util::scanners::{is_special_byte, is_special_char};
 /// Re-export URI normalization from text::uri module
