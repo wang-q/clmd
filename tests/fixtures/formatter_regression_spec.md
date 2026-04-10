@@ -433,3 +433,40 @@ When there's a comma-separated list inside parentheses, the break should occur a
 - Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by
   specifying the delimiter (e.g., `cut -f1`).
 ````````````````````````````````
+
+
+```````````````````````````````` example(Comma List: 2) options(margin[80])
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by specifying the delimiter (e.g., `cut -f1`).
+.
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly
+  with TSV files by specifying the delimiter (e.g., `cut -f1`).
+````````````````````````````````
+
+
+```````````````````````````````` example(Comma List: 3) options(margin[60])
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by specifying the delimiter (e.g., `cut -f1`).
+.
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`,
+  `uniq`) work seamlessly with TSV files by specifying the
+  delimiter (e.g., `cut -f1`).
+````````````````````````````````
+
+
+```````````````````````````````` example(Comma List: 4) options(margin[50])
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by specifying the delimiter (e.g., `cut -f1`).
+.
+- Traditional Unix tools (`cut`, `awk`, `sort`,
+  `join`, `uniq`) work seamlessly with TSV files
+  by specifying the delimiter (e.g., `cut -f1`).
+````````````````````````````````
+
+
+```````````````````````````````` example(Comma List: 5) options(margin[40])
+- Traditional Unix tools (`cut`, `awk`, `sort`, `join`, `uniq`) work seamlessly with TSV files by specifying the delimiter (e.g., `cut -f1`).
+.
+- Traditional Unix tools (`cut`,
+  `awk`, `sort`, `join`, `uniq`)
+  work seamlessly with TSV files by
+  specifying the delimiter (e.g.,
+  `cut -f1`).
+````````````````````````````````
