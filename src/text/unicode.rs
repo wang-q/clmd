@@ -195,6 +195,38 @@ pub fn is_double_width(c: char) -> bool {
     false
 }
 
+/// Check if a character is a CJK (Chinese, Japanese, Korean) character.
+///
+/// This function detects characters in the following Unicode blocks:
+/// - CJK Unified Ideographs: U+4E00 - U+9FFF
+/// - CJK Unified Ideographs Extension A: U+3400 - U+4DBF
+/// - Hiragana: U+3040 - U+309F
+/// - Katakana: U+30A0 - U+30FF
+/// - Hangul Syllables: U+AC00 - U+D7AF
+///
+/// # Examples
+///
+/// ```ignore
+/// use clmd::text::unicode_width::is_cjk;
+///
+/// assert!(is_cjk('中'));  // Chinese
+/// assert!(is_cjk('日'));  // Japanese
+/// assert!(is_cjk('한'));  // Korean
+/// assert!(is_cjk('あ'));  // Hiragana
+/// assert!(is_cjk('ア'));  // Katakana
+/// assert!(!is_cjk('A'));  // ASCII
+/// assert!(!is_cjk('α'));  // Greek
+/// ```ignore
+pub fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{3040}'..='\u{309F}' |  // Hiragana
+        '\u{30A0}'..='\u{30FF}' |  // Katakana
+        '\u{3400}'..='\u{4DBF}' |  // CJK Extension A
+        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
+        '\u{AC00}'..='\u{D7AF}'    // Hangul Syllables
+    )
+}
+
 /// Get the number of columns required to display the grapheme cluster in a monospace font.
 ///
 /// Returns either `1` or `2`.

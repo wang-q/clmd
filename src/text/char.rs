@@ -439,6 +439,81 @@ pub fn count_cjk(s: &str) -> usize {
     s.chars().filter(|&c| is_cjk(c)).count()
 }
 
+// =============================================================================
+// ASCII Character Utilities (from cjk_spacing)
+// =============================================================================
+
+/// Check if a character is an ASCII letter.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::text::char::is_ascii_letter;
+///
+/// assert!(is_ascii_letter('a'));
+/// assert!(is_ascii_letter('Z'));
+/// assert!(!is_ascii_letter('1'));
+/// assert!(!is_ascii_letter('中'));
+/// ```ignore
+pub fn is_ascii_letter(c: char) -> bool {
+    c.is_ascii_alphabetic()
+}
+
+/// Check if a character is an ASCII digit.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::text::char::is_ascii_digit;
+///
+/// assert!(is_ascii_digit('0'));
+/// assert!(is_ascii_digit('9'));
+/// assert!(!is_ascii_digit('a'));
+/// assert!(!is_ascii_digit('中'));
+/// ```ignore
+pub fn is_ascii_digit(c: char) -> bool {
+    c.is_ascii_digit()
+}
+
+/// Check if a character is ASCII punctuation that should NOT have space added.
+///
+/// This includes characters like `:`, `,`, `.`, `;`, `!`, `?` which are
+/// commonly used in Markdown formatting and should not have spaces added
+/// before them.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::text::char::is_ascii_punctuation_no_space;
+///
+/// assert!(is_ascii_punctuation_no_space(':'));
+/// assert!(is_ascii_punctuation_no_space(','));
+/// assert!(is_ascii_punctuation_no_space('.'));
+/// assert!(!is_ascii_punctuation_no_space('a'));
+/// ```ignore
+pub fn is_ascii_punctuation_no_space(c: char) -> bool {
+    matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
+}
+
+/// Check if a character is a closing bracket.
+///
+/// These characters (`)`, `]`, `}`, `>`) should have space added after them
+/// when followed by ASCII alphanumeric characters.
+///
+/// # Example
+///
+/// ```ignore
+/// use clmd::text::char::is_closing_bracket;
+///
+/// assert!(is_closing_bracket(')'));
+/// assert!(is_closing_bracket(']'));
+/// assert!(is_closing_bracket('}'));
+/// assert!(!is_closing_bracket('('));
+/// ```ignore
+pub fn is_closing_bracket(c: char) -> bool {
+    matches!(c, ')' | ']' | '}' | '>')
+}
+
 /// Parse a digit character.
 pub fn digit(input: &str, pos: Position) -> ClmdResult<(char, Position)> {
     if let Some(ch) = input[pos.offset..].chars().next() {

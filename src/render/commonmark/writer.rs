@@ -5,7 +5,7 @@
 //! Inspired by flexmark-java's MarkdownWriter class.
 
 use crate::options::format::FormatFlags;
-use crate::text::unicode_width;
+use crate::text::unicode;
 
 /// Line information for tracking output state
 ///
@@ -161,7 +161,7 @@ impl MarkdownWriter {
             // Find the next word boundary
             if let Some(space_pos) = self.word_wrap_buffer.find(' ') {
                 let word_width =
-                    unicode_width::width(&self.word_wrap_buffer[..space_pos]) as usize;
+                    unicode::width(&self.word_wrap_buffer[..space_pos]) as usize;
                 let remaining_start = space_pos + 1;
 
                 // Check if adding this word would exceed the margin
@@ -185,8 +185,7 @@ impl MarkdownWriter {
                 self.word_wrap_buffer = remaining;
             } else {
                 // No more spaces, check if remaining text fits
-                let remaining_width =
-                    unicode_width::width(&self.word_wrap_buffer) as usize;
+                let remaining_width = unicode::width(&self.word_wrap_buffer) as usize;
                 if remaining_width > 0 {
                     if self.column + remaining_width > self.right_margin
                         && !self.beginning_of_line

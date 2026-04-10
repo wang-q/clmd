@@ -157,7 +157,7 @@ pub fn skip_task_marker(text: &str) -> String {
 /// - continuation_prefix is the indentation to align with the list marker
 pub fn calculate_list_item_prefixes(ctx: &dyn NodeFormatterContext) -> (String, String) {
     use crate::core::nodes::NodeValue;
-    use crate::text::unicode_width;
+    use crate::text::unicode;
 
     if let Some(current_node) = ctx.get_current_node() {
         let arena = ctx.get_arena();
@@ -183,7 +183,7 @@ pub fn calculate_list_item_prefixes(ctx: &dyn NodeFormatterContext) -> (String, 
                             ctx.get_formatter_options(),
                         );
 
-                        let marker_width = unicode_width::width(&marker) as usize;
+                        let marker_width = unicode::width(&marker) as usize;
 
                         let nesting_level = count_list_ancestors(arena, grandparent_id);
                         let indent_width = nesting_level * 4;

@@ -184,10 +184,10 @@ pub fn calculate_heading_content_length(
 
         match &child.value {
             NodeValue::Text(text) => {
-                length += crate::text::unicode_width::width(text.as_ref()) as usize;
+                length += crate::text::unicode::width(text.as_ref()) as usize;
             }
             NodeValue::Code(code) => {
-                length += crate::text::unicode_width::width(&code.literal) as usize;
+                length += crate::text::unicode::width(&code.literal) as usize;
             }
             NodeValue::Emph | NodeValue::Strong => {
                 length += calculate_child_content_length(arena, child_id);
@@ -231,10 +231,10 @@ pub fn calculate_child_content_length(
 
         match &child.value {
             NodeValue::Text(text) => {
-                length += crate::text::unicode_width::width(text.as_ref()) as usize;
+                length += crate::text::unicode::width(text.as_ref()) as usize;
             }
             NodeValue::Code(code) => {
-                length += crate::text::unicode_width::width(&code.literal) as usize;
+                length += crate::text::unicode::width(&code.literal) as usize;
             }
             NodeValue::SoftBreak => {
                 length += 1;

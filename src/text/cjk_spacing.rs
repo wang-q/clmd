@@ -3,26 +3,10 @@
 //! This module provides functionality to add spaces between CJK (Chinese, Japanese, Korean)
 //! characters and ASCII letters/numbers for better typography.
 
-/// Check if a character is a CJK character
-pub fn is_cjk(c: char) -> bool {
-    matches!(c,
-        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
-        '\u{3400}'..='\u{4DBF}' |  // CJK Extension A
-        '\u{3040}'..='\u{309F}' |  // Hiragana
-        '\u{30A0}'..='\u{30FF}' |  // Katakana
-        '\u{AC00}'..='\u{D7AF}'    // Hangul Syllables
-    )
-}
-
-/// Check if a character is an ASCII letter
-pub fn is_ascii_letter(c: char) -> bool {
-    c.is_ascii_alphabetic()
-}
-
-/// Check if a character is an ASCII digit
-pub fn is_ascii_digit(c: char) -> bool {
-    c.is_ascii_digit()
-}
+use crate::text::char::{
+    is_ascii_digit, is_ascii_letter, is_ascii_punctuation_no_space, is_cjk,
+    is_closing_bracket,
+};
 
 /// Check if a character is CJK punctuation
 fn is_cjk_punctuation(c: char) -> bool {
@@ -35,18 +19,6 @@ fn is_cjk_punctuation(c: char) -> bool {
         '\u{FF3B}'..='\u{FF40}' |
         '\u{FF5B}'..='\u{FF65}'
     )
-}
-
-/// Check if a character is ASCII punctuation that should NOT have space added
-/// (like `:`, `,`, `.`, `;`, `!`, `?`, etc.)
-fn is_ascii_punctuation_no_space(c: char) -> bool {
-    matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
-}
-
-/// Check if a character is a closing bracket (`,`, `)`, `]`, `}`, `>`)
-/// These should have space added after them when followed by ASCII alphanumeric
-fn is_closing_bracket(c: char) -> bool {
-    matches!(c, ')' | ']' | '}' | '>')
 }
 
 /// Check if spacing is needed between two characters

@@ -8,7 +8,7 @@
 //! The algorithm is based on the paper "Breaking Paragraphs into Lines" by
 //! Donald E. Knuth and Michael F. Plass (1981).
 
-use crate::text::unicode_width;
+use crate::text::unicode;
 
 /// A word in the paragraph with its display width
 #[derive(Debug, Clone)]
@@ -29,7 +29,7 @@ impl Word {
     /// Create a new word from text
     pub fn new(text: impl Into<String>) -> Self {
         let text = text.into();
-        let width = unicode_width::width(&text) as usize;
+        let width = unicode::width(&text) as usize;
         Self {
             text,
             width,
@@ -42,7 +42,7 @@ impl Word {
     /// Create a new word without trailing space
     pub fn new_without_space(text: impl Into<String>) -> Self {
         let text = text.into();
-        let width = unicode_width::width(&text) as usize;
+        let width = unicode::width(&text) as usize;
         Self {
             text,
             width,
@@ -55,7 +55,7 @@ impl Word {
     /// Create a new word that doesn't need leading space (for punctuation)
     pub fn new_punctuation(text: impl Into<String>) -> Self {
         let text = text.into();
-        let width = unicode_width::width(&text) as usize;
+        let width = unicode::width(&text) as usize;
         Self {
             text,
             width,
@@ -224,7 +224,7 @@ impl ParagraphLineBreaker {
             {
                 if content.ends_with(' ') {
                     *content = content.trim_end().to_string();
-                    *width = unicode_width::width(content) as usize;
+                    *width = unicode::width(content) as usize;
                     self.current_position -= 1;
                     self.current_width -= 1;
                     // Remove any break point at the end
@@ -279,7 +279,7 @@ impl ParagraphLineBreaker {
             return;
         }
 
-        let width = unicode_width::width(text) as usize;
+        let width = unicode::width(text) as usize;
         let mut break_points = Vec::new();
         let mut break_widths = Vec::new();
 
@@ -288,7 +288,7 @@ impl ParagraphLineBreaker {
 
         while let Some((byte_pos, c)) = char_iter.next() {
             let char_str = c.to_string();
-            let char_width = unicode_width::width(&char_str) as usize;
+            let char_width = unicode::width(&char_str) as usize;
 
             // Get the previous non-whitespace character for context-aware punctuation handling
             // We skip whitespace to correctly identify CJK context even when there's space
@@ -354,7 +354,7 @@ impl ParagraphLineBreaker {
             return;
         }
 
-        let width = unicode_width::width(content) as usize;
+        let width = unicode::width(content) as usize;
 
         self.fragments.push(ContentFragment::Atomic {
             content: content.to_string(),
@@ -600,7 +600,7 @@ impl ParagraphLineBreaker {
                         let absolute_width = if i < break_widths.len() {
                             break_widths[i]
                         } else {
-                            current_width + unicode_width::width(&content[..bp]) as usize
+                            current_width + unicode::width(&content[..bp]) as usize
                         };
                         break_positions.push((absolute_pos, absolute_width));
                     }

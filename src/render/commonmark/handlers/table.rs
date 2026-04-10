@@ -18,7 +18,7 @@ use crate::render::commonmark::escaping::{
     escape_markdown_for_table_simple, escape_string, escape_url,
 };
 use crate::render::commonmark::writer::MarkdownWriter;
-use crate::text::unicode_width::width as unicode_width;
+use crate::text::unicode::width as unicode_width;
 
 // ============================================================================
 // Table Cell Structure
