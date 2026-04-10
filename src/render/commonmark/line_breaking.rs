@@ -558,13 +558,15 @@ impl ParagraphLineBreaker {
                         return false; // Allow break before CJK opening bracket
                     }
 
-                    // Prevent break if preceded by CJK
-                    let is_prev_cjk = prev_fragment_end_char.map_or(false, |c| {
-                        crate::text::char::is_cjk(c)
-                            || crate::text::char::is_cjk_punctuation(c)
-                    });
+                    // For Right affinity, we generally want to allow breaks before punctuation
+                    // even if preceded by CJK. The CJK line breaking rules allow breaks between
+                    // any two characters, so we should not prevent breaks here.
+                    // Only prevent break if the next character is a CJK punctuation that should
+                    // stay with the previous text.
+                    let is_next_cjk_punct = next_fragment_start_char
+                        .map_or(false, |c| crate::text::char::is_cjk_punctuation(c));
 
-                    is_prev_cjk
+                    is_next_cjk_punct
                 }
             }
         };
@@ -806,6 +808,34 @@ impl ParagraphLineBreaker {
             None
         };
 
+        // Helper function to check if the segment from start_pos to end_pos contains
+        // an atomic unit that overflows max_width
+        let segment_has_overflowing_atomic =
+            |start_pos: usize, end_pos: usize| -> bool {
+                let mut current_pos = 0;
+                for fragment in &self.fragments {
+                    match fragment {
+                        ContentFragment::Text { content, .. } => {
+                            let fragment_end = current_pos + content.len();
+                            current_pos = fragment_end;
+                        }
+                        ContentFragment::Atomic { content, width, .. } => {
+                            let fragment_start = current_pos;
+                            let fragment_end = current_pos + content.len();
+                            // Check if this atomic unit overlaps with the segment
+                            // and overflows max_width
+                            let overlaps =
+                                fragment_start < end_pos && fragment_end > start_pos;
+                            if overlaps && *width > self.max_width {
+                                return true;
+                            }
+                            current_pos = fragment_end;
+                        }
+                    }
+                }
+                false
+            };
+
         // Dynamic programming to find optimal breaks
         let n = break_positions.len();
         let mut best_cost: Vec<f64> = vec![f64::INFINITY; n];
@@ -816,16 +846,53 @@ impl ParagraphLineBreaker {
         for i in 1..n {
             for j in (0..i).rev() {
                 let line_width = break_positions[i].1 - break_positions[j].1;
+                let start_pos = break_positions[j].0;
+                let end_pos = break_positions[i].0;
 
                 // Check if this segment fits
                 let cost = if line_width <= self.max_width {
                     // Standard Knuth-Plass: penalize slack quadratically
                     let slack = self.max_width - line_width;
 
+                    // Helper function to check if position is at the start of an atomic unit
+                    let is_at_atomic_start = |pos: usize| -> bool {
+                        let mut current_pos = 0;
+                        for fragment in &self.fragments {
+                            match fragment {
+                                ContentFragment::Text { content, .. } => {
+                                    let fragment_end = current_pos + content.len();
+                                    if pos > current_pos && pos < fragment_end {
+                                        // Position is inside a text fragment
+                                        return false;
+                                    }
+                                    current_pos = fragment_end;
+                                }
+                                ContentFragment::Atomic { content, .. } => {
+                                    let fragment_start = current_pos;
+                                    let fragment_end = current_pos + content.len();
+                                    if pos == fragment_start {
+                                        // Position is at the start of an atomic unit
+                                        return true;
+                                    }
+                                    if pos > fragment_start && pos < fragment_end {
+                                        // Position is inside an atomic unit
+                                        return false;
+                                    }
+                                    current_pos = fragment_end;
+                                }
+                            }
+                        }
+                        false
+                    };
+
                     // Additional penalty for breaking before or after punctuation
                     let punctuation_penalty = if let Some(c) =
                         get_next_char_at(break_positions[i].0)
                     {
+                        // Don't penalize breaking before opening brackets if the next thing is an atomic unit
+                        // (like a link or code span) - we want to break before atomic units
+                        let at_atomic_start = is_at_atomic_start(break_positions[i].0);
+
                         if matches!(
                             c,
                             '，' | '。' | '、' | '；' | '：' | '）' | '」' | '』' | '”'
@@ -833,8 +900,9 @@ impl ParagraphLineBreaker {
                             10000.0 // Very heavy penalty for breaking before CJK punctuation
                         } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
                             5000.0 // Heavy penalty for breaking before ASCII punctuation
-                        } else if matches!(c, '(' | '[' | '{') {
+                        } else if matches!(c, '(' | '[' | '{') && !at_atomic_start {
                             5000.0 // Heavy penalty for breaking before ASCII opening brackets
+                                   // But only if not at the start of an atomic unit
                         } else {
                             0.0
                         }
@@ -869,7 +937,20 @@ impl ParagraphLineBreaker {
                     // Line overflows - this is bad, but we may have to accept it
                     // for unbreakable content
                     let overflow = line_width - self.max_width;
-                    best_cost[j] + (overflow as f64).powi(2) * 100.0
+
+                    // If this segment contains an overflowing atomic unit,
+                    // we should prefer longer segments (smaller j) to minimize the number of overflow lines
+                    let has_overflowing_atomic =
+                        segment_has_overflowing_atomic(start_pos, end_pos);
+
+                    if has_overflowing_atomic {
+                        // Prefer longer lines when containing overflowing atomic units
+                        // Use a negative cost based on line width to encourage longer lines
+                        best_cost[j] + (overflow as f64).powi(2) * 100.0
+                            - (line_width as f64 * 0.001)
+                    } else {
+                        best_cost[j] + (overflow as f64).powi(2) * 100.0
+                    }
                 };
 
                 if cost < best_cost[i] {
@@ -1361,6 +1442,28 @@ mod tests {
         assert!(
             !result.contains(" (\n"),
             "Opening paren should not be at line end, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_link_breaking_at_margin() {
+        // Test case from formatter_spec.md Link Inline:3
+        // Link should not be split, break should occur before the link
+        let mut breaker = ParagraphLineBreaker::new(40, String::new());
+        breaker.add_text("This is a ");
+        breaker.add_atomic(
+            "[link](https://example.com/very/long/path)",
+            AtomicKind::Link,
+        );
+        breaker.add_text(" in text.");
+        let result = breaker.format();
+        println!("Result: {:?}", result);
+        // The link should be on its own line or with surrounding text,
+        // but "a" should stay with "This is"
+        assert!(
+            result.contains("This is a\n"),
+            "Expected 'This is a' followed by newline, got: {:?}",
             result
         );
     }

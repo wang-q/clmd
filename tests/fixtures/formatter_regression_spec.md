@@ -72,8 +72,8 @@ CJK punctuation (，。；：) should NOT be at line start, but CAN be at line e
 ```````````````````````````````` example(CJK Punctuation: 2) options(margin[100])
 - **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。
 .
-- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩
-  (`--compress-gaps`)，隐藏连续的 0 值。
+- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，
+  隐藏连续的 0 值。
 ````````````````````````````````
 
 
@@ -160,9 +160,9 @@ Punctuation like `,`, `.`, `;`, `:` should stay with the previous content, even 
 ```````````````````````````````` example(Punctuation: 1) options(margin[100])
 - **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`, `unique`）。这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，`Arc<Vec<T>>` 无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
 .
-- **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`,
-  `unique`）。这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，
-  `Arc<Vec<T>>` 无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
+- **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`, `unique`）。
+  这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，`Arc<Vec<T>>`
+  无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
 ````````````````````````````````
 
 
