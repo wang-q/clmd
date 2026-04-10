@@ -41,7 +41,7 @@ A high-performance, 100% safe Rust implementation of CommonMark and GFM compatib
 
 ## Installation
 
-Current release: 0.2.2
+Current release: 0.2.3
 
 ```bash
 cargo build --release

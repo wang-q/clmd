@@ -1,6 +1,6 @@
 [package]
 name = "clmd"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "A 100% CommonMark and GFM compatible Markdown parser"
 license = "MIT"

@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.3 - 2026-04-10
+
 ### 🎉 Major Changes
 
 #### IO Module Restructuring
