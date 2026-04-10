@@ -73,6 +73,28 @@ pub trait NodeFormatterContext {
             .map(|id| &self.get_arena().get(id).value)
     }
 
+    /// Check if a node has a child of a specific type
+    fn has_child_of_type(&self, node_id: NodeId, node_type: NodeValueType) -> bool {
+        use crate::render::commonmark::node::NodeValueType;
+        let arena = self.get_arena();
+        let node = arena.get(node_id);
+        if let Some(first_child) = node.first_child {
+            let mut current = Some(first_child);
+            while let Some(child_id) = current {
+                let child = arena.get(child_id);
+                if NodeValueType::from_node_value(&child.value) == node_type {
+                    return true;
+                }
+                // Recursively check grandchildren
+                if self.has_child_of_type(child_id, node_type) {
+                    return true;
+                }
+                current = child.next;
+            }
+        }
+        false
+    }
+
     /// Get nodes of a specific type
     ///
     /// Returns an iterator over all nodes of the given type in the document,

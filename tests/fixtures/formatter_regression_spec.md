@@ -206,8 +206,8 @@ Complex mixed content should be formatted correctly.
 ```````````````````````````````` example(Mixed Content: 3) options(margin[30])
 这是一个测试，包含 **强调**、`代码` 和 [链接](https://example.com)。
 .
-这是一个测试，包含**
-强调**、`代码` 和
+这是一个测试，包含
+**强调**、`代码` 和
 [链接](https://example.com)。
 ````````````````````````````````
 
@@ -395,13 +395,13 @@ Unicode: 你好世界 🌍 emoji
 
 Strong (`**text**`) and emphasis (`*text*`) markers should not be split across lines.
 
-```````````````````````````````` example(Strong Breaking: 1) options(margin[80])
+```````````````````````````````` example(Strong Breaking: 1) options(margin[100])
 - **文件连接 (Join)**: 
     - **数据准备**: 将大文件拆分为两个文件（例如： 左文件含列 1-15，右文件含列 1, 16-29），并**随机打乱**行顺序，但保留公共键（列 1）。
 .
 - **文件连接 (Join)**:
-    - **数据准备**: 将大文件拆分为两个文件（例如： 左文件含列 1-15，右文件含列
-      1, 16-29），并**随机打乱**行顺序，但保留公共键（列 1）。
+    - **数据准备**: 将大文件拆分为两个文件（例如： 左文件含列 1-15，右文件含列 1, 16-29），并
+      **随机打乱**行顺序，但保留公共键（列 1）。
 ````````````````````````````````
 
 

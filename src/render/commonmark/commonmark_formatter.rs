@@ -713,8 +713,18 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      _writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // For paragraph line breaking, add the marker as prefix
-                            ctx.add_paragraph_word("*");
+                            // Check if this emphasis contains nested strong
+                            // If so, don't use atomic handling to avoid conflicts
+                            if let Some(node_id) = ctx.get_current_node() {
+                                if ctx.has_child_of_type(node_id, NodeValueType::Strong)
+                                {
+                                    // Nested emphasis - use normal word handling
+                                    ctx.add_paragraph_word("*");
+                                } else {
+                                    // For paragraph line breaking, collect entire emphasis as a unit
+                                    ctx.set_skip_children(true);
+                                }
+                            }
                         } else {
                             _writer.append("*");
                         }
@@ -725,8 +735,26 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // Add the closing marker as suffix
-                            ctx.add_paragraph_word("*");
+                            // Check if this emphasis contains nested strong
+                            if let Some(node_id) = ctx.get_current_node() {
+                                if ctx.has_child_of_type(node_id, NodeValueType::Strong)
+                                {
+                                    // Nested emphasis - use normal word handling
+                                    ctx.add_paragraph_word("*");
+                                } else {
+                                    // Collect emphasis content from children
+                                    let content = ctx.render_children_to_string(node_id);
+                                    // Build complete emphasis as unbreakable unit
+                                    let full_emph = format!("*{}*", content);
+                                    ctx.add_paragraph_unbreakable_unit(
+                                        crate::render::commonmark::line_breaking::UnitKind::Emph,
+                                        "",
+                                        &full_emph,
+                                        "",
+                                    );
+                                    ctx.set_skip_children(false);
+                                }
+                            }
                         } else {
                             writer.append("*");
                         }
@@ -740,8 +768,16 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      _writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // For paragraph line breaking, add the marker as prefix
-                            ctx.add_paragraph_word("**");
+                            // Check if this strong contains nested emphasis
+                            if let Some(node_id) = ctx.get_current_node() {
+                                if ctx.has_child_of_type(node_id, NodeValueType::Emph) {
+                                    // Nested strong - use normal word handling
+                                    ctx.add_paragraph_word("**");
+                                } else {
+                                    // For paragraph line breaking, collect entire strong as a unit
+                                    ctx.set_skip_children(true);
+                                }
+                            }
                         } else {
                             // Flush any pending text in word wrap buffer to ensure
                             // ends_with_whitespace check works correctly
@@ -764,8 +800,25 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                      ctx: &mut dyn NodeFormatterContext,
                      writer: &mut MarkdownWriter| {
                         if ctx.is_paragraph_line_breaking() {
-                            // Add the closing marker as suffix
-                            ctx.add_paragraph_word("**");
+                            // Check if this strong contains nested emphasis
+                            if let Some(node_id) = ctx.get_current_node() {
+                                if ctx.has_child_of_type(node_id, NodeValueType::Emph) {
+                                    // Nested strong - use normal word handling
+                                    ctx.add_paragraph_word("**");
+                                } else {
+                                    // Collect strong content from children
+                                    let content = ctx.render_children_to_string(node_id);
+                                    // Build complete strong as unbreakable unit
+                                    let full_strong = format!("**{}**", content);
+                                    ctx.add_paragraph_unbreakable_unit(
+                                        crate::render::commonmark::line_breaking::UnitKind::Strong,
+                                        "",
+                                        &full_strong,
+                                        "",
+                                    );
+                                    ctx.set_skip_children(false);
+                                }
+                            }
                         } else {
                             writer.append("**");
                         }
