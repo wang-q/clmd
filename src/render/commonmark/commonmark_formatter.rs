@@ -136,7 +136,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // Only enable line breaking if right_margin is set
                             if options.right_margin > 0 {
                                 // Calculate nesting levels
-                                let list_nesting = ctx.get_list_nesting_level();
+                                let _list_nesting = ctx.get_list_nesting_level();
                                 let block_quote_nesting =
                                     ctx.get_block_quote_nesting_level();
 
@@ -1775,6 +1775,7 @@ fn skip_task_marker(text: &str) -> String {
 
 /// Normalize whitespace in text, especially around parentheses
 /// Removes leading/trailing whitespace and normalizes multiple spaces
+#[allow(dead_code)]
 fn normalize_whitespace(text: &str) -> String {
     // Replace newlines and multiple spaces with a single space
     let result = text
@@ -1861,6 +1862,7 @@ fn prev_is_link(ctx: &dyn NodeFormatterContext) -> bool {
 }
 
 /// Check if text ends with CJK character
+#[allow(dead_code)]
 fn ends_with_cjk(text: &str) -> bool {
     text.chars()
         .rev()
@@ -1869,6 +1871,7 @@ fn ends_with_cjk(text: &str) -> bool {
 }
 
 /// Check if text starts with CJK character
+#[allow(dead_code)]
 fn starts_with_cjk(text: &str) -> bool {
     text.chars()
         .find(|c| !c.is_whitespace())

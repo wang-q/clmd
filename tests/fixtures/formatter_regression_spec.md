@@ -308,6 +308,32 @@ parentheses) 和更多内容。
 ````````````````````````````````
 
 
+## CJK Bracket Issues
+
+### Issue: CJK opening bracket with inline code
+
+CJK opening brackets (（) should not appear at the end of a line when followed by inline code.
+
+```````````````````````````````` example(CJK Bracket: 1) options(margin[100])
+针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写基准测试（`benches/value_arc.rs`），对比当前直接克隆与使用 `Arc` 包装后的性能差异。
+.
+针对 `tva` 的 `Value` 类型使用 `Arc` 进行优化的可行性，我们编写基准测试（`benches/value_arc.rs`），
+对比当前直接克隆与使用 `Arc` 包装后的性能差异。
+````````````````````````````````
+
+
+### Issue: CJK opening bracket at line end
+
+CJK opening brackets should not be left at the end of a line.
+
+```````````````````````````````` example(CJK Bracket: 2) options(margin[20])
+这是一个测试（包含内容）和更多。
+.
+这是一个测试
+（包含内容）和更多。
+````````````````````````````````
+
+
 ## Edge Cases
 
 ### Issue: Empty input
