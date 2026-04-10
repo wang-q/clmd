@@ -8,7 +8,9 @@ use crate::core::nodes::{NodeCodeBlock, NodeHtmlBlock};
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::compute_fence_length;
-use crate::render::commonmark::handler_utils::create_simple_handler;
+use crate::render::commonmark::handler_utils::{
+    create_simple_handler, INDENTED_CODE_SPACES, MIN_FENCE_LENGTH,
+};
 use crate::render::commonmark::node::{NodeFormattingHandler, NodeValueType};
 use crate::render::commonmark::writer::MarkdownWriter;
 
@@ -41,7 +43,7 @@ pub fn render_fenced_code_block(
         _ => '`',
     };
 
-    let base_length = options.fenced_code_marker_length.max(3);
+    let base_length = options.fenced_code_marker_length.max(MIN_FENCE_LENGTH);
     let fence_len = if fence_char == '`' {
         compute_fence_length(&code_block.literal, base_length)
     } else {
@@ -107,7 +109,7 @@ pub fn render_indented_code_block(
     let mut lines = code_content.split('\n').peekable();
     while let Some(line) = lines.next() {
         if !line.is_empty() {
-            writer.append_raw("    ");
+            writer.append_raw(INDENTED_CODE_SPACES);
             writer.append_raw(line);
         }
         if lines.peek().is_some() {

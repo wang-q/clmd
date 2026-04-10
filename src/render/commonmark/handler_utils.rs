@@ -11,6 +11,22 @@ use crate::render::commonmark::writer::MarkdownWriter;
 use std::fmt;
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/// Minimum width for paragraph line breaking to avoid degenerate cases
+pub const MIN_LINE_BREAKING_WIDTH: usize = 20;
+
+/// Minimum length for fenced code block markers
+pub const MIN_FENCE_LENGTH: usize = 3;
+
+/// Number of spaces for indented code blocks
+pub const INDENTED_CODE_SPACES: &str = "    ";
+
+/// Block quote prefix pattern
+pub const BLOCK_QUOTE_PREFIX: &str = "> ";
+
+// ============================================================================
 // Error Types
 // ============================================================================
 
@@ -311,7 +327,7 @@ pub fn calculate_block_quote_prefixes(
 ) -> (String, String) {
     let nesting_level = ctx.get_block_quote_nesting_level();
 
-    let cont_prefix = "> ".repeat(nesting_level);
+    let cont_prefix = BLOCK_QUOTE_PREFIX.repeat(nesting_level);
 
     let first_prefix = String::new();
 

@@ -6,7 +6,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::render::commonmark::{CommonMarkNodeFormatter, FormatterOptions};
+//! use clmd::render::commonmark::CommonMarkNodeFormatter;
+//! use clmd::options::format::FormatOptions;
 //!
 //! let formatter = CommonMarkNodeFormatter::new();
 //! let options = FormatOptions::new().with_right_margin(80);
@@ -100,7 +101,8 @@ impl CommonMarkNodeFormatter {
     /// # Example
     ///
     /// ```ignore
-    /// use clmd::render::commonmark::{CommonMarkNodeFormatter, FormatterOptions};
+    /// use clmd::render::commonmark::CommonMarkNodeFormatter;
+    /// use clmd::options::format::FormatOptions;
     ///
     /// let options = FormatOptions::new()
     ///     .with_right_margin(80)
@@ -165,8 +167,8 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             // Calculate available width considering marker width
                             let max_width =
                                 options.right_margin.saturating_sub(marker_width);
-                            // Ensure max_width is at least 20 to avoid degenerate cases
-                            let max_width = max_width.max(20);
+                            // Ensure max_width is at least MIN_LINE_BREAKING_WIDTH to avoid degenerate cases
+                            let max_width = max_width.max(crate::render::commonmark::handler_utils::MIN_LINE_BREAKING_WIDTH);
 
                             // Start the new paragraph line breaker
                             ctx.start_paragraph_line_breaking(max_width, prefix);
@@ -1894,5 +1896,205 @@ mod tests {
             "Should contain checked task text: {}",
             result
         );
+    }
+
+    // ========================================================================
+    // Boundary Condition Tests
+    // ========================================================================
+
+    #[test]
+    fn test_render_empty_document() {
+        use crate::core::arena::{Node, NodeArena};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.is_empty() || result.trim().is_empty());
+    }
+
+    #[test]
+    fn test_render_empty_paragraph() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.is_empty() || result.trim().is_empty());
+    }
+
+    #[test]
+    fn test_render_special_characters_in_text() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("*_`[]<>#\\|")));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("\\*"));
+        assert!(result.contains("\\_"));
+        assert!(result.contains("\\`"));
+    }
+
+    #[test]
+    fn test_render_unicode_text() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text(
+            "中文测试 日本語 한국어",
+        )));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("中文测试"));
+        assert!(result.contains("日本語"));
+        assert!(result.contains("한국어"));
+    }
+
+    #[test]
+    fn test_render_very_long_text() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let long_text = "a".repeat(10000);
+        let text =
+            arena.alloc(Node::with_value(NodeValue::make_text(long_text.clone())));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.starts_with(&long_text));
+        assert!(result.len() >= 10000);
+    }
+
+    #[test]
+    fn test_render_deeply_nested_structure() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::NodeValue;
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let mut current = root;
+        for _ in 0..10 {
+            let blockquote = arena.alloc(Node::with_value(NodeValue::BlockQuote));
+            TreeOps::append_child(&mut arena, current, blockquote);
+            current = blockquote;
+        }
+
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+        let text = arena.alloc(Node::with_value(NodeValue::make_text("Deep")));
+        TreeOps::append_child(&mut arena, para, text);
+        TreeOps::append_child(&mut arena, current, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("Deep"));
+        assert!(result.contains(">"));
+    }
+
+    #[test]
+    fn test_render_code_block_empty() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::{NodeCodeBlock, NodeValue};
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+
+        let code_block = arena.alloc(Node::with_value(NodeValue::CodeBlock(Box::new(
+            NodeCodeBlock {
+                fenced: true,
+                fence_char: b'`',
+                fence_length: 3,
+                fence_offset: 0,
+                info: String::new(),
+                literal: String::new(),
+                closed: true,
+            },
+        ))));
+        TreeOps::append_child(&mut arena, root, code_block);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("```"));
+    }
+
+    #[test]
+    fn test_render_link_empty_url() {
+        use crate::core::arena::{Node, NodeArena, TreeOps};
+        use crate::core::nodes::{NodeLink, NodeValue};
+        use crate::render::commonmark::{FormatOptions, Formatter};
+
+        let mut arena = NodeArena::new();
+        let root = arena.alloc(Node::with_value(NodeValue::Document));
+        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
+
+        let link = arena.alloc(Node::with_value(NodeValue::Link(Box::new(NodeLink {
+            url: String::new(),
+            title: String::new(),
+        }))));
+        let link_text =
+            arena.alloc(Node::with_value(NodeValue::make_text("empty link")));
+        TreeOps::append_child(&mut arena, link, link_text);
+        TreeOps::append_child(&mut arena, para, link);
+        TreeOps::append_child(&mut arena, root, para);
+
+        let options = FormatOptions::new();
+        let mut formatter = Formatter::with_options(options);
+        formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+
+        let result = formatter.render(&arena, root);
+        assert!(result.contains("[empty link]()"));
     }
 }
