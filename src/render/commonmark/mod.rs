@@ -29,7 +29,6 @@ pub mod phase;
 pub mod phased;
 pub mod purpose;
 pub mod repository_formatter;
-pub mod table;
 pub mod translation;
 pub mod utils;
 pub mod writer;
