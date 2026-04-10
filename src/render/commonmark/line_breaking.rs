@@ -286,11 +286,19 @@ impl ParagraphLineBreaker {
             let char_str = c.to_string();
             let char_width = unicode_width::width(&char_str) as usize;
 
+            // Get the previous character for context-aware punctuation handling
+            let prev_char = if byte_pos > 0 {
+                text[..byte_pos].chars().last()
+            } else {
+                None
+            };
+
             // Check if we can break after this character
             let can_break = if c.is_whitespace() {
                 // Always break after whitespace
                 true
-            } else if let Some(affinity) = get_punctuation_affinity(&char_str) {
+            } else if let Some(affinity) = get_punctuation_affinity(&char_str, prev_char)
+            {
                 // Break according to punctuation affinity
                 matches!(affinity, Affinity::Left)
             } else {
@@ -401,12 +409,96 @@ impl ParagraphLineBreaker {
             return Vec::new();
         }
 
+        // First pass: collect fragment boundaries and types for context-aware filtering
+        let mut fragment_boundaries: Vec<(usize, bool)> = Vec::new(); // (position, is_atomic)
+        let mut current_pos = 0;
+
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    fragment_boundaries.push((current_pos, false));
+                    current_pos += content.len();
+                }
+                ContentFragment::Atomic { content, .. } => {
+                    fragment_boundaries.push((current_pos, true));
+                    current_pos += content.len();
+                }
+            }
+        }
+        fragment_boundaries.push((current_pos, false)); // End boundary
+
+        // Helper function to check if a position is immediately followed by an atomic unit
+        // Only returns true if the previous character is CJK (to avoid breaking between
+        // CJK text and atomic units like links or code)
+        let is_followed_by_atomic = |pos: usize, boundaries: &[(usize, bool)]| -> bool {
+            // First check if the previous character is CJK
+            let mut prev_char: Option<char> = None;
+            let mut current_pos = 0;
+            for fragment in &self.fragments {
+                match fragment {
+                    ContentFragment::Text { content, .. } => {
+                        let fragment_end = current_pos + content.len();
+                        if pos > current_pos && pos <= fragment_end {
+                            // The position is in or at the end of this text fragment
+                            let char_pos = pos - current_pos;
+                            if char_pos > 0 {
+                                prev_char = content[..char_pos].chars().last();
+                            }
+                            break;
+                        }
+                        current_pos = fragment_end;
+                    }
+                    ContentFragment::Atomic { content, .. } => {
+                        let fragment_end = current_pos + content.len();
+                        if pos > current_pos && pos <= fragment_end {
+                            // The position is in or at the end of this atomic fragment
+                            let char_pos = pos - current_pos;
+                            if char_pos > 0 {
+                                prev_char = content[..char_pos].chars().last();
+                            }
+                            break;
+                        }
+                        current_pos = fragment_end;
+                    }
+                }
+            }
+
+            // Only apply the atomic-following rule if previous char is CJK
+            let prev_is_cjk = prev_char.map_or(false, crate::text::char::is_cjk);
+            if !prev_is_cjk {
+                return false;
+            }
+
+            for i in 0..boundaries.len().saturating_sub(1) {
+                let (boundary_pos, is_atomic) = boundaries[i];
+                if boundary_pos == pos {
+                    // This position is a fragment boundary
+                    // Check if this position is the start of an atomic unit
+                    if is_atomic {
+                        return true;
+                    }
+                    // Otherwise, check if the next boundary is an atomic unit
+                    if i + 1 < boundaries.len() {
+                        return boundaries[i + 1].1;
+                    }
+                }
+                if boundary_pos > pos {
+                    // We've passed the position without finding an exact match
+                    // This means pos is within a text fragment
+                    // Check if the next boundary (which is after pos) is an atomic unit
+                    return is_atomic;
+                }
+            }
+            false
+        };
+
         // Build the list of break positions
         // Each entry is (position, width_before)
         let mut break_positions: Vec<(usize, usize)> = vec![(0, 0)];
 
-        let mut current_pos = 0;
+        current_pos = 0;
         let mut current_width = 0;
+        let mut prev_fragment_content: Option<String> = None;
 
         for fragment in &self.fragments {
             match fragment {
@@ -420,6 +512,15 @@ impl ParagraphLineBreaker {
                     // Add break points within this text fragment
                     for (i, &bp) in break_points.iter().enumerate() {
                         let absolute_pos = current_pos + bp;
+
+                        // Skip break points that are immediately followed by an atomic unit
+                        // This prevents breaking between a space and an atomic unit like link/code
+                        let followed =
+                            is_followed_by_atomic(absolute_pos, &fragment_boundaries);
+                        if followed {
+                            continue;
+                        }
+
                         let absolute_width = if i < break_widths.len() {
                             break_widths[i]
                         } else {
@@ -429,22 +530,40 @@ impl ParagraphLineBreaker {
                     }
                     current_pos += content.len();
                     current_width += width;
+                    prev_fragment_content = Some(content.clone());
                 }
                 ContentFragment::Atomic {
-                    content,
+                    content: atomic_content,
                     width,
                     kind,
                 } => {
                     // For atomic units, we can break before and after, but not inside
-                    // Break before
-                    break_positions.push((current_pos, current_width));
+                    // Break before (only if not at the very beginning)
+                    // But don't break before if the previous character is an opening bracket
+                    // This prevents breaking between "(" and the atomic unit
+                    if current_pos > 0 {
+                        // Check the previous character from the previous fragment
+                        let should_break = match &prev_fragment_content {
+                            Some(prev) => match prev.chars().rev().next() {
+                                Some('(') | Some('[') | Some('{') => false,
+                                _ => true,
+                            },
+                            None => true,
+                        };
+
+                        if should_break {
+                            break_positions.push((current_pos, current_width));
+                        }
+                    }
                     // Break after
-                    current_pos += content.len();
+                    current_pos += atomic_content.len();
                     current_width += width;
-                    // For Code, don't add break after to preserve CJK spacing
-                    if !matches!(kind, AtomicKind::Code) {
+                    // For Code and Link, don't add break after to preserve spacing
+                    // This prevents breaking right after code spans or links
+                    if !matches!(kind, AtomicKind::Code | AtomicKind::Link) {
                         break_positions.push((current_pos, current_width));
                     }
+                    prev_fragment_content = Some(atomic_content.clone());
                 }
             }
         }
@@ -460,6 +579,48 @@ impl ParagraphLineBreaker {
         // Sort and deduplicate
         break_positions.sort_by_key(|(pos, _)| *pos);
         break_positions.dedup_by_key(|(pos, _)| *pos);
+
+        // Helper function to get the first non-whitespace character at or after a position
+        let get_next_char_at = |pos: usize| -> Option<char> {
+            let mut current_pos = 0;
+            for fragment in &self.fragments {
+                match fragment {
+                    ContentFragment::Text { content, .. } => {
+                        let fragment_start = current_pos;
+                        let fragment_end = current_pos + content.len();
+                        if pos < fragment_end {
+                            // The position is in or before this fragment
+                            let start_in_fragment = if pos >= fragment_start {
+                                pos - fragment_start
+                            } else {
+                                0
+                            };
+                            return content[start_in_fragment..]
+                                .chars()
+                                .find(|c| !c.is_whitespace());
+                        }
+                        current_pos = fragment_end;
+                    }
+                    ContentFragment::Atomic { content, .. } => {
+                        let fragment_start = current_pos;
+                        let fragment_end = current_pos + content.len();
+                        if pos < fragment_end {
+                            // The position is in or before this fragment
+                            let start_in_fragment = if pos >= fragment_start {
+                                pos - fragment_start
+                            } else {
+                                0
+                            };
+                            return content[start_in_fragment..]
+                                .chars()
+                                .find(|c| !c.is_whitespace());
+                        }
+                        current_pos = fragment_end;
+                    }
+                }
+            }
+            None
+        };
 
         // Dynamic programming to find optimal breaks
         let n = break_positions.len();
@@ -477,12 +638,38 @@ impl ParagraphLineBreaker {
                     // Standard Knuth-Plass: penalize slack quadratically
                     let slack = self.max_width - line_width;
 
+                    // Additional penalty for breaking before punctuation
+                    let punctuation_penalty = if let Some(c) =
+                        get_next_char_at(break_positions[i].0)
+                    {
+                        if matches!(
+                            c,
+                            '，' | '。'
+                                | '、'
+                                | '；'
+                                | '：'
+                                | '）'
+                                | '」'
+                                | '』'
+                                | '”'
+                                | '』'
+                        ) {
+                            10000.0 // Very heavy penalty for breaking before CJK punctuation
+                        } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
+                            5000.0 // Heavy penalty for breaking before ASCII punctuation
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        0.0
+                    };
+
                     // For the last line, don't penalize shortness
                     let is_last_line = i == n - 1;
                     if is_last_line {
-                        best_cost[j] + slack as f64 * 0.1 // Minimal penalty
+                        best_cost[j] + slack as f64 * 0.1 + punctuation_penalty
                     } else {
-                        best_cost[j] + (slack as f64).powi(2)
+                        best_cost[j] + (slack as f64).powi(2) + punctuation_penalty
                     }
                 } else {
                     // Line overflows - this is bad, but we may have to accept it
@@ -573,8 +760,8 @@ impl ParagraphLineBreaker {
                         } else {
                             start_in_fragment
                         };
-                        
-                        // If result ends with '(' (possibly with trailing spaces), 
+
+                        // If result ends with '(' (possibly with trailing spaces),
                         // skip leading spaces in this fragment
                         // This handles cases like "( 4.8GB)" -> "(4.8GB)"
                         let result_trimmed = result.trim_end();
@@ -633,6 +820,65 @@ impl ParagraphLineBreaker {
                 while result.ends_with(' ') {
                     result.pop();
                 }
+
+                // Check if the next line starts with CJK punctuation
+                // If so, we need to pull it back to this line (CJK typography rule)
+                let next_pos = break_point.position;
+                let mut pos = 0;
+                let mut found_punctuation = None;
+
+                for fragment in &self.fragments {
+                    match fragment {
+                        ContentFragment::Text { content, .. } => {
+                            let fragment_start = pos;
+                            let fragment_end = pos + content.len();
+
+                            if next_pos >= fragment_start && next_pos < fragment_end {
+                                // The break point is in this text fragment
+                                let start_in_fragment = next_pos - fragment_start;
+                                // Find the first non-whitespace character
+                                found_punctuation = content[start_in_fragment..]
+                                    .chars()
+                                    .find(|c| !c.is_whitespace())
+                                    .filter(|c| {
+                                        matches!(
+                                            c,
+                                            '，' | '。'
+                                                | '、'
+                                                | '；'
+                                                | '：'
+                                                | '）'
+                                                | '」'
+                                                | '』'
+                                                | '”'
+                                                | '』'
+                                        )
+                                    });
+                                break;
+                            }
+                            pos = fragment_end;
+                        }
+                        ContentFragment::Atomic { content, .. } => {
+                            let fragment_start = pos;
+                            let fragment_end = pos + content.len();
+
+                            if next_pos >= fragment_start && next_pos < fragment_end {
+                                // The break point is in this atomic fragment
+                                // Don't pull back atomic content
+                                break;
+                            }
+                            pos = fragment_end;
+                        }
+                    }
+                }
+
+                // If we found a CJK punctuation at the start of the next line, pull it back
+                if let Some(punct) = found_punctuation {
+                    result.push(punct);
+                    // Update last_break_pos to skip this punctuation
+                    last_break_pos += punct.len_utf8();
+                }
+
                 result.push('\n');
             }
         }
@@ -646,16 +892,49 @@ impl ParagraphLineBreaker {
     }
 }
 
-/// Get the punctuation affinity for a character
-fn get_punctuation_affinity(char_str: &str) -> Option<Affinity> {
+/// Get the punctuation affinity for a character based on its type and context
+///
+/// # Arguments
+/// * `char_str` - The character as a string
+/// * `prev_char` - The previous character in the text (for context-aware decisions)
+fn get_punctuation_affinity(
+    char_str: &str,
+    prev_char: Option<char>,
+) -> Option<Affinity> {
+    // Check if the previous character is CJK (affects how we treat ASCII punctuation)
+    let prev_is_cjk = prev_char.map_or(false, crate::text::char::is_cjk);
+
     match char_str {
-        // Left-affinity: break AFTER these characters (they stay with left side)
-        "," | "." | "!" | "?" | ";" | ":" | "}" | ")" | "]" | "\\" => {
+        // ASCII punctuation that can appear in both CJK and English contexts
+        // When in CJK context, treat them like CJK punctuation
+        "," | "." | "!" | "?" | ";" | ":" => {
+            if prev_is_cjk {
+                // In CJK context, stay with the left side (CJK rule)
+                Some(Affinity::Left)
+            } else {
+                // In English context, standard rule
+                Some(Affinity::Left)
+            }
+        }
+
+        // Closing brackets - in CJK context, they should stay with left side
+        "}" | ")" | "]" => {
+            // Always stay with the left side (the content inside the brackets)
             Some(Affinity::Left)
         }
 
-        // Right-affinity: break BEFORE these characters (they stay with right side)
-        "{" | "(" | "[" | "/" => Some(Affinity::Right),
+        // Opening brackets - behavior depends on context
+        "{" | "(" | "[" => {
+            if prev_is_cjk {
+                // In CJK context, stay with the right side (don't separate from following CJK)
+                Some(Affinity::Right)
+            } else {
+                // In English context, can break before
+                Some(Affinity::Right)
+            }
+        }
+
+        "/" | "\\" => Some(Affinity::Right),
 
         // CJK punctuation with special handling
         "\u{3001}" | "\u{3002}" | "\u{ff0c}" | "\u{ff0e}" | "\u{ff01}" | "\u{ff1f}"

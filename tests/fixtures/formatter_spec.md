@@ -249,8 +249,9 @@ This is a [link](https://example.com "with title").
 ```````````````````````````````` example(Link Inline: 3) options(margin[40])
 This is a [link](https://example.com/very/long/path) in text.
 .
-This is a [link](https://example.com/very/long/path) in
-text.
+This is a
+[link](https://example.com/very/long/path)
+in text.
 ````````````````````````````````
 
 

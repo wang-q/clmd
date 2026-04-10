@@ -190,14 +190,16 @@ Complex mixed content should be formatted correctly.
 ```````````````````````````````` example(Mixed Content: 1) options(margin[50])
 这是一个测试，包含 **强调**、`代码` 和 [链接](https://example.com)。
 .
-这是一个测试，包含**强调**、`代码` 和 [链接](https://example.com)。
+这是一个测试，包含**强调**、`代码` 和
+[链接](https://example.com)。
 ````````````````````````````````
 
 
 ```````````````````````````````` example(Mixed Content: 2) options(margin[40])
 这是一个测试，包含 **强调**、`代码` 和 [链接](https://example.com)。
 .
-这是一个测试，包含**强调**、`代码` 和 [链接](https://example.com)。
+这是一个测试，包含**强调**、`代码` 和
+[链接](https://example.com)。
 ````````````````````````````````
 
 
@@ -205,7 +207,8 @@ Complex mixed content should be formatted correctly.
 这是一个测试，包含 **强调**、`代码` 和 [链接](https://example.com)。
 .
 这是一个测试，包含**强调**、`代码`
-和 [链接](https://example.com)。
+和
+[链接](https://example.com)。
 ````````````````````````````````
 
 

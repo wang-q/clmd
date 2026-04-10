@@ -762,8 +762,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                             writer.flush_word_wrap_buffer();
                             // Ensure there's a space before the marker if not at start of line
                             // and previous content doesn't end with whitespace
+                            // But don't add space if previous char is '*' (for *** emphasis)
                             if !writer.is_beginning_of_line()
                                 && !writer.ends_with_whitespace()
+                                && !writer.ends_with_char('*')
                             {
                                 writer.append_raw(" ");
                             }
@@ -1780,10 +1782,10 @@ fn normalize_whitespace(text: &str) -> String {
         .map(|line| line.trim())
         .collect::<Vec<_>>()
         .join(" ");
-    
+
     // Normalize multiple spaces to single space
     let result = result.split_whitespace().collect::<Vec<_>>().join(" ");
-    
+
     result
 }
 
