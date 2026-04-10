@@ -317,18 +317,6 @@ pub struct FormatOptions {
     pub formatter_on_tag: String,
     /// Formatter off tag
     pub formatter_off_tag: String,
-
-    // Translation options
-    /// Translation ID format
-    pub translation_id_format: String,
-    /// Translation HTML block prefix
-    pub translation_html_block_prefix: String,
-    /// Translation HTML inline prefix
-    pub translation_html_inline_prefix: String,
-    /// Translation autolink prefix
-    pub translation_autolink_prefix: String,
-    /// Translation exclude pattern
-    pub translation_exclude_pattern: String,
 }
 
 impl Default for FormatOptions {
@@ -382,12 +370,6 @@ impl Default for FormatOptions {
             formatter_tags_accept_regex: false,
             formatter_on_tag: "formatter:on".to_string(),
             formatter_off_tag: "formatter:off".to_string(),
-
-            translation_id_format: "_%d_".to_string(),
-            translation_html_block_prefix: "__".to_string(),
-            translation_html_inline_prefix: "_".to_string(),
-            translation_autolink_prefix: "___".to_string(),
-            translation_exclude_pattern: "^[^\\p{IsAlphabetic}]*$".to_string(),
         }
     }
 }

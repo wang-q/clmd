@@ -575,7 +575,11 @@ mod tests {
 
     #[test]
     fn test_format_table_lines_cjk() {
-        let lines = vec!["| 中文 | English |", "|------|---------|", "| 测试 | test    |"];
+        let lines = vec![
+            "| 中文 | English |",
+            "|------|---------|",
+            "| 测试 | test    |",
+        ];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
         let result = format_table_lines(&lines, &alignments);
         let expected = "| 中文 | English |\n| ---- | ------- |\n| 测试 | test    |";
@@ -700,7 +704,11 @@ mod tests {
 
     #[test]
     fn test_mixed_content_widths() {
-        let lines = vec!["| A | VeryLongHeader | C |", "|:-|:-|:-|", "| X | Y | ZZZZZZZZZZ |"];
+        let lines = vec![
+            "| A | VeryLongHeader | C |",
+            "|:-|:-|:-|",
+            "| X | Y | ZZZZZZZZZZ |",
+        ];
         let alignments = vec![
             TableAlignment::Left,
             TableAlignment::Left,

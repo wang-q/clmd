@@ -9,7 +9,6 @@ use crate::options::format::FormatOptions;
 
 use crate::render::commonmark::node::NodeValueType;
 use crate::render::commonmark::phase::FormattingPhase;
-use crate::render::commonmark::purpose::RenderPurpose;
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// Context for node formatting operations
@@ -44,16 +43,6 @@ pub trait NodeFormatterContext {
 
     /// Get the formatter options
     fn get_formatter_options(&self) -> &FormatOptions;
-
-    /// Get the current render purpose
-    fn get_render_purpose(&self) -> RenderPurpose;
-
-    /// Check if text transformation is active
-    ///
-    /// Returns true when rendering for translation purposes.
-    fn is_transforming_text(&self) -> bool {
-        self.get_render_purpose().is_transforming_text()
-    }
 
     /// Get the node arena
     fn get_arena(&self) -> &NodeArena;
@@ -150,16 +139,6 @@ pub trait NodeFormatterContext {
 
     /// Get the block quote-like prefix characters
     fn get_block_quote_like_prefix_chars(&self) -> &str;
-
-    /// Transform non-translating text
-    ///
-    /// Used for text that should not be translated (e.g., URLs, code).
-    fn transform_non_translating(&self, text: &str) -> String;
-
-    /// Transform translating text
-    ///
-    /// Used for text that should be translated.
-    fn transform_translating(&self, text: &str) -> String;
 
     /// Create a sub-context for nested rendering
     fn create_sub_context(&self) -> Box<dyn NodeFormatterContext>;
@@ -398,10 +377,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.get_formatter_options()
     }
 
-    fn get_render_purpose(&self) -> RenderPurpose {
-        self.parent.get_render_purpose()
-    }
-
     fn get_arena(&self) -> &NodeArena {
         self.parent.get_arena()
     }
@@ -424,14 +399,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn get_block_quote_like_prefix_chars(&self) -> &str {
         self.parent.get_block_quote_like_prefix_chars()
-    }
-
-    fn transform_non_translating(&self, text: &str) -> String {
-        self.parent.transform_non_translating(text)
-    }
-
-    fn transform_translating(&self, text: &str) -> String {
-        self.parent.transform_translating(text)
     }
 
     fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
@@ -667,10 +634,9 @@ impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::arena::{Node, NodeArena};
+    use crate::core::arena::{Node, NodeArena, TreeOps};
     use crate::core::nodes::NodeValue;
-    use crate::options::format::FormatOptions;
-    use crate::render::commonmark::purpose::RenderPurpose;
+    use crate::options::format::FormatFlags;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
@@ -724,10 +690,6 @@ mod tests {
             &self.options
         }
 
-        fn get_render_purpose(&self) -> RenderPurpose {
-            RenderPurpose::Format
-        }
-
         fn get_arena(&self) -> &NodeArena {
             &self.arena
         }
@@ -750,14 +712,6 @@ mod tests {
 
         fn get_block_quote_like_prefix_chars(&self) -> &str {
             ">"
-        }
-
-        fn transform_non_translating(&self, text: &str) -> String {
-            text.to_string()
-        }
-
-        fn transform_translating(&self, text: &str) -> String {
-            text.to_string()
         }
 
         fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
@@ -1067,13 +1021,6 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_context_is_transforming_text() {
-        let ctx = MockContext::new();
-        // Default RenderPurpose::Format should not be transforming
-        assert!(!ctx.is_transforming_text());
-    }
-
-    #[test]
     fn test_mock_context_block_quote_prefix() {
         let ctx = MockContext::new();
 
@@ -1158,12 +1105,9 @@ mod tests {
         // These should delegate to parent without panicking
         let _ = sub.get_formatting_phase();
         let _ = sub.get_formatter_options();
-        let _ = sub.get_render_purpose();
         let _ = sub.get_arena();
         let _ = sub.get_nodes_of_type(NodeValueType::Document);
         let _ = sub.get_block_quote_like_prefix_chars();
-        let _ = sub.transform_non_translating("test");
-        let _ = sub.transform_translating("test");
     }
 
     #[test]

@@ -854,12 +854,6 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_render_purpose(
-            &self,
-        ) -> crate::render::commonmark::purpose::RenderPurpose {
-            crate::render::commonmark::purpose::RenderPurpose::Format
-        }
-
         fn get_arena(&self) -> &crate::core::arena::NodeArena {
             panic!("Not implemented")
         }
@@ -888,14 +882,6 @@ mod tests {
 
         fn get_block_quote_like_prefix_chars(&self) -> &str {
             ">"
-        }
-
-        fn transform_non_translating(&self, text: &str) -> String {
-            text.to_string()
-        }
-
-        fn transform_translating(&self, text: &str) -> String {
-            text.to_string()
         }
 
         fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {

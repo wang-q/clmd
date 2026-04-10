@@ -255,8 +255,7 @@ pub fn calculate_child_content_length(
 /// This function handles the rendering of HTML blocks:
 /// - For single-line HTML comments, outputs without extra blank lines
 /// - For multi-line HTML blocks, adds blank lines before and after
-/// - In translation mode, wraps content with non-translating markers
-/// - In normal mode, outputs the HTML content as-is
+/// - Outputs the HTML content as-is
 pub fn render_html_block(
     html: &NodeHtmlBlock,
     _ctx: &dyn NodeFormatterContext,

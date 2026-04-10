@@ -8,13 +8,11 @@
 //! - `options`: Formatter configuration options
 //! - `context`: Formatter context traits and implementations
 //! - `phase`: Formatting phase definitions
-//! - `purpose`: Render purpose for translation workflows
 //! - `node`: Node formatter traits
 //! - `phased`: Phased formatter support
 //! - `writer`: Markdown output writer
-//! - `utils`: Utility functions for formatting
 //! - `handler_utils`: Handler factory functions and context helpers
-//! - `table`: Table formatter for GFM tables
+//! - `handlers`: Node type handlers
 //! - `commonmark_formatter`: CommonMark output formatter
 
 pub mod commonmark_formatter;
@@ -27,9 +25,7 @@ pub mod line_breaking;
 pub mod node;
 pub mod phase;
 pub mod phased;
-pub mod purpose;
 pub mod repository_formatter;
-pub mod translation;
 pub mod writer;
 
 // Re-export commonly used types
@@ -41,7 +37,7 @@ pub use crate::options::format::{
 pub use commonmark_formatter::CommonMarkNodeFormatter;
 pub use context::{
     DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
-    SubFormatterContext, TranslatingSpanRenderer, TranslationPlaceholderGenerator,
+    SubFormatterContext, TranslationPlaceholderGenerator,
 };
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
@@ -51,11 +47,9 @@ pub use node::{
 };
 pub use phase::FormattingPhase;
 pub use phased::{ComposedPhasedFormatter, PhasedNodeFormatter, SimplePhasedFormatter};
-pub use purpose::{RenderPurpose, TranslationSpan, TranslationSpanCollection};
 pub use repository_formatter::{
     LinkReferenceFormatter, NodeRepositoryFormatter, ReferenceEntry, ReferenceRepository,
 };
-pub use translation::{TranslationHandler, TranslationHandlerImpl};
 pub use writer::MarkdownWriter;
 
 use crate::core::arena::{NodeArena, NodeId};
@@ -155,44 +149,6 @@ impl Formatter {
         writer.to_string()
     }
 
-    /// Render a document with a specific render purpose
-    pub fn render_with_purpose(
-        &self,
-        arena: &NodeArena,
-        root: NodeId,
-        purpose: purpose::RenderPurpose,
-    ) -> String {
-        let mut writer = writer::MarkdownWriter::new(self.options.format_flags);
-        writer.set_max_trailing_blank_lines(self.options.max_trailing_blank_lines);
-        writer.set_right_margin(self.options.right_margin);
-        let mut context = MainFormatterContext::with_purpose(
-            arena,
-            &self.options,
-            &self.node_formatters,
-            purpose,
-        );
-
-        // Execute pre-document phases
-        for phase in phase::FormattingPhase::before_document() {
-            context.set_phase(*phase);
-            self.phased_formatters
-                .render_phase(&mut context, &mut writer, root, *phase);
-        }
-
-        // Main document rendering
-        context.set_phase(phase::FormattingPhase::Document);
-        context.render(root, &mut writer);
-
-        // Execute post-document phases
-        for phase in phase::FormattingPhase::after_document() {
-            context.set_phase(*phase);
-            self.phased_formatters
-                .render_phase(&mut context, &mut writer, root, *phase);
-        }
-
-        writer.to_string()
-    }
-
     /// Get the formatter options
     pub fn get_options(&self) -> &FormatOptions {
         &self.options
@@ -215,8 +171,6 @@ pub struct MainFormatterContext<'a> {
     formatters: &'a node::ComposedNodeFormatter,
     /// Current formatting phase
     phase: phase::FormattingPhase,
-    /// Current render purpose
-    render_purpose: purpose::RenderPurpose,
     /// Handler map: node type -> list of handlers
     handler_map: HashMap<node::NodeValueType, Vec<node::NodeFormattingHandler>>,
     /// Current node being rendered
@@ -257,7 +211,6 @@ impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MainFormatterContext")
             .field("phase", &self.phase)
-            .field("render_purpose", &self.render_purpose)
             .field("current_node", &self.current_node)
             .field("tight_list", &self.tight_list)
             .field("list_nesting", &self.list_nesting)
@@ -280,7 +233,6 @@ impl<'a> MainFormatterContext<'a> {
             options,
             formatters,
             phase: phase::FormattingPhase::Document,
-            render_purpose: purpose::RenderPurpose::Format,
             handler_map: HashMap::new(),
             current_node: None,
             handler_stack: Vec::new(),
@@ -301,18 +253,6 @@ impl<'a> MainFormatterContext<'a> {
         };
         context.build_handler_map();
         context.collect_nodes();
-        context
-    }
-
-    /// Create a new context with a specific render purpose
-    pub fn with_purpose(
-        arena: &'a NodeArena,
-        options: &'a FormatOptions,
-        formatters: &'a node::ComposedNodeFormatter,
-        purpose: purpose::RenderPurpose,
-    ) -> Self {
-        let mut context = Self::new(arena, options, formatters);
-        context.render_purpose = purpose;
         context
     }
 
@@ -619,10 +559,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         self.options
     }
 
-    fn get_render_purpose(&self) -> purpose::RenderPurpose {
-        self.render_purpose
-    }
-
     fn get_arena(&self) -> &NodeArena {
         self.arena
     }
@@ -654,26 +590,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn get_block_quote_like_prefix_chars(&self) -> &str {
         ">"
-    }
-
-    fn transform_non_translating(&self, text: &str) -> String {
-        // In translation mode, return a placeholder
-        // In normal mode, return the text as-is
-        if self.render_purpose.is_transforming_text() {
-            format!("_{}_", text.len())
-        } else {
-            text.to_string()
-        }
-    }
-
-    fn transform_translating(&self, text: &str) -> String {
-        // In translation mode, return a placeholder
-        // In normal mode, return the text as-is
-        if self.render_purpose.is_transforming_text() {
-            format!("_{}_", text.len())
-        } else {
-            text.to_string()
-        }
     }
 
     fn create_sub_context(&self) -> Box<dyn context::NodeFormatterContext> {
