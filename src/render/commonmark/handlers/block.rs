@@ -8,10 +8,7 @@ use crate::core::nodes::{NodeCodeBlock, NodeHtmlBlock};
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::compute_fence_length;
-use crate::render::commonmark::handler_utils::{
-    create_simple_handler, INDENTED_CODE_SPACES, MIN_FENCE_LENGTH,
-};
-use crate::render::commonmark::node::{NodeFormattingHandler, NodeValueType};
+use crate::render::commonmark::handler_utils::{INDENTED_CODE_SPACES, MIN_FENCE_LENGTH};
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// Render a code block (fenced or indented)
@@ -284,14 +281,4 @@ pub fn render_html_block(
 
         writer.tail_blank_line();
     }
-}
-
-/// Create handlers for block-level elements
-pub fn create_block_handlers() -> Vec<NodeFormattingHandler> {
-    vec![create_simple_handler(
-        NodeValueType::Document,
-        |_value, _ctx, _writer| {
-            // Document is handled at the top level
-        },
-    )]
 }

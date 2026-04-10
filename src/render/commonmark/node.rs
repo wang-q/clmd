@@ -902,24 +902,34 @@ mod tests {
         assert!(!factory.affects_global_scope());
     }
 
-    // Mock context for testing
-    struct MockContext;
+    // Mock context for testing - provides safe default implementations
+    struct MockContext {
+        writer: MarkdownWriter,
+        options: FormatOptions,
+        arena: crate::core::arena::NodeArena,
+    }
 
     impl MockContext {
         fn new() -> Self {
-            Self
+            Self {
+                writer: MarkdownWriter::new(
+                    crate::options::format::FormatFlags::DEFAULT,
+                ),
+                options: FormatOptions::new(),
+                arena: crate::core::arena::NodeArena::new(),
+            }
         }
     }
 
     impl NodeFormatterContext for MockContext {
         fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
-            unimplemented!()
+            &mut self.writer
         }
         fn render(&mut self, _node_id: crate::core::arena::NodeId) {
-            unimplemented!()
+            // No-op for mock
         }
         fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
-            unimplemented!()
+            // No-op for mock
         }
         fn get_formatting_phase(
             &self,
@@ -927,10 +937,10 @@ mod tests {
             crate::render::commonmark::phase::FormattingPhase::Document
         }
         fn delegate_render(&mut self) {
-            unimplemented!()
+            // No-op for mock
         }
         fn get_formatter_options(&self) -> &FormatOptions {
-            unimplemented!()
+            &self.options
         }
         fn get_render_purpose(
             &self,
@@ -938,7 +948,7 @@ mod tests {
             crate::render::commonmark::purpose::RenderPurpose::Format
         }
         fn get_arena(&self) -> &crate::core::arena::NodeArena {
-            unimplemented!()
+            &self.arena
         }
         fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
             None
@@ -968,7 +978,7 @@ mod tests {
             text.to_string()
         }
         fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            unimplemented!()
+            Box::new(Self::new())
         }
         fn is_in_tight_list(&self) -> bool {
             false

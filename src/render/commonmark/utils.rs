@@ -264,27 +264,43 @@ mod tests {
     fn test_escape_markdown() {
         let escaped = crate::render::commonmark::escaping::escape_text(
             "Hello *world*",
-            &MockContext,
+            &MockContext::new(),
         );
         assert!(escaped.contains("\\*"));
     }
 
-    // Mock context for testing
-    struct MockContext;
+    // Mock context for testing - provides safe default implementations
+    struct MockContext {
+        writer: crate::render::commonmark::writer::MarkdownWriter,
+        options: crate::options::format::FormatOptions,
+        arena: crate::core::arena::NodeArena,
+    }
+
+    impl MockContext {
+        fn new() -> Self {
+            Self {
+                writer: crate::render::commonmark::writer::MarkdownWriter::new(
+                    crate::options::format::FormatFlags::DEFAULT,
+                ),
+                options: crate::options::format::FormatOptions::new(),
+                arena: crate::core::arena::NodeArena::new(),
+            }
+        }
+    }
 
     impl NodeFormatterContext for MockContext {
         fn get_markdown_writer(
             &mut self,
         ) -> &mut crate::render::commonmark::writer::MarkdownWriter {
-            panic!("Not implemented")
+            &mut self.writer
         }
 
         fn render(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
+            // No-op for mock
         }
 
         fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
+            // No-op for mock
         }
 
         fn get_formatting_phase(
@@ -296,7 +312,7 @@ mod tests {
         fn delegate_render(&mut self) {}
 
         fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
-            panic!("Not implemented")
+            &self.options
         }
 
         fn get_render_purpose(
@@ -306,7 +322,7 @@ mod tests {
         }
 
         fn get_arena(&self) -> &crate::core::arena::NodeArena {
-            panic!("Not implemented")
+            &self.arena
         }
 
         fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
@@ -344,7 +360,7 @@ mod tests {
         }
 
         fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            panic!("Not implemented")
+            Box::new(Self::new())
         }
 
         fn is_in_tight_list(&self) -> bool {

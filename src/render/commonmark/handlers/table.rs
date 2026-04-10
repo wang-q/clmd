@@ -190,14 +190,6 @@ pub fn get_backtick_sequence(content: &str) -> String {
     "`".repeat(count)
 }
 
-/// Create handlers for table elements
-///
-/// This function returns an empty vector for now.
-/// Full implementation will be added in a future phase.
-pub fn create_table_handlers() -> Vec<()> {
-    vec![]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -111,11 +111,3 @@ pub fn render_image_url(
         writer.append(")");
     }
 }
-
-/// Create handlers for inline elements
-///
-/// This function returns an empty vector for now.
-/// Full implementation will be added in a future phase.
-pub fn create_inline_handlers() -> Vec<()> {
-    vec![]
-}

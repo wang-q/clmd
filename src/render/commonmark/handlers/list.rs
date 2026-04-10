@@ -423,14 +423,6 @@ pub fn calculate_effective_list_tightness(
     }
 }
 
-/// Create handlers for list elements
-///
-/// This function returns an empty vector for now.
-/// Full implementation will be added in a future phase.
-pub fn create_list_handlers() -> Vec<()> {
-    vec![]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
