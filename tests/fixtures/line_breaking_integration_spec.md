@@ -43,8 +43,7 @@ This is a paragraph that should fit on a single line because the max width is ve
 ```````````````````````````````` example(Paragraph: 4) options(margin[12])
 This is a test
 .
-This is a
-test
+This is a test
 ````````````````````````````````
 
 
@@ -53,9 +52,9 @@ test
 ```````````````````````````````` example(Paragraph: 5) options(margin[25])
 Version 1.2.3 is released on 2024-01-15! Check it out.
 .
-Version 1.2.3 is released
-on 2024-01-15! Check it
-out.
+Version 1.2.3 is
+released on 2024-01-15!
+Check it out.
 ````````````````````````````````
 
 
@@ -119,7 +118,8 @@ out.
   - Nested item with text
 .
 - Item 1
-    - Nested item with text
+    - Nested item with
+      text
 ````````````````````````````````
 
 
@@ -157,7 +157,7 @@ out.
 ```````````````````````````````` example(CJK: 4) options(margin[80])
 `tva`的开发者
 .
-`tva` 的开发者
+`tva`的开发者
 ````````````````````````````````
 
 
@@ -186,7 +186,7 @@ out.
 ```````````````````````````````` example(Punctuation: 3) options(margin[80])
 `strbin`(字符串哈希分箱)
 .
-`strbin` (字符串哈希分箱)
+`strbin`(字符串哈希分箱)
 ````````````````````````````````
 
 
@@ -208,7 +208,8 @@ out.
 ```````````````````````````````` example(Link: 2) options(margin[60])
 我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md) 使用的严格基准测试策略。
 .
-我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+我们旨在重现
+[eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
 使用的严格基准测试策略。
 ````````````````````````````````
 
@@ -218,7 +219,8 @@ out.
 ```````````````````````````````` example(Link: 3) options(margin[60])
 - **HEPMASS** ( 4.8GB): [link](https://archive.ics.uci.edu/ml/datasets/HEPMASS) 。测试。
 .
-- **HEPMASS** (4.8GB): [link](https://archive.ics.uci.edu/ml/datasets/HEPMASS)。
+- **HEPMASS** ( 4.8GB):
+  [link](https://archive.ics.uci.edu/ml/datasets/HEPMASS)。
   测试。
 ````````````````````````````````
 
@@ -230,8 +232,8 @@ out.
 ```````````````````````````````` example(Emphasis: 1) options(margin[45])
 > **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，不是通用编程语言。
 .
-> **保持简单**：tva 的表达式语言设计目标是**简单高效的数据处理**，
-> 不是通用编程语言。
+> **保持简单**：tva 的表达式语言设计目标是**
+> 简单高效的数据处理**，不是通用编程语言。
 ````````````````````````````````
 
 

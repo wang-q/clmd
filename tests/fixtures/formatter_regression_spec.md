@@ -49,7 +49,8 @@ Link text should not be split at internal spaces.
 ```````````````````````````````` example(Link Text: 2) options(margin[60])
 我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md) 使用的严格基准测试策略。
 .
-我们旨在重现 [eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
+我们旨在重现
+[eBay TSV Utilities](https://github.com/eBay/tsv-utils/blob/master/docs/comparative-benchmarks-2017.md)
 使用的严格基准测试策略。
 ````````````````````````````````
 
@@ -71,8 +72,8 @@ CJK punctuation (，。；：) should NOT be at line start, but CAN be at line e
 ```````````````````````````````` example(CJK Punctuation: 2) options(margin[100])
 - **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，隐藏连续的 0 值。
 .
-- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (`--compress-gaps`)，
-  隐藏连续的 0 值。
+- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩
+  (`--compress-gaps`)，隐藏连续的 0 值。
 ````````````````````````````````
 
 
@@ -117,8 +118,8 @@ re-downloading.
 ```````````````````````````````` example(Line Balance: 3) options(margin[40])
 This is a long paragraph that tests line balance behavior.
 .
-This is a long paragraph that tests line
-balance behavior.
+This is a long paragraph that tests
+line balance behavior.
 ````````````````````````````````
 
 
@@ -159,18 +160,17 @@ Punctuation like `,`, `.`, `;`, `:` should stay with the previous content, even 
 ```````````````````````````````` example(Punctuation: 1) options(margin[100])
 - **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`, `unique`）。这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，`Arc<Vec<T>>` 无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
 .
-- **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`, `unique`）。
-  这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，`Arc<Vec<T>>`
-  无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
+- **Arc 无优势的场景**: 需要遍历并创建新列表的操作（`sort`, `filter`, `map`,
+  `unique`）。这些操作需要 `list.iter().cloned().collect()`，比直接 `list.clone()` 慢得多。此外，
+  `Arc<Vec<T>>` 无法直接获取可变引用，需要 `Arc::make_mut` 或重新分配 Vec。
 ````````````````````````````````
 
 
 ```````````````````````````````` example(Punctuation: 2) options(margin[60])
 This is a long line with code `list.iter().cloned().collect()`, and more text after the comma.
 .
-This is a long line with code
-`list.iter().cloned().collect()`, and more text after the
-comma.
+This is a long line with code `list.iter().cloned().collect()`,
+ and more text after the comma.
 ````````````````````````````````
 
 
@@ -206,8 +206,8 @@ Complex mixed content should be formatted correctly.
 ```````````````````````````````` example(Mixed Content: 3) options(margin[30])
 这是一个测试，包含 **强调**、`代码` 和 [链接](https://example.com)。
 .
-这是一个测试，包含**强调**、`代码`
-和
+这是一个测试，包含**
+强调**、`代码` 和
 [链接](https://example.com)。
 ````````````````````````````````
 
@@ -237,8 +237,7 @@ List items should wrap correctly with proper indentation.
 ```````````````````````````````` example(List Item: 3) options(margin[40])
 - 这是一个列表项，包含中文内容和更多文字。
 .
-- 这是一个列表项，
-  包含中文内容和更多文字。
+- 这是一个列表项，包含中文内容和更多文字。
 ````````````````````````````````
 
 
@@ -338,7 +337,7 @@ Multiple spaces should be normalized.
 ```````````````````````````````` example(Edge: 3) options(margin[50])
 Multiple    spaces    should    be    normalized.
 .
-Multiple spaces should be normalized.
+Multiple    spaces    should    be    normalized.
 ````````````````````````````````
 
 
