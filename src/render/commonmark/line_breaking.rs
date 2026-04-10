@@ -290,9 +290,11 @@ impl ParagraphLineBreaker {
             let char_str = c.to_string();
             let char_width = unicode_width::width(&char_str) as usize;
 
-            // Get the previous character for context-aware punctuation handling
+            // Get the previous non-whitespace character for context-aware punctuation handling
+            // We skip whitespace to correctly identify CJK context even when there's space
+            // between text and punctuation (e.g., "CJK text (english)")
             let prev_char = if byte_pos > 0 {
-                text[..byte_pos].chars().last()
+                text[..byte_pos].chars().rev().find(|c| !c.is_whitespace())
             } else {
                 None
             };
@@ -362,6 +364,11 @@ impl ParagraphLineBreaker {
 
         self.current_position += content.len();
         self.current_width += width;
+
+        // Update last_text_fragment for context-aware punctuation handling
+        // This ensures that atomic units (like markdown markers) are considered
+        // when checking for opening brackets before atomic units
+        self.last_text_fragment = Some(content.to_string());
     }
 
     /// Add a hard line break (forced break)
@@ -491,6 +498,8 @@ impl ParagraphLineBreaker {
                     // For Left affinity, we break AFTER a character
                     // The character after the break is `next_fragment_start_char`
                     // We should prevent breaking if `next_fragment_start_char` is a CJK opening bracket
+                    // BUT only if the character before the break is NOT whitespace
+                    // (allow break after whitespace even if next char is opening bracket)
                     let is_cjk_opening_bracket =
                         next_fragment_start_char.map_or(false, |c| {
                             matches!(
@@ -508,8 +517,13 @@ impl ParagraphLineBreaker {
                             )
                         });
 
-                    // Prevent break after CJK opening bracket
-                    is_cjk_opening_bracket
+                    // Check if the character before the break is whitespace
+                    let prev_is_whitespace =
+                        prev_fragment_end_char.map_or(false, |c| c.is_whitespace());
+
+                    // Prevent break after CJK opening bracket, but allow if preceded by whitespace
+                    // This allows "CJK text (" to break at the space, not after the "("
+                    is_cjk_opening_bracket && !prev_is_whitespace
                 }
                 Affinity::Right => {
                     // For Right affinity, we break BEFORE a character
@@ -561,6 +575,8 @@ impl ParagraphLineBreaker {
 
         let mut current_pos = 0;
         let mut current_width = 0;
+        // Track the content of the previous fragment for context-aware handling
+        let mut prev_fragment_content: Option<String> = None;
 
         for fragment in &self.fragments {
             match fragment {
@@ -590,6 +606,8 @@ impl ParagraphLineBreaker {
                     }
                     current_pos += content.len();
                     current_width += width;
+                    // Update previous fragment content
+                    prev_fragment_content = Some(content.clone());
                 }
                 ContentFragment::Atomic {
                     content: atomic_content,
@@ -598,13 +616,12 @@ impl ParagraphLineBreaker {
                 } => {
                     // For atomic units, we can break before and after, but not inside
                     // Break before (only if not at the very beginning)
-                    // But don't break before if the previous TEXT fragment ends with an opening bracket
-                    // This prevents breaking between "(" and the atomic unit
                     if current_pos > 0 {
-                        let ends_with_opening_bracket = self
-                            .last_text_fragment
+                        // Check if the previous fragment ends with an opening bracket
+                        // We need to look at the actual previous fragment, not last_text_fragment
+                        let prev_fragment_ends_with_bracket = prev_fragment_content
                             .as_ref()
-                            .and_then(|s| s.chars().last())
+                            .and_then(|s| s.chars().rev().find(|c| !c.is_whitespace()))
                             .map_or(false, |c| {
                                 matches!(
                                     c,
@@ -622,7 +639,55 @@ impl ParagraphLineBreaker {
                                 )
                             });
 
-                        if !ends_with_opening_bracket {
+                        // Check if there's a space before the opening bracket in the previous fragment
+                        // We need to check if there's a CJK character before the opening bracket
+                        // If the character before the bracket (skipping whitespace) is CJK,
+                        // then we should NOT consider this as "has space before bracket"
+                        // because the space is just for readability, not a word separator
+                        let has_space_before_bracket = prev_fragment_content
+                            .as_ref()
+                            .and_then(|s| {
+                                let chars = s.chars().rev();
+                                // Find the last non-whitespace char (should be the bracket)
+                                let last = chars.clone().find(|c| !c.is_whitespace())?;
+                                if !matches!(
+                                    last,
+                                    '(' | '['
+                                        | '{'
+                                        | '\u{ff08}'
+                                        | '\u{ff3b}'
+                                        | '\u{ff5b}'
+                                        | '\u{300c}'
+                                        | '\u{300e}'
+                                        | '\u{3008}'
+                                        | '\u{300a}'
+                                        | '\u{3010}'
+                                        | '\u{3014}'
+                                ) {
+                                    return None;
+                                }
+                                // Skip the bracket and any whitespace after it
+                                // to find the character before the bracket
+                                let chars = s.chars().rev();
+                                let mut chars = chars.skip_while(|c| c.is_whitespace());
+                                chars.next()?; // Skip bracket
+                                               // Now find the first non-whitespace char before the bracket
+                                let prev_char = chars.find(|c| !c.is_whitespace())?;
+                                // If the char before the bracket is whitespace, return true
+                                // But if it's CJK, we should return false (the space is not a word separator)
+                                if prev_char.is_whitespace() {
+                                    Some(prev_char)
+                                } else {
+                                    None
+                                }
+                            })
+                            .is_some();
+
+                        // Only skip adding break point if:
+                        // 1. The previous fragment ends with an opening bracket, AND
+                        // 2. There's NO space before that bracket
+                        // If there's a space, we should allow the break at the space
+                        if !prev_fragment_ends_with_bracket || has_space_before_bracket {
                             break_positions.push((current_pos, current_width));
                         }
                     }
@@ -634,6 +699,8 @@ impl ParagraphLineBreaker {
                     if !matches!(kind, AtomicKind::Code | AtomicKind::Link) {
                         break_positions.push((current_pos, current_width));
                     }
+                    // Update previous fragment content
+                    prev_fragment_content = Some(atomic_content.clone());
                 }
             }
         }
@@ -692,6 +759,53 @@ impl ParagraphLineBreaker {
             None
         };
 
+        // Helper function to get the last non-whitespace character before a position
+        let get_prev_char_at = |pos: usize| -> Option<char> {
+            let mut current_pos = 0;
+            for fragment in &self.fragments {
+                match fragment {
+                    ContentFragment::Text { content, .. } => {
+                        let fragment_start = current_pos;
+                        let fragment_end = current_pos + content.len();
+                        if pos > fragment_start {
+                            // The position is after the start of this fragment
+                            let end_in_fragment = if pos <= fragment_end {
+                                pos - fragment_start
+                            } else {
+                                content.len()
+                            };
+                            if end_in_fragment > 0 {
+                                return content[..end_in_fragment]
+                                    .chars()
+                                    .rev()
+                                    .find(|c| !c.is_whitespace());
+                            }
+                        }
+                        current_pos = fragment_end;
+                    }
+                    ContentFragment::Atomic { content, .. } => {
+                        let fragment_start = current_pos;
+                        let fragment_end = current_pos + content.len();
+                        if pos > fragment_start {
+                            let end_in_fragment = if pos <= fragment_end {
+                                pos - fragment_start
+                            } else {
+                                content.len()
+                            };
+                            if end_in_fragment > 0 {
+                                return content[..end_in_fragment]
+                                    .chars()
+                                    .rev()
+                                    .find(|c| !c.is_whitespace());
+                            }
+                        }
+                        current_pos = fragment_end;
+                    }
+                }
+            }
+            None
+        };
+
         // Dynamic programming to find optimal breaks
         let n = break_positions.len();
         let mut best_cost: Vec<f64> = vec![f64::INFINITY; n];
@@ -708,7 +822,7 @@ impl ParagraphLineBreaker {
                     // Standard Knuth-Plass: penalize slack quadratically
                     let slack = self.max_width - line_width;
 
-                    // Additional penalty for breaking before punctuation
+                    // Additional penalty for breaking before or after punctuation
                     let punctuation_penalty = if let Some(c) =
                         get_next_char_at(break_positions[i].0)
                     {
@@ -719,6 +833,22 @@ impl ParagraphLineBreaker {
                             10000.0 // Very heavy penalty for breaking before CJK punctuation
                         } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
                             5000.0 // Heavy penalty for breaking before ASCII punctuation
+                        } else if matches!(c, '(' | '[' | '{') {
+                            5000.0 // Heavy penalty for breaking before ASCII opening brackets
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        0.0
+                    } + if let Some(c) =
+                        get_prev_char_at(break_positions[i].0)
+                    {
+                        // Penalty for breaking after opening brackets
+                        if matches!(
+                            c,
+                            '(' | '[' | '{' | '（' | '【' | '「' | '『' | '《' | '〈'
+                        ) {
+                            5000.0 // Heavy penalty for breaking after opening brackets
                         } else {
                             0.0
                         }
@@ -728,11 +858,13 @@ impl ParagraphLineBreaker {
 
                     // For the last line, don't penalize shortness
                     let is_last_line = i == n - 1;
-                    if is_last_line {
+                    let cost = if is_last_line {
                         best_cost[j] + slack as f64 * 0.1 + punctuation_penalty
                     } else {
                         best_cost[j] + (slack as f64).powi(2) + punctuation_penalty
-                    }
+                    };
+
+                    cost
                 } else {
                     // Line overflows - this is bad, but we may have to accept it
                     // for unbreakable content
@@ -1181,5 +1313,55 @@ mod tests {
                 result
             );
         }
+    }
+
+    #[test]
+    fn test_cjk_with_space_before_paren() {
+        // Test case from cli_fmt_line_breaking_spec.md
+        // When there's a space between CJK text and opening paren,
+        // the break should happen at the space, not after the paren
+        let mut breaker = ParagraphLineBreaker::new(100, String::new());
+        // Simulate the text before the atomic unit
+        breaker.add_text("- **特色功能**: 支持日期补全 (`--dates`)，自动填充缺失的日期并设为 0；支持间隙压缩 (");
+        // Simulate the atomic unit (inline code)
+        breaker.add_atomic("`--compress-gaps`", AtomicKind::Code);
+        // Continue with the rest
+        breaker.add_text(")，隐藏连续的 0 值。");
+        let result = breaker.format();
+        println!("Result: {:?}", result);
+        // The opening paren should not be at the end of a line
+        assert!(
+            !result.contains(" (\n"),
+            "Opening paren should not be at line end, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_cjk_with_space_before_paren_simulate_cli() {
+        // Simulate how CLI actually constructs the text
+        // CLI uses add_word for markdown markers and add_text for text content
+        let mut breaker = ParagraphLineBreaker::new(98, "  ".to_string());
+
+        // Simulate CLI's actual call sequence
+        breaker.add_word("-"); // List marker
+        breaker.add_word("**"); // Strong start
+        breaker.add_word("特色功能"); // Strong content
+        breaker.add_word("**"); // Strong end
+        breaker.add_text(": 支持日期补全 (");
+        breaker.add_atomic("`--dates`", AtomicKind::Code);
+        breaker.add_text(")，自动填充缺失的日期并设为 0；支持间隙压缩 (");
+        breaker.add_atomic("`--compress-gaps`", AtomicKind::Code);
+        breaker.add_text(")，隐藏连续的 0 值。");
+
+        let result = breaker.format();
+        println!("Result (simulated CLI): {:?}", result);
+
+        // The opening paren should not be at the end of a line
+        assert!(
+            !result.contains(" (\n"),
+            "Opening paren should not be at line end, got: {:?}",
+            result
+        );
     }
 }
