@@ -14,8 +14,6 @@
 //! assert!(!is_cjk('A'));
 //! ```
 
-use crate::text::unicode::is_cjk;
-
 // =============================================================================
 // Character Type Utilities (from parse::util::scanners::ctype)
 // =============================================================================
@@ -75,24 +73,6 @@ pub fn isspace(b: u8) -> bool {
     matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c')
 }
 
-/// Check if byte is an ASCII digit
-#[inline(always)]
-pub fn isdigit(b: u8) -> bool {
-    b.is_ascii_digit()
-}
-
-/// Check if byte is an ASCII alphabetic character
-#[inline(always)]
-pub fn isalpha(b: u8) -> bool {
-    b.is_ascii_alphabetic()
-}
-
-/// Check if byte is an ASCII alphanumeric character
-#[inline(always)]
-pub fn isalnum(b: u8) -> bool {
-    b.is_ascii_alphanumeric()
-}
-
 /// Fast check if a byte is punctuation using lookup table
 #[inline(always)]
 pub fn is_punctuation_fast(b: u8) -> bool {
@@ -150,74 +130,6 @@ pub fn is_cjk_punctuation(c: char) -> bool {
         '\u{FF3B}'..='\u{FF40}' |
         '\u{FF5B}'..='\u{FF65}'
     )
-}
-
-/// Check if a character is a fullwidth character.
-///
-/// Fullwidth characters are typically displayed with double width
-/// in monospace fonts.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_fullwidth;
-///
-/// assert!(is_fullwidth('Ａ'));  // Fullwidth A
-/// assert!(is_fullwidth('中'));
-/// assert!(!is_fullwidth('A'));
-/// ```ignore
-pub fn is_fullwidth(c: char) -> bool {
-    matches!(c,
-        '\u{1100}'..='\u{115F}' |  // Hangul Jamo
-        '\u{2E80}'..='\u{2EFF}' |  // CJK Radicals Supplement
-        '\u{2F00}'..='\u{2FDF}' |  // Kangxi Radicals
-        '\u{2FF0}'..='\u{303F}' |  // Ideographic Description Characters + CJK Symbols and Punctuation
-        '\u{3040}'..='\u{309F}' |  // Hiragana
-        '\u{30A0}'..='\u{30FF}' |  // Katakana
-        '\u{3100}'..='\u{312F}' |  // Bopomofo
-        '\u{3130}'..='\u{318F}' |  // Hangul Compatibility Jamo
-        '\u{3190}'..='\u{31BF}' |  // Kanbun + Bopomofo Extended
-        '\u{31C0}'..='\u{31EF}' |  // CJK Strokes
-        '\u{31F0}'..='\u{31FF}' |  // Katakana Phonetic Extensions
-        '\u{3200}'..='\u{32FF}' |  // Enclosed CJK Letters & Months
-        '\u{3300}'..='\u{33FF}' |  // CJK Compatibility
-        '\u{3400}'..='\u{4DBF}' |  // CJK Unified Ideographs Extension A
-        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
-        '\u{A960}'..='\u{A97F}' |  // Hangul Jamo Extended-A
-        '\u{AC00}'..='\u{D7A3}' |  // Hangul Syllables
-        '\u{D7B0}'..='\u{D7FF}' |  // Hangul Jamo Extended-B
-        '\u{F900}'..='\u{FAFF}' |  // CJK Compatibility Ideographs
-        '\u{FF01}'..='\u{FF60}' |  // Fullwidth ASCII variants
-        '\u{FFE0}'..='\u{FFE6}'    // Fullwidth symbol variants
-    )
-}
-
-/// Check if a string contains any CJK characters.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::has_cjk;
-///
-/// assert!(has_cjk("Hello 世界"));
-/// assert!(!has_cjk("Hello World"));
-/// ```ignore
-pub fn has_cjk(s: &str) -> bool {
-    s.chars().any(is_cjk)
-}
-
-/// Count the number of CJK characters in a string.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::count_cjk;
-///
-/// assert_eq!(count_cjk("Hello 世界"), 2);
-/// assert_eq!(count_cjk("日本語"), 3);
-/// ```ignore
-pub fn count_cjk(s: &str) -> usize {
-    s.chars().filter(|&c| is_cjk(c)).count()
 }
 
 /// Check if a character can be escaped
@@ -405,29 +317,9 @@ mod tests {
         assert!(!isspace(b'1'));
     }
 
-    #[test]
-    fn test_isdigit() {
-        assert!(isdigit(b'0'));
-        assert!(isdigit(b'9'));
-        assert!(!isdigit(b'a'));
-        assert!(!isdigit(b' '));
-    }
-
-    #[test]
-    fn test_isalpha() {
-        assert!(isalpha(b'a'));
-        assert!(isalpha(b'Z'));
-        assert!(!isalpha(b'1'));
-        assert!(!isalpha(b' '));
-    }
-
-    #[test]
-    fn test_isalnum() {
-        assert!(isalnum(b'a'));
-        assert!(isalnum(b'1'));
-        assert!(!isalnum(b' '));
-        assert!(!isalnum(b'!'));
-    }
+    // =============================================================================
+    // Scanner Character Tests
+    // =============================================================================
 
     #[test]
     fn test_is_punctuation_fast() {
@@ -452,12 +344,6 @@ mod tests {
     }
 
     #[test]
-    fn test_is_punctuation_unicode() {
-        // Test some Unicode punctuation
-        assert!(is_punctuation('。')); // Chinese full stop
-    }
-
-    #[test]
     fn test_is_escapable() {
         assert!(is_escapable('!'));
         assert!(is_escapable('"'));
@@ -466,10 +352,6 @@ mod tests {
         assert!(!is_escapable('a'));
         assert!(!is_escapable(' '));
     }
-
-    // =============================================================================
-    // Scanner Character Tests
-    // =============================================================================
 
     #[test]
     fn test_is_space_or_tab() {
@@ -522,29 +404,5 @@ mod tests {
         assert!(is_cjk_punctuation('」'));
         assert!(!is_cjk_punctuation('.'));
         assert!(!is_cjk_punctuation(','));
-    }
-
-    #[test]
-    fn test_is_fullwidth() {
-        assert!(is_fullwidth('Ａ'));
-        assert!(is_fullwidth('１'));
-        assert!(is_fullwidth('中'));
-        assert!(!is_fullwidth('A'));
-        assert!(!is_fullwidth('1'));
-    }
-
-    #[test]
-    fn test_has_cjk() {
-        assert!(has_cjk("Hello 世界"));
-        assert!(has_cjk("日本語"));
-        assert!(!has_cjk("Hello World"));
-        assert!(!has_cjk("12345"));
-    }
-
-    #[test]
-    fn test_count_cjk() {
-        assert_eq!(count_cjk("Hello 世界"), 2);
-        assert_eq!(count_cjk("日本語"), 3);
-        assert_eq!(count_cjk("Hello World"), 0);
     }
 }

@@ -13,7 +13,7 @@ pub mod html_utils;
 pub mod uri;
 
 // Re-export commonly used types
-pub use char::{count_cjk, has_cjk, is_cjk_punctuation, is_fullwidth};
+pub use char::is_cjk_punctuation;
 pub use cjk_spacing::add_cjk_spacing;
 pub use html_utils::escape_html;
 pub use unicode::is_cjk;
