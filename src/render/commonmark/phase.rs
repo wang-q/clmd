@@ -456,8 +456,12 @@ mod tests {
     #[test]
     fn test_composed_phased_formatter() {
         let mut composed = ComposedPhasedFormatter::new();
-        composed.add_formatter(Box::new(SimplePhasedFormatter::for_collection(|_, _, _| {})));
-        composed.add_formatter(Box::new(SimplePhasedFormatter::for_document_top(|_, _, _| {})));
+        composed.add_formatter(Box::new(SimplePhasedFormatter::for_collection(
+            |_, _, _| {},
+        )));
+        composed.add_formatter(Box::new(SimplePhasedFormatter::for_document_top(
+            |_, _, _| {},
+        )));
 
         let phases = composed.get_all_phases();
         assert_eq!(phases.len(), 2);
