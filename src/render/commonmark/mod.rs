@@ -30,7 +30,6 @@ pub mod phased;
 pub mod purpose;
 pub mod repository_formatter;
 pub mod translation;
-pub mod utils;
 pub mod writer;
 
 // Re-export commonly used types
