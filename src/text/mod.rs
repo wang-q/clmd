@@ -6,7 +6,6 @@
 // String processing
 pub mod char;
 pub mod cjk_spacing;
-pub mod strings;
 pub mod unicode;
 
 // Additional text utilities
@@ -17,7 +16,6 @@ pub mod uri;
 pub use char::{count_cjk, has_cjk, is_cjk_punctuation, is_fullwidth};
 pub use cjk_spacing::add_cjk_spacing;
 pub use html_utils::escape_html;
-pub use strings::decode_entities;
 pub use unicode::is_cjk;
 pub use unicode::{is_double_width, width};
 pub use uri::{normalize_uri, parse_data_uri};
