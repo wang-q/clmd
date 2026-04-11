@@ -10,7 +10,7 @@ use clmd::options::format::{
 };
 use clmd::options::Options as ParseOptions;
 use clmd::parse::parse_document;
-use clmd::render::commonmark::{CommonMarkNodeFormatter, Formatter};
+use clmd::render::commonmark::Formatter;
 use std::fs;
 
 mod test_utils;
@@ -175,8 +175,7 @@ fn format_markdown(input: &str, options: &FormatOptions) -> String {
     let (arena, root) = parse_document(input, &parse_options);
 
     // Format using the formatter
-    let mut formatter = Formatter::with_options(options.clone());
-    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
+    let formatter = Formatter::with_options(options.clone());
 
     formatter.render(&arena, root)
 }

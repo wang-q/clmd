@@ -552,10 +552,7 @@ pub fn format_commonmark(
     let opts =
         options::format::FormatOptions::new().with_right_margin(options.render.width);
 
-    let mut formatter = render::commonmark::Formatter::with_options(opts);
-    formatter.add_node_formatter(Box::new(
-        render::commonmark::commonmark_formatter::CommonMarkNodeFormatter::new(),
-    ));
+    let formatter = render::commonmark::Formatter::with_options(opts);
 
     let result = formatter.render(arena, root);
     write!(output, "{}", result)
