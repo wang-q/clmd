@@ -20,6 +20,16 @@ use std::time::SystemTime;
 use crate::core::error::{ClmdError, LogLevel, LogMessage};
 
 /// Verbosity level for logging.
+
+/// Type alias for the shared state monad.
+pub type SharedMonad = ClmdIO;
+
+/// Create a shared state monad with default configuration.
+pub fn share_monad(io: ClmdIO) -> SharedMonad {
+    io
+}
+
+/// Verbosity level for logging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Verbosity {
     /// Silent - no output.
@@ -178,14 +188,9 @@ impl ClmdIO {
     }
 
     /// Set the sandbox policy.
-    pub fn with_sandbox(mut self, policy: crate::core::sandbox::SandboxPolicy) -> Self {
-        self.sandbox = Some(policy);
+    pub fn with_sandbox(mut self, sandbox: crate::core::sandbox::SandboxPolicy) -> Self {
+        self.sandbox = Some(sandbox);
         self
-    }
-
-    /// Get the sandbox policy if set.
-    pub fn sandbox(&self) -> Option<&crate::core::sandbox::SandboxPolicy> {
-        self.sandbox.as_ref()
     }
 }
 
@@ -478,7 +483,9 @@ impl ClmdPure {
         self.verbosity = verbosity;
         self
     }
+}
 
+impl ClmdPure {
     /// Set the current timestamp.
     pub fn with_timestamp(mut self, timestamp: SystemTime) -> Self {
         self.timestamp = timestamp;
@@ -516,17 +523,17 @@ impl ClmdPure {
             .any(|log| log.level == target_level && log.message.contains(message))
     }
 
-    /// Get a written file's content.
+    /// Get a written file's content (for testing).
     pub fn get_written_file(&self, path: &Path) -> Option<String> {
         self.written_files.borrow().get(path).cloned()
     }
 
-    /// Get a written binary file's content.
+    /// Get a written binary file's content (for testing).
     pub fn get_written_binary_file(&self, path: &Path) -> Option<Vec<u8>> {
         self.written_binary_files.borrow().get(path).cloned()
     }
 
-    /// Get all written file paths.
+    /// Get paths of all written files.
     pub fn get_written_file_paths(&self) -> Vec<PathBuf> {
         self.written_files.borrow().keys().cloned().collect()
     }
@@ -625,17 +632,6 @@ impl ClmdMonad for ClmdPure {
     fn get_user_data_dir(&self) -> Option<PathBuf> {
         self.user_data_dir.clone()
     }
-}
-
-/// A reference-counted monad for shared state.
-///
-/// This is useful when you need to share the monad state across multiple
-/// operations, such as in a multi-threaded context.
-pub type SharedMonad<M> = std::sync::Arc<M>;
-
-/// Create a shared reference to a monad.
-pub fn share_monad<M: ClmdMonad>(monad: M) -> SharedMonad<M> {
-    std::sync::Arc::new(monad)
 }
 
 #[cfg(test)]

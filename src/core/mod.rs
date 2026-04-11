@@ -33,18 +33,16 @@ pub use arena::{
     AncestorIterator, ChildrenIterator, DescendantIterator, FollowingSiblingsIterator,
     NodeArena, NodeId, PrecedingSiblingsIterator, SiblingsIterator, INVALID_NODE_ID,
 };
-pub use ast::{Block, Document, Inline, Walkable as AstWalkable};
+pub use ast::{Block, Document, Inline};
 pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position};
 pub use nodes::NodeValue;
 pub use traverse::{
-    AncestorIter, ArenaIteratorItem, ArenaNodeWalker, ArenaWalkerEvent, ChildIter,
-    DescendantIter, EventIterator, IteratorEventType, NodeType, Query, Queryable,
-    SiblingIter, Traverse, TraverseContext, TraverseEvent, TraverseExt, WalkDirection,
-    Walkable,
+    AncestorIter, ChildIter, DescendantIter, EventIterator, Query, SiblingIter,
+    Traverse, TraverseEvent, TraverseExt,
 };
 
 // Re-export monad types
-pub use monad::{share_monad, ClmdIO, ClmdMonad, ClmdPure, SharedMonad, Verbosity};
+pub use monad::{ClmdIO, ClmdMonad, ClmdPure, Verbosity};
 
 // Re-export sandbox types
 pub use sandbox::{SandboxMode, SandboxPolicy};

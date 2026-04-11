@@ -94,33 +94,20 @@ impl NodeArena {
         }
     }
 
+    /// Create a new arena with limits.
+    pub fn with_limits(_max_depth: usize, max_nodes: usize) -> Self {
+        Self {
+            nodes: Vec::with_capacity(32),
+            max_nodes,
+            total_allocations: 0,
+        }
+    }
+
     /// Create a new arena with capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(capacity),
             max_nodes: 0,
-            total_allocations: 0,
-        }
-    }
-
-    /// Create a new arena with memory limits
-    ///
-    /// # Arguments
-    ///
-    /// * `capacity` - Initial capacity for the arena
-    /// * `max_nodes` - Maximum number of nodes allowed (0 = unlimited)
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use clmd::core::NodeArena;
-    ///
-    /// let arena = NodeArena::with_limits(100, 10000);
-    /// ```
-    pub fn with_limits(capacity: usize, max_nodes: usize) -> Self {
-        Self {
-            nodes: Vec::with_capacity(capacity),
-            max_nodes,
             total_allocations: 0,
         }
     }
@@ -180,11 +167,6 @@ impl NodeArena {
         self.nodes.push(node);
         self.total_allocations += 1;
         Ok(id)
-    }
-
-    /// Get the maximum node limit (0 = unlimited)
-    pub fn max_nodes(&self) -> usize {
-        self.max_nodes
     }
 
     /// Get a reference to a node by ID.
@@ -266,6 +248,11 @@ impl NodeArena {
     /// Check if a node ID is valid
     pub fn is_valid(&self, id: NodeId) -> bool {
         (id as usize) < self.nodes.len()
+    }
+
+    /// Get the maximum number of nodes allowed.
+    pub fn max_nodes(&self) -> usize {
+        self.max_nodes
     }
 
     /// Get the number of nodes in the arena
@@ -531,26 +518,6 @@ impl TreeOps {
         node.parent = None;
         node.next = None;
         node.prev = None;
-    }
-
-    /// Get the first child of a node
-    pub fn first_child(arena: &NodeArena, node_id: NodeId) -> Option<NodeId> {
-        arena.get(node_id).first_child
-    }
-
-    /// Get the last child of a node
-    pub fn last_child(arena: &NodeArena, node_id: NodeId) -> Option<NodeId> {
-        arena.get(node_id).last_child
-    }
-
-    /// Get the next sibling of a node
-    pub fn next_sibling(arena: &NodeArena, node_id: NodeId) -> Option<NodeId> {
-        arena.get(node_id).next
-    }
-
-    /// Get the parent of a node
-    pub fn parent(arena: &NodeArena, node_id: NodeId) -> Option<NodeId> {
-        arena.get(node_id).parent
     }
 
     /// Insert a node after a reference node (as a sibling)

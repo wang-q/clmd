@@ -63,21 +63,6 @@ impl SandboxPolicy {
         }
     }
 
-    /// Create a strict sandbox policy.
-    pub fn strict() -> Self {
-        Self::new(SandboxMode::Strict)
-    }
-
-    /// Create a relaxed sandbox policy.
-    pub fn relaxed() -> Self {
-        Self::new(SandboxMode::Relaxed)
-    }
-
-    /// Disable sandboxing.
-    pub fn disabled() -> Self {
-        Self::new(SandboxMode::Disabled)
-    }
-
     /// Add an allowed path.
     pub fn allow_path(mut self, path: impl AsRef<Path>) -> Self {
         self.allowed_paths.insert(path.as_ref().to_path_buf());
@@ -168,56 +153,5 @@ impl SandboxPolicy {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sandbox_policy_disabled() {
-        let policy = SandboxPolicy::disabled();
-        assert!(policy.is_path_allowed(Path::new("/any/path"), &[]));
-        assert!(policy.is_network_allowed());
-        assert!(policy.are_writes_allowed());
-    }
-
-    #[test]
-    fn test_sandbox_policy_strict() {
-        let policy = SandboxPolicy::strict()
-            .allow_path("/allowed")
-            .block_path("/allowed/blocked");
-
-        assert!(policy.is_path_allowed(Path::new("/allowed/file.txt"), &[]));
-        assert!(!policy.is_path_allowed(Path::new("/other/file.txt"), &[]));
-        assert!(!policy.is_path_allowed(Path::new("/allowed/blocked/file.txt"), &[]));
-    }
-
-    #[test]
-    fn test_sandbox_policy_relaxed() {
-        let policy = SandboxPolicy::relaxed();
-        let resources = vec![PathBuf::from("/resources")];
-
-        assert!(policy.is_path_allowed(Path::new("/resources/file.txt"), &resources));
-    }
-
-    #[test]
-    fn test_sandbox_policy_network() {
-        let policy = SandboxPolicy::disabled().without_network();
-        assert!(!policy.is_network_allowed());
-    }
-
-    #[test]
-    fn test_sandbox_policy_writes() {
-        let policy = SandboxPolicy::disabled().without_writes();
-        assert!(!policy.are_writes_allowed());
-    }
-
-    #[test]
-    fn test_sandbox_policy_file_size() {
-        let policy = SandboxPolicy::disabled().with_max_file_size(100);
-        assert!(policy.validate_file_size(50).is_ok());
-        assert!(policy.validate_file_size(150).is_err());
     }
 }

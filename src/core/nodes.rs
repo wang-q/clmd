@@ -4,17 +4,6 @@
 //! It is inspired by comrak's design, combining node values with metadata
 //! into a unified structure.
 
-/// Shorthand for checking if a node's value matches the given expression.
-///
-/// Note this will call `node.data()`, which will fail if the node is already
-/// mutably borrowed.
-#[macro_export]
-macro_rules! node_matches {
-    ($node:expr, $( $pat:pat_param )|+) => {{
-        matches!($node.data().value, $( $pat )|+)
-    }};
-}
-
 /// The core AST node value enum.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeValue {
@@ -349,15 +338,7 @@ pub enum ListDelimType {
     Paren,
 }
 
-impl ListDelimType {
-    /// Returns the XML name for this delimiter type.
-    pub fn xml_name(&self) -> &'static str {
-        match self {
-            ListDelimType::Period => "period",
-            ListDelimType::Paren => "paren",
-        }
-    }
-}
+impl ListDelimType {}
 
 /// Metadata for a description list item.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -472,17 +453,7 @@ pub enum TableAlignment {
     Right,
 }
 
-impl TableAlignment {
-    /// Returns the XML name for this alignment.
-    pub fn xml_name(&self) -> Option<&'static str> {
-        match self {
-            TableAlignment::None => None,
-            TableAlignment::Left => Some("left"),
-            TableAlignment::Center => Some("center"),
-            TableAlignment::Right => Some("right"),
-        }
-    }
-}
+impl TableAlignment {}
 
 /// Metadata for a task list item.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -584,18 +555,7 @@ pub enum AlertType {
     Caution,
 }
 
-impl AlertType {
-    /// Returns the default title for this alert type.
-    pub fn default_title(&self) -> &'static str {
-        match self {
-            AlertType::Note => "Note",
-            AlertType::Tip => "Tip",
-            AlertType::Important => "Important",
-            AlertType::Warning => "Warning",
-            AlertType::Caution => "Caution",
-        }
-    }
-}
+impl AlertType {}
 
 /// Metadata for an alert.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -617,6 +577,48 @@ pub struct NodeAlert {
 }
 
 impl NodeValue {
+    /// Create a Text node from a string.
+    #[inline]
+    pub fn make_text<S: Into<Box<str>>>(s: S) -> Self {
+        NodeValue::Text(s.into())
+    }
+
+    /// Create a Code inline node.
+    #[inline]
+    pub fn code(code: NodeCode) -> Self {
+        NodeValue::Code(Box::new(code))
+    }
+
+    /// Create a Link node.
+    #[inline]
+    pub fn link(link: NodeLink) -> Self {
+        NodeValue::Link(Box::new(link))
+    }
+
+    /// Create an Image node.
+    #[inline]
+    pub fn image(image: NodeLink) -> Self {
+        NodeValue::Image(Box::new(image))
+    }
+
+    /// Create a Table node.
+    #[inline]
+    pub fn table(table: NodeTable) -> Self {
+        NodeValue::Table(Box::new(table))
+    }
+
+    /// Create a FootnoteReference node.
+    #[inline]
+    pub fn footnote_reference(ref_: NodeFootnoteReference) -> Self {
+        NodeValue::FootnoteReference(Box::new(ref_))
+    }
+
+    /// Create a FootnoteDefinition node.
+    #[inline]
+    pub fn footnote_definition(def: NodeFootnoteDefinition) -> Self {
+        NodeValue::FootnoteDefinition(Box::new(def))
+    }
+
     /// Check if this node value represents a block element.
     pub fn is_block(&self) -> bool {
         matches!(
@@ -646,33 +648,6 @@ impl NodeValue {
         )
     }
 
-    /// Check if this node value represents an inline element.
-    pub fn is_inline(&self) -> bool {
-        matches!(
-            self,
-            NodeValue::Text(..)
-                | NodeValue::SoftBreak
-                | NodeValue::HardBreak
-                | NodeValue::Code(..)
-                | NodeValue::HtmlInline(..)
-                | NodeValue::Emph
-                | NodeValue::Strong
-                | NodeValue::Strikethrough
-                | NodeValue::Highlight
-                | NodeValue::Insert
-                | NodeValue::Superscript
-                | NodeValue::Subscript
-                | NodeValue::Link(..)
-                | NodeValue::Image(..)
-                | NodeValue::FootnoteReference(..)
-                | NodeValue::Math(..)
-                | NodeValue::WikiLink(..)
-                | NodeValue::Underline
-                | NodeValue::SpoileredText
-                | NodeValue::Escaped
-        )
-    }
-
     /// Check if this is a leaf node (cannot have children).
     pub fn is_leaf(&self) -> bool {
         matches!(
@@ -690,26 +665,6 @@ impl NodeValue {
                 | NodeValue::FrontMatter(..)
                 | NodeValue::ShortCode(..)
         )
-    }
-
-    /// Return a reference to the text of a `Text` inline, if this node is one.
-    ///
-    /// Convenience method.
-    pub fn text(&self) -> Option<&str> {
-        match self {
-            NodeValue::Text(text) => Some(text),
-            _ => None,
-        }
-    }
-
-    /// Return a mutable reference to the text of a `Text` inline, if this node is one.
-    ///
-    /// Convenience method.
-    pub fn text_mut(&mut self) -> Option<&mut Box<str>> {
-        match self {
-            NodeValue::Text(text) => Some(text),
-            _ => None,
-        }
     }
 
     /// Returns the XML node name for this value.
@@ -761,89 +716,5 @@ impl NodeValue {
             NodeValue::EscapedTag(_) => "escaped_tag",
             NodeValue::ShortCode(_) => "shortcode",
         }
-    }
-
-    /// Create a Text node from a string.
-    #[inline]
-    pub fn make_text<S: Into<Box<str>>>(s: S) -> Self {
-        NodeValue::Text(s.into())
-    }
-
-    /// Create a CodeBlock node.
-    #[inline]
-    pub fn code_block(code: NodeCodeBlock) -> Self {
-        NodeValue::CodeBlock(Box::new(code))
-    }
-
-    /// Create an HtmlBlock node.
-    #[inline]
-    pub fn html_block(block: NodeHtmlBlock) -> Self {
-        NodeValue::HtmlBlock(Box::new(block))
-    }
-
-    /// Create a FootnoteDefinition node.
-    #[inline]
-    pub fn footnote_definition(def: NodeFootnoteDefinition) -> Self {
-        NodeValue::FootnoteDefinition(Box::new(def))
-    }
-
-    /// Create a Table node.
-    #[inline]
-    pub fn table(table: NodeTable) -> Self {
-        NodeValue::Table(Box::new(table))
-    }
-
-    /// Create a Code inline node.
-    #[inline]
-    pub fn code(code: NodeCode) -> Self {
-        NodeValue::Code(Box::new(code))
-    }
-
-    /// Create a Link node.
-    #[inline]
-    pub fn link(link: NodeLink) -> Self {
-        NodeValue::Link(Box::new(link))
-    }
-
-    /// Create an Image node.
-    #[inline]
-    pub fn image(image: NodeLink) -> Self {
-        NodeValue::Image(Box::new(image))
-    }
-
-    /// Create a FootnoteReference node.
-    #[inline]
-    pub fn footnote_reference(ref_: NodeFootnoteReference) -> Self {
-        NodeValue::FootnoteReference(Box::new(ref_))
-    }
-
-    /// Create a Heading node.
-    #[inline]
-    pub fn heading(heading: NodeHeading) -> Self {
-        NodeValue::Heading(heading)
-    }
-
-    /// Create a Math node.
-    #[inline]
-    pub fn math(math: NodeMath) -> Self {
-        NodeValue::Math(Box::new(math))
-    }
-
-    /// Create a WikiLink node.
-    #[inline]
-    pub fn wiki_link(wiki: NodeWikiLink) -> Self {
-        NodeValue::WikiLink(Box::new(wiki))
-    }
-
-    /// Create a MultilineBlockQuote node.
-    #[inline]
-    pub fn multiline_block_quote(quote: NodeMultilineBlockQuote) -> Self {
-        NodeValue::MultilineBlockQuote(Box::new(quote))
-    }
-
-    /// Create an Alert node.
-    #[inline]
-    pub fn alert(alert: NodeAlert) -> Self {
-        NodeValue::Alert(Box::new(alert))
     }
 }
