@@ -2,7 +2,7 @@
 //!
 //! Stress tests with extreme inputs to test parser robustness.
 
-use clmd::{markdown_to_html, Options, Plugins};
+use clmd::{markdown_to_html, Options};
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
 };
@@ -18,13 +18,7 @@ fn bench_nested_emphasis(c: &mut Criterion) {
             BenchmarkId::from_parameter(depth),
             &input,
             |b, input| {
-                b.iter(|| {
-                    markdown_to_html(
-                        black_box(input),
-                        &Options::default(),
-                        &Plugins::default(),
-                    )
-                })
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
             },
         );
     }
@@ -48,13 +42,7 @@ fn bench_many_link_defs(c: &mut Criterion) {
             BenchmarkId::from_parameter(count),
             &input,
             |b, input| {
-                b.iter(|| {
-                    markdown_to_html(
-                        black_box(input),
-                        &Options::default(),
-                        &Plugins::default(),
-                    )
-                })
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
             },
         );
     }
@@ -78,13 +66,7 @@ fn bench_deep_nested_lists(c: &mut Criterion) {
             BenchmarkId::from_parameter(depth),
             &input,
             |b, input| {
-                b.iter(|| {
-                    markdown_to_html(
-                        black_box(input),
-                        &Options::default(),
-                        &Plugins::default(),
-                    )
-                })
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
             },
         );
     }
@@ -105,13 +87,7 @@ fn bench_long_inline_code(c: &mut Criterion) {
             BenchmarkId::from_parameter(length),
             &input,
             |b, input| {
-                b.iter(|| {
-                    markdown_to_html(
-                        black_box(input),
-                        &Options::default(),
-                        &Plugins::default(),
-                    )
-                })
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
             },
         );
     }
@@ -131,13 +107,7 @@ fn bench_many_backticks(c: &mut Criterion) {
             BenchmarkId::from_parameter(count),
             &input,
             |b, input| {
-                b.iter(|| {
-                    markdown_to_html(
-                        black_box(input),
-                        &Options::default(),
-                        &Plugins::default(),
-                    )
-                })
+                b.iter(|| markdown_to_html(black_box(input), &Options::default()))
             },
         );
     }
@@ -169,13 +139,7 @@ fn bench_wide_tables(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(input.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(cols), &input, |b, input| {
-            b.iter(|| {
-                markdown_to_html(
-                    black_box(input),
-                    &Options::default(),
-                    &Plugins::default(),
-                )
-            })
+            b.iter(|| markdown_to_html(black_box(input), &Options::default()))
         });
     }
 

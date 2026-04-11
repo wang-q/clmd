@@ -2,7 +2,7 @@
 //!
 //! Benchmarks based on cmark's sample files, organized by category.
 
-use clmd::{markdown_to_html, Options, Plugins};
+use clmd::{markdown_to_html, Options};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 // Block-level benchmarks
@@ -10,7 +10,7 @@ fn bench_block_quotes_flat(c: &mut Criterion) {
     let input = include_str!("samples/block-bq-flat.md");
     let options = Options::default();
     c.bench_function("block_quotes_flat", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -18,7 +18,7 @@ fn bench_block_quotes_nested(c: &mut Criterion) {
     let input = include_str!("samples/block-bq-nested.md");
     let options = Options::default();
     c.bench_function("block_quotes_nested", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -26,7 +26,7 @@ fn bench_block_code(c: &mut Criterion) {
     let input = include_str!("samples/block-code.md");
     let options = Options::default();
     c.bench_function("block_code", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -34,7 +34,7 @@ fn bench_block_fences(c: &mut Criterion) {
     let input = include_str!("samples/block-fences.md");
     let options = Options::default();
     c.bench_function("block_fences", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -42,7 +42,7 @@ fn bench_block_heading(c: &mut Criterion) {
     let input = include_str!("samples/block-heading.md");
     let options = Options::default();
     c.bench_function("block_heading", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -50,7 +50,7 @@ fn bench_block_hr(c: &mut Criterion) {
     let input = include_str!("samples/block-hr.md");
     let options = Options::default();
     c.bench_function("block_hr", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -58,7 +58,7 @@ fn bench_block_list_flat(c: &mut Criterion) {
     let input = include_str!("samples/block-list-flat.md");
     let options = Options::default();
     c.bench_function("block_list_flat", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -66,7 +66,7 @@ fn bench_block_list_nested(c: &mut Criterion) {
     let input = include_str!("samples/block-list-nested.md");
     let options = Options::default();
     c.bench_function("block_list_nested", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -74,7 +74,7 @@ fn bench_block_html(c: &mut Criterion) {
     let input = include_str!("samples/block-html.md");
     let options = Options::default();
     c.bench_function("block_html", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -82,7 +82,7 @@ fn bench_block_lheading(c: &mut Criterion) {
     let input = include_str!("samples/block-lheading.md");
     let options = Options::default();
     c.bench_function("block_lheading", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -90,7 +90,7 @@ fn bench_block_ref_flat(c: &mut Criterion) {
     let input = include_str!("samples/block-ref-flat.md");
     let options = Options::default();
     c.bench_function("block_ref_flat", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -98,7 +98,7 @@ fn bench_block_ref_nested(c: &mut Criterion) {
     let input = include_str!("samples/block-ref-nested.md");
     let options = Options::default();
     c.bench_function("block_ref_nested", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -107,7 +107,7 @@ fn bench_inline_autolink(c: &mut Criterion) {
     let input = include_str!("samples/inline-autolink.md");
     let options = Options::default();
     c.bench_function("inline_autolink", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -115,7 +115,7 @@ fn bench_inline_backticks(c: &mut Criterion) {
     let input = include_str!("samples/inline-backticks.md");
     let options = Options::default();
     c.bench_function("inline_backticks", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -123,7 +123,7 @@ fn bench_inline_em_flat(c: &mut Criterion) {
     let input = include_str!("samples/inline-em-flat.md");
     let options = Options::default();
     c.bench_function("inline_em_flat", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -131,7 +131,7 @@ fn bench_inline_em_nested(c: &mut Criterion) {
     let input = include_str!("samples/inline-em-nested.md");
     let options = Options::default();
     c.bench_function("inline_em_nested", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -139,7 +139,7 @@ fn bench_inline_em_worst(c: &mut Criterion) {
     let input = include_str!("samples/inline-em-worst.md");
     let options = Options::default();
     c.bench_function("inline_em_worst", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -147,7 +147,7 @@ fn bench_inline_entity(c: &mut Criterion) {
     let input = include_str!("samples/inline-entity.md");
     let options = Options::default();
     c.bench_function("inline_entity", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -155,7 +155,7 @@ fn bench_inline_escape(c: &mut Criterion) {
     let input = include_str!("samples/inline-escape.md");
     let options = Options::default();
     c.bench_function("inline_escape", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -163,7 +163,7 @@ fn bench_inline_html(c: &mut Criterion) {
     let input = include_str!("samples/inline-html.md");
     let options = Options::default();
     c.bench_function("inline_html", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -171,7 +171,7 @@ fn bench_inline_links_flat(c: &mut Criterion) {
     let input = include_str!("samples/inline-links-flat.md");
     let options = Options::default();
     c.bench_function("inline_links_flat", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -179,7 +179,7 @@ fn bench_inline_links_nested(c: &mut Criterion) {
     let input = include_str!("samples/inline-links-nested.md");
     let options = Options::default();
     c.bench_function("inline_links_nested", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -187,7 +187,7 @@ fn bench_inline_newlines(c: &mut Criterion) {
     let input = include_str!("samples/inline-newlines.md");
     let options = Options::default();
     c.bench_function("inline_newlines", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -196,7 +196,7 @@ fn bench_lorem1(c: &mut Criterion) {
     let input = include_str!("samples/lorem1.md");
     let options = Options::default();
     c.bench_function("lorem1_full_document", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -205,7 +205,7 @@ fn bench_lorem_large(c: &mut Criterion) {
     let input = include_str!("samples/lorem-large.md");
     let options = Options::default();
     c.bench_function("lorem_large_7kb", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -213,7 +213,7 @@ fn bench_lorem_xlarge(c: &mut Criterion) {
     let input = include_str!("samples/lorem-xlarge.md");
     let options = Options::default();
     c.bench_function("lorem_xlarge_110kb", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -261,7 +261,7 @@ fn bench_small_document(c: &mut Criterion) {
     let input = "# Hello World\n\nThis is a **small** document with *some* formatting.\n\n- Item 1\n- Item 2\n- Item 3\n\n> A blockquote\n> with multiple lines\n";
     let options = Options::default();
     c.bench_function("synthetic_small_document", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -327,7 +327,7 @@ That's all for this medium document!
 "#;
     let options = Options::default();
     c.bench_function("synthetic_medium_document", |b| {
-        b.iter(|| markdown_to_html(black_box(input), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(input), &options))
     });
 }
 
@@ -371,7 +371,7 @@ Visit [example.com](https://example.com) for more information.
     let large = medium.repeat(10);
     let options = Options::default();
     c.bench_function("synthetic_large_document", |b| {
-        b.iter(|| markdown_to_html(black_box(&large), &options, &Plugins::default()))
+        b.iter(|| markdown_to_html(black_box(&large), &options))
     });
 }
 
