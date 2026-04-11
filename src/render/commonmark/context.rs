@@ -55,12 +55,6 @@ pub trait NodeFormatterContext {
             .and_then(|id| self.get_arena().get(id).parent)
     }
 
-    /// Get the current node's value
-    fn get_current_node_value(&self) -> Option<&NodeValue> {
-        self.get_current_node()
-            .map(|id| &self.get_arena().get(id).value)
-    }
-
     /// Check if a node has a child of a specific type
     fn has_child_of_type(&self, node_id: NodeId, node_type: NodeType) -> bool {
         let arena = self.get_arena();
@@ -171,18 +165,6 @@ pub trait NodeFormatterContext {
     /// Decrement the block quote nesting level
     fn decrement_block_quote_nesting(&mut self);
 
-    /// Check if the current node is the first child of its parent
-    fn is_first_child(&self) -> bool {
-        self.get_current_node()
-            .is_some_and(|node_id| self.get_arena().get(node_id).prev.is_none())
-    }
-
-    /// Check if the current node is the last child of its parent
-    fn is_last_child(&self) -> bool {
-        self.get_current_node()
-            .is_some_and(|node_id| self.get_arena().get(node_id).next.is_none())
-    }
-
     /// Check if the current node's parent is a list item
     fn is_parent_list_item(&self) -> bool {
         self.get_current_node_parent().is_some_and(|parent_id| {
@@ -190,30 +172,10 @@ pub trait NodeFormatterContext {
         })
     }
 
-    /// Check if the current node's parent is a list
-    fn is_parent_list(&self) -> bool {
-        self.get_current_node_parent().is_some_and(|parent_id| {
-            matches!(self.get_arena().get(parent_id).value, NodeValue::List(_))
-        })
-    }
-
-    /// Check if the current node's parent is a block quote
-    fn is_parent_block_quote(&self) -> bool {
-        self.get_current_node_parent().is_some_and(|parent_id| {
-            matches!(self.get_arena().get(parent_id).value, NodeValue::BlockQuote)
-        })
-    }
-
     /// Check if the current node has a next sibling
     fn has_next_sibling(&self) -> bool {
         self.get_current_node()
             .is_some_and(|node_id| self.get_arena().get(node_id).next.is_some())
-    }
-
-    /// Check if the current node has a previous sibling
-    fn has_prev_sibling(&self) -> bool {
-        self.get_current_node()
-            .is_some_and(|node_id| self.get_arena().get(node_id).prev.is_some())
     }
 
     // ParagraphLineBreaker methods
@@ -337,16 +299,6 @@ impl<'a> SubFormatterContext<'a> {
             in_block_quote: false,
             block_quote_nesting: 0,
         }
-    }
-
-    /// Get the Markdown writer
-    pub fn get_writer(&self) -> &MarkdownWriter {
-        &self.markdown
-    }
-
-    /// Get the Markdown writer mutably
-    pub fn get_writer_mut(&mut self) -> &mut MarkdownWriter {
-        &mut self.markdown
     }
 }
 
@@ -555,34 +507,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
     fn paragraph_ends_with_cjk(&self) -> bool {
         self.parent.paragraph_ends_with_cjk()
     }
-}
-
-/// Trait for explicit attribute ID providers
-///
-/// This trait is used by extensions to insert explicit IDs for headings during formatting.
-pub trait ExplicitAttributeIdProvider {
-    /// Add an explicit ID to a node
-    ///
-    /// This is called when a node has an explicit ID attribute.
-    fn add_explicit_id(
-        &self,
-        node_id: NodeId,
-        id: Option<&str>,
-        context: &mut dyn NodeFormatterContext,
-        writer: &mut MarkdownWriter,
-    );
-}
-
-/// Trait for translation span renderers
-///
-/// This trait is used for rendering content that should be translated.
-pub trait TranslatingSpanRenderer {
-    /// Render the span
-    fn render(
-        &self,
-        context: &mut dyn NodeFormatterContext,
-        writer: &mut MarkdownWriter,
-    );
 }
 
 /// Trait for translation placeholder generators
@@ -995,26 +919,6 @@ mod tests {
         // Set current node to document (no parent)
         ctx.current_node = Some(doc);
         assert!(ctx.get_current_node_parent().is_none());
-    }
-
-    #[test]
-    fn test_mock_context_get_current_node_value() {
-        let mut ctx = MockContext::new();
-
-        // No current node
-        assert!(ctx.get_current_node_value().is_none());
-
-        // Create and set a text node
-        let text = ctx
-            .arena
-            .alloc(Node::with_value(NodeValue::make_text("Hello")));
-        ctx.current_node = Some(text);
-
-        if let Some(NodeValue::Text(text_node)) = ctx.get_current_node_value() {
-            assert_eq!(text_node.as_ref(), "Hello");
-        } else {
-            panic!("Expected Text node");
-        }
     }
 
     #[test]

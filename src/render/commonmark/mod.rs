@@ -34,8 +34,8 @@ pub use crate::options::format::{
 };
 pub use commonmark_formatter::CommonMarkNodeFormatter;
 pub use context::{
-    DefaultPlaceholderGenerator, ExplicitAttributeIdProvider, NodeFormatterContext,
-    SubFormatterContext, TranslationPlaceholderGenerator,
+    DefaultPlaceholderGenerator, NodeFormatterContext, SubFormatterContext,
+    TranslationPlaceholderGenerator,
 };
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
