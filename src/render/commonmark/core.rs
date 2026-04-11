@@ -1,9 +1,182 @@
-//! Node formatter context trait definitions
+//! Core types for CommonMark formatting
+//!
+//! This module defines the core traits and types for node formatting:
+//! - NodeFormatterContext: Context interface for formatting operations
+//! - NodeFormatter: Trait for node formatters
+//! - NodeFormattingHandler: Handler for specific node types
+
+use std::mem::Discriminant;
+use std::rc::Rc;
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
-use crate::render::commonmark::node::NodeType;
+use crate::render::commonmark::writer::MarkdownWriter;
+
+// ============================================================================
+// Node Type
+// ============================================================================
+
+/// Type alias for node type discriminant
+pub type NodeType = Discriminant<NodeValue>;
+
+// ============================================================================
+// Node Formatting Handler
+// ============================================================================
+
+/// A handler for formatting a specific node type
+///
+/// This handler supports both opening and closing callbacks for nodes
+/// that need special handling at the end (like links and images).
+#[derive(Clone)]
+pub struct NodeFormattingHandler {
+    /// The node type this handler can format (using discriminant for efficiency)
+    pub node_type: NodeType,
+    /// The opening formatter (called when entering the node)
+    pub open_formatter: NodeFormatterFn,
+    /// The closing formatter (called when exiting the node, optional)
+    pub close_formatter: Option<NodeFormatterFn>,
+}
+
+impl std::fmt::Debug for NodeFormattingHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NodeFormattingHandler")
+            .field("has_close_formatter", &self.close_formatter.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+impl NodeFormattingHandler {
+    /// Create a new node formatting handler with only an opening formatter
+    pub fn new<F>(node_type: NodeType, formatter: F) -> Self
+    where
+        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
+    {
+        Self {
+            node_type,
+            open_formatter: Rc::new(formatter),
+            close_formatter: None,
+        }
+    }
+
+    /// Create a new handler with both opening and closing formatters
+    pub fn with_close<F, G>(node_type: NodeType, open: F, close: G) -> Self
+    where
+        F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
+        G: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
+            + Send
+            + Sync
+            + 'static,
+    {
+        Self {
+            node_type,
+            open_formatter: Rc::new(open),
+            close_formatter: Some(Rc::new(close)),
+        }
+    }
+
+    /// Call the opening formatter
+    pub fn format_open(
+        &self,
+        value: &NodeValue,
+        ctx: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
+    ) {
+        (self.open_formatter)(value, ctx, writer);
+    }
+
+    /// Call the closing formatter if present
+    pub fn format_close(
+        &self,
+        value: &NodeValue,
+        ctx: &mut dyn NodeFormatterContext,
+        writer: &mut MarkdownWriter,
+    ) {
+        if let Some(ref close) = self.close_formatter {
+            (close)(value, ctx, writer);
+        }
+    }
+}
+
+/// Type alias for node formatter functions
+pub type NodeFormatterFn = Rc<
+    dyn Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter) + Send + Sync,
+>;
+
+// ============================================================================
+// Node Formatter Trait
+// ============================================================================
+
+/// Trait for node formatters
+///
+/// Implementors of this trait can provide custom formatting for specific node types.
+pub trait NodeFormatter: Send + Sync {
+    /// Get the node formatting handlers provided by this formatter
+    ///
+    /// Returns a list of handlers that map node types to formatting functions.
+    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler>;
+}
+
+// ============================================================================
+// Composed Node Formatter
+// ============================================================================
+
+/// A composed node formatter that combines multiple formatters
+pub struct ComposedNodeFormatter {
+    formatters: Vec<Box<dyn NodeFormatter>>,
+}
+
+impl std::fmt::Debug for ComposedNodeFormatter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComposedNodeFormatter")
+            .field("formatters", &self.formatters.len())
+            .finish()
+    }
+}
+
+impl ComposedNodeFormatter {
+    /// Create a new composed formatter
+    pub fn new() -> Self {
+        Self {
+            formatters: Vec::new(),
+        }
+    }
+
+    /// Add a formatter to the composition
+    pub fn add_formatter(&mut self, formatter: Box<dyn NodeFormatter>) {
+        self.formatters.push(formatter);
+    }
+
+    /// Get all handlers from all formatters
+    pub fn get_all_handlers(&self) -> Vec<NodeFormattingHandler> {
+        self.formatters
+            .iter()
+            .flat_map(|f| f.get_node_formatting_handlers())
+            .collect()
+    }
+}
+
+impl Default for ComposedNodeFormatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NodeFormatter for ComposedNodeFormatter {
+    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+        self.get_all_handlers()
+    }
+}
+
+// ============================================================================
+// Node Formatter Context Trait
+// ============================================================================
 
 /// Context for node formatting operations
 pub trait NodeFormatterContext {
@@ -149,26 +322,42 @@ pub trait NodeFormatterContext {
     fn is_paragraph_line_breaking(&self) -> bool;
 }
 
+// ============================================================================
+// Test Utilities
+// ============================================================================
+
 #[cfg(test)]
-mod tests {
+/// Test utilities for the commonmark module
+pub mod test_utils {
     use super::*;
     use crate::core::arena::{Node, NodeArena};
     use crate::core::nodes::NodeValue;
 
-    /// Mock implementation of NodeFormatterContext for testing
-    struct MockContext {
-        arena: NodeArena,
-        options: FormatOptions,
-        current_node: Option<NodeId>,
-        tight_list: bool,
-        list_nesting: usize,
-        in_block_quote: bool,
-        block_quote_nesting: usize,
-        table_data: Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>,
+    /// Shared mock implementation of NodeFormatterContext for testing
+    #[derive(Debug)]
+    pub struct MockContext {
+        /// Node arena for testing
+        pub arena: NodeArena,
+        /// Formatter options for testing
+        pub options: FormatOptions,
+        /// Current node being processed
+        pub current_node: Option<NodeId>,
+        /// Tight list context flag
+        pub tight_list: bool,
+        /// List nesting level
+        pub list_nesting: usize,
+        /// Block quote context flag
+        pub in_block_quote: bool,
+        /// Block quote nesting level
+        pub block_quote_nesting: usize,
+        /// Table data collection
+        pub table_data:
+            Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>,
     }
 
     impl MockContext {
-        fn new() -> Self {
+        /// Create a new mock context for testing
+        pub fn new() -> Self {
             Self {
                 arena: NodeArena::new(),
                 options: FormatOptions::new(),
@@ -437,5 +626,188 @@ mod tests {
         // Set current node to document (no parent)
         ctx.current_node = Some(doc);
         assert!(ctx.get_current_node_parent().is_none());
+    }
+}
+
+// ============================================================================
+// Node Formatting Handler Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::options::format::FormatOptions;
+    use crate::render::commonmark::writer::MarkdownWriter;
+
+    #[test]
+    fn test_node_formatting_handler_new() {
+        let handler = NodeFormattingHandler::new(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            |_, _, writer| {
+                writer.append("test");
+            },
+        );
+
+        assert!(handler.close_formatter.is_none());
+    }
+
+    #[test]
+    fn test_node_formatting_handler_with_close() {
+        let handler = NodeFormattingHandler::with_close(
+            std::mem::discriminant(&NodeValue::Link(Box::default())),
+            |_, _, writer| {
+                writer.append("[");
+            },
+            |_, _, writer| {
+                writer.append("]");
+            },
+        );
+
+        assert!(handler.close_formatter.is_some());
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_open() {
+        let handler = NodeFormattingHandler::new(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            |_, _, writer| {
+                writer.append("hello");
+            },
+        );
+
+        let options = FormatOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        // This should not panic
+        handler.format_open(&text, &mut test_utils::MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_close_with_close() {
+        let handler = NodeFormattingHandler::with_close(
+            std::mem::discriminant(&NodeValue::Emph),
+            |_, _, _| {},
+            |_, _, writer| {
+                writer.append("*");
+            },
+        );
+
+        let options = FormatOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        handler.format_close(&text, &mut test_utils::MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_format_close_without_close() {
+        let handler = NodeFormattingHandler::new(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            |_, _, _| {},
+        );
+
+        let options = FormatOptions::new();
+        let mut writer = MarkdownWriter::new(options.format_flags);
+        let text = NodeValue::make_text("test");
+
+        // Should not panic even without close formatter
+        handler.format_close(&text, &mut test_utils::MockContext::new(), &mut writer);
+    }
+
+    #[test]
+    fn test_node_formatting_handler_debug() {
+        let handler = NodeFormattingHandler::new(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            |_, _, _| {},
+        );
+        let debug_str = format!("{:?}", handler);
+        assert!(debug_str.contains("NodeFormattingHandler"));
+    }
+
+    #[test]
+    fn test_node_formatting_handler_clone() {
+        let handler = NodeFormattingHandler::new(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            |_, _, _| {},
+        );
+        let cloned = handler.clone();
+        assert_eq!(
+            std::mem::discriminant(&NodeValue::Paragraph),
+            cloned.node_type
+        );
+    }
+
+    #[test]
+    fn test_composed_formatter_new() {
+        let composed = ComposedNodeFormatter::new();
+        assert_eq!(composed.get_all_handlers().len(), 0);
+    }
+
+    #[test]
+    fn test_composed_formatter_default() {
+        let composed: ComposedNodeFormatter = Default::default();
+        assert_eq!(composed.get_all_handlers().len(), 0);
+    }
+
+    #[test]
+    fn test_composed_formatter_add_multiple() {
+        struct TestFormatter1;
+        impl NodeFormatter for TestFormatter1 {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![
+                    NodeFormattingHandler::new(
+                        std::mem::discriminant(&NodeValue::Paragraph),
+                        |_, _, _| {},
+                    ),
+                    NodeFormattingHandler::new(
+                        std::mem::discriminant(&NodeValue::Heading(
+                            crate::core::nodes::NodeHeading::default(),
+                        )),
+                        |_, _, _| {},
+                    ),
+                ]
+            }
+        }
+
+        struct TestFormatter2;
+        impl NodeFormatter for TestFormatter2 {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![NodeFormattingHandler::new(
+                    std::mem::discriminant(&NodeValue::BlockQuote),
+                    |_, _, _| {},
+                )]
+            }
+        }
+
+        let mut composed = ComposedNodeFormatter::new();
+        composed.add_formatter(Box::new(TestFormatter1));
+        composed.add_formatter(Box::new(TestFormatter2));
+
+        let handlers = composed.get_all_handlers();
+        assert_eq!(handlers.len(), 3);
+    }
+
+    #[test]
+    fn test_composed_formatter_debug() {
+        let composed = ComposedNodeFormatter::new();
+        let debug_str = format!("{:?}", composed);
+        assert!(debug_str.contains("ComposedNodeFormatter"));
+    }
+
+    #[test]
+    fn test_node_formatter_trait() {
+        struct SimpleFormatter;
+        impl NodeFormatter for SimpleFormatter {
+            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
+                vec![NodeFormattingHandler::new(
+                    std::mem::discriminant(&NodeValue::Paragraph),
+                    |_, _, _| {},
+                )]
+            }
+        }
+
+        let formatter = SimpleFormatter;
+        assert_eq!(formatter.get_node_formatting_handlers().len(), 1);
     }
 }

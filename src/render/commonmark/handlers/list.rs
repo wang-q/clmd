@@ -7,7 +7,7 @@ use crate::core::arena::NodeId;
 use crate::core::nodes::NodeList;
 use crate::core::traverse::TraverseExt;
 use crate::options::format::{BulletMarker, FormatOptions, ListSpacing, NumberedMarker};
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::NodeFormatterContext;
 
 /// Format a list item marker with a given number and options
 pub fn format_list_item_marker_with_number_and_options(

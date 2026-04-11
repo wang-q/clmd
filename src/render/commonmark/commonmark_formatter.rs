@@ -4,7 +4,9 @@
 
 use crate::core::nodes::NodeValue;
 use crate::options::format::HeadingStyle;
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::{
+    NodeFormatter, NodeFormatterContext, NodeFormattingHandler,
+};
 use crate::render::commonmark::escaping::{compute_fence_length, escape_text};
 use crate::render::commonmark::handler_utils::{
     adjust_cjk_marker_spacing, calculate_block_quote_prefixes, check_sibling_markers,
@@ -23,7 +25,6 @@ use crate::render::commonmark::handlers::list::{
 use crate::render::commonmark::handlers::table::{
     collect_cell_text_content, render_formatted_table,
 };
-use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler};
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// CommonMark node formatter

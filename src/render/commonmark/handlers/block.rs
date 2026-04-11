@@ -7,7 +7,7 @@ use crate::core::arena::NodeId;
 use crate::core::nodes::{NodeCodeBlock, NodeHtmlBlock};
 use crate::core::traverse::TraverseExt;
 use crate::options::format::FormatOptions;
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::NodeFormatterContext;
 use crate::render::commonmark::escaping::compute_fence_length;
 use crate::render::commonmark::handler_utils::{INDENTED_CODE_SPACES, MIN_FENCE_LENGTH};
 use crate::render::commonmark::writer::MarkdownWriter;

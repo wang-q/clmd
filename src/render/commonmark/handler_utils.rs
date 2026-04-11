@@ -2,7 +2,7 @@
 //!
 //! This module provides convenience functions for working with formatter context.
 
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::NodeFormatterContext;
 
 // ============================================================================
 // Constants

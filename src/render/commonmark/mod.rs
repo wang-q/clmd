@@ -6,23 +6,20 @@
 //! # Submodules
 //!
 //! - `options`: Formatter configuration options
-//! - `context`: Formatter context traits and implementations
-//! - `phase`: Formatting phase definitions
-//! - `node`: Node formatter traits
-//! - `phased`: Phased formatter support
-//! - `writer`: Markdown output writer
+//! - `core`: Core traits (NodeFormatterContext, NodeFormatter, etc.)
+//! - `escaping`: Text escaping utilities
 //! - `handler_utils`: Handler factory functions and context helpers
 //! - `handlers`: Node type handlers
+//! - `line_breaking`: Paragraph line breaking
+//! - `writer`: Markdown output writer
 //! - `commonmark_formatter`: CommonMark output formatter
 
 pub mod commonmark_formatter;
-pub mod context;
+pub mod core;
 pub mod escaping;
 pub mod handler_utils;
 pub mod handlers;
 pub mod line_breaking;
-pub mod node;
-
 pub mod writer;
 
 // Re-export commonly used types
@@ -32,13 +29,13 @@ pub use crate::options::format::{
     ListSpacing, NumberedMarker, TrailingMarker,
 };
 pub use commonmark_formatter::CommonMarkNodeFormatter;
-pub use context::NodeFormatterContext;
+// Re-export core types
+pub use core::{
+    ComposedNodeFormatter, NodeFormatter, NodeFormatterContext, NodeFormatterFn,
+    NodeFormattingHandler, NodeType,
+};
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
-pub use node::{
-    ComposedNodeFormatter, NodeFormatter, NodeFormatterFn, NodeFormattingHandler,
-    NodeType,
-};
 
 pub use writer::MarkdownWriter;
 
@@ -55,7 +52,7 @@ pub struct Formatter {
     /// Formatter options
     options: FormatOptions,
     /// Node formatters
-    node_formatters: node::ComposedNodeFormatter,
+    node_formatters: ComposedNodeFormatter,
 }
 
 impl std::fmt::Debug for Formatter {
@@ -77,12 +74,12 @@ impl Formatter {
     pub fn with_options(options: FormatOptions) -> Self {
         Self {
             options,
-            node_formatters: node::ComposedNodeFormatter::new(),
+            node_formatters: ComposedNodeFormatter::new(),
         }
     }
 
     /// Add a node formatter
-    pub fn add_node_formatter(&mut self, formatter: Box<dyn node::NodeFormatter>) {
+    pub fn add_node_formatter(&mut self, formatter: Box<dyn NodeFormatter>) {
         self.node_formatters.add_formatter(formatter);
     }
 
@@ -116,9 +113,9 @@ struct MainFormatterContext<'a> {
     /// Formatter options
     options: &'a FormatOptions,
     /// Node formatters
-    formatters: &'a node::ComposedNodeFormatter,
+    formatters: &'a ComposedNodeFormatter,
     /// Handler map: node type discriminant -> list of handlers
-    handler_map: HashMap<Discriminant<NodeValue>, Vec<node::NodeFormattingHandler>>,
+    handler_map: HashMap<Discriminant<NodeValue>, Vec<NodeFormattingHandler>>,
     /// Current node being rendered
     current_node: Option<NodeId>,
     /// Handler delegation stack (discriminant, handler_index)
@@ -164,7 +161,7 @@ impl<'a> MainFormatterContext<'a> {
     pub fn new(
         arena: &'a NodeArena,
         options: &'a FormatOptions,
-        formatters: &'a node::ComposedNodeFormatter,
+        formatters: &'a ComposedNodeFormatter,
     ) -> Self {
         let mut context = Self {
             arena,
@@ -276,7 +273,7 @@ impl<'a> MainFormatterContext<'a> {
     }
 }
 
-impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
+impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
     fn render(&mut self, node_id: NodeId) {
         // This is a no-op in the main context because rendering
         // is done through render() with a writer

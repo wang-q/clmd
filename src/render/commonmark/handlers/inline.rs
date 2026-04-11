@@ -3,7 +3,7 @@
 //! This module contains handlers for inline elements like text, code,
 //! emphasis, strong, links, images, and breaks.
 
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::NodeFormatterContext;
 use crate::render::commonmark::escaping::{escape_string, escape_url};
 use crate::render::commonmark::writer::MarkdownWriter;
 

@@ -13,7 +13,7 @@
 
 use crate::core::nodes::NodeValue;
 use crate::core::traverse::TraverseExt;
-use crate::render::commonmark::context::NodeFormatterContext;
+use crate::render::commonmark::core::NodeFormatterContext;
 use crate::text::char::is_punctuation;
 
 /// Characters that have special meaning in Markdown
@@ -480,118 +480,9 @@ mod tests {
 
     // Regression tests for unnecessary escaping fix
 
-    /// Mock context for testing that simulates being in a paragraph
-    struct MockParagraphContext;
-
-    impl NodeFormatterContext for MockParagraphContext {
-        fn render(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
-        }
-
-        fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
-            panic!("Not implemented")
-        }
-
-        fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
-            panic!("Not implemented")
-        }
-
-        fn get_arena(&self) -> &crate::core::arena::NodeArena {
-            panic!("Not implemented")
-        }
-
-        fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
-            None
-        }
-
-        fn is_in_tight_list(&self) -> bool {
-            false
-        }
-
-        fn set_tight_list(&mut self, _tight: bool) {}
-
-        fn get_list_nesting_level(&self) -> usize {
-            0
-        }
-
-        fn increment_list_nesting(&mut self) {}
-
-        fn decrement_list_nesting(&mut self) {}
-
-        fn is_in_block_quote(&self) -> bool {
-            false
-        }
-
-        fn set_in_block_quote(&mut self, _in_block_quote: bool) {}
-
-        fn get_block_quote_nesting_level(&self) -> usize {
-            0
-        }
-
-        fn increment_block_quote_nesting(&mut self) {}
-
-        fn decrement_block_quote_nesting(&mut self) {}
-
-        fn start_table_collection(
-            &mut self,
-            _alignments: Vec<crate::core::nodes::TableAlignment>,
-        ) {
-        }
-
-        fn add_table_row(&mut self) {}
-
-        fn add_table_cell(&mut self, _content: String) {}
-
-        fn take_table_data(
-            &mut self,
-        ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>
-        {
-            None
-        }
-
-        fn is_collecting_table(&self) -> bool {
-            false
-        }
-
-        fn set_skip_children(&mut self, _skip: bool) {}
-
-        fn render_children_to_string(
-            &mut self,
-            _node_id: crate::core::arena::NodeId,
-        ) -> String {
-            String::new()
-        }
-
-        fn start_paragraph_line_breaking(&mut self, _max_width: usize, _prefix: String) {
-        }
-
-        fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
-            None
-        }
-
-        fn add_paragraph_text(&mut self, _text: &str) {}
-
-        fn add_paragraph_word(&mut self, _text: &str) {}
-
-        fn add_paragraph_unbreakable_unit(
-            &mut self,
-            _kind: crate::render::commonmark::line_breaking::UnitKind,
-            _prefix: &str,
-            _content: &str,
-            _suffix: &str,
-        ) {
-        }
-
-        fn add_paragraph_hard_break(&mut self) {}
-
-        fn is_paragraph_line_breaking(&self) -> bool {
-            false
-        }
-    }
-
     #[test]
     fn test_no_unnecessary_parentheses_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Parentheses in normal text should NOT be escaped
         assert_eq!(escape_text("(text)", &ctx), "(text)");
         assert_eq!(escape_text("(hello world)", &ctx), "(hello world)");
@@ -600,7 +491,7 @@ mod tests {
 
     #[test]
     fn test_no_unnecessary_curly_braces_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Curly braces in normal text should NOT be escaped
         assert_eq!(escape_text("{text}", &ctx), "{text}");
         assert_eq!(escape_text("{key: value}", &ctx), "{key: value}");
@@ -608,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_no_unnecessary_dot_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Dots in normal text should NOT be escaped
         assert_eq!(escape_text("Hello.", &ctx), "Hello.");
         assert_eq!(escape_text("a.b.c", &ctx), "a.b.c");
@@ -617,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_no_unnecessary_plus_minus_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Plus and minus in normal text should NOT be escaped
         assert_eq!(escape_text("a + b", &ctx), "a + b");
         assert_eq!(escape_text("a - b", &ctx), "a - b");
@@ -626,7 +517,7 @@ mod tests {
 
     #[test]
     fn test_still_escape_necessary_chars() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // These characters should still be escaped when needed
         assert_eq!(escape_text("*text*", &ctx), "\\*text\\*");
         assert_eq!(escape_text("_text_", &ctx), "\\_text\\_");
@@ -636,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_backslash_always_escaped() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Backslash should always be escaped
         assert_eq!(escape_text("a\\b", &ctx), "a\\\\b");
         assert_eq!(escape_text("path\\to\\file", &ctx), "path\\\\to\\\\file");
@@ -644,7 +535,7 @@ mod tests {
 
     #[test]
     fn test_no_unnecessary_underscore_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Underscore inside words should NOT be escaped
         assert_eq!(escape_text("default_template", &ctx), "default_template");
         assert_eq!(escape_text("TemplateEngine", &ctx), "TemplateEngine");
@@ -662,7 +553,7 @@ mod tests {
 
     #[test]
     fn test_no_unnecessary_greater_than_escaping() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Greater-than in normal text should NOT be escaped
         assert_eq!(escape_text("->", &ctx), "->");
         assert_eq!(escape_text("a -> b", &ctx), "a -> b");
@@ -818,7 +709,7 @@ mod tests {
 
     #[test]
     fn test_escape_text_empty_and_whitespace() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         assert_eq!(escape_text("", &ctx), "");
         assert_eq!(escape_text("   ", &ctx), "   ");
         assert_eq!(escape_text("\t\n", &ctx), "\t\n");
@@ -826,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_escape_text_multiple_special_chars() {
-        let ctx = MockParagraphContext;
+        let ctx = crate::render::commonmark::core::test_utils::MockContext::new();
         // Note: consecutive asterisks (like ** or ***) are preserved as they
         // are likely emphasis markers and should not be escaped
         assert_eq!(escape_text("**__[]", &ctx), "**\\_\\_\\[\\]");
