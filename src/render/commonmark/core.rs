@@ -309,7 +309,7 @@ pub trait NodeFormatterContext {
     /// Add an unbreakable unit with markers
     fn add_paragraph_unbreakable_unit(
         &mut self,
-        kind: crate::render::commonmark::line_breaking::UnitKind,
+        kind: crate::render::commonmark::line_breaking::AtomicKind,
         prefix: &str,
         content: &str,
         suffix: &str,
@@ -489,7 +489,7 @@ pub mod test_utils {
 
         fn add_paragraph_unbreakable_unit(
             &mut self,
-            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _kind: crate::render::commonmark::line_breaking::AtomicKind,
             _prefix: &str,
             _content: &str,
             _suffix: &str,

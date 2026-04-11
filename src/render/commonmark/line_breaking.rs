@@ -46,68 +46,6 @@ fn is_cjk_punct_that_should_pull_back(c: char) -> bool {
     )
 }
 
-/// A word in the paragraph with its display width
-#[derive(Debug, Clone)]
-pub struct Word {
-    /// The text content of the word
-    pub text: String,
-    /// The display width of the word (accounting for CJK characters)
-    pub width: usize,
-    /// Whether this word is followed by a space
-    pub has_trailing_space: bool,
-    /// Whether this word needs a leading space (false for punctuation/marks)
-    pub needs_leading_space: bool,
-    /// Whether this word is part of a link and should not be broken
-    pub is_link_part: bool,
-}
-
-impl Word {
-    /// Create a new word from text
-    pub fn new(text: impl Into<String>) -> Self {
-        let text = text.into();
-        let width = unicode::width(&text) as usize;
-        Self {
-            text,
-            width,
-            has_trailing_space: true,
-            needs_leading_space: true,
-            is_link_part: false,
-        }
-    }
-
-    /// Create a new word without trailing space
-    pub fn new_without_space(text: impl Into<String>) -> Self {
-        let text = text.into();
-        let width = unicode::width(&text) as usize;
-        Self {
-            text,
-            width,
-            has_trailing_space: false,
-            needs_leading_space: true,
-            is_link_part: false,
-        }
-    }
-
-    /// Create a new word that doesn't need leading space (for punctuation)
-    pub fn new_punctuation(text: impl Into<String>) -> Self {
-        let text = text.into();
-        let width = unicode::width(&text) as usize;
-        Self {
-            text,
-            width,
-            has_trailing_space: false,
-            needs_leading_space: false,
-            is_link_part: false,
-        }
-    }
-
-    /// Mark this word as part of a link
-    pub fn as_link_part(mut self) -> Self {
-        self.is_link_part = true;
-        self
-    }
-}
-
 /// Affinity for break opportunities
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Affinity {
@@ -154,28 +92,6 @@ pub enum AtomicKind {
     Image,
     /// Other unbreakable content
     Other,
-}
-
-/// The kind of unbreakable unit (legacy, for backward compatibility)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnitKind {
-    /// Emphasis (*text*)
-    Emph,
-    /// Strong (**text**)
-    Strong,
-    /// Code (`text`)
-    Code,
-    /// Inline code (`text`)
-    InlineCode,
-    /// Link ([text](url))
-    Link,
-}
-
-/// Handle for an unbreakable unit (legacy, for backward compatibility)
-#[derive(Debug, Clone, Copy)]
-pub struct UnitHandle {
-    #[allow(dead_code)]
-    index: usize,
 }
 
 /// Content fragment for line breaking
@@ -432,41 +348,16 @@ impl ParagraphLineBreaker {
         self.add_atomic(text, AtomicKind::Other);
     }
 
-    /// Start an unbreakable unit (legacy, for backward compatibility)
-    pub fn start_unit(&mut self, _kind: UnitKind, _marker_width: usize) -> UnitHandle {
-        // In the new implementation, we don't track units separately
-        // Just return a dummy handle
-        UnitHandle { index: 0 }
-    }
-
-    /// End an unbreakable unit (legacy, for backward compatibility)
-    pub fn end_unit(
-        &mut self,
-        _handle: UnitHandle,
-        _content_width: usize,
-        _marker_width: usize,
-    ) {
-        // In the new implementation, this is a no-op
-    }
-
     /// Add an unbreakable unit with prefix, content, suffix
     pub fn add_unbreakable_unit(
         &mut self,
-        kind: UnitKind,
+        kind: AtomicKind,
         prefix: &str,
         content: &str,
         suffix: &str,
     ) {
-        // Combine them into a single atomic unit
         let full_content = format!("{}{}{}", prefix, content, suffix);
-        // Map UnitKind to AtomicKind
-        let atomic_kind = match kind {
-            UnitKind::Emph => AtomicKind::Emph,
-            UnitKind::Strong => AtomicKind::Strong,
-            UnitKind::Code | UnitKind::InlineCode => AtomicKind::Code,
-            UnitKind::Link => AtomicKind::Link,
-        };
-        self.add_atomic(&full_content, atomic_kind);
+        self.add_atomic(&full_content, kind);
     }
 
     /// Compute the optimal line breaks using the Knuth-Plass algorithm

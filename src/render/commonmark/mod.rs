@@ -35,7 +35,7 @@ pub use core::{
     NodeFormattingHandler, NodeType,
 };
 // Re-export line breaking types
-pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
+pub use line_breaking::{AtomicKind, ParagraphLineBreaker};
 
 pub use writer::MarkdownWriter;
 
@@ -460,7 +460,7 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
 
     fn add_paragraph_unbreakable_unit(
         &mut self,
-        kind: line_breaking::UnitKind,
+        kind: line_breaking::AtomicKind,
         prefix: &str,
         content: &str,
         suffix: &str,

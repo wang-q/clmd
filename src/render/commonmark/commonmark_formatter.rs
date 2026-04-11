@@ -399,7 +399,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 code.literal.to_string()
                             };
                             ctx.add_paragraph_unbreakable_unit(
-                            crate::render::commonmark::line_breaking::UnitKind::InlineCode,
+                            crate::render::commonmark::line_breaking::AtomicKind::Code,
                             &prefix,
                             &content,
                             &suffix,
@@ -462,7 +462,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 // Build complete emphasis as unbreakable unit
                                 let full_emph = format!("*{}*", content);
                                 ctx.add_paragraph_unbreakable_unit(
-                                    crate::render::commonmark::line_breaking::UnitKind::Emph,
+                                    crate::render::commonmark::line_breaking::AtomicKind::Emph,
                                     "",
                                     &full_emph,
                                     "",
@@ -525,7 +525,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 // Build complete strong as unbreakable unit
                                 let full_strong = format!("**{}**", content);
                                 ctx.add_paragraph_unbreakable_unit(
-                                    crate::render::commonmark::line_breaking::UnitKind::Strong,
+                                    crate::render::commonmark::line_breaking::AtomicKind::Strong,
                                     "",
                                     &full_strong,
                                     "",
@@ -573,7 +573,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                                 // Add as an unbreakable unit
                                 // This ensures the link is not split across lines
                                 ctx.add_paragraph_unbreakable_unit(
-                                        crate::render::commonmark::line_breaking::UnitKind::Link,
+                                        crate::render::commonmark::line_breaking::AtomicKind::Link,
                                         "",
                                         &full_link,
                                         "",
@@ -908,7 +908,7 @@ mod tests {
 
         fn add_paragraph_unbreakable_unit(
             &mut self,
-            _kind: crate::render::commonmark::line_breaking::UnitKind,
+            _kind: crate::render::commonmark::line_breaking::AtomicKind,
             _prefix: &str,
             _content: &str,
             _suffix: &str,
