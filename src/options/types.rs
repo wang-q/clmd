@@ -1,60 +1,10 @@
 //! Basic types for options configuration.
 //!
 //! This module defines fundamental types used across the options system,
-//! including input/output formats, wrapping options, and style enumerations.
+//! including output formats, wrapping options, and style enumerations.
 
 use arbitrary::Arbitrary;
 use std::fmt;
-
-/// Input format for reading documents.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
-pub enum InputFormat {
-    /// Markdown (CommonMark)
-    #[default]
-    Markdown,
-    /// GitHub Flavored Markdown
-    Gfm,
-    /// HTML
-    Html,
-    /// BibTeX
-    Bibtex,
-    /// LaTeX
-    Latex,
-    /// AsciiDoc
-    AsciiDoc,
-    /// Org mode
-    Org,
-    /// Textile
-    Textile,
-    /// MediaWiki
-    MediaWiki,
-    /// DokuWiki
-    DokuWiki,
-}
-
-impl InputFormat {
-    /// Get the format name as a string.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            InputFormat::Markdown => "markdown",
-            InputFormat::Gfm => "gfm",
-            InputFormat::Html => "html",
-            InputFormat::Bibtex => "bibtex",
-            InputFormat::Latex => "latex",
-            InputFormat::AsciiDoc => "asciidoc",
-            InputFormat::Org => "org",
-            InputFormat::Textile => "textile",
-            InputFormat::MediaWiki => "mediawiki",
-            InputFormat::DokuWiki => "dokuwiki",
-        }
-    }
-}
-
-impl fmt::Display for InputFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
 
 /// Output format for writing documents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Arbitrary)]
@@ -183,12 +133,6 @@ impl fmt::Display for ListStyleType {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_input_format_default() {
-        let format: InputFormat = Default::default();
-        assert_eq!(format, InputFormat::Markdown);
-    }
 
     #[test]
     fn test_output_format_default() {

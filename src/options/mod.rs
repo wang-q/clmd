@@ -33,13 +33,13 @@ pub use parse::ParseOptions;
 pub use plugins::{Plugins, RenderPlugins};
 pub use render::RenderOptions;
 pub use serde::{
-    Config, ExtensionConfig, FormatConfig, ParseConfig, ReaderConfig, RenderConfig,
-    SyntaxConfig, TransformConfig, WriterConfig,
+    Config, ExtensionConfig, FormatConfig, ParseConfig, RenderConfig, SyntaxConfig,
+    TransformConfig, WriterConfig,
 };
 pub use traits::{
     BrokenLinkCallback, BrokenLinkReference, ResolvedReference, URLRewriter,
 };
-pub use types::{InputFormat, ListStyleType, OutputFormat, WrapOption};
+pub use types::{ListStyleType, OutputFormat, WrapOption};
 
 use arbitrary::Arbitrary;
 use bon::Builder;
@@ -78,26 +78,6 @@ pub struct Options<'c> {
     /// Configure format-time options.
     #[builder(default)]
     pub format: FormatOptions,
-}
-
-/// Options for document readers.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ReaderOptions {
-    /// The input format.
-    pub format: InputFormat,
-    /// Whether to parse smart punctuation.
-    pub smart: bool,
-    /// Whether to enable extensions.
-    pub extensions: crate::ext::flags::ExtensionFlags,
-}
-
-impl ReaderOptions {
-    /// Convert to parser Options.
-    pub fn to_parser_options(&self) -> Options<'_> {
-        let mut options = Options::default();
-        options.parse.smart = self.smart;
-        options
-    }
 }
 
 /// Options for document writers.
@@ -146,19 +126,6 @@ mod tests {
             .render(RenderOptions::default())
             .build();
         assert!(!options.extension.table);
-    }
-
-    #[test]
-    fn test_reader_options_default() {
-        let opts = ReaderOptions::default();
-        assert_eq!(opts.format, InputFormat::Markdown);
-        assert!(!opts.smart);
-    }
-
-    #[test]
-    fn test_reader_options_to_parser_options() {
-        let opts = ReaderOptions::default();
-        let _parser_opts = opts.to_parser_options();
     }
 
     #[test]

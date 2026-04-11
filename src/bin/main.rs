@@ -31,7 +31,6 @@ fn main() -> anyhow::Result<()> {
                 .help("Enable safe mode (filter dangerous HTML)"),
         )
         .subcommand(cmd::to::make_subcommand())
-        .subcommand(cmd::from::make_subcommand())
         .subcommand(cmd::extract::make_subcommand())
         .subcommand(cmd::stats::make_subcommand())
         .subcommand(cmd::toc::make_subcommand())
@@ -42,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         .after_help(
             r###"Subcommand groups:
 
-* Conversion: to, from
+* Conversion: to
 * Formatting: fmt
 * Extraction: extract (links, images, headings, code, tables, footnotes, yaml-front-matter, task-items)
 * Analysis: stats, validate
@@ -57,7 +56,6 @@ Configuration:
 Examples:
   clmd to html README.md
   clmd to latex input.md -o output.tex
-  clmd from html input.html -o output.md
   clmd extract links input.md
   clmd extract tables input.md --format csv
   clmd stats input.md --readability
@@ -121,7 +119,6 @@ Examples:
 
     match matches.subcommand() {
         Some(("to", sub_matches)) => cmd::to::execute(sub_matches, &options),
-        Some(("from", sub_matches)) => cmd::from::execute(sub_matches, &options),
         Some(("extract", sub_matches)) => cmd::extract::execute(sub_matches, &options),
         Some(("stats", sub_matches)) => cmd::stats::execute(sub_matches, &options),
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),

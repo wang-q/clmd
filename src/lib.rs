@@ -154,19 +154,6 @@
 //! let html = markdown_to_html(autolink, &options);
 //! assert!(html.contains("<a href="));
 //! ```
-//!
-//! # HTML to Markdown
-//!
-//! Convert HTML back to Markdown:
-//!
-//! ```ignore
-//! use clmd::from::html_to_markdown;
-//!
-//! let html = "<h1>Title</h1><p>Paragraph with <strong>bold</strong> text.</p>";
-//! let markdown = html_to_markdown(html);
-//! assert!(markdown.contains("# Title"));
-//! assert!(markdown.contains("**bold**"));
-//! ```
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
@@ -199,11 +186,6 @@ pub mod core;
 /// Markdown parsing module (blocks and inlines).
 pub mod parse;
 
-/// Format converters for importing content to Markdown.
-pub mod from {
-    pub use crate::io::reader::html::*;
-}
-
 /// Markdown extensions (GFM and others).
 pub mod ext;
 
@@ -226,7 +208,7 @@ pub mod html_utils {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::options::{Options, InputFormat, OutputFormat};
+/////! use clmd::options::{Options, OutputFormat};
 ///
 /// let mut options = Options::default();
 /// options.extension.table = true;
@@ -234,13 +216,13 @@ pub mod html_utils {
 /// ```
 pub mod options;
 
-/// IO module for document reading and writing.
+/// IO module for document writing.
 ///
-/// This module provides a unified interface for reading documents from different
-/// formats and writing to various output formats.
+/// This module provides a unified interface for writing documents to various
+/// output formats, inspired by Pandoc's Writer system.
 pub mod io;
 
-// IO submodules are accessed through `io::reader`, `io::writer`, `io::format`
+// IO submodules are accessed through `io::writer`, `io::format`
 
 /// Plugin system for extending Markdown rendering.
 pub mod plugin;

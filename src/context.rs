@@ -15,8 +15,8 @@ use crate::io::format::mime::get_mime_type_def;
 
 // Re-export config types from the unified options::serde module
 pub use crate::options::serde::{
-    Config, ExtensionConfig, FormatConfig, ParseConfig, ReaderConfig, RenderConfig,
-    SyntaxConfig, TransformConfig, WriterConfig,
+    Config, ExtensionConfig, FormatConfig, ParseConfig, RenderConfig, SyntaxConfig,
+    TransformConfig, WriterConfig,
 };
 
 // ============================================================================

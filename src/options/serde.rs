@@ -11,10 +11,6 @@ use std::path::PathBuf;
 /// Configuration structure for clmd (serializable for TOML)
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Default input format
-    #[serde(default)]
-    pub input_format: Option<String>,
-
     /// Default output format
     #[serde(default)]
     pub output_format: Option<String>,
@@ -38,10 +34,6 @@ pub struct Config {
     /// Syntax highlighting options
     #[serde(default)]
     pub syntax: SyntaxConfig,
-
-    /// Reader options
-    #[serde(default)]
-    pub reader: ReaderConfig,
 
     /// Writer options
     #[serde(default)]
@@ -361,18 +353,6 @@ pub struct SyntaxConfig {
     pub enabled: bool,
 }
 
-/// Reader configuration (serializable)
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct ReaderConfig {
-    /// Default input format
-    #[serde(default)]
-    pub default_format: String,
-
-    /// Additional reader options
-    #[serde(default)]
-    pub options: HashMap<String, toml::Value>,
-}
-
 /// Writer configuration (serializable)
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct WriterConfig {
@@ -414,7 +394,6 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = Config::default();
-        assert!(config.input_format.is_none());
         assert!(config.output_format.is_none());
         assert!(!config.extensions.table);
         assert!(!config.parse.smart);
@@ -423,8 +402,7 @@ mod tests {
 
     #[test]
     fn test_config_new() {
-        let config = Config::new();
-        assert!(config.input_format.is_none());
+        let _config = Config::new();
     }
 
     #[test]
