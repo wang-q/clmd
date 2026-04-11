@@ -166,3 +166,76 @@ pub fn calculate_block_quote_prefixes(
 
     (first_prefix, cont_prefix)
 }
+
+// ============================================================================
+// Emphasis Handler Helpers
+// ============================================================================
+
+/// Check if an emphasis node contains nested conflicting emphasis type.
+///
+/// Used by Emph and Strong handlers to determine whether to use atomic
+/// unit handling or fall back to per-word marker handling.
+///
+/// Returns `(is_nested, marker)` where:
+/// - `is_nested`: true if the current node has a direct child matching `target_discriminant`
+/// - `marker`: clone of the input marker string for convenience
+pub fn check_nested_emphasis_conflict(
+    ctx: &dyn NodeFormatterContext,
+    target_discriminant: std::mem::Discriminant<crate::core::nodes::NodeValue>,
+    marker: &str,
+) -> (bool, String) {
+    let is_nested = ctx
+        .get_current_node()
+        .and_then(|node_id| {
+            if ctx.has_child_of_type(node_id, target_discriminant) {
+                Some(true)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(false);
+    (is_nested, marker.to_string())
+}
+
+// ============================================================================
+// Text Preprocessing Pipeline
+// ============================================================================
+
+/// Preprocess text content for CommonMark output with full CJK support.
+///
+/// Applies the complete text preprocessing pipeline:
+/// 1. Skip task list markers when inside task items
+/// 2. Detect sibling markdown markers for spacing adjustment
+/// 3. Detect previous link nodes for CJK spacing
+/// 4. Add CJK character spacing
+/// 5. Adjust spacing around markdown markers
+/// 6. Add leading space after links for ASCII text
+pub fn preprocess_text(text: &str, ctx: &dyn NodeFormatterContext) -> String {
+    use crate::render::commonmark::handlers::list::{
+        is_in_task_list_item, skip_task_marker,
+    };
+
+    let processed_text = if is_in_task_list_item(ctx) {
+        skip_task_marker(text)
+    } else {
+        text.to_string()
+    };
+
+    let (prev_is_marker, next_is_marker) = check_sibling_markers(ctx);
+    let prev_is_link_node = prev_is_link(ctx);
+
+    let cjk_text = crate::text::unicode::add_cjk_spacing(&processed_text);
+
+    let mut final_text =
+        adjust_cjk_marker_spacing(&cjk_text, prev_is_marker, next_is_marker);
+
+    if prev_is_link_node && !final_text.is_empty() {
+        if let Some(first_char) = final_text.chars().next() {
+            if first_char.is_ascii_alphanumeric() {
+                final_text = format!(" {}", final_text);
+            }
+        }
+    }
+
+    final_text
+}

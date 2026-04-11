@@ -8,7 +8,7 @@ use crate::render::commonmark::core::{
 };
 use crate::render::commonmark::escaping::{compute_fence_length, escape_text};
 use crate::render::commonmark::handler_utils::{
-    adjust_cjk_marker_spacing, check_sibling_markers, prev_is_link,
+    check_nested_emphasis_conflict, preprocess_text,
 };
 use crate::render::commonmark::handlers::block::{render_code_block, render_html_block};
 use crate::render::commonmark::handlers::container::{
@@ -19,7 +19,7 @@ use crate::render::commonmark::handlers::inline::{render_image_url, render_link_
 use crate::render::commonmark::handlers::list::{
     calculate_effective_list_tightness, count_list_ancestors,
     format_list_item_marker_with_number_and_options, get_item_number_in_list,
-    is_empty_list_item, is_in_task_list_item, is_task_item_checked, skip_task_marker,
+    is_empty_list_item, is_task_item_checked,
 };
 use crate::render::commonmark::handlers::table::{
     collect_cell_text_content, render_formatted_table,
@@ -306,55 +306,12 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 std::mem::discriminant(&NodeValue::Text(Box::default())),
                 |value, ctx, writer| {
                     if let NodeValue::Text(text) = value {
-                        let text_str = text.as_ref();
+                        let final_text = preprocess_text(text.as_ref(), ctx);
 
-                        // Check if we're in a task list item and need to skip the task marker
-                        let processed_text = if is_in_task_list_item(ctx) {
-                            skip_task_marker(text_str)
-                        } else {
-                            text_str.to_string()
-                        };
-
-                        // Check if previous and next siblings are markdown markers
-                        let (prev_is_marker, next_is_marker) =
-                            check_sibling_markers(ctx);
-
-                        // Check if previous sibling is a Link (for CJK spacing)
-                        let prev_is_link_node = prev_is_link(ctx);
-
-                        // Apply CJK spacing by default
-                        // NOTE: We apply CJK spacing even when using paragraph line breaking
-                        // to ensure proper spacing around markdown markers
-                        let cjk_text =
-                            crate::text::unicode::add_cjk_spacing(&processed_text);
-
-                        // Adjust spacing around markdown markers for CJK text
-                        // This removes spaces between CJK characters and markdown markers
-                        let mut final_text = adjust_cjk_marker_spacing(
-                            &cjk_text,
-                            prev_is_marker,
-                            next_is_marker,
-                        );
-
-                        // If previous sibling is a Link and this text starts with ASCII,
-                        // add a leading space for CJK spacing
-                        if prev_is_link_node && !final_text.is_empty() {
-                            if let Some(first_char) = final_text.chars().next() {
-                                if first_char.is_ascii_alphanumeric() {
-                                    final_text = format!(" {}", final_text);
-                                }
-                            }
-                        }
-
-                        // Check if we're using paragraph line breaking
                         if ctx.is_paragraph_line_breaking() {
-                            // Add text to paragraph line breaker
                             ctx.add_paragraph_text(&final_text);
                         } else {
-                            // Use context-aware escaping
                             let escaped = escape_text(&final_text, ctx);
-                            // Use append_with_wrap for text wrapping when right_margin is set
-                            // This enables line folding at the specified width
                             writer.append_with_wrap(&escaped);
                         }
                     }
@@ -428,19 +385,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 std::mem::discriminant(&NodeValue::Emph),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
-                        // Check if this emphasis contains nested strong
-                        // If so, don't use atomic handling to avoid conflicts
-                        if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(
-                                node_id,
-                                std::mem::discriminant(&NodeValue::Strong),
-                            ) {
-                                // Nested emphasis - use normal word handling
-                                ctx.add_paragraph_word("*");
-                            } else {
-                                // For paragraph line breaking, collect entire emphasis as a unit
-                                ctx.set_skip_children(true);
-                            }
+                        let (is_nested, m) = check_nested_emphasis_conflict(
+                            ctx,
+                            std::mem::discriminant(&NodeValue::Strong),
+                            "*",
+                        );
+                        if is_nested {
+                            ctx.add_paragraph_word(&m);
+                        } else {
+                            ctx.set_skip_children(true);
                         }
                     } else {
                         _writer.append("*");
@@ -448,27 +401,23 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
                 |_value, ctx, writer| {
                     if ctx.is_paragraph_line_breaking() {
-                        // Check if this emphasis contains nested strong
-                        if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(
-                                node_id,
-                                std::mem::discriminant(&NodeValue::Strong),
-                            ) {
-                                // Nested emphasis - use normal word handling
-                                ctx.add_paragraph_word("*");
-                            } else {
-                                // Collect emphasis content from children
-                                let content = ctx.render_children_to_string(node_id);
-                                // Build complete emphasis as unbreakable unit
-                                let full_emph = format!("*{}*", content);
-                                ctx.add_paragraph_unbreakable_unit(
-                                    crate::render::commonmark::line_breaking::AtomicKind::Emph,
-                                    "",
-                                    &full_emph,
-                                    "",
-                                );
-                                ctx.set_skip_children(false);
-                            }
+                        let (is_nested, m) = check_nested_emphasis_conflict(
+                            ctx,
+                            std::mem::discriminant(&NodeValue::Strong),
+                            "*",
+                        );
+                        if is_nested {
+                            ctx.add_paragraph_word(&m);
+                        } else if let Some(node_id) = ctx.get_current_node() {
+                            let content = ctx.render_children_to_string(node_id);
+                            let full_emph = format!("*{}*", content);
+                            ctx.add_paragraph_unbreakable_unit(
+                                crate::render::commonmark::line_breaking::AtomicKind::Emph,
+                                "",
+                                &full_emph,
+                                "",
+                            );
+                            ctx.set_skip_children(false);
                         }
                     } else {
                         writer.append("*");
@@ -480,18 +429,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 std::mem::discriminant(&NodeValue::Strong),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
-                        // Check if this strong contains nested emphasis
-                        if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(
-                                node_id,
-                                std::mem::discriminant(&NodeValue::Emph),
-                            ) {
-                                // Nested strong - use normal word handling
-                                ctx.add_paragraph_word("**");
-                            } else {
-                                // For paragraph line breaking, collect entire strong as a unit
-                                ctx.set_skip_children(true);
-                            }
+                        let (is_nested, m) = check_nested_emphasis_conflict(
+                            ctx,
+                            std::mem::discriminant(&NodeValue::Emph),
+                            "**",
+                        );
+                        if is_nested {
+                            ctx.add_paragraph_word(&m);
+                        } else {
+                            ctx.set_skip_children(true);
                         }
                     } else {
                         // Flush any pending text in word wrap buffer to ensure
@@ -511,27 +457,23 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
                 |_value, ctx, writer| {
                     if ctx.is_paragraph_line_breaking() {
-                        // Check if this strong contains nested emphasis
-                        if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(
-                                node_id,
-                                std::mem::discriminant(&NodeValue::Emph),
-                            ) {
-                                // Nested strong - use normal word handling
-                                ctx.add_paragraph_word("**");
-                            } else {
-                                // Collect strong content from children
-                                let content = ctx.render_children_to_string(node_id);
-                                // Build complete strong as unbreakable unit
-                                let full_strong = format!("**{}**", content);
-                                ctx.add_paragraph_unbreakable_unit(
-                                    crate::render::commonmark::line_breaking::AtomicKind::Strong,
-                                    "",
-                                    &full_strong,
-                                    "",
-                                );
-                                ctx.set_skip_children(false);
-                            }
+                        let (is_nested, m) = check_nested_emphasis_conflict(
+                            ctx,
+                            std::mem::discriminant(&NodeValue::Emph),
+                            "**",
+                        );
+                        if is_nested {
+                            ctx.add_paragraph_word(&m);
+                        } else if let Some(node_id) = ctx.get_current_node() {
+                            let content = ctx.render_children_to_string(node_id);
+                            let full_strong = format!("**{}**", content);
+                            ctx.add_paragraph_unbreakable_unit(
+                                crate::render::commonmark::line_breaking::AtomicKind::Strong,
+                                "",
+                                &full_strong,
+                                "",
+                            );
+                            ctx.set_skip_children(false);
                         }
                     } else {
                         writer.append("**");
