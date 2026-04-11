@@ -1064,7 +1064,7 @@ impl PhasedNodeFormatter for CommonMarkNodeFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::commonmark::escaping::{escape_string, escape_text, escape_url};
+    use crate::render::commonmark::escaping::{escape_string, escape_text};
 
     // Mock context for testing
     struct MockContext;
@@ -1245,13 +1245,6 @@ mod tests {
         assert_eq!(escape_string("ti\"tle"), "ti\\\\\"tle");
         // ti\tle -> ti\\tle (backslash escaped)
         assert_eq!(escape_string("ti\\tle"), "ti\\\\tle");
-    }
-
-    #[test]
-    fn test_escape_url() {
-        assert_eq!(escape_url("https://example.com"), "https://example.com");
-        assert_eq!(escape_url("url with space"), "url\\ with\\ space");
-        assert_eq!(escape_url("(paren)"), "\\(paren\\)");
     }
 
     #[test]

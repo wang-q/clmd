@@ -72,27 +72,6 @@ impl FormatControlProcessor {
         self.formatting_off
     }
 
-    /// Check if formatting is currently on
-    pub fn is_formatting_on(&self) -> bool {
-        !self.formatting_off
-    }
-
-    /// Check if formatting was just turned off
-    ///
-    /// This returns true only once after formatting is turned off,
-    /// then resets to false.
-    pub fn is_just_turned_off(&self) -> bool {
-        self.just_turned_off
-    }
-
-    /// Check if formatting was just turned on
-    ///
-    /// This returns true only once after formatting is turned on,
-    /// then resets to false.
-    pub fn is_just_turned_on(&self) -> bool {
-        self.just_turned_on
-    }
-
     /// Process an HTML comment and update formatting state
     ///
     /// Returns true if the comment was a format control comment.
@@ -171,13 +150,9 @@ mod tests {
         let options = create_test_options();
         let mut processor = FormatControlProcessor::new(&options);
 
-        assert!(processor.is_formatting_on());
-
         let result = processor.process_comment("<!-- formatter:off -->");
         assert!(result);
         assert!(processor.is_formatting_off());
-        assert!(processor.is_just_turned_off());
-        assert!(!processor.is_just_turned_on());
     }
 
     #[test]
@@ -192,9 +167,7 @@ mod tests {
         // Then turn on
         let result = processor.process_comment("<!-- formatter:on -->");
         assert!(result);
-        assert!(processor.is_formatting_on());
-        assert!(processor.is_just_turned_on());
-        assert!(!processor.is_just_turned_off());
+        assert!(!processor.is_formatting_off());
     }
 
     #[test]
@@ -204,7 +177,7 @@ mod tests {
 
         let result = processor.process_comment("<!-- This is a regular comment -->");
         assert!(!result);
-        assert!(processor.is_formatting_on());
+        assert!(!processor.is_formatting_off());
     }
 
     #[test]
@@ -225,7 +198,7 @@ mod tests {
 
         let result = processor.process_comment("<!-- formatter:off -->");
         assert!(!result);
-        assert!(processor.is_formatting_on());
+        assert!(!processor.is_formatting_off());
     }
 
     #[test]
@@ -236,13 +209,10 @@ mod tests {
         // First turn off
         processor.process_comment("<!-- formatter:off -->");
         assert!(processor.is_formatting_off());
-        assert!(processor.is_just_turned_off());
 
         // Second turn off - should not change state
         processor.process_comment("<!-- formatter:off -->");
         assert!(processor.is_formatting_off());
-        // just_turned_off is reset by process_comment at the start
-        assert!(!processor.is_just_turned_off());
     }
 
     #[test]
@@ -255,14 +225,11 @@ mod tests {
 
         // First turn on
         processor.process_comment("<!-- formatter:on -->");
-        assert!(processor.is_formatting_on());
-        assert!(processor.is_just_turned_on());
+        assert!(!processor.is_formatting_off());
 
         // Second turn on - should not change state
         processor.process_comment("<!-- formatter:on -->");
-        assert!(processor.is_formatting_on());
-        // just_turned_on is reset by process_comment at the start
-        assert!(!processor.is_just_turned_on());
+        assert!(!processor.is_formatting_off());
     }
 
     #[test]
@@ -312,6 +279,6 @@ mod tests {
         // Third comment - turn on
         let result3 = processor.process_comment("<!-- formatter:on -->");
         assert!(result3);
-        assert!(processor.is_formatting_on());
+        assert!(!processor.is_formatting_off());
     }
 }

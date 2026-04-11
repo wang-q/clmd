@@ -93,14 +93,6 @@ impl Formatter {
         self.node_formatters.add_formatter(formatter);
     }
 
-    /// Add a phased formatter
-    pub fn add_phased_formatter(
-        &mut self,
-        formatter: Box<dyn phase::PhasedNodeFormatter>,
-    ) {
-        self.phased_formatters.add_formatter(formatter);
-    }
-
     /// Render a document
     ///
     /// This is the main entry point for rendering a document tree to Markdown.
@@ -131,11 +123,6 @@ impl Formatter {
 
         writer.to_string()
     }
-
-    /// Get the formatter options
-    pub fn get_options(&self) -> &FormatOptions {
-        &self.options
-    }
 }
 
 impl Default for Formatter {
@@ -145,7 +132,7 @@ impl Default for Formatter {
 }
 
 /// Main formatter context implementation
-pub struct MainFormatterContext<'a> {
+struct MainFormatterContext<'a> {
     /// Reference to the node arena
     arena: &'a NodeArena,
     /// Formatter options
@@ -180,8 +167,6 @@ pub struct MainFormatterContext<'a> {
     skip_children: bool,
     /// Format control processor for formatter:on/off comments
     format_control: format_control::FormatControlProcessor,
-    /// Content buffer for format-off regions
-    format_off_buffer: Option<String>,
     /// Whether delegation was requested by the current handler
     delegation_requested: bool,
     /// Paragraph line breaker for AST-based line breaking
@@ -229,7 +214,6 @@ impl<'a> MainFormatterContext<'a> {
             collecting_table: false,
             skip_children: false,
             format_control,
-            format_off_buffer: None,
             delegation_requested: false,
             paragraph_line_breaker: None,
             text_collection_buffer: None,
@@ -248,23 +232,6 @@ impl<'a> MainFormatterContext<'a> {
     /// Returns true if the comment was a format control comment
     pub fn process_format_control_comment(&mut self, comment_text: &str) -> bool {
         self.format_control.process_comment(comment_text)
-    }
-
-    /// Start buffering content for format-off region
-    pub fn start_format_off_buffer(&mut self) {
-        self.format_off_buffer = Some(String::new());
-    }
-
-    /// End buffering and return the buffered content
-    pub fn end_format_off_buffer(&mut self) -> Option<String> {
-        self.format_off_buffer.take()
-    }
-
-    /// Append content to format-off buffer if active
-    pub fn append_to_format_off_buffer(&mut self, content: &str) {
-        if let Some(ref mut buffer) = self.format_off_buffer {
-            buffer.push_str(content);
-        }
     }
 
     /// Build the handler map from all formatters
@@ -724,92 +691,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     }
 }
 
-/// Formatter builder for convenient configuration
-pub struct FormatterBuilder {
-    options: FormatOptions,
-    node_formatters: Vec<Box<dyn node::NodeFormatter>>,
-    phased_formatters: Vec<Box<dyn phase::PhasedNodeFormatter>>,
-}
-
-impl std::fmt::Debug for FormatterBuilder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FormatterBuilder")
-            .field("options", &self.options)
-            .field("node_formatters", &self.node_formatters.len())
-            .field("phased_formatters", &self.phased_formatters.len())
-            .finish()
-    }
-}
-
-impl FormatterBuilder {
-    /// Create a new formatter builder
-    pub fn new() -> Self {
-        Self {
-            options: FormatOptions::default(),
-            node_formatters: Vec::new(),
-            phased_formatters: Vec::new(),
-        }
-    }
-
-    /// Set the formatter options
-    pub fn options(mut self, options: FormatOptions) -> Self {
-        self.options = options;
-        self
-    }
-
-    /// Add a node formatter
-    pub fn add_node_formatter(
-        mut self,
-        formatter: Box<dyn node::NodeFormatter>,
-    ) -> Self {
-        self.node_formatters.push(formatter);
-        self
-    }
-
-    /// Add a phased formatter
-    pub fn add_phased_formatter(
-        mut self,
-        formatter: Box<dyn phase::PhasedNodeFormatter>,
-    ) -> Self {
-        self.phased_formatters.push(formatter);
-        self
-    }
-
-    /// Build the formatter
-    pub fn build(self) -> Formatter {
-        let mut formatter = Formatter::with_options(self.options);
-        for nf in self.node_formatters {
-            formatter.add_node_formatter(nf);
-        }
-        for pf in self.phased_formatters {
-            formatter.add_phased_formatter(pf);
-        }
-        formatter
-    }
-}
-
-impl Default for FormatterBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Convenience function to render a document with default options
-pub fn format_document(arena: &NodeArena, root: NodeId) -> String {
-    let formatter = Formatter::new();
-    formatter.render(arena, root)
-}
-
-/// Convenience function to render a document with custom options
-pub fn format_document_with_options(
-    arena: &NodeArena,
-    root: NodeId,
-    options: FormatOptions,
-) -> String {
-    let formatter = Formatter::with_options(options);
-    formatter.render(arena, root)
-}
-
 /// Render a node tree as CommonMark
 ///
 /// This function uses the CommonMarkNodeFormatter via the Formatter framework,
@@ -841,35 +722,8 @@ mod tests {
 
     #[test]
     fn test_formatter_creation() {
-        let formatter = Formatter::new();
-        assert!(matches!(
-            formatter.get_options().heading_style,
-            HeadingStyle::AsIs
-        ));
-    }
-
-    #[test]
-    fn test_formatter_builder() {
-        let formatter = FormatterBuilder::new()
-            .options(FormatOptions::new().with_right_margin(80))
-            .build();
-
-        assert_eq!(formatter.get_options().right_margin, 80);
-    }
-
-    #[test]
-    fn test_format_document() {
-        let mut arena = NodeArena::new();
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let para = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let text = arena.alloc(Node::with_value(NodeValue::make_text("Hello")));
-
-        TreeOps::append_child(&mut arena, root, para);
-        TreeOps::append_child(&mut arena, para, text);
-
-        // This will use default formatters which don't do much yet
-        let _result = format_document(&arena, root);
-        // Just verify it doesn't panic
+        // Just verify Formatter::new() doesn't panic
+        let _formatter = Formatter::new();
     }
 
     #[test]

@@ -2,7 +2,6 @@
 //!
 //! This module provides convenience functions for working with formatter context.
 
-use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
 
 // ============================================================================
@@ -20,37 +19,6 @@ pub const INDENTED_CODE_SPACES: &str = "    ";
 
 /// Block quote prefix pattern
 pub const BLOCK_QUOTE_PREFIX: &str = "> ";
-
-// ============================================================================
-// Context Helper Functions
-// ============================================================================
-
-/// Check if we're in a list context (either as a list item or in a tight list)
-///
-/// This helper function checks if the current context is within a list,
-/// either directly as a list item or indirectly in a tight list.
-#[inline]
-pub fn is_in_list_context(ctx: &dyn NodeFormatterContext) -> bool {
-    ctx.is_parent_list_item() || ctx.is_in_tight_list()
-}
-
-/// Get formatter options from context
-///
-/// This is a convenience wrapper to reduce verbosity when accessing
-/// formatter options from the context.
-#[inline]
-pub fn get_options(ctx: &dyn NodeFormatterContext) -> &FormatOptions {
-    ctx.get_formatter_options()
-}
-
-/// Check if paragraph line breaking is active
-///
-/// This is a convenience wrapper to reduce verbosity when checking
-/// if paragraph line breaking is currently active.
-#[inline]
-pub fn is_line_breaking_active(ctx: &dyn NodeFormatterContext) -> bool {
-    ctx.is_paragraph_line_breaking()
-}
 
 // ============================================================================
 // CJK Character Handling
@@ -130,23 +98,6 @@ pub fn prev_is_link(ctx: &dyn NodeFormatterContext) -> bool {
     }
 
     false
-}
-
-/// Check if text ends with CJK character
-#[allow(dead_code)]
-pub fn ends_with_cjk(text: &str) -> bool {
-    text.chars()
-        .rev()
-        .find(|c| !c.is_whitespace())
-        .map_or(false, is_cjk_char)
-}
-
-/// Check if text starts with CJK character
-#[allow(dead_code)]
-pub fn starts_with_cjk(text: &str) -> bool {
-    text.chars()
-        .find(|c| !c.is_whitespace())
-        .map_or(false, is_cjk_char)
 }
 
 /// Adjust spacing around markdown markers for CJK text

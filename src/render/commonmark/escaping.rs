@@ -23,14 +23,6 @@ pub enum EscapeMode {
     Normal,
     /// Table cell content (preserves pipe character)
     TableCell,
-    /// Code span content
-    CodeSpan,
-    /// Link text content
-    LinkText,
-    /// Link URL content
-    LinkUrl,
-    /// HTML attribute content
-    HtmlAttribute,
 }
 
 /// Characters that have special meaning in Markdown
@@ -42,12 +34,6 @@ const MARKDOWN_SPECIAL_CHARS: &[char] =
 /// These are block-level markers that would be interpreted as structural elements
 const LINE_START_SPECIAL_CHARS: &[char] =
     &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
-
-/// Characters that need escaping in link text
-const LINK_TEXT_SPECIAL_CHARS: &[char] = &['[', ']', '\\'];
-
-/// Characters that need escaping in link URLs
-const URL_SPECIAL_CHARS: &[char] = &['(', ')', ' ', '\t', '\n', '\r', '<', '>', '\\'];
 
 /// Check if a character needs escaping in the given context
 pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
@@ -251,19 +237,13 @@ fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
 /// - Line-start special characters (like # for headings, > for blockquotes)
 /// - Inline special characters (like * and _ for emphasis)
 /// - Context-specific escaping (different rules inside code, links, etc.)
-/// - Different escape modes for different contexts (Normal, TableCell, CodeSpan, etc.)
+/// - Different escape modes for different contexts (Normal, TableCell)
 pub fn escape_text_with_mode(
     text: &str,
     context: &dyn NodeFormatterContext,
     mode: EscapeMode,
 ) -> String {
-    match mode {
-        EscapeMode::CodeSpan => escape_code_span(text),
-        EscapeMode::LinkText => escape_link_text(text),
-        EscapeMode::LinkUrl => escape_url(text),
-        EscapeMode::HtmlAttribute => escape_html_attribute(text),
-        _ => escape_text_internal(text, context, mode),
-    }
+    escape_text_internal(text, context, mode)
 }
 
 /// Internal function for normal and table cell escaping
@@ -497,52 +477,6 @@ fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bo
     (prev_is_ws_or_punct && next_is_not_ws) || (next_is_ws_or_punct && prev_is_not_ws)
 }
 
-/// Escape text for use in code spans
-/// Only escapes backticks and backslashes
-pub fn escape_code_span(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-
-    for ch in text.chars() {
-        match ch {
-            '\\' | '`' => {
-                result.push('\\');
-                result.push(ch);
-            }
-            _ => result.push(ch),
-        }
-    }
-
-    result
-}
-
-/// Escape link text
-pub fn escape_link_text(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-
-    for ch in text.chars() {
-        if LINK_TEXT_SPECIAL_CHARS.contains(&ch) {
-            result.push('\\');
-        }
-        result.push(ch);
-    }
-
-    result
-}
-
-/// Escape URL for use in links
-pub fn escape_url(url: &str) -> String {
-    let mut result = String::with_capacity(url.len());
-
-    for ch in url.chars() {
-        if URL_SPECIAL_CHARS.contains(&ch) {
-            result.push('\\');
-        }
-        result.push(ch);
-    }
-
-    result
-}
-
 /// Escape string for use in link title
 ///
 /// Escapes quotes and backslashes in link titles.
@@ -550,18 +484,15 @@ pub fn escape_string(text: &str) -> String {
     text.replace('"', "\\\"").replace('\\', "\\\\")
 }
 
-/// Escape text for use in HTML attributes
-pub fn escape_html_attribute(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
+/// Escape URL for use in links
+pub fn escape_url(url: &str) -> String {
+    let mut result = String::with_capacity(url.len());
 
-    for ch in text.chars() {
-        match ch {
-            '&' => result.push_str("&amp;"),
-            '<' => result.push_str("&lt;"),
-            '>' => result.push_str("&gt;"),
-            '"' => result.push_str("&quot;"),
-            _ => result.push(ch),
+    for ch in url.chars() {
+        if matches!(ch, '(' | ')' | ' ' | '\t' | '\n' | '\r' | '<' | '>' | '\\') {
+            result.push('\\');
         }
+        result.push(ch);
     }
 
     result
@@ -598,26 +529,6 @@ mod tests {
         assert!(is_markdown_special_char('['));
         assert!(!is_markdown_special_char('a'));
         assert!(!is_markdown_special_char(' '));
-    }
-
-    #[test]
-    fn test_escape_link_text() {
-        assert_eq!(escape_link_text("[text]"), "\\[text\\]");
-        assert_eq!(escape_link_text("normal"), "normal");
-        assert_eq!(escape_link_text("a[b]c"), "a\\[b\\]c");
-    }
-
-    #[test]
-    fn test_escape_url() {
-        assert_eq!(escape_url("(url)"), "\\(url\\)");
-        assert_eq!(escape_url("with space"), "with\\ space");
-    }
-
-    #[test]
-    fn test_escape_code_span() {
-        assert_eq!(escape_code_span("`code`"), "\\`code\\`");
-        assert_eq!(escape_code_span("normal"), "normal");
-        assert_eq!(escape_code_span("a\\b"), "a\\\\b");
     }
 
     #[test]
@@ -842,50 +753,6 @@ mod tests {
             escape_text_with_mode("*text*", &ctx, EscapeMode::Normal),
             "\\*text\\*"
         );
-
-        // Test CodeSpan mode - only escapes backticks and backslashes
-        assert_eq!(
-            escape_text_with_mode("*text*", &ctx, EscapeMode::CodeSpan),
-            "*text*"
-        );
-        assert_eq!(
-            escape_text_with_mode("`code`", &ctx, EscapeMode::CodeSpan),
-            "\\`code\\`"
-        );
-        assert_eq!(
-            escape_text_with_mode("path\\file", &ctx, EscapeMode::CodeSpan),
-            "path\\\\file"
-        );
-
-        // Test LinkText mode
-        assert_eq!(
-            escape_text_with_mode("[text]", &ctx, EscapeMode::LinkText),
-            "\\[text\\]"
-        );
-        assert_eq!(
-            escape_text_with_mode("normal", &ctx, EscapeMode::LinkText),
-            "normal"
-        );
-
-        // Test LinkUrl mode
-        assert_eq!(
-            escape_text_with_mode("(url)", &ctx, EscapeMode::LinkUrl),
-            "\\(url\\)"
-        );
-        assert_eq!(
-            escape_text_with_mode("with space", &ctx, EscapeMode::LinkUrl),
-            "with\\ space"
-        );
-
-        // Test HtmlAttribute mode
-        assert_eq!(
-            escape_text_with_mode("<test>", &ctx, EscapeMode::HtmlAttribute),
-            "&lt;test&gt;"
-        );
-        assert_eq!(
-            escape_text_with_mode("\"quoted\"", &ctx, EscapeMode::HtmlAttribute),
-            "&quot;quoted&quot;"
-        );
     }
 
     #[test]
@@ -1038,26 +905,6 @@ mod tests {
 
         let chars: Vec<char> = "_word".chars().collect();
         assert!(!is_underscore_in_word(&chars, 0));
-    }
-
-    #[test]
-    fn test_escape_mode_variants() {
-        // Test that all escape modes are distinct
-        assert_ne!(EscapeMode::Normal, EscapeMode::TableCell);
-        assert_ne!(EscapeMode::Normal, EscapeMode::CodeSpan);
-        assert_ne!(EscapeMode::Normal, EscapeMode::LinkText);
-        assert_ne!(EscapeMode::Normal, EscapeMode::LinkUrl);
-        assert_ne!(EscapeMode::Normal, EscapeMode::HtmlAttribute);
-
-        // Test Clone
-        let mode = EscapeMode::Normal;
-        let cloned = mode.clone();
-        assert_eq!(mode, cloned);
-
-        // Test Copy
-        let mode = EscapeMode::CodeSpan;
-        let copied = mode;
-        assert_eq!(mode, copied); // mode is still valid after copy
     }
 
     #[test]
