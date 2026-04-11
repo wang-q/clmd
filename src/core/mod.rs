@@ -34,9 +34,8 @@ pub use arena::{
     NodeArena, NodeId, PrecedingSiblingsIterator, SiblingsIterator, INVALID_NODE_ID,
 };
 pub use ast::{Block, Document, Inline, Walkable as AstWalkable};
-pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position, Range};
+pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position};
 pub use nodes::NodeValue;
-pub use shared::stringify;
 pub use traverse::{
     AncestorIter, ArenaIteratorItem, ArenaNodeWalker, ArenaWalkerEvent, ChildIter,
     DescendantIter, EventIterator, IteratorEventType, NodeType, Query, Queryable,
@@ -48,10 +47,10 @@ pub use traverse::{
 pub use monad::{share_monad, ClmdIO, ClmdMonad, ClmdPure, SharedMonad, Verbosity};
 
 // Re-export sandbox types
-pub use sandbox::{SandboxMode, SandboxPolicy, SandboxedMonad};
+pub use sandbox::{SandboxMode, SandboxPolicy};
 
 // Re-export state types
-pub use state::{CommonState, ExtensionData, TrackChanges, Translations};
+pub use state::CommonState;
 
 // LogMessage and LogLevel are re-exported from error module
 pub use crate::core::error::{LogLevel, LogMessage};

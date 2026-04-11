@@ -3,16 +3,6 @@
 //! This module provides sandboxing capabilities for safe document conversion,
 //! inspired by Pandoc's sandbox mode. When enabled, all file system and network
 //! operations are restricted.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use clmd::core::{ClmdIO, ClmdMonad, SandboxMode};
-//! use std::path::Path;
-//!
-//! let monad = ClmdIO::new().with_sandbox_mode(SandboxMode::Strict);
-//! // File operations outside allowed paths will fail
-//! ```
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -53,7 +43,7 @@ pub struct SandboxPolicy {
 impl Default for SandboxPolicy {
     fn default() -> Self {
         Self {
-            mode: SandboxMode::default(), // Use Relaxed as default
+            mode: SandboxMode::default(),
             allowed_paths: HashSet::new(),
             blocked_paths: HashSet::new(),
             allow_network: true,
@@ -181,91 +171,6 @@ impl SandboxPolicy {
     }
 }
 
-/// A sandboxed wrapper for monad operations.
-#[derive(Debug, Clone)]
-pub struct SandboxedMonad<M> {
-    inner: M,
-    policy: SandboxPolicy,
-    resource_paths: Vec<PathBuf>,
-    bytes_read: std::sync::Arc<std::sync::atomic::AtomicUsize>,
-}
-
-impl<M> SandboxedMonad<M> {
-    /// Create a new sandboxed monad.
-    pub fn new(inner: M, policy: SandboxPolicy) -> Self {
-        Self {
-            inner,
-            policy,
-            resource_paths: vec![PathBuf::from(".")],
-            bytes_read: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
-        }
-    }
-
-    /// Set resource paths.
-    pub fn with_resource_paths(mut self, paths: Vec<PathBuf>) -> Self {
-        self.resource_paths = paths;
-        self
-    }
-
-    /// Get the inner monad.
-    pub fn inner(&self) -> &M {
-        &self.inner
-    }
-
-    /// Get the sandbox policy.
-    pub fn policy(&self) -> &SandboxPolicy {
-        &self.policy
-    }
-
-    /// Check if a path is allowed.
-    pub fn check_path(&self, path: &Path) -> Result<(), ClmdError> {
-        if !self.policy.is_path_allowed(path, &self.resource_paths) {
-            return Err(ClmdError::sandbox_error(format!(
-                "Access to path '{}' is not allowed in sandbox mode",
-                path.display()
-            )));
-        }
-        Ok(())
-    }
-
-    /// Check if network access is allowed.
-    pub fn check_network(&self) -> Result<(), ClmdError> {
-        if !self.policy.is_network_allowed() {
-            return Err(ClmdError::sandbox_error(
-                "Network access is not allowed in sandbox mode",
-            ));
-        }
-        Ok(())
-    }
-
-    /// Check if writes are allowed.
-    pub fn check_write(&self) -> Result<(), ClmdError> {
-        if !self.policy.are_writes_allowed() {
-            return Err(ClmdError::sandbox_error(
-                "File writes are not allowed in sandbox mode",
-            ));
-        }
-        Ok(())
-    }
-
-    /// Track bytes read.
-    pub fn track_read(&self, bytes: usize) -> Result<(), ClmdError> {
-        if let Some(max) = self.policy.max_total_read {
-            let current = self
-                .bytes_read
-                .fetch_add(bytes, std::sync::atomic::Ordering::SeqCst);
-            if current + bytes > max {
-                return Err(ClmdError::sandbox_error(format!(
-                    "Total read bytes {} exceeds maximum allowed {}",
-                    current + bytes,
-                    max
-                )));
-            }
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,30 +219,5 @@ mod tests {
         let policy = SandboxPolicy::disabled().with_max_file_size(100);
         assert!(policy.validate_file_size(50).is_ok());
         assert!(policy.validate_file_size(150).is_err());
-    }
-
-    #[test]
-    fn test_sandboxed_monad_path_check() {
-        let policy = SandboxPolicy::strict().allow_path("/allowed");
-        let monad = SandboxedMonad::new((), policy);
-
-        assert!(monad.check_path(Path::new("/allowed/file.txt")).is_ok());
-        assert!(monad.check_path(Path::new("/other/file.txt")).is_err());
-    }
-
-    #[test]
-    fn test_sandboxed_monad_network_check() {
-        let policy = SandboxPolicy::disabled().without_network();
-        let monad = SandboxedMonad::new((), policy);
-
-        assert!(monad.check_network().is_err());
-    }
-
-    #[test]
-    fn test_sandboxed_monad_write_check() {
-        let policy = SandboxPolicy::disabled().without_writes();
-        let monad = SandboxedMonad::new((), policy);
-
-        assert!(monad.check_write().is_err());
     }
 }

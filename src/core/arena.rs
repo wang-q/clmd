@@ -125,34 +125,7 @@ impl NodeArena {
         }
     }
 
-    /// Create arena with capacity estimated from input size.
-    ///
-    /// This is useful for pre-allocating memory based on the expected
-    /// document size, reducing reallocation during parsing.
-    ///
-    /// The estimation assumes roughly 1 node per 16 bytes of input
-    /// for typical Markdown documents.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The input string to estimate capacity from
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use clmd::core::NodeArena;
-    ///
-    /// let input = "# Hello\n\nThis is a paragraph.";
-    /// let arena = NodeArena::for_input(input);
-    /// ```
-    pub fn for_input(input: &str) -> Self {
-        // Estimate: roughly 1 node per 16 bytes for typical markdown
-        // Minimum capacity of 64 to avoid frequent reallocations for small inputs
-        let estimated_nodes = (input.len() / 16).max(64);
-        Self::with_capacity(estimated_nodes)
-    }
-
-    /// Allocate a new node and return its ID
+    /// Try to allocate a new node and return its ID
     ///
     /// # Panics
     ///
@@ -209,32 +182,9 @@ impl NodeArena {
         Ok(id)
     }
 
-    /// Get memory usage statistics
-    ///
-    /// Returns a tuple of (current_nodes, total_allocations, memory_estimate_bytes)
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use clmd::core::NodeArena;
-    ///
-    /// let arena = NodeArena::new();
-    /// let (nodes, allocs, memory) = arena.memory_stats();
-    /// ```
-    pub fn memory_stats(&self) -> (usize, usize, usize) {
-        let node_size = std::mem::size_of::<Node>();
-        let memory_estimate = self.nodes.len() * node_size;
-        (self.nodes.len(), self.total_allocations, memory_estimate)
-    }
-
     /// Get the maximum node limit (0 = unlimited)
     pub fn max_nodes(&self) -> usize {
         self.max_nodes
-    }
-
-    /// Set the maximum node limit (0 = unlimited)
-    pub fn set_max_nodes(&mut self, max_nodes: usize) {
-        self.max_nodes = max_nodes;
     }
 
     /// Get a reference to a node by ID.
@@ -346,11 +296,6 @@ impl NodeArena {
             .iter_mut()
             .enumerate()
             .map(|(i, node)| (i as NodeId, node))
-    }
-
-    /// Shrinks the capacity of the arena to match the current number of nodes.
-    pub fn shrink_to_fit(&mut self) {
-        self.nodes.shrink_to_fit();
     }
 
     /// Returns an iterator over all descendants of the given node.
@@ -634,75 +579,6 @@ impl TreeOps {
             next_node.prev = Some(new_node_id);
         } else if let Some(parent) = parent_id {
             // Reference was the last child, update parent's last_child
-            let parent_node = arena.get_mut(parent);
-            parent_node.last_child = Some(new_node_id);
-        }
-    }
-
-    /// Insert a node before a reference node (as a sibling)
-    pub fn insert_before(
-        arena: &mut NodeArena,
-        reference_id: NodeId,
-        new_node_id: NodeId,
-    ) {
-        let reference = arena.get(reference_id);
-        let prev_id = reference.prev;
-        let parent_id = reference.parent;
-
-        // Update new node's connections
-        let new_node = arena.get_mut(new_node_id);
-        new_node.prev = prev_id;
-        new_node.next = Some(reference_id);
-        new_node.parent = parent_id;
-
-        // Update reference node's prev pointer
-        let reference = arena.get_mut(reference_id);
-        reference.prev = Some(new_node_id);
-
-        // Update previous node's next pointer if exists
-        if let Some(prev) = prev_id {
-            let prev_node = arena.get_mut(prev);
-            prev_node.next = Some(new_node_id);
-        } else if let Some(parent) = parent_id {
-            // Reference was the first child, update parent's first_child
-            let parent_node = arena.get_mut(parent);
-            parent_node.first_child = Some(new_node_id);
-        }
-    }
-
-    /// Replace a node with another node
-    ///
-    /// The old node is unlinked but not deleted. The new node takes the old node's position.
-    pub fn replace(arena: &mut NodeArena, old_node_id: NodeId, new_node_id: NodeId) {
-        let old_node = arena.get(old_node_id);
-        let prev_id = old_node.prev;
-        let next_id = old_node.next;
-        let parent_id = old_node.parent;
-
-        // Unlink the old node
-        TreeOps::unlink(arena, old_node_id);
-
-        // Set up the new node's connections
-        let new_node = arena.get_mut(new_node_id);
-        new_node.prev = prev_id;
-        new_node.next = next_id;
-        new_node.parent = parent_id;
-
-        // Update surrounding nodes
-        if let Some(prev) = prev_id {
-            let prev_node = arena.get_mut(prev);
-            prev_node.next = Some(new_node_id);
-        } else if let Some(parent) = parent_id {
-            // Old node was the first child
-            let parent_node = arena.get_mut(parent);
-            parent_node.first_child = Some(new_node_id);
-        }
-
-        if let Some(next) = next_id {
-            let next_node = arena.get_mut(next);
-            next_node.prev = Some(new_node_id);
-        } else if let Some(parent) = parent_id {
-            // Old node was the last child
             let parent_node = arena.get_mut(parent);
             parent_node.last_child = Some(new_node_id);
         }
@@ -1047,27 +923,6 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_stats() {
-        let mut arena = NodeArena::new();
-
-        // Initially empty
-        let (nodes, allocs, memory) = arena.memory_stats();
-        assert_eq!(nodes, 0);
-        assert_eq!(allocs, 0);
-        assert_eq!(memory, 0);
-
-        // Allocate some nodes
-        arena.alloc(Node::with_value(NodeValue::Document));
-        arena.alloc(Node::with_value(NodeValue::Paragraph));
-        arena.alloc(Node::with_value(NodeValue::Paragraph));
-
-        let (nodes, allocs, memory) = arena.memory_stats();
-        assert_eq!(nodes, 3);
-        assert_eq!(allocs, 3);
-        assert!(memory > 0);
-    }
-
-    #[test]
     fn test_arena_with_limits() {
         let mut arena = NodeArena::with_limits(10, 5);
 
@@ -1088,34 +943,6 @@ mod tests {
             }
         }));
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_set_max_nodes() {
-        let mut arena = NodeArena::new();
-        assert_eq!(arena.max_nodes(), 0); // Unlimited
-
-        arena.set_max_nodes(100);
-        assert_eq!(arena.max_nodes(), 100);
-    }
-
-    #[test]
-    fn test_total_allocations_counter() {
-        let mut arena = NodeArena::new();
-
-        // Allocate and verify counter
-        arena.alloc(Node::with_value(NodeValue::Document));
-        let (_, allocs, _) = arena.memory_stats();
-        assert_eq!(allocs, 1);
-
-        arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let (_, allocs, _) = arena.memory_stats();
-        assert_eq!(allocs, 2);
-
-        // Counter should keep increasing even if nodes are unlinked
-        arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let (_, allocs, _) = arena.memory_stats();
-        assert_eq!(allocs, 3);
     }
 
     #[test]
