@@ -16,15 +16,6 @@ use crate::core::traverse::TraverseExt;
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::text::char::is_punctuation;
 
-/// Escape mode for different contexts
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EscapeMode {
-    /// Normal text escaping
-    Normal,
-    /// Table cell content (preserves pipe character)
-    TableCell,
-}
-
 /// Characters that have special meaning in Markdown
 /// Only includes characters that actually need escaping in most contexts
 const MARKDOWN_SPECIAL_CHARS: &[char] =
@@ -230,29 +221,14 @@ fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
     })
 }
 
-/// Escape text according to the current context and mode
+/// Escape text according to the current context
 ///
 /// This function applies context-aware escaping for Markdown special characters.
 /// It handles:
 /// - Line-start special characters (like # for headings, > for blockquotes)
 /// - Inline special characters (like * and _ for emphasis)
 /// - Context-specific escaping (different rules inside code, links, etc.)
-/// - Different escape modes for different contexts (Normal, TableCell)
-pub fn escape_text_with_mode(
-    text: &str,
-    context: &dyn NodeFormatterContext,
-    mode: EscapeMode,
-) -> String {
-    escape_text_internal(text, context, mode)
-}
-
-/// Internal function for normal and table cell escaping
-fn escape_text_internal(
-    text: &str,
-    context: &dyn NodeFormatterContext,
-    mode: EscapeMode,
-) -> String {
-    let is_table_mode = mode == EscapeMode::TableCell;
+pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
     let mut at_line_start = true;
@@ -273,11 +249,7 @@ fn escape_text_internal(
             '_' => {
                 // Underscore needs special handling
                 // Only escape if it could form an emphasis marker
-                if is_in_code_context(context)
-                    || is_part_of_emphasis_node(context)
-                    || is_table_mode
-                {
-                    // In table cells, underscores are preserved as emphasis markers
+                if is_in_code_context(context) || is_part_of_emphasis_node(context) {
                     result.push('_');
                 } else if is_underscore_in_word(&chars, i) {
                     // Underscore inside a word (like default_template) - don't escape
@@ -291,11 +263,7 @@ fn escape_text_internal(
             }
             '*' => {
                 // Asterisk also needs context-aware handling
-                if is_in_code_context(context)
-                    || is_part_of_emphasis_node(context)
-                    || is_table_mode
-                {
-                    // In table cells, asterisks are preserved as emphasis markers
+                if is_in_code_context(context) || is_part_of_emphasis_node(context) {
                     result.push('*');
                 } else {
                     // Check if it could form emphasis
@@ -315,21 +283,10 @@ fn escape_text_internal(
                 }
                 at_line_start = false;
             }
-            '|' if is_table_mode => {
-                // In table mode, preserve pipe character (don't escape)
-                result.push(*ch);
-                at_line_start = false;
-            }
-            '!' if is_table_mode => {
-                // In table mode, '!' is preserved as part of image syntax ![...]
-                result.push(*ch);
-                at_line_start = false;
-            }
             '#' => {
                 // '#' only needs escaping at line start when followed by space (heading marker)
                 // # followed directly by text (like #469) is not a heading
-                // In table cells, '#' doesn't need escaping
-                if at_line_start && !is_in_code_context(context) && !is_table_mode {
+                if at_line_start && !is_in_code_context(context) {
                     let next_char = chars.get(i + 1);
                     let followed_by_space =
                         next_char.map(|c| c.is_whitespace()).unwrap_or(false);
@@ -341,54 +298,29 @@ fn escape_text_internal(
                 at_line_start = false;
             }
             _ => {
-                // In table mode, most characters don't need escaping
-                // Only pipe (|) needs special handling (already done above)
-                if is_table_mode {
-                    result.push(*ch);
-                    at_line_start = false;
+                // Check if we need to escape this character
+                // First check context-aware rules, then check line-start rules
+                let needs_escape = if at_line_start
+                    && LINE_START_SPECIAL_CHARS.contains(ch)
+                    && !is_in_code_context(context)
+                {
+                    // At line start with a special character - check if context says it needs escaping
+                    need_to_escape(*ch, context)
                 } else {
-                    // Check if we need to escape this character
-                    // First check context-aware rules, then check line-start rules
-                    let needs_escape = if at_line_start
-                        && LINE_START_SPECIAL_CHARS.contains(ch)
-                        && !is_in_code_context(context)
-                    {
-                        // At line start with a special character - check if context says it needs escaping
-                        need_to_escape(*ch, context)
-                    } else {
-                        // Not at line start or not a line-start special char, use normal escaping rules
-                        need_to_escape(*ch, context)
-                    };
+                    // Not at line start or not a line-start special char, use normal escaping rules
+                    need_to_escape(*ch, context)
+                };
 
-                    if needs_escape {
-                        result.push('\\');
-                    }
-                    result.push(*ch);
-                    at_line_start = false;
+                if needs_escape {
+                    result.push('\\');
                 }
+                result.push(*ch);
+                at_line_start = false;
             }
         }
     }
 
     result
-}
-
-/// Escape text according to the current context (Normal mode)
-///
-/// This is a convenience wrapper around `escape_text_with_mode` for normal text.
-pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
-    escape_text_with_mode(text, context, EscapeMode::Normal)
-}
-
-/// Escape text for table cell content
-///
-/// This is a convenience wrapper around `escape_text_with_mode` for table cells.
-/// Pipe characters (|) are preserved to maintain table structure.
-pub fn escape_markdown_for_table(
-    text: &str,
-    context: &dyn NodeFormatterContext,
-) -> String {
-    escape_text_with_mode(text, context, EscapeMode::TableCell)
 }
 
 /// Escape text for table cell content (simple version without context)
@@ -737,28 +669,6 @@ mod tests {
         // Less-than should still be escaped (can start HTML tags or autolinks)
         assert_eq!(escape_text("<", &ctx), "\\<");
         assert_eq!(escape_text("a < b", &ctx), "a \\< b");
-    }
-
-    #[test]
-    fn test_escape_text_with_mode() {
-        let ctx = MockParagraphContext;
-        // Test Normal mode
-        assert_eq!(
-            escape_text_with_mode("*text*", &ctx, EscapeMode::Normal),
-            "\\*text\\*"
-        );
-    }
-
-    #[test]
-    fn test_escape_markdown_for_table() {
-        let ctx = MockParagraphContext;
-        // Pipe should be preserved in table mode
-        assert_eq!(
-            escape_markdown_for_table("cell1 | cell2", &ctx),
-            "cell1 | cell2"
-        );
-        // Asterisks in table cells should NOT be escaped (they are valid emphasis markers)
-        assert_eq!(escape_markdown_for_table("*text*", &ctx), "*text*");
     }
 
     #[test]
