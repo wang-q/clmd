@@ -7,54 +7,6 @@
 use crate::options::format::FormatFlags;
 use crate::text::unicode;
 
-/// Line information for tracking output state
-///
-/// This structure tracks information about the current line being written,
-/// useful for making formatting decisions based on context.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct LineInfo {
-    /// The line number (0-indexed)
-    pub line_number: usize,
-    /// The column position on the current line
-    pub column: usize,
-    /// Whether this is the beginning of a line
-    pub beginning_of_line: bool,
-    /// Whether the current line is blank
-    pub is_blank_line: bool,
-}
-
-impl LineInfo {
-    /// Create a new LineInfo at the start of a document
-    pub fn new() -> Self {
-        Self {
-            line_number: 0,
-            column: 0,
-            beginning_of_line: true,
-            is_blank_line: true,
-        }
-    }
-
-    /// Advance the column by the given amount
-    pub fn advance_column(&mut self, n: usize) {
-        self.column += n;
-        self.is_blank_line = false;
-    }
-
-    /// Move to the next line
-    pub fn next_line(&mut self) {
-        self.line_number += 1;
-        self.column = 0;
-        self.beginning_of_line = true;
-        self.is_blank_line = true;
-    }
-
-    /// Mark that we're no longer at the beginning of a line
-    pub fn mark_content_written(&mut self) {
-        self.beginning_of_line = false;
-        self.is_blank_line = false;
-    }
-}
-
 /// Markdown output writer
 ///
 /// This writer handles the generation of Markdown text with proper
@@ -79,16 +31,10 @@ pub struct MarkdownWriter {
     trailing_blank_lines: usize,
     /// Maximum trailing blank lines
     max_trailing_blank_lines: usize,
-    /// Whether to add space after atx marker
-    space_after_atx_marker: bool,
-    /// Whether to add space before info in code blocks
-    space_before_info: bool,
     /// Right margin for text wrapping (0 = no wrapping)
     right_margin: usize,
     /// Buffer for word wrapping
     word_wrap_buffer: String,
-    /// Line information tracking
-    line_info: LineInfo,
 }
 
 impl MarkdownWriter {
@@ -104,11 +50,8 @@ impl MarkdownWriter {
             current_prefix: String::new(),
             trailing_blank_lines: 0,
             max_trailing_blank_lines: 2,
-            space_after_atx_marker: true,
-            space_before_info: true,
             right_margin: 0,
             word_wrap_buffer: String::new(),
-            line_info: LineInfo::new(),
         }
     }
 
@@ -218,18 +161,6 @@ impl MarkdownWriter {
         Self::new(FormatFlags::DEFAULT)
     }
 
-    /// Set whether to add space after atx marker
-    pub fn set_space_after_atx_marker(&mut self, value: bool) -> &mut Self {
-        self.space_after_atx_marker = value;
-        self
-    }
-
-    /// Set whether to add space before info in code blocks
-    pub fn set_space_before_info(&mut self, value: bool) -> &mut Self {
-        self.space_before_info = value;
-        self
-    }
-
     /// Push a prefix onto the stack
     pub fn push_prefix(&mut self, prefix: impl AsRef<str>) -> &mut Self {
         let prefix = prefix.as_ref();
@@ -265,7 +196,6 @@ impl MarkdownWriter {
             self.column = self.current_prefix.len();
             self.beginning_of_line = false;
             self.trailing_blank_lines = 0;
-            self.line_info.mark_content_written();
         }
         was_beginning_of_line
     }
@@ -288,7 +218,6 @@ impl MarkdownWriter {
 
         self.output.push_str(&processed_text);
         self.column += processed_text.len();
-        self.line_info.advance_column(processed_text.len());
 
         self
     }
@@ -305,64 +234,6 @@ impl MarkdownWriter {
         self.output.push_str(text);
         self.column += text.len();
 
-        self
-    }
-
-    /// Append text for non-translating content (e.g., URLs, code)
-    /// This is used for content that should not be translated
-    pub fn append_non_translating(&mut self, text: impl AsRef<str>) -> &mut Self {
-        // In a full implementation, this would handle translation placeholders
-        // For now, just append the text directly
-        self.append(text)
-    }
-
-    /// Append text for non-translating content with prefix and suffix
-    pub fn append_non_translating_with(
-        &mut self,
-        prefix: Option<&str>,
-        text: impl AsRef<str>,
-        suffix: Option<&str>,
-        suffix2: Option<&str>,
-    ) -> &mut Self {
-        if let Some(p) = prefix {
-            self.append(p);
-        }
-        self.append_non_translating(text);
-        if let Some(s) = suffix {
-            self.append(s);
-        }
-        if let Some(s2) = suffix2 {
-            self.append(s2);
-        }
-        self
-    }
-
-    /// Append text for translating content
-    /// This is used for content that should be translated
-    pub fn append_translating(&mut self, text: impl AsRef<str>) -> &mut Self {
-        // In a full implementation, this would handle translation placeholders
-        // For now, just append the text directly
-        self.append(text)
-    }
-
-    /// Append text for translating content with prefix and suffix
-    pub fn append_translating_with(
-        &mut self,
-        prefix: Option<&str>,
-        text: impl AsRef<str>,
-        suffix: Option<&str>,
-        suffix2: Option<&str>,
-    ) -> &mut Self {
-        if let Some(p) = prefix {
-            self.append(p);
-        }
-        self.append_translating(text);
-        if let Some(s) = suffix {
-            self.append(s);
-        }
-        if let Some(s2) = suffix2 {
-            self.append(s2);
-        }
         self
     }
 
@@ -395,7 +266,6 @@ impl MarkdownWriter {
             self.output.push('\n');
             self.beginning_of_line = true;
             self.column = 0;
-            self.line_info.next_line();
         }
         self
     }
@@ -417,14 +287,6 @@ impl MarkdownWriter {
             self.trailing_blank_lines += 1;
         }
         self.beginning_of_line = true;
-        self
-    }
-
-    /// Add a blank line only if not already at a blank line
-    pub fn blank_line_if_needed(&mut self) -> &mut Self {
-        if self.trailing_blank_lines == 0 {
-            self.blank_line();
-        }
         self
     }
 
@@ -513,154 +375,6 @@ impl MarkdownWriter {
     /// Append another writer's content
     pub fn append_writer(&mut self, other: &MarkdownWriter) -> &mut Self {
         self.append_raw(&other.output)
-    }
-
-    /// Repeat a character n times
-    pub fn repeat_char(&mut self, ch: char, n: usize) -> &mut Self {
-        self.append(ch.to_string().repeat(n))
-    }
-
-    /// Append a space
-    pub fn space(&mut self) -> &mut Self {
-        self.append(" ")
-    }
-
-    /// Append multiple spaces
-    pub fn spaces(&mut self, n: usize) -> &mut Self {
-        self.append(" ".repeat(n))
-    }
-
-    /// Get an empty appendable writer with the same options
-    pub fn get_empty_appendable(&self) -> Self {
-        Self {
-            output: String::new(),
-            prefix_stack: self.prefix_stack.clone(),
-            column: 0,
-            beginning_of_line: true,
-            pre_formatted: self.pre_formatted,
-            format_flags: self.format_flags,
-            current_prefix: self.current_prefix.clone(),
-            trailing_blank_lines: 0,
-            max_trailing_blank_lines: self.max_trailing_blank_lines,
-            space_after_atx_marker: self.space_after_atx_marker,
-            space_before_info: self.space_before_info,
-            right_margin: self.right_margin,
-            word_wrap_buffer: String::new(),
-            line_info: LineInfo::new(),
-        }
-    }
-
-    /// Get the current line information
-    pub fn get_line_info(&self) -> LineInfo {
-        self.line_info
-    }
-
-    /// Get the current line number
-    pub fn get_line_number(&self) -> usize {
-        self.line_info.line_number
-    }
-
-    /// Append to an appendable (like String or another writer)
-    pub fn append_to_appendable(
-        &self,
-        out: &mut dyn std::fmt::Write,
-    ) -> std::fmt::Result {
-        out.write_str(&self.output)
-    }
-
-    /// Append with maximum blank lines constraint
-    pub fn append_with_max_blank_lines(
-        &self,
-        out: &mut dyn std::fmt::Write,
-        _max_blank_lines: usize,
-        max_trailing_blank_lines: usize,
-    ) -> std::fmt::Result {
-        // Trim trailing blank lines to max_trailing_blank_lines
-        let trimmed = self.trim_trailing_blank_lines(max_trailing_blank_lines);
-        out.write_str(&trimmed)
-    }
-
-    /// Trim trailing blank lines to a maximum
-    fn trim_trailing_blank_lines(&self, max: usize) -> String {
-        let mut result = self.output.clone();
-        let mut blank_count = 0;
-
-        // Count trailing newlines
-        while result.ends_with('\n') {
-            blank_count += 1;
-            result.pop();
-        }
-
-        // Add back up to max blank lines
-        for _ in 0..blank_count.min(max) {
-            result.push('\n');
-        }
-
-        result
-    }
-
-    /// Get the format flags
-    pub fn get_options(&self) -> FormatFlags {
-        self.format_flags
-    }
-
-    /// Get the last block quote child prefix
-    ///
-    /// This method is used to handle the special case where a block quote's last child
-    /// needs a modified prefix. In flexmark-java, this handles the case where continuation
-    /// block prefixes are removed for the last child.
-    ///
-    /// For example, in a block quote with nested content, the last child's prefix
-    /// may need to be adjusted to remove continuation markers.
-    pub fn last_block_quote_child_prefix(&self, prefix: impl AsRef<str>) -> String {
-        let prefix = prefix.as_ref();
-
-        // Find the last occurrence of a block quote-like prefix character
-        // This is typically '>' for block quotes
-        if let Some(pos) = prefix.rfind('>') {
-            // Create a new prefix where the last '>' is replaced with a space
-            // This handles the case of continuation block prefix removal
-            let mut result = prefix.to_string();
-            if pos < result.len() {
-                // Replace the '>' with a space to indicate it's the last child
-                result.replace_range(pos..pos + 1, " ");
-            }
-            result
-        } else {
-            // No block quote prefix found, return as-is
-            prefix.to_string()
-        }
-    }
-
-    /// Check if the current prefix contains a block quote marker
-    pub fn has_block_quote_prefix(&self) -> bool {
-        self.current_prefix.contains('>')
-    }
-
-    /// Get the prefix stack depth
-    pub fn get_prefix_depth(&self) -> usize {
-        self.prefix_stack.len()
-    }
-
-    /// Check if there are any prefixes on the stack
-    pub fn has_prefixes(&self) -> bool {
-        !self.prefix_stack.is_empty()
-    }
-
-    /// Get a copy of the prefix stack
-    pub fn get_prefix_stack(&self) -> Vec<String> {
-        self.prefix_stack.clone()
-    }
-
-    /// Flush the writer to an appendable with constraints
-    pub fn flush_to(
-        &mut self,
-        out: &mut dyn std::fmt::Write,
-        max_blank_lines: usize,
-        max_trailing_blank_lines: usize,
-    ) -> std::fmt::Result {
-        self.line();
-        self.append_with_max_blank_lines(out, max_blank_lines, max_trailing_blank_lines)
     }
 }
 
@@ -782,110 +496,6 @@ mod tests {
     }
 
     #[test]
-    fn test_append_non_translating() {
-        let mut writer = MarkdownWriter::default();
-        writer.append_non_translating("code");
-        assert_eq!(writer.to_string(), "code");
-    }
-
-    #[test]
-    fn test_append_translating() {
-        let mut writer = MarkdownWriter::default();
-        writer.append_translating("text");
-        assert_eq!(writer.to_string(), "text");
-    }
-
-    #[test]
-    fn test_get_empty_appendable() {
-        let mut writer = MarkdownWriter::default();
-        writer.push_prefix("> ");
-        writer.append("Hello");
-
-        let empty = writer.get_empty_appendable();
-        assert_eq!(empty.get_prefix(), "> ");
-        assert!(empty.is_beginning_of_line());
-        assert_eq!(empty.to_string(), "");
-    }
-
-    #[test]
-    fn test_flush_to() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-
-        let mut output = String::new();
-        writer.flush_to(&mut output, 2, 2).unwrap();
-        assert_eq!(output, "Hello\n");
-    }
-
-    #[test]
-    fn test_last_block_quote_child_prefix() {
-        let writer = MarkdownWriter::default();
-
-        // Test with block quote prefix
-        assert_eq!(writer.last_block_quote_child_prefix("> "), "  ");
-
-        // Test with nested block quote prefix
-        assert_eq!(writer.last_block_quote_child_prefix("> > "), ">   ");
-
-        // Test without block quote prefix
-        assert_eq!(writer.last_block_quote_child_prefix("    "), "    ");
-
-        // Test with multiple '>' characters
-        assert_eq!(writer.last_block_quote_child_prefix("> > > "), "> >   ");
-    }
-
-    #[test]
-    fn test_has_block_quote_prefix() {
-        let mut writer = MarkdownWriter::default();
-        assert!(!writer.has_block_quote_prefix());
-
-        writer.push_prefix("> ");
-        assert!(writer.has_block_quote_prefix());
-
-        writer.pop_prefix();
-        assert!(!writer.has_block_quote_prefix());
-    }
-
-    #[test]
-    fn test_get_prefix_depth() {
-        let mut writer = MarkdownWriter::default();
-        assert_eq!(writer.get_prefix_depth(), 0);
-
-        writer.push_prefix("> ");
-        assert_eq!(writer.get_prefix_depth(), 1);
-
-        writer.push_prefix("> ");
-        assert_eq!(writer.get_prefix_depth(), 2);
-
-        writer.pop_prefix();
-        assert_eq!(writer.get_prefix_depth(), 1);
-    }
-
-    #[test]
-    fn test_has_prefixes() {
-        let mut writer = MarkdownWriter::default();
-        assert!(!writer.has_prefixes());
-
-        writer.push_prefix("> ");
-        assert!(writer.has_prefixes());
-
-        writer.pop_prefix();
-        assert!(!writer.has_prefixes());
-    }
-
-    #[test]
-    fn test_get_prefix_stack() {
-        let mut writer = MarkdownWriter::default();
-        writer.push_prefix("> ");
-        writer.push_prefix("  ");
-
-        let stack = writer.get_prefix_stack();
-        assert_eq!(stack.len(), 2);
-        assert_eq!(stack[0], "> ");
-        assert_eq!(stack[1], "  ");
-    }
-
-    #[test]
     fn test_markdown_writer_creation() {
         let writer = MarkdownWriter::new(FormatFlags::DEFAULT);
         assert!(writer.is_beginning_of_line());
@@ -925,56 +535,6 @@ mod tests {
     }
 
     #[test]
-    fn test_blank_line_if_needed() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Line 1");
-        writer.blank_line_if_needed();
-        writer.append("Line 2");
-        assert_eq!(writer.to_string(), "Line 1\n\nLine 2");
-    }
-
-    #[test]
-    fn test_tail_blank_line() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-        writer.tail_blank_line();
-        let output = writer.to_string();
-        assert!(output.starts_with("Hello"));
-        assert!(output.ends_with("\n\n"));
-    }
-
-    #[test]
-    fn test_space() {
-        let mut flags = FormatFlags::DEFAULT;
-        flags.collapse_whitespace = false;
-        flags.trim_trailing_whitespace = false;
-        let mut writer = MarkdownWriter::new(flags);
-        writer.append("Hello");
-        writer.space();
-        writer.append("World");
-        assert_eq!(writer.to_string(), "Hello World");
-    }
-
-    #[test]
-    fn test_spaces() {
-        let mut flags = FormatFlags::DEFAULT;
-        flags.collapse_whitespace = false;
-        flags.trim_trailing_whitespace = false;
-        let mut writer = MarkdownWriter::new(flags);
-        writer.append("Hello");
-        writer.spaces(3);
-        writer.append("World");
-        assert_eq!(writer.to_string(), "Hello   World");
-    }
-
-    #[test]
-    fn test_repeat_char() {
-        let mut writer = MarkdownWriter::default();
-        writer.repeat_char('-', 5);
-        assert_eq!(writer.to_string(), "-----");
-    }
-
-    #[test]
     fn test_clear() {
         let mut writer = MarkdownWriter::default();
         writer.append("Hello");
@@ -1011,29 +571,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_line_number() {
-        let mut writer = MarkdownWriter::default();
-        assert_eq!(writer.get_line_number(), 0);
-        // line() only adds newline if not at beginning of line
-        // So we need to append something first
-        writer.append("test");
-        writer.line();
-        assert_eq!(writer.get_line_number(), 1);
-        writer.append("test");
-        writer.line();
-        assert_eq!(writer.get_line_number(), 2);
-    }
-
-    #[test]
-    fn test_get_line_info() {
-        let writer = MarkdownWriter::default();
-        let info = writer.get_line_info();
-        assert_eq!(info.line_number, 0);
-        assert_eq!(info.column, 0);
-        assert!(info.beginning_of_line);
-    }
-
-    #[test]
     fn test_set_right_margin() {
         let mut writer = MarkdownWriter::default();
         writer.set_right_margin(40);
@@ -1058,69 +595,5 @@ mod tests {
         writer.flush_word_wrap_buffer();
         let output = writer.to_string();
         assert!(output.contains("Hello"));
-    }
-
-    #[test]
-    fn test_append_non_translating_with() {
-        let mut writer = MarkdownWriter::default();
-        writer.append_non_translating_with(Some("["), "text", Some("]"), None);
-        assert_eq!(writer.to_string(), "[text]");
-    }
-
-    #[test]
-    fn test_append_translating_with() {
-        let mut writer = MarkdownWriter::default();
-        writer.append_translating_with(Some("**"), "bold", Some("**"), None);
-        assert_eq!(writer.to_string(), "**bold**");
-    }
-
-    #[test]
-    fn test_set_space_after_atx_marker() {
-        let mut writer = MarkdownWriter::default();
-        writer.set_space_after_atx_marker(false);
-        // Just verify it doesn't panic
-        assert!(true);
-    }
-
-    #[test]
-    fn test_set_space_before_info() {
-        let mut writer = MarkdownWriter::default();
-        writer.set_space_before_info(false);
-        // Just verify it doesn't panic
-        assert!(true);
-    }
-
-    #[test]
-    fn test_set_max_trailing_blank_lines() {
-        let mut writer = MarkdownWriter::default();
-        writer.set_max_trailing_blank_lines(1);
-        writer.append("Hello");
-        writer.tail_blank_line();
-        // With max 1, should only have 1 trailing newline
-        assert!(true); // Just verify it doesn't panic
-    }
-
-    #[test]
-    fn test_append_to_appendable() {
-        let writer = MarkdownWriter::default();
-        let mut output = String::new();
-        writer.append_to_appendable(&mut output).unwrap();
-        assert!(output.is_empty());
-    }
-
-    #[test]
-    fn test_append_with_max_blank_lines() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-        writer.blank_line();
-        writer.blank_line();
-        writer.blank_line();
-
-        let mut output = String::new();
-        writer
-            .append_with_max_blank_lines(&mut output, 2, 2)
-            .unwrap();
-        // Should be trimmed to max 2 trailing blank lines
-        assert!(output.starts_with("Hello"));
     }
 }
