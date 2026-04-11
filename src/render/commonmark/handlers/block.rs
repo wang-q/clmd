@@ -5,6 +5,7 @@
 
 use crate::core::arena::NodeId;
 use crate::core::nodes::{NodeCodeBlock, NodeHtmlBlock};
+use crate::core::traverse::TraverseExt;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::compute_fence_length;
@@ -174,45 +175,25 @@ pub fn calculate_heading_content_length(
     use crate::core::nodes::NodeValue;
 
     let arena = ctx.get_arena();
-    let node = arena.get(node_id);
 
-    let mut length = 0;
-
-    let mut child_opt = node.first_child;
-    while let Some(child_id) = child_opt {
+    arena.children_iter(node_id).fold(0, |length, child_id| {
         let child = arena.get(child_id);
 
-        match &child.value {
-            NodeValue::Text(text) => {
-                length += crate::text::unicode::width(text.as_ref()) as usize;
-            }
-            NodeValue::Code(code) => {
-                length += crate::text::unicode::width(&code.literal) as usize;
-            }
+        let child_length = match &child.value {
+            NodeValue::Text(text) => crate::text::unicode::width(text.as_ref()) as usize,
+            NodeValue::Code(code) => crate::text::unicode::width(&code.literal) as usize,
             NodeValue::Emph | NodeValue::Strong => {
-                length += calculate_child_content_length(arena, child_id);
+                calculate_child_content_length(arena, child_id)
             }
-            NodeValue::Link(_link) => {
-                length += calculate_child_content_length(arena, child_id);
+            NodeValue::Link(_) | NodeValue::Image(_) => {
+                calculate_child_content_length(arena, child_id)
             }
-            NodeValue::Image(_link) => {
-                length += calculate_child_content_length(arena, child_id);
-            }
-            NodeValue::SoftBreak => {
-                length += 1;
-            }
-            NodeValue::HardBreak => {
-                length += 1;
-            }
-            _ => {
-                length += calculate_child_content_length(arena, child_id);
-            }
-        }
+            NodeValue::SoftBreak | NodeValue::HardBreak => 1,
+            _ => calculate_child_content_length(arena, child_id),
+        };
 
-        child_opt = child.next;
-    }
-
-    length
+        length + child_length
+    })
 }
 
 /// Calculate content length from children recursively
@@ -222,32 +203,18 @@ pub fn calculate_child_content_length(
 ) -> usize {
     use crate::core::nodes::NodeValue;
 
-    let node = arena.get(node_id);
-    let mut length = 0;
-
-    let mut child_opt = node.first_child;
-    while let Some(child_id) = child_opt {
+    arena.children_iter(node_id).fold(0, |length, child_id| {
         let child = arena.get(child_id);
 
-        match &child.value {
-            NodeValue::Text(text) => {
-                length += crate::text::unicode::width(text.as_ref()) as usize;
-            }
-            NodeValue::Code(code) => {
-                length += crate::text::unicode::width(&code.literal) as usize;
-            }
-            NodeValue::SoftBreak => {
-                length += 1;
-            }
-            _ => {
-                length += calculate_child_content_length(arena, child_id);
-            }
-        }
+        let child_length = match &child.value {
+            NodeValue::Text(text) => crate::text::unicode::width(text.as_ref()) as usize,
+            NodeValue::Code(code) => crate::text::unicode::width(&code.literal) as usize,
+            NodeValue::SoftBreak => 1,
+            _ => calculate_child_content_length(arena, child_id),
+        };
 
-        child_opt = child.next;
-    }
-
-    length
+        length + child_length
+    })
 }
 
 /// Render an HTML block

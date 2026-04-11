@@ -5,6 +5,7 @@
 
 use crate::core::arena::NodeId;
 use crate::core::nodes::NodeList;
+use crate::core::traverse::TraverseExt;
 use crate::options::format::{BulletMarker, FormatOptions, ListSpacing, NumberedMarker};
 use crate::render::commonmark::context::NodeFormatterContext;
 
@@ -51,18 +52,10 @@ pub fn count_list_ancestors(
 ) -> usize {
     use crate::core::nodes::NodeValue;
 
-    let mut count: usize = 0;
-    let mut current = list_node_id;
-
-    while let Some(parent_id) = arena.get(current).parent {
-        let parent = arena.get(parent_id);
-        if matches!(parent.value, NodeValue::List(..)) {
-            count += 1;
-        }
-        current = parent_id;
-    }
-
-    count
+    arena
+        .ancestors_iter(list_node_id)
+        .filter(|&id| matches!(arena.get(id).value, NodeValue::List(..)))
+        .count()
 }
 
 /// Check if a task list item is checked

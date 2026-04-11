@@ -14,6 +14,7 @@
 
 use crate::core::arena::NodeId;
 use crate::core::nodes::TableAlignment;
+use crate::core::traverse::TraverseExt;
 use crate::render::commonmark::escaping::{
     escape_markdown_for_table_simple, escape_string, escape_url,
 };
@@ -84,37 +85,29 @@ pub fn collect_cell_text_content(
         }
         NodeValue::Emph => {
             result.push('*');
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
+            for child_id in arena.children_iter(node_id) {
                 result.push_str(&collect_cell_text_content(arena, child_id));
-                child_opt = arena.get(child_id).next;
             }
             result.push('*');
         }
         NodeValue::Strong => {
             result.push_str("**");
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
+            for child_id in arena.children_iter(node_id) {
                 result.push_str(&collect_cell_text_content(arena, child_id));
-                child_opt = arena.get(child_id).next;
             }
             result.push_str("**");
         }
         NodeValue::Strikethrough => {
             result.push_str("~~");
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
+            for child_id in arena.children_iter(node_id) {
                 result.push_str(&collect_cell_text_content(arena, child_id));
-                child_opt = arena.get(child_id).next;
             }
             result.push_str("~~");
         }
         NodeValue::Link(link) => {
             result.push('[');
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
+            for child_id in arena.children_iter(node_id) {
                 result.push_str(&collect_cell_text_content(arena, child_id));
-                child_opt = arena.get(child_id).next;
             }
             result.push_str("](");
             result.push_str(&escape_url(&link.url));
@@ -130,10 +123,8 @@ pub fn collect_cell_text_content(
             result.push_str("  ");
         }
         _ => {
-            let mut child_opt = node.first_child;
-            while let Some(child_id) = child_opt {
+            for child_id in arena.children_iter(node_id) {
                 result.push_str(&collect_cell_text_content(arena, child_id));
-                child_opt = arena.get(child_id).next;
             }
         }
     }
