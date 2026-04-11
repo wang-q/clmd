@@ -46,23 +46,6 @@ impl<'p> RenderPlugins<'p> {
         Self::default()
     }
 
-    /// Register a code fence renderer for a specific language
-    pub fn register_codefence_renderer(
-        &mut self,
-        language: impl Into<String>,
-        renderer: &'p dyn CodefenceRendererAdapter,
-    ) {
-        self.codefence_renderers.insert(language.into(), renderer);
-    }
-
-    /// Get a code fence renderer for a specific language
-    pub fn codefence_renderer(
-        &self,
-        language: &str,
-    ) -> Option<&dyn CodefenceRendererAdapter> {
-        self.codefence_renderers.get(language).copied()
-    }
-
     /// Set the syntax highlighter
     pub fn set_syntax_highlighter(&mut self, adapter: &'p dyn SyntaxHighlighterAdapter) {
         self.codefence_syntax_highlighter = Some(adapter);
@@ -78,16 +61,13 @@ impl<'p> RenderPlugins<'p> {
         self.heading_adapter = Some(adapter);
     }
 
-    /// Get the heading adapter if set
-    pub fn heading_adapter(&self) -> Option<&dyn HeadingAdapter> {
-        self.heading_adapter
-    }
-
-    /// Check if any plugins are registered
-    pub fn is_empty(&self) -> bool {
-        self.codefence_renderers.is_empty()
-            && self.codefence_syntax_highlighter.is_none()
-            && self.heading_adapter.is_none()
+    /// Register a code fence renderer for a specific language
+    pub fn register_codefence_renderer(
+        &mut self,
+        language: impl Into<String>,
+        renderer: &'p dyn CodefenceRendererAdapter,
+    ) {
+        self.codefence_renderers.insert(language.into(), renderer);
     }
 }
 
@@ -129,13 +109,11 @@ mod tests {
         assert!(plugins.codefence_renderers.is_empty());
         assert!(plugins.codefence_syntax_highlighter.is_none());
         assert!(plugins.heading_adapter.is_none());
-        assert!(plugins.is_empty());
     }
 
     #[test]
     fn test_render_plugins_new() {
-        let plugins = RenderPlugins::new();
-        assert!(plugins.is_empty());
+        let _plugins = RenderPlugins::new();
     }
 
     #[test]

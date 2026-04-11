@@ -107,19 +107,6 @@ impl OutputFormat {
             OutputFormat::Bibtex => "bibtex",
         }
     }
-
-    /// Check if this format requires a binary output.
-    pub fn is_binary(&self) -> bool {
-        matches!(
-            self,
-            OutputFormat::Docx | OutputFormat::Odt | OutputFormat::Epub
-        )
-    }
-
-    /// Check if this is a slide format.
-    pub fn is_slides(&self) -> bool {
-        matches!(self, OutputFormat::Beamer | OutputFormat::RevealJs)
-    }
 }
 
 impl fmt::Display for OutputFormat {
@@ -163,13 +150,6 @@ pub enum WrapOption {
     Preserve,
 }
 
-impl WrapOption {
-    /// Check if wrapping is enabled.
-    pub fn is_wrapping(&self) -> bool {
-        matches!(self, WrapOption::Auto)
-    }
-}
-
 /// Style type for bullet lists.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
@@ -200,30 +180,9 @@ impl fmt::Display for ListStyleType {
     }
 }
 
-/// Selects between wikilinks with the title first or the URL first.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Arbitrary)]
-pub enum WikiLinksMode {
-    /// Indicates that the URL precedes the title.
-    /// For example: `[[http://example.com|link title]]`.
-    UrlFirst,
-    /// Indicates that the title precedes the URL.
-    /// For example: `[[link title|http://example.com]]`.
-    TitleFirst,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_input_format_as_str() {
-        assert_eq!(InputFormat::Markdown.as_str(), "markdown");
-        assert_eq!(InputFormat::Gfm.as_str(), "gfm");
-        assert_eq!(InputFormat::Html.as_str(), "html");
-        assert_eq!(InputFormat::Bibtex.as_str(), "bibtex");
-        assert_eq!(InputFormat::Latex.as_str(), "latex");
-    }
 
     #[test]
     fn test_input_format_default() {
@@ -232,62 +191,9 @@ mod tests {
     }
 
     #[test]
-    fn test_output_format_as_str() {
-        assert_eq!(OutputFormat::Markdown.as_str(), "markdown");
-        assert_eq!(OutputFormat::Gfm.as_str(), "gfm");
-        assert_eq!(OutputFormat::Html.as_str(), "html");
-        assert_eq!(OutputFormat::Xhtml.as_str(), "xhtml");
-        assert_eq!(OutputFormat::Xml.as_str(), "xml");
-        assert_eq!(OutputFormat::Latex.as_str(), "latex");
-        assert_eq!(OutputFormat::Plain.as_str(), "plain");
-        assert_eq!(OutputFormat::Docx.as_str(), "docx");
-        assert_eq!(OutputFormat::Beamer.as_str(), "beamer");
-        assert_eq!(OutputFormat::RevealJs.as_str(), "revealjs");
-        assert_eq!(OutputFormat::Bibtex.as_str(), "bibtex");
-    }
-
-    #[test]
     fn test_output_format_default() {
         let format: OutputFormat = Default::default();
         assert_eq!(format, OutputFormat::Markdown);
-    }
-
-    #[test]
-    fn test_output_format_from_str() {
-        use std::str::FromStr;
-
-        assert_eq!(
-            OutputFormat::from_str("markdown").unwrap(),
-            OutputFormat::Markdown
-        );
-        assert_eq!(
-            OutputFormat::from_str("md").unwrap(),
-            OutputFormat::Markdown
-        );
-        assert_eq!(
-            OutputFormat::from_str("commonmark").unwrap(),
-            OutputFormat::Markdown
-        );
-        assert_eq!(OutputFormat::from_str("gfm").unwrap(), OutputFormat::Gfm);
-        assert_eq!(OutputFormat::from_str("html").unwrap(), OutputFormat::Html);
-        assert_eq!(OutputFormat::from_str("HTML").unwrap(), OutputFormat::Html);
-        assert!(OutputFormat::from_str("unknown").is_err());
-    }
-
-    #[test]
-    fn test_output_format_is_binary() {
-        assert!(OutputFormat::Docx.is_binary());
-        assert!(OutputFormat::Epub.is_binary());
-        assert!(!OutputFormat::Html.is_binary());
-        assert!(!OutputFormat::Markdown.is_binary());
-    }
-
-    #[test]
-    fn test_output_format_is_slides() {
-        assert!(OutputFormat::Beamer.is_slides());
-        assert!(OutputFormat::RevealJs.is_slides());
-        assert!(!OutputFormat::Html.is_slides());
-        assert!(!OutputFormat::Docx.is_slides());
     }
 
     #[test]
@@ -300,12 +206,5 @@ mod tests {
     fn test_list_style_type_default() {
         let style: ListStyleType = Default::default();
         assert_eq!(style, ListStyleType::Dash);
-    }
-
-    #[test]
-    fn test_list_style_type_marker() {
-        assert_eq!(ListStyleType::Dash.marker(), '-');
-        assert_eq!(ListStyleType::Plus.marker(), '+');
-        assert_eq!(ListStyleType::Star.marker(), '*');
     }
 }

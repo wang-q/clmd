@@ -4,7 +4,6 @@
 //! including GFM extensions and other syntax extensions.
 
 use super::traits::URLRewriter;
-use super::types::WikiLinksMode;
 use arbitrary::Arbitrary;
 use bon::Builder;
 use std::fmt::{self, Debug, Formatter};
@@ -195,20 +194,6 @@ impl<'c> Debug for Extension<'c> {
     }
 }
 
-impl<'c> Extension<'c> {
-    /// Returns the wikilinks mode if either wikilinks option is enabled.
-    pub fn wikilinks(&self) -> Option<WikiLinksMode> {
-        match (
-            self.wikilinks_title_before_pipe,
-            self.wikilinks_title_after_pipe,
-        ) {
-            (false, false) => None,
-            (true, false) => Some(WikiLinksMode::TitleFirst),
-            (_, _) => Some(WikiLinksMode::UrlFirst),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,28 +229,6 @@ mod tests {
         assert!(!ext.shortcodes);
         assert!(ext.image_url_rewriter.is_none());
         assert!(ext.link_url_rewriter.is_none());
-    }
-
-    #[test]
-    fn test_extension_wikilinks() {
-        let mut ext = Extension::default();
-        assert_eq!(ext.wikilinks(), None);
-
-        ext.wikilinks_title_before_pipe = true;
-        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::TitleFirst));
-
-        ext.wikilinks_title_after_pipe = true;
-        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::UrlFirst));
-    }
-
-    #[test]
-    fn test_extension_wikilinks_both_enabled() {
-        let ext = Extension {
-            wikilinks_title_before_pipe: true,
-            wikilinks_title_after_pipe: true,
-            ..Default::default()
-        };
-        assert_eq!(ext.wikilinks(), Some(WikiLinksMode::UrlFirst));
     }
 
     #[test]

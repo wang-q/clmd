@@ -39,7 +39,7 @@ pub use serde::{
 pub use traits::{
     BrokenLinkCallback, BrokenLinkReference, ResolvedReference, URLRewriter,
 };
-pub use types::{InputFormat, ListStyleType, OutputFormat, WikiLinksMode, WrapOption};
+pub use types::{InputFormat, ListStyleType, OutputFormat, WrapOption};
 
 use arbitrary::Arbitrary;
 use bon::Builder;
@@ -78,13 +78,6 @@ pub struct Options<'c> {
     /// Configure format-time options.
     #[builder(default)]
     pub format: FormatOptions,
-}
-
-impl<'c> Options<'c> {
-    /// Create a new options struct with default values.
-    pub fn new() -> Self {
-        Self::default()
-    }
 }
 
 /// Options for document readers.
@@ -143,13 +136,6 @@ mod tests {
         assert!(!options.extension.table);
         assert!(!options.parse.smart);
         assert!(!options.render.hardbreaks);
-    }
-
-    #[test]
-    fn test_options_new() {
-        let options = Options::new();
-        assert!(!options.extension.strikethrough);
-        assert!(!options.extension.table);
     }
 
     #[test]

@@ -117,41 +117,6 @@ pub enum ElementPlacementSort {
     DeleteUnused,
 }
 
-impl ElementPlacementSort {
-    /// Check if this sort option includes sorting
-    pub fn is_sort(&self) -> bool {
-        matches!(
-            self,
-            Self::Sort | Self::SortUnusedLast | Self::SortDeleteUnused
-        )
-    }
-
-    /// Check if this sort option includes deleting unused elements
-    pub fn is_delete_unused(&self) -> bool {
-        matches!(self, Self::SortDeleteUnused | Self::DeleteUnused)
-    }
-
-    /// Check if this sort option includes tracking unused elements
-    pub fn is_unused(&self) -> bool {
-        matches!(
-            self,
-            Self::SortUnusedLast | Self::SortDeleteUnused | Self::DeleteUnused
-        )
-    }
-}
-
-impl ElementPlacement {
-    /// Check if this placement changes from the original
-    pub fn is_change(&self) -> bool {
-        !matches!(self, Self::AsIs)
-    }
-
-    /// Check if this placement is no-change
-    pub fn is_no_change(&self) -> bool {
-        matches!(self, Self::AsIs)
-    }
-}
-
 /// Discretionary text options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Arbitrary)]
 pub enum DiscretionaryText {
@@ -365,87 +330,9 @@ impl FormatOptions {
         Self::default()
     }
 
-    /// Set heading style
-    pub fn with_heading_style(mut self, style: HeadingStyle) -> Self {
-        self.heading_style = style;
-        self
-    }
-
-    /// Set space after ATX marker
-    pub fn with_space_after_atx_marker(mut self, value: bool) -> Self {
-        self.space_after_atx_marker = value;
-        self
-    }
-
     /// Set right margin
     pub fn with_right_margin(mut self, value: usize) -> Self {
         self.right_margin = value;
-        self
-    }
-
-    /// Set max blank lines
-    pub fn with_max_blank_lines(mut self, value: usize) -> Self {
-        self.max_blank_lines = value;
-        self
-    }
-
-    /// Set keep hard line breaks
-    pub fn with_keep_hard_line_breaks(mut self, value: bool) -> Self {
-        self.keep_hard_line_breaks = value;
-        self
-    }
-
-    /// Set keep soft line breaks
-    pub fn with_keep_soft_line_breaks(mut self, value: bool) -> Self {
-        self.keep_soft_line_breaks = value;
-        self
-    }
-
-    /// Set list bullet marker
-    pub fn with_list_bullet_marker(mut self, value: BulletMarker) -> Self {
-        self.list_bullet_marker = value;
-        self
-    }
-
-    /// Set list spacing
-    pub fn with_list_spacing(mut self, value: ListSpacing) -> Self {
-        self.list_spacing = value;
-        self
-    }
-
-    /// Set fenced code marker type
-    pub fn with_fenced_code_marker_type(mut self, value: CodeFenceMarker) -> Self {
-        self.fenced_code_marker_type = value;
-        self
-    }
-
-    /// Set fenced code marker length
-    pub fn with_fenced_code_marker_length(mut self, value: usize) -> Self {
-        self.fenced_code_marker_length = value;
-        self
-    }
-
-    /// Set block quote blank lines
-    pub fn with_block_quote_blank_lines(mut self, value: bool) -> Self {
-        self.block_quote_blank_lines = value;
-        self
-    }
-
-    /// Set reference placement
-    pub fn with_reference_placement(mut self, value: ElementPlacement) -> Self {
-        self.reference_placement = value;
-        self
-    }
-
-    /// Set reference sort
-    pub fn with_reference_sort(mut self, value: ElementPlacementSort) -> Self {
-        self.reference_sort = value;
-        self
-    }
-
-    /// Set thematic break
-    pub fn with_thematic_break(mut self, value: impl Into<String>) -> Self {
-        self.thematic_break = Some(value.into());
         self
     }
 }
@@ -482,46 +369,9 @@ mod tests {
 
     #[test]
     fn test_builder_pattern() {
-        let opts = FormatOptions::new()
-            .with_heading_style(HeadingStyle::Atx)
-            .with_list_spacing(ListSpacing::Tight)
-            .with_right_margin(80);
+        let opts = FormatOptions::new().with_right_margin(80);
 
-        assert!(matches!(opts.heading_style, HeadingStyle::Atx));
-        assert!(matches!(opts.list_spacing, ListSpacing::Tight));
         assert_eq!(opts.right_margin, 80);
-    }
-
-    #[test]
-    fn test_element_placement_sort() {
-        assert!(ElementPlacementSort::Sort.is_sort());
-        assert!(ElementPlacementSort::SortUnusedLast.is_sort());
-        assert!(ElementPlacementSort::SortDeleteUnused.is_sort());
-        assert!(!ElementPlacementSort::AsIs.is_sort());
-        assert!(!ElementPlacementSort::DeleteUnused.is_sort());
-
-        assert!(ElementPlacementSort::SortDeleteUnused.is_delete_unused());
-        assert!(ElementPlacementSort::DeleteUnused.is_delete_unused());
-        assert!(!ElementPlacementSort::Sort.is_delete_unused());
-        assert!(!ElementPlacementSort::AsIs.is_delete_unused());
-
-        assert!(ElementPlacementSort::SortUnusedLast.is_unused());
-        assert!(ElementPlacementSort::SortDeleteUnused.is_unused());
-        assert!(ElementPlacementSort::DeleteUnused.is_unused());
-        assert!(!ElementPlacementSort::Sort.is_unused());
-        assert!(!ElementPlacementSort::AsIs.is_unused());
-    }
-
-    #[test]
-    fn test_element_placement() {
-        assert!(ElementPlacement::DocumentTop.is_change());
-        assert!(ElementPlacement::DocumentBottom.is_change());
-        assert!(ElementPlacement::GroupWithFirst.is_change());
-        assert!(ElementPlacement::GroupWithLast.is_change());
-        assert!(!ElementPlacement::AsIs.is_change());
-
-        assert!(ElementPlacement::AsIs.is_no_change());
-        assert!(!ElementPlacement::DocumentTop.is_no_change());
     }
 
     #[test]
@@ -535,12 +385,9 @@ mod tests {
 
     #[test]
     fn test_options_clone() {
-        let opts = FormatOptions::new()
-            .with_right_margin(100)
-            .with_heading_style(HeadingStyle::Atx);
+        let opts = FormatOptions::new().with_right_margin(100);
 
         let cloned = opts.clone();
         assert_eq!(cloned.right_margin, 100);
-        assert!(matches!(cloned.heading_style, HeadingStyle::Atx));
     }
 }
