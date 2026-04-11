@@ -6,24 +6,6 @@
 ///
 /// Based on commonmark.js normalizeURI.
 /// Percent-encode characters that are not allowed in URIs.
-///
-/// # Arguments
-///
-/// * `uri` - The URI string to normalize
-///
-/// # Returns
-///
-/// The normalized URI string
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::uri::normalize_uri;
-///
-/// assert_eq!(normalize_uri("hello world"), "hello%20world");
-/// assert_eq!(normalize_uri("test.txt"), "test.txt");
-/// assert_eq!(normalize_uri("a+b"), "a+b");
-/// ```ignore
 pub fn normalize_uri(uri: &str) -> String {
     let mut result = String::new();
 
@@ -74,26 +56,6 @@ pub fn normalize_uri(uri: &str) -> String {
 /// Parse a data URI and extract the MIME type and data.
 ///
 /// Data URIs have the format: `data:[<mediatype>][;base64],<data>`
-///
-/// # Arguments
-///
-/// * `uri` - The data URI to parse
-///
-/// # Returns
-///
-/// An optional tuple of (mime_type, data) where mime_type may be empty
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::uri::parse_data_uri;
-///
-/// let result = parse_data_uri("data:text/plain;base64,SGVsbG8=");
-/// assert_eq!(result, Some(("text/plain", "SGVsbG8=")));
-///
-/// let result = parse_data_uri("data:image/png,abc123");
-/// assert_eq!(result, Some(("image/png", "abc123")));
-/// ```ignore
 pub fn parse_data_uri(uri: &str) -> Option<(&str, &str)> {
     const DATA_PREFIX: &str = "data:";
 
@@ -131,38 +93,26 @@ mod tests {
 
     #[test]
     fn test_normalize_uri() {
-        // Test basic URI normalization
         assert_eq!(normalize_uri("hello world"), "hello%20world");
         assert_eq!(normalize_uri("test.txt"), "test.txt");
-
-        // Test special characters
         assert_eq!(normalize_uri("a+b"), "a+b");
-
-        // Note: normalize_uri preserves existing percent signs
-        // as they may be intentional escapes
         assert_eq!(normalize_uri("foo%bar"), "foo%bar");
-
-        // Test backslash encoding
         assert_eq!(normalize_uri("path\\to\\file"), "path%5Cto%5Cfile");
-
-        // Test square brackets encoding
         assert_eq!(normalize_uri("[test]"), "%5Btest%5D");
-
-        // Test Unicode characters
         assert_eq!(normalize_uri("café"), "caf%C3%A9");
     }
 
     #[test]
     fn test_parse_data_uri() {
-        let result = parse_data_uri("data:text/plain;base64,SGVsbG8=");
-        assert_eq!(result, Some(("text/plain", "SGVsbG8=")));
-
-        let result = parse_data_uri("data:image/png,abc123");
-        assert_eq!(result, Some(("image/png", "abc123")));
-
-        let result = parse_data_uri("data:,hello");
-        assert_eq!(result, Some(("text/plain", "hello")));
-
+        assert_eq!(
+            parse_data_uri("data:text/plain;base64,SGVsbG8="),
+            Some(("text/plain", "SGVsbG8="))
+        );
+        assert_eq!(
+            parse_data_uri("data:image/png,abc123"),
+            Some(("image/png", "abc123"))
+        );
+        assert_eq!(parse_data_uri("data:,hello"), Some(("text/plain", "hello")));
         assert_eq!(parse_data_uri("not a data uri"), None);
         assert_eq!(parse_data_uri("data:"), None);
     }

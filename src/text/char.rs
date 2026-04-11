@@ -2,129 +2,76 @@
 //!
 //! This module provides character classification functions,
 //! inspired by Pandoc's Text.Pandoc.Char module.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use clmd::text::char::is_cjk;
-//!
-//! assert!(is_cjk('中'));
-//! assert!(is_cjk('日'));
-//! assert!(is_cjk('한'));
-//! assert!(!is_cjk('A'));
-//! ```
-
-// =============================================================================
-// Character Type Utilities (from parse::util::scanners::ctype)
-// =============================================================================
-
-/// Character lookup table for fast classification
-/// Bit flags:
-/// - bit 0: is_punctuation
-/// - bit 1: is_whitespace
-/// - bit 2: is_special (needs special handling in inline parsing)
-static CHAR_TABLE: [u8; 256] = {
-    let mut table = [0u8; 256];
-    // Punctuation characters
-    table[b'!' as usize] = 0b101;
-    table[b'"' as usize] = 0b101;
-    table[b'#' as usize] = 0b001;
-    table[b'$' as usize] = 0b001;
-    table[b'%' as usize] = 0b001;
-    table[b'&' as usize] = 0b101;
-    table[b'\'' as usize] = 0b101;
-    table[b'(' as usize] = 0b001;
-    table[b')' as usize] = 0b001;
-    table[b'*' as usize] = 0b101;
-    table[b'+' as usize] = 0b001;
-    table[b',' as usize] = 0b001;
-    table[b'-' as usize] = 0b001;
-    table[b'.' as usize] = 0b001;
-    table[b'/' as usize] = 0b001;
-    table[b':' as usize] = 0b001;
-    table[b';' as usize] = 0b001;
-    table[b'<' as usize] = 0b101;
-    table[b'=' as usize] = 0b001;
-    table[b'>' as usize] = 0b001;
-    table[b'?' as usize] = 0b001;
-    table[b'@' as usize] = 0b001;
-    table[b'[' as usize] = 0b101;
-    table[b'\\' as usize] = 0b001;
-    table[b']' as usize] = 0b001;
-    table[b'^' as usize] = 0b001;
-    table[b'_' as usize] = 0b101;
-    table[b'`' as usize] = 0b101;
-    table[b'{' as usize] = 0b001;
-    table[b'|' as usize] = 0b001;
-    table[b'}' as usize] = 0b001;
-    table[b'~' as usize] = 0b001;
-    // Whitespace characters
-    table[b' ' as usize] = 0b010;
-    table[b'\t' as usize] = 0b010;
-    table[b'\n' as usize] = 0b010;
-    table[b'\r' as usize] = 0b010;
-    table[b'\x0C' as usize] = 0b010; // Form feed
-    table
-};
-
-/// Check if byte is an ASCII whitespace character
-#[inline(always)]
-pub fn isspace(b: u8) -> bool {
-    matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c')
-}
-
-/// Fast check if a byte is punctuation using lookup table
-#[inline(always)]
-pub fn is_punctuation_fast(b: u8) -> bool {
-    CHAR_TABLE[b as usize] & 0b001 != 0
-}
 
 /// Check if a character is punctuation
 pub fn is_punctuation(c: char) -> bool {
-    // Fast path for ASCII using lookup table
-    if c.is_ascii() {
-        return is_punctuation_fast(c as u8);
-    }
     // Unicode punctuation (Pc, Pd, Ps, Pe, Pi, Pf, Po categories)
     // Includes CJK punctuation and fullwidth ASCII variants
-    matches!(c,
-        '\u{00A2}'..='\u{00A5}' | // ¢£¤¥ (currency symbols)
-        '\u{00B5}' |              // µ
-        '\u{00B7}' |              // ·
-        '\u{00BF}' |              // ¿
-        '\u{00D7}' |              // ×
-        '\u{00F7}' |              // ÷
-        '\u{2000}'..='\u{206F}' | // General Punctuation
-        '\u{20A0}'..='\u{20CF}' | // Currency Symbols
-        '\u{2190}'..='\u{21FF}' | // Arrows
-        '\u{2200}'..='\u{22FF}' | // Mathematical Operators
-        '\u{2300}'..='\u{23FF}' | // Miscellaneous Technical
-        '\u{25A0}'..='\u{25FF}' | // Geometric Shapes
-        '\u{2600}'..='\u{26FF}' | // Miscellaneous Symbols
-        '\u{2700}'..='\u{27BF}' | // Dingbats
-        '\u{3000}'..='\u{303F}' | // CJK Symbols and Punctuation
-        // Fullwidth ASCII variants (CJK punctuation)
-        '\u{FF01}'..='\u{FF0F}' | // ！＂＃＄％＆＇（）＊＋，－．／
-        '\u{FF1A}'..='\u{FF20}' | // ：；＜＝＞？＠
-        '\u{FF3B}'..='\u{FF40}' | // ［＼］＾＿｀
-        '\u{FF5B}'..='\u{FF65}'   // ｛｜｝～｟｠｡｢｣､･
-    )
+    if c.is_ascii() {
+        matches!(
+            c,
+            '!' | '"'
+                | '#'
+                | '$'
+                | '%'
+                | '&'
+                | '\''
+                | '('
+                | ')'
+                | '*'
+                | '+'
+                | ','
+                | '-'
+                | '.'
+                | '/'
+                | ':'
+                | ';'
+                | '<'
+                | '='
+                | '>'
+                | '?'
+                | '@'
+                | '['
+                | '\\'
+                | ']'
+                | '^'
+                | '_'
+                | '`'
+                | '{'
+                | '|'
+                | '}'
+                | '~'
+        )
+    } else {
+        matches!(c,
+            '\u{00A2}'..='\u{00A5}' | // ¢£¤¥ (currency symbols)
+            '\u{00B5}' |              // µ
+            '\u{00B7}' |              // ·
+            '\u{00BF}' |              // ¿
+            '\u{00D7}' |              // ×
+            '\u{00F7}' |              // ÷
+            '\u{2000}'..='\u{206F}' | // General Punctuation
+            '\u{20A0}'..='\u{20CF}' | // Currency Symbols
+            '\u{2190}'..='\u{21FF}' | // Arrows
+            '\u{2200}'..='\u{22FF}' | // Mathematical Operators
+            '\u{2300}'..='\u{23FF}' | // Miscellaneous Technical
+            '\u{25A0}'..='\u{25FF}' | // Geometric Shapes
+            '\u{2600}'..='\u{26FF}' | // Miscellaneous Symbols
+            '\u{2700}'..='\u{27BF}' | // Dingbats
+            '\u{3000}'..='\u{303F}' | // CJK Symbols and Punctuation
+            // Fullwidth ASCII variants (CJK punctuation)
+            '\u{FF01}'..='\u{FF0F}' | // ！＂＃＄％＆＇（）＊＋，－．／
+            '\u{FF1A}'..='\u{FF20}' | // ：；＜＝＞？＠
+            '\u{FF3B}'..='\u{FF40}' | // ［＼］＾＿｀
+            '\u{FF5B}'..='\u{FF65}'   // ｛｜｝～｟｠｡｢｣､･
+        )
+    }
 }
 
 /// Check if a character is a CJK punctuation mark.
 ///
 /// This includes common CJK punctuation characters that should be
 /// treated specially in text processing.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_cjk_punctuation;
-///
-/// assert!(is_cjk_punctuation('。'));
-/// assert!(is_cjk_punctuation('、'));
-/// assert!(!is_cjk_punctuation('.'));
-/// ```ignore
 pub fn is_cjk_punctuation(c: char) -> bool {
     matches!(c,
         // CJK Symbols and Punctuation
@@ -229,38 +176,12 @@ pub fn is_special_byte(b: u8, smart: bool) -> bool {
     }
 }
 
-// =============================================================================
-// ASCII Character Utilities (from cjk_spacing)
-// =============================================================================
-
 /// Check if a character is an ASCII letter.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_ascii_letter;
-///
-/// assert!(is_ascii_letter('a'));
-/// assert!(is_ascii_letter('Z'));
-/// assert!(!is_ascii_letter('1'));
-/// assert!(!is_ascii_letter('中'));
-/// ```ignore
 pub fn is_ascii_letter(c: char) -> bool {
     c.is_ascii_alphabetic()
 }
 
 /// Check if a character is an ASCII digit.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_ascii_digit;
-///
-/// assert!(is_ascii_digit('0'));
-/// assert!(is_ascii_digit('9'));
-/// assert!(!is_ascii_digit('a'));
-/// assert!(!is_ascii_digit('中'));
-/// ```ignore
 pub fn is_ascii_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
@@ -270,17 +191,6 @@ pub fn is_ascii_digit(c: char) -> bool {
 /// This includes characters like `:`, `,`, `.`, `;`, `!`, `?` which are
 /// commonly used in Markdown formatting and should not have spaces added
 /// before them.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_ascii_punctuation_no_space;
-///
-/// assert!(is_ascii_punctuation_no_space(':'));
-/// assert!(is_ascii_punctuation_no_space(','));
-/// assert!(is_ascii_punctuation_no_space('.'));
-/// assert!(!is_ascii_punctuation_no_space('a'));
-/// ```ignore
 pub fn is_ascii_punctuation_no_space(c: char) -> bool {
     matches!(c, ':' | ',' | '.' | ';' | '!' | '?')
 }
@@ -289,17 +199,6 @@ pub fn is_ascii_punctuation_no_space(c: char) -> bool {
 ///
 /// These characters (`)`, `]`, `}`, `>`) should have space added after them
 /// when followed by ASCII alphanumeric characters.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::text::char::is_closing_bracket;
-///
-/// assert!(is_closing_bracket(')'));
-/// assert!(is_closing_bracket(']'));
-/// assert!(is_closing_bracket('}'));
-/// assert!(!is_closing_bracket('('));
-/// ```ignore
 pub fn is_closing_bracket(c: char) -> bool {
     matches!(c, ')' | ']' | '}' | '>')
 }
@@ -307,34 +206,6 @@ pub fn is_closing_bracket(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // =============================================================================
-    // Character Type Tests (from parse::util::scanners::ctype)
-    // =============================================================================
-
-    #[test]
-    fn test_isspace() {
-        assert!(isspace(b' '));
-        assert!(isspace(b'\t'));
-        assert!(isspace(b'\n'));
-        assert!(isspace(b'\r'));
-        assert!(!isspace(b'a'));
-        assert!(!isspace(b'1'));
-    }
-
-    // =============================================================================
-    // Scanner Character Tests
-    // =============================================================================
-
-    #[test]
-    fn test_is_punctuation_fast() {
-        assert!(is_punctuation_fast(b'!'));
-        assert!(is_punctuation_fast(b'.'));
-        assert!(is_punctuation_fast(b'@'));
-        assert!(!is_punctuation_fast(b'a'));
-        assert!(!is_punctuation_fast(b'1'));
-        assert!(!is_punctuation_fast(b' '));
-    }
 
     #[test]
     fn test_is_punctuation() {
@@ -346,6 +217,16 @@ mod tests {
         assert!(!is_punctuation('A'));
         assert!(!is_punctuation('0'));
         assert!(!is_punctuation(' '));
+    }
+
+    #[test]
+    fn test_is_cjk_punctuation() {
+        assert!(is_cjk_punctuation('。'));
+        assert!(is_cjk_punctuation('、'));
+        assert!(is_cjk_punctuation('「'));
+        assert!(is_cjk_punctuation('」'));
+        assert!(!is_cjk_punctuation('.'));
+        assert!(!is_cjk_punctuation(','));
     }
 
     #[test]
@@ -387,7 +268,6 @@ mod tests {
 
     #[test]
     fn test_is_special_char_smart() {
-        // Test smart mode specific characters
         assert!(is_special_char('\'', true));
         assert!(is_special_char('"', true));
     }
@@ -402,12 +282,34 @@ mod tests {
     }
 
     #[test]
-    fn test_is_cjk_punctuation() {
-        assert!(is_cjk_punctuation('。'));
-        assert!(is_cjk_punctuation('、'));
-        assert!(is_cjk_punctuation('「'));
-        assert!(is_cjk_punctuation('」'));
-        assert!(!is_cjk_punctuation('.'));
-        assert!(!is_cjk_punctuation(','));
+    fn test_is_ascii_letter() {
+        assert!(is_ascii_letter('a'));
+        assert!(is_ascii_letter('Z'));
+        assert!(!is_ascii_letter('1'));
+        assert!(!is_ascii_letter('中'));
+    }
+
+    #[test]
+    fn test_is_ascii_digit() {
+        assert!(is_ascii_digit('0'));
+        assert!(is_ascii_digit('9'));
+        assert!(!is_ascii_digit('a'));
+        assert!(!is_ascii_digit('中'));
+    }
+
+    #[test]
+    fn test_is_ascii_punctuation_no_space() {
+        assert!(is_ascii_punctuation_no_space(':'));
+        assert!(is_ascii_punctuation_no_space(','));
+        assert!(is_ascii_punctuation_no_space('.'));
+        assert!(!is_ascii_punctuation_no_space('a'));
+    }
+
+    #[test]
+    fn test_is_closing_bracket() {
+        assert!(is_closing_bracket(')'));
+        assert!(is_closing_bracket(']'));
+        assert!(is_closing_bracket('}'));
+        assert!(!is_closing_bracket('('));
     }
 }
