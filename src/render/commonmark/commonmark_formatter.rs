@@ -21,7 +21,7 @@ use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::{compute_fence_length, escape_text};
 use crate::render::commonmark::handler_utils::{
     adjust_cjk_marker_spacing, calculate_block_quote_prefixes, check_sibling_markers,
-    create_handler_with_close, create_simple_handler, prev_is_link,
+    prev_is_link,
 };
 use crate::render::commonmark::handlers::block::{
     calculate_heading_content_length, render_code_block, render_html_block,
@@ -126,7 +126,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
     fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
         vec![
             // Document - simple handler with no-op
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::Document),
                 |_value, _ctx, _writer| {
                     // Document is handled at the top level
@@ -134,7 +134,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Block elements
             // Paragraph - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Paragraph),
                 |_value, ctx, _writer| {
                     // Paragraph opening - start paragraph line breaking if enabled
@@ -228,7 +228,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Heading - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Heading(
                     crate::core::nodes::NodeHeading::default(),
                 )),
@@ -324,7 +324,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // BlockQuote - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::BlockQuote),
                 |_value, ctx, writer| {
                     writer.push_prefix("> ");
@@ -340,7 +340,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // CodeBlock - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::CodeBlock(Box::default())),
                 |value, ctx, writer| {
                     if let NodeValue::CodeBlock(code_block) = value {
@@ -349,7 +349,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // List - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::List(
                     crate::core::nodes::NodeList::default(),
                 )),
@@ -391,7 +391,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Item - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Item(
                     crate::core::nodes::NodeList::default(),
                 )),
@@ -519,7 +519,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // ThematicBreak - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::ThematicBreak(
                     crate::core::nodes::NodeThematicBreak::default(),
                 )),
@@ -535,7 +535,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // HtmlBlock - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::HtmlBlock(Box::default())),
                 |value, ctx, writer| {
                     if let NodeValue::HtmlBlock(html) = value {
@@ -545,7 +545,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Inline elements
             // Text - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::Text(Box::default())),
                 |value, ctx, writer| {
                     if let NodeValue::Text(text) = value {
@@ -604,7 +604,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Code - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::Code(Box::default())),
                 |value, ctx, writer| {
                     if let NodeValue::Code(code) = value {
@@ -667,7 +667,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Emph - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Emph),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
@@ -719,7 +719,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Strong - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Strong),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
@@ -880,7 +880,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Strikethrough - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Strikethrough),
                 |_value, _ctx, writer| {
                     writer.append("~~");
@@ -890,7 +890,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // SoftBreak - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::SoftBreak),
                 |_value, ctx, writer| {
                     // Based on flexmark-java's SoftLineBreak handling:
@@ -924,7 +924,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // HardBreak - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::HardBreak),
                 |_value, ctx, writer| {
                     // Based on flexmark-java's HardLineBreak handling:
@@ -948,7 +948,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // HtmlInline - simple handler
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::HtmlInline(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::HtmlInline(html) = value {
@@ -958,7 +958,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Table elements
             // Table - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Table(Box::default())),
                 |value, ctx, _writer| {
                     // Table opening - start collecting data
@@ -974,7 +974,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // TableRow - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::TableRow(false)),
                 |_value, ctx, _writer| {
                     // Row opening - add new row to collection
@@ -985,7 +985,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // TableCell - handler with close
-            create_handler_with_close(
+            NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::TableCell),
                 |_value, ctx, _writer| {
                     // Cell opening - if collecting table, skip rendering children
@@ -1006,7 +1006,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Footnote elements
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::FootnoteReference(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::FootnoteReference(footnote) = value {
@@ -1014,7 +1014,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     }
                 },
             ),
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::FootnoteDefinition(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::FootnoteDefinition(footnote) = value {
@@ -1023,7 +1023,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Task items
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::TaskItem(
                     crate::core::nodes::NodeTaskItem::default(),
                 )),
@@ -1038,7 +1038,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Shortcode emoji
-            create_simple_handler(
+            NodeFormattingHandler::new(
                 std::mem::discriminant(&NodeValue::ShortCode(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::ShortCode(shortcode) = value {

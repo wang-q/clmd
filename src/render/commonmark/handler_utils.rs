@@ -1,14 +1,9 @@
 //! Handler factory functions and context helpers
 //!
-//! This module provides convenience functions to reduce boilerplate when
-//! creating NodeFormattingHandler instances and working with formatter context.
+//! This module provides convenience functions for working with formatter context.
 
-use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
-use crate::render::commonmark::node::{NodeFormattingHandler, NodeType};
-use crate::render::commonmark::writer::MarkdownWriter;
-use std::fmt;
 
 // ============================================================================
 // Constants
@@ -27,118 +22,8 @@ pub const INDENTED_CODE_SPACES: &str = "    ";
 pub const BLOCK_QUOTE_PREFIX: &str = "> ";
 
 // ============================================================================
-// Error Types
-// ============================================================================
-
-/// Errors that can occur during formatting
-#[derive(Debug, Clone)]
-pub enum FormatterError {
-    /// A feature is not yet implemented
-    NotImplemented(String),
-    /// An invalid node was encountered
-    InvalidNode(String),
-    /// An error occurred during rendering
-    RenderError(String),
-}
-
-impl fmt::Display for FormatterError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FormatterError::NotImplemented(msg) => write!(f, "Not implemented: {}", msg),
-            FormatterError::InvalidNode(msg) => write!(f, "Invalid node: {}", msg),
-            FormatterError::RenderError(msg) => write!(f, "Render error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for FormatterError {}
-
-// ============================================================================
-// Handler Factory Functions
-// ============================================================================
-
-/// Create a simple handler for a node type that only needs open formatting
-///
-/// This is a convenience function to reduce boilerplate when creating
-/// NodeFormattingHandler instances.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::render::commonmark::handler_utils::create_simple_handler;
-/// use clmd::core::nodes::NodeValue;
-///
-/// let handler = create_simple_handler(std::mem::discriminant(&NodeValue::Document), |value, ctx, writer| {
-///     // Handle document node
-/// });
-/// ```
-#[inline]
-pub fn create_simple_handler<F>(node_type: NodeType, handler: F) -> NodeFormattingHandler
-where
-    F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
-        + Send
-        + Sync
-        + 'static,
-{
-    NodeFormattingHandler::new(node_type, handler)
-}
-
-/// Create a handler with both open and close formatting
-///
-/// This is a convenience function to reduce boilerplate when creating
-/// NodeFormattingHandler instances that need both open and close handlers.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::render::commonmark::handler_utils::create_handler_with_close;
-/// use clmd::core::nodes::NodeValue;
-///
-/// let handler = create_handler_with_close(
-///     std::mem::discriminant(&NodeValue::Paragraph),
-///     |value, ctx, writer| {
-///         // Opening logic
-///     },
-///     |value, ctx, writer| {
-///         // Closing logic
-///     },
-/// );
-/// ```
-#[inline]
-pub fn create_handler_with_close<Open, Close>(
-    node_type: NodeType,
-    on_open: Open,
-    on_close: Close,
-) -> NodeFormattingHandler
-where
-    Open: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
-        + Send
-        + Sync
-        + 'static,
-    Close: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
-        + Send
-        + Sync
-        + 'static,
-{
-    NodeFormattingHandler::with_close(node_type, on_open, on_close)
-}
-
-// ============================================================================
 // Context Helper Functions
 // ============================================================================
-
-/// Check if we should add a blank line after a block element
-///
-/// This helper function encapsulates the common logic for determining
-/// whether a blank line should be added after a block element based on
-/// the current context and whether there are more siblings.
-#[inline]
-pub fn should_add_blank_line_after_block(
-    ctx: &dyn NodeFormatterContext,
-    has_next_sibling: bool,
-) -> bool {
-    !ctx.is_in_tight_list() && has_next_sibling
-}
 
 /// Check if we're in a list context (either as a list item or in a tight list)
 ///
@@ -329,82 +214,4 @@ pub fn calculate_block_quote_prefixes(
     let first_prefix = String::new();
 
     (first_prefix, cont_prefix)
-}
-
-/// Determine how to render a paragraph based on context
-///
-/// This function implements flexmark-java's paragraph rendering logic:
-/// - In tight lists: minimal spacing
-/// - In loose lists: blank line between paragraphs
-/// - In list items: special handling for first/last paragraphs
-/// - Normal paragraphs: blank line after
-///
-/// Returns true if a blank line should be added, false for just a line break.
-pub fn should_render_loose_paragraph(
-    ctx: &dyn NodeFormatterContext,
-    is_last_paragraph: bool,
-) -> bool {
-    let is_in_list_item = ctx.is_parent_list_item();
-    let is_in_tight_list = ctx.is_in_tight_list();
-    let has_next_sibling = ctx.has_next_sibling();
-
-    if is_in_list_item {
-        if is_in_tight_list {
-            false
-        } else {
-            !is_last_paragraph && has_next_sibling
-        }
-    } else if is_in_tight_list {
-        false
-    } else {
-        !is_last_paragraph
-    }
-}
-
-/// Render paragraph spacing based on context
-///
-/// This is the main entry point for paragraph spacing, implementing
-/// the logic from flexmark-java's paragraph rendering.
-pub fn render_paragraph_spacing(
-    ctx: &dyn NodeFormatterContext,
-    writer: &mut MarkdownWriter,
-    is_last: bool,
-) {
-    if should_render_loose_paragraph(ctx, is_last) {
-        writer.blank_line();
-    } else {
-        writer.line();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_create_simple_handler() {
-        let handler = create_simple_handler(
-            std::mem::discriminant(&NodeValue::Document),
-            |_value, _ctx, _writer| {
-                // Test handler
-            },
-        );
-        assert_eq!(
-            handler.node_type,
-            std::mem::discriminant(&NodeValue::Document)
-        );
-    }
-
-    #[test]
-    fn test_create_handler_with_close() {
-        let handler = create_handler_with_close(
-            std::mem::discriminant(&NodeValue::Paragraph),
-            |_value, _ctx, _writer| {},
-            |_value, _ctx, _writer| {},
-        );
-        assert_eq!(
-            handler.node_type,
-            std::mem::discriminant(&NodeValue::Paragraph)
-        );
-    }
 }
