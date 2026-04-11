@@ -77,7 +77,7 @@ Examples:
 
     // Load configuration file if specified or found at default location
     if let Some(config_path) = matches.get_one::<String>("config") {
-        match clmd::context::config::Config::from_file(config_path) {
+        match clmd::context::Config::from_file(config_path) {
             Ok(config) => {
                 config.apply_to_options(&mut options);
             }
@@ -86,7 +86,7 @@ Examples:
                 std::process::exit(1);
             }
         }
-    } else if let Some(config) = clmd::context::config::Config::load_default() {
+    } else if let Some(config) = clmd::context::Config::load_default() {
         config.apply_to_options(&mut options);
     }
 

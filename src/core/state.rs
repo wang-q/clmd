@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::context::mediabag::MediaBag;
+use crate::context::MediaBag;
 use crate::io::format::mime::MimeType;
 
 use super::error::{LogLevel, LogMessage};
