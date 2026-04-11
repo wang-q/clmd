@@ -1,8 +1,7 @@
 //! Context module for clmd.
 //!
 //! This module provides runtime context, configuration, and utility services
-//! for the clmd Markdown parser. It includes configuration management, logging,
-//! data file access, and system utilities.
+//! for the clmd Markdown parser.
 
 // Common types and traits
 pub mod common;
@@ -19,17 +18,14 @@ pub mod logging;
 pub mod mediabag;
 pub mod process;
 pub mod pure;
-pub mod uuid;
 pub mod version;
 
 // Re-export commonly used types
 pub use common::{ClmdContext, CommonState, LogLevel, LogMessage, Verbosity};
-pub use config::{Config, ConfigLoader};
-pub use data::{read_data_file, DataFileManager};
+pub use config::Config;
+pub use data::read_data_file;
 pub use io::IoContext;
 pub use logging::{LogLevel as LoggingLogLevel, Logger};
-pub use mediabag::MediaBag;
-pub use process::{pipe_process, ProcessOptions};
+pub use mediabag::{MediaBag, MediaItem};
 pub use pure::PureContext;
-pub use uuid::UUID;
-pub use version::{VersionInfo, VERSION};
+pub use version::VERSION;

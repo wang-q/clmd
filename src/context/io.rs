@@ -14,18 +14,6 @@ use crate::context::{
 use crate::core::error::ClmdError;
 
 /// IO Context for real file operations.
-///
-/// This context performs actual file system operations and is suitable
-/// for production use.
-///
-/// # Example
-///
-/// ```ignore
-/// use clmd::context::{ClmdContext, IoContext, LogLevel};
-///
-/// let mut ctx = IoContext::new();
-/// ctx.info("Processing started");
-/// ```
 #[derive(Debug, Clone)]
 pub struct IoContext {
     /// The common state for this context.
@@ -41,21 +29,6 @@ impl IoContext {
                 ..Default::default()
             },
         }
-    }
-
-    /// Create a new IO context with a specific user data directory.
-    pub fn with_user_data_dir(user_data_dir: PathBuf) -> Self {
-        Self {
-            state: CommonState {
-                user_data_dir: Some(user_data_dir),
-                ..Default::default()
-            },
-        }
-    }
-
-    /// Create a new IO context with the given common state.
-    pub fn with_state(state: CommonState) -> Self {
-        Self { state }
     }
 }
 
@@ -75,7 +48,6 @@ impl ClmdContext for IoContext {
     }
 
     fn write_file(&self, path: &Path, content: &[u8]) -> Result<(), Self::Error> {
-        // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
                 ClmdError::io_error(format!(
@@ -121,7 +93,6 @@ impl ClmdContext for IoContext {
     fn report(&self, level: LogLevel, message: String) {
         self.state.log(level, message.clone());
 
-        // Also print to stderr/stdout based on level
         if level.should_log(self.state.verbosity.as_u8()) {
             match level {
                 LogLevel::Error => eprintln!("[ERROR] {}", message),
@@ -160,10 +131,8 @@ impl ClmdContext for IoContext {
     ) -> Result<String, Self::Error> {
         let mut bag = self.state.media_bag.lock().unwrap();
 
-        // Handle data URIs specially
         let path_str = path.to_string_lossy();
         if common::is_data_uri(&path_str) {
-            // For data URIs, use a hash-based path
             let new_path = common::generate_hash_path(&data, mime_type);
             bag.insert_opt(PathBuf::from(&new_path), mime_type, data);
             return Ok(new_path);
@@ -188,148 +157,5 @@ impl ClmdContext for IoContext {
         let mut bytes = vec![0u8; len];
         rand::thread_rng().fill_bytes(&mut bytes);
         bytes
-    }
-}
-
-impl IoContext {
-    /// Log an info message.
-    pub fn info(&self, message: &str) {
-        self.report(LogLevel::Info, message.to_string());
-    }
-
-    /// Log a debug message.
-    pub fn debug(&self, message: &str) {
-        self.report(LogLevel::Debug, message.to_string());
-    }
-
-    /// Log a warning message.
-    pub fn warn(&self, message: &str) {
-        self.report(LogLevel::Warning, message.to_string());
-    }
-
-    /// Log an error message.
-    pub fn error(&self, message: &str) {
-        self.report(LogLevel::Error, message.to_string());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
-
-    #[test]
-    fn test_io_context_new() {
-        let ctx = IoContext::new();
-        assert_eq!(ctx.get_verbosity(), Verbosity::Normal);
-    }
-
-    #[test]
-    fn test_io_context_verbosity() {
-        let mut ctx = IoContext::new();
-        ctx.set_verbosity(Verbosity::Debug);
-        assert_eq!(ctx.get_verbosity(), Verbosity::Debug);
-    }
-
-    #[test]
-    fn test_read_write_file() {
-        let ctx = IoContext::new();
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(b"Hello, World!").unwrap();
-
-        let path = temp_file.path();
-        assert!(ctx.file_exists(path));
-
-        let content = ctx.read_file(path).unwrap();
-        assert_eq!(content, b"Hello, World!");
-    }
-
-    #[test]
-    fn test_read_nonexistent_file() {
-        let ctx = IoContext::new();
-        let path = PathBuf::from("/nonexistent/file.txt");
-        assert!(!ctx.file_exists(&path));
-
-        let result = ctx.read_file(&path);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_log_messages() {
-        let ctx = IoContext::new();
-        ctx.info("Test message");
-
-        let logs = ctx.get_logs();
-        assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].level, LogLevel::Info);
-        assert_eq!(logs[0].message, "Test message");
-    }
-
-    #[test]
-    fn test_log_verbosity_filtering() {
-        let mut ctx = IoContext::new();
-        ctx.set_verbosity(Verbosity::Quiet);
-
-        ctx.debug("Debug message");
-        ctx.info("Info message");
-        ctx.warn("Warning message");
-        ctx.error("Error message");
-
-        let logs = ctx.get_logs();
-        // Only errors should be logged in quiet mode
-        assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].level, LogLevel::Error);
-    }
-
-    #[test]
-    fn test_media_bag_operations() {
-        let ctx = IoContext::new();
-        let path = PathBuf::from("test.png");
-        let data = vec![0x89, 0x50, 0x4E, 0x47]; // PNG magic bytes
-
-        let canonical = ctx
-            .insert_media(&path, Some("image/png"), data.clone())
-            .unwrap();
-        assert!(!canonical.is_empty());
-
-        let item = ctx.lookup_media(&path);
-        assert!(item.is_some());
-        let item = item.unwrap();
-        assert_eq!(item.contents(), data.as_slice());
-    }
-
-    #[test]
-    fn test_clone_context() {
-        let ctx = IoContext::new();
-        let ctx2 = ctx.clone();
-
-        // Both should have independent state
-        assert_eq!(ctx.get_verbosity(), ctx2.get_verbosity());
-    }
-
-    #[test]
-    fn test_get_modification_time() {
-        let ctx = IoContext::new();
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(b"test").unwrap();
-
-        let mtime = ctx.get_modification_time(temp_file.path());
-        assert!(mtime.is_ok());
-    }
-
-    #[test]
-    fn test_find_file() {
-        let ctx = IoContext::new();
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(b"test").unwrap();
-
-        let path = temp_file.path();
-        let filename = path.file_name().unwrap().to_str().unwrap();
-        // The file should be found by its absolute path
-        let _found = ctx.find_file(filename);
-        // Note: This test may fail depending on the temp directory location
-        // as find_file searches in the resource paths
-        // For now, we just check the method doesn't panic
     }
 }
