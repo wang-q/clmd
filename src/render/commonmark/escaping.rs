@@ -12,7 +12,9 @@
 //! - HTML: no escaping needed
 
 use crate::core::nodes::NodeValue;
+use crate::core::traverse::TraverseExt;
 use crate::render::commonmark::context::NodeFormatterContext;
+use crate::text::char::is_punctuation;
 
 /// Escape mode for different contexts
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,25 +172,12 @@ fn is_markdown_special_char(ch: char) -> bool {
 
 /// Check if we're inside a code context (code block or code span)
 fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
-    let current_node = context.get_current_node();
-    if let Some(node_id) = current_node {
-        let arena = context.get_arena();
-        let mut current = node_id;
-
-        while let Some(node) = arena.try_get(current) {
-            match &node.value {
-                NodeValue::Code(_) | NodeValue::CodeBlock(_) => return true,
-                _ => {
-                    if let Some(parent) = node.parent {
-                        current = parent;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    false
+    context.get_current_node().map_or(false, |node_id| {
+        context.get_arena().ancestors_iter(node_id).any(|id| {
+            let node = context.get_arena().get(id);
+            matches!(node.value, NodeValue::Code(_) | NodeValue::CodeBlock(_))
+        })
+    })
 }
 
 /// Check if we're at the start of a line
@@ -196,38 +185,20 @@ fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
 /// This function determines if the current position is at the start of a line
 /// where special characters might be interpreted as Markdown block markers.
 fn is_at_line_start(context: &dyn NodeFormatterContext) -> bool {
-    if let Some(node_id) = context.get_current_node() {
+    context.get_current_node().map_or(true, |node_id| {
         let arena = context.get_arena();
-        let mut current = node_id;
-
-        // Walk up the tree to check the context
-        while let Some(node) = arena.try_get(current) {
-            match &node.value {
-                // Inside a heading - the # is not at line start because
-                // the heading handler adds the # prefix
-                NodeValue::Heading(_) => return false,
-                // Inside a list item - the content is indented, not at line start
-                NodeValue::Item(_) => return false,
-                // Inside a blockquote - content is prefixed with >
-                NodeValue::BlockQuote => return false,
-                // Inside a table cell - content is within cell boundaries
-                NodeValue::TableCell => return false,
-                // Inside code blocks - no escaping needed
-                NodeValue::CodeBlock(_) => return false,
-                _ => {
-                    if let Some(parent) = node.parent {
-                        current = parent;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // If we're at the document level or in a paragraph at the top level,
-    // we might be at line start
-    true
+        !arena.ancestors_iter(node_id).any(|id| {
+            let node = arena.get(id);
+            matches!(
+                node.value,
+                NodeValue::Heading(_)
+                    | NodeValue::Item(_)
+                    | NodeValue::BlockQuote
+                    | NodeValue::TableCell
+                    | NodeValue::CodeBlock(_)
+            )
+        })
+    })
 }
 
 /// Check if the current position is followed by a bracket
@@ -247,27 +218,15 @@ fn is_followed_by_bracket(_context: &dyn NodeFormatterContext) -> bool {
 
 /// Check if we're inside a table
 fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
-    let current_node = context.get_current_node();
-    if let Some(node_id) = current_node {
-        let arena = context.get_arena();
-        let mut current = node_id;
-
-        while let Some(node) = arena.try_get(current) {
-            match &node.value {
-                NodeValue::Table(_) | NodeValue::TableRow(_) | NodeValue::TableCell => {
-                    return true
-                }
-                _ => {
-                    if let Some(parent) = node.parent {
-                        current = parent;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    false
+    context.get_current_node().map_or(false, |node_id| {
+        context.get_arena().ancestors_iter(node_id).any(|id| {
+            let node = context.get_arena().get(id);
+            matches!(
+                node.value,
+                NodeValue::Table(_) | NodeValue::TableRow(_) | NodeValue::TableCell
+            )
+        })
+    })
 }
 
 /// Check if we're inside a link URL context
@@ -277,30 +236,12 @@ fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
     // The URL is rendered after the link text, so we need to track this
     // For now, we check if the current node is inside a Link/Image
     // A more precise implementation would track the exact rendering phase
-    let current_node = context.get_current_node();
-    if let Some(node_id) = current_node {
-        let arena = context.get_arena();
-        let mut current = node_id;
-
-        while let Some(node) = arena.try_get(current) {
-            match &node.value {
-                NodeValue::Link(_) | NodeValue::Image(_) => {
-                    // We're inside a link/image, but need to check if we're
-                    // in the URL part. For now, return true to be safe.
-                    // The escape_url function handles URL-specific escaping.
-                    return true;
-                }
-                _ => {
-                    if let Some(parent) = node.parent {
-                        current = parent;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    false
+    context.get_current_node().map_or(false, |node_id| {
+        context.get_arena().ancestors_iter(node_id).any(|id| {
+            let node = context.get_arena().get(id);
+            matches!(node.value, NodeValue::Link(_) | NodeValue::Image(_))
+        })
+    })
 }
 
 /// Escape text according to the current context and mode
@@ -528,24 +469,12 @@ fn is_underscore_in_word(chars: &[char], pos: usize) -> bool {
 
 /// Check if we're inside an emphasis or strong node
 fn is_part_of_emphasis_node(context: &dyn NodeFormatterContext) -> bool {
-    if let Some(node_id) = context.get_current_node() {
-        let arena = context.get_arena();
-        let mut current = node_id;
-
-        while let Some(node) = arena.try_get(current) {
-            match &node.value {
-                NodeValue::Emph | NodeValue::Strong => return true,
-                _ => {
-                    if let Some(parent) = node.parent {
-                        current = parent;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    false
+    context.get_current_node().map_or(false, |node_id| {
+        context.get_arena().ancestors_iter(node_id).any(|id| {
+            let node = context.get_arena().get(id);
+            matches!(node.value, NodeValue::Emph | NodeValue::Strong)
+        })
+    })
 }
 
 /// Check if an asterisk/underscore could form an emphasis marker
@@ -566,56 +495,6 @@ fn could_form_emphasis(prev_char: Option<&char>, next_char: Option<&char>) -> bo
     // Left-flanking: preceded by ws/punct AND followed by non-ws
     // Right-flanking: followed by ws/punct AND preceded by non-ws
     (prev_is_ws_or_punct && next_is_not_ws) || (next_is_ws_or_punct && prev_is_not_ws)
-}
-
-/// Check if a character is punctuation (including CJK punctuation)
-fn is_punctuation(ch: char) -> bool {
-    // ASCII punctuation
-    if matches!(
-        ch,
-        '.' | ','
-            | '!'
-            | '?'
-            | ':'
-            | ';'
-            | '"'
-            | '\''
-            | '('
-            | ')'
-            | '['
-            | ']'
-            | '{'
-            | '}'
-            | '<'
-            | '>'
-            | '/'
-            | '\\'
-            | '|'
-            | '@'
-            | '#'
-            | '$'
-            | '%'
-            | '^'
-            | '&'
-            | '*'
-            | '+'
-            | '='
-            | '~'
-            | '`'
-    ) {
-        return true;
-    }
-
-    // CJK punctuation marks
-    matches!(ch,
-        // CJK Symbols and Punctuation block
-        '\u{3000}'..='\u{303F}' |
-        // Fullwidth ASCII variants
-        '\u{FF01}'..='\u{FF0F}' |  // ！＂＃＄％＆＇（）＊＋，－．／
-        '\u{FF1A}'..='\u{FF20}' |  // ：；＜＝＞？＠
-        '\u{FF3B}'..='\u{FF40}' |  // ［＼］＾＿｀
-        '\u{FF5B}'..='\u{FF65}'    // ｛｜｝～｟｠｡｢｣､･
-    )
 }
 
 /// Escape text for use in code spans

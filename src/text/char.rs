@@ -86,7 +86,7 @@ pub fn is_punctuation(c: char) -> bool {
         return is_punctuation_fast(c as u8);
     }
     // Unicode punctuation (Pc, Pd, Ps, Pe, Pi, Pf, Po categories)
-    // Check for specific Unicode punctuation characters commonly used in tests
+    // Includes CJK punctuation and fullwidth ASCII variants
     matches!(c,
         '\u{00A2}'..='\u{00A5}' | // ¢£¤¥ (currency symbols)
         '\u{00B5}' |              // µ
@@ -102,7 +102,12 @@ pub fn is_punctuation(c: char) -> bool {
         '\u{25A0}'..='\u{25FF}' | // Geometric Shapes
         '\u{2600}'..='\u{26FF}' | // Miscellaneous Symbols
         '\u{2700}'..='\u{27BF}' | // Dingbats
-        '\u{3000}'..='\u{303F}'   // CJK Symbols and Punctuation
+        '\u{3000}'..='\u{303F}' | // CJK Symbols and Punctuation
+        // Fullwidth ASCII variants (CJK punctuation)
+        '\u{FF01}'..='\u{FF0F}' | // ！＂＃＄％＆＇（）＊＋，－．／
+        '\u{FF1A}'..='\u{FF20}' | // ：；＜＝＞？＠
+        '\u{FF3B}'..='\u{FF40}' | // ［＼］＾＿｀
+        '\u{FF5B}'..='\u{FF65}'   // ｛｜｝～｟｠｡｢｣､･
     )
 }
 
