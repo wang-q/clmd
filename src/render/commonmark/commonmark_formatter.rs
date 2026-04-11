@@ -69,11 +69,8 @@ use crate::render::commonmark::writer::MarkdownWriter;
 /// - Table (with alignment)
 /// - FootnoteReference, FootnoteDefinition
 /// - TaskItem (checkboxes)
-#[derive(Debug)]
-pub struct CommonMarkNodeFormatter {
-    /// Formatter options for customizing output
-    options: FormatOptions,
-}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CommonMarkNodeFormatter;
 
 impl CommonMarkNodeFormatter {
     /// Create a new CommonMark formatter with default options
@@ -86,14 +83,14 @@ impl CommonMarkNodeFormatter {
     /// let formatter = CommonMarkNodeFormatter::new();
     /// ```
     pub fn new() -> Self {
-        Self::with_options(FormatOptions::default())
+        Self
     }
 
     /// Create a new CommonMark formatter with custom options
     ///
     /// # Arguments
     ///
-    /// * `options` - Formatter options for customizing output
+    /// * `_options` - Formatter options for customizing output (currently unused)
     ///
     /// # Example
     ///
@@ -106,19 +103,8 @@ impl CommonMarkNodeFormatter {
     ///     .with_keep_hard_line_breaks(true);
     /// let formatter = CommonMarkNodeFormatter::with_options(options);
     /// ```
-    pub fn with_options(options: FormatOptions) -> Self {
-        Self { options }
-    }
-
-    /// Get the formatter options
-    pub fn options(&self) -> &FormatOptions {
-        &self.options
-    }
-}
-
-impl Default for CommonMarkNodeFormatter {
-    fn default() -> Self {
-        Self::new()
+    pub fn with_options(_options: FormatOptions) -> Self {
+        Self
     }
 }
 
@@ -1065,95 +1051,13 @@ impl PhasedNodeFormatter for CommonMarkNodeFormatter {
 
     fn render_document(
         &self,
-        context: &mut dyn NodeFormatterContext,
-        writer: &mut MarkdownWriter,
+        _context: &mut dyn NodeFormatterContext,
+        _writer: &mut MarkdownWriter,
         _root: NodeId,
-        phase: FormattingPhase,
+        _phase: FormattingPhase,
     ) {
-        match phase {
-            FormattingPhase::Collect => {
-                // In the Collect phase, gather reference links and other information
-                // needed for the main rendering pass
-                // This includes collecting unused references for sorting
-                self.collect_document_info(context);
-            }
-            FormattingPhase::DocumentFirst => {
-                // First pass over the document - can be used for initialization
-                // or pre-processing before the main rendering
-            }
-            FormattingPhase::DocumentTop => {
-                // Render elements at the top of the document
-                // This is where collected references can be placed if configured
-                self.render_document_top_elements(context, writer);
-            }
-            FormattingPhase::Document => {
-                // Main document rendering is handled by the node handlers
-                // This phase is processed through the regular node traversal
-            }
-            FormattingPhase::DocumentBottom => {
-                // Render elements at the bottom of the document
-                // This is where footnotes or references can be placed
-                self.render_document_bottom_elements(context, writer);
-            }
-        }
-    }
-}
-
-impl CommonMarkNodeFormatter {
-    /// Collect information about the document during the Collect phase
-    fn collect_document_info(&self, _context: &mut dyn NodeFormatterContext) {
-        // Placeholder for collecting reference links, footnotes, etc.
-        // This information can be used during rendering to:
-        // - Identify unused references
-        // - Sort references
-        // - Generate footnote numbers
-    }
-
-    /// Render elements that should appear at the top of the document
-    fn render_document_top_elements(
-        &self,
-        context: &mut dyn NodeFormatterContext,
-        _writer: &mut MarkdownWriter,
-    ) {
-        // Placeholder for rendering elements at document top
-        // This can include:
-        // - References placed at document top
-        // - Table of contents
-        // - Other collected elements
-
-        // Check if we should place references at document top
-        let options = context.get_formatter_options();
-        if options.reference_placement
-            == crate::options::format::ElementPlacement::DocumentTop
-        {
-            // Render collected references at top
-            // This would require reference collection to be implemented
-        }
-    }
-
-    /// Render elements that should appear at the bottom of the document
-    fn render_document_bottom_elements(
-        &self,
-        context: &mut dyn NodeFormatterContext,
-        _writer: &mut MarkdownWriter,
-    ) {
-        // Placeholder for rendering elements at document bottom
-        // This can include:
-        // - Footnotes
-        // - References placed at document bottom
-        // - Other collected elements
-
-        // Check if we should place references at document bottom
-        let options = context.get_formatter_options();
-        if options.reference_placement
-            == crate::options::format::ElementPlacement::DocumentBottom
-        {
-            // Render collected references at bottom
-            // This would require reference collection to be implemented
-        }
-
-        // Render footnotes if any were collected
-        // This would require footnote collection to be implemented
+        // Phased rendering is currently a placeholder for future implementation
+        // The actual rendering is handled by node handlers in the Document phase
     }
 }
 
@@ -1333,7 +1237,6 @@ mod tests {
         let formatter = CommonMarkNodeFormatter::with_options(options);
         let handlers = formatter.get_node_formatting_handlers();
         assert!(!handlers.is_empty());
-        assert_eq!(formatter.options().right_margin, 80);
     }
 
     #[test]
@@ -1364,13 +1267,6 @@ mod tests {
         assert!(phases.contains(&FormattingPhase::DocumentTop));
         assert!(phases.contains(&FormattingPhase::Document));
         assert!(phases.contains(&FormattingPhase::DocumentBottom));
-    }
-
-    #[test]
-    fn test_formatter_options_accessor() {
-        let options = FormatOptions::new().with_right_margin(100);
-        let formatter = CommonMarkNodeFormatter::with_options(options);
-        assert_eq!(formatter.options().right_margin, 100);
     }
 
     #[test]
