@@ -19,7 +19,6 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::context::MediaBag;
-use crate::io::format::mime::MimeType;
 
 use super::error::{LogLevel, LogMessage};
 use super::monad::Verbosity;
@@ -247,23 +246,6 @@ impl CommonState {
             .as_ref()
             .and_then(|t| t.terms.get(term))
             .map(|s| s.as_str())
-    }
-
-    /// Insert media into the media bag.
-    pub fn insert_media(
-        &mut self,
-        path: String,
-        mime_type: MimeType,
-        contents: Vec<u8>,
-    ) {
-        self.media_bag.insert(path, mime_type, contents);
-    }
-
-    /// Get media from the media bag.
-    pub fn get_media(&self, path: &str) -> Option<(&str, &[u8])> {
-        self.media_bag
-            .lookup(path)
-            .map(|item| (item.mime_type(), item.contents()))
     }
 
     /// Set extension data.
@@ -529,22 +511,6 @@ mod tests {
         state.set_translations(translations);
         assert_eq!(state.translate("Figure"), Some("图"));
         assert_eq!(state.translate("Unknown"), None);
-    }
-
-    #[test]
-    fn test_insert_and_get_media() {
-        let mut state = CommonState::new();
-        state.insert_media(
-            "image.png".to_string(),
-            "image/png",
-            vec![0x89, 0x50, 0x4E, 0x47],
-        );
-
-        let media = state.get_media("image.png");
-        assert!(media.is_some());
-        let (mime, contents) = media.unwrap();
-        assert_eq!(mime, "image/png");
-        assert_eq!(contents, vec![0x89, 0x50, 0x4E, 0x47]);
     }
 
     #[test]

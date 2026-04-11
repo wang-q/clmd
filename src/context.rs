@@ -117,8 +117,7 @@ pub struct MediaItem {
 }
 
 impl MediaItem {
-    /// Create a new media item.
-    pub fn new<P: AsRef<Path>>(
+    fn new<P: AsRef<Path>>(
         path: P,
         mime_type: impl Into<String>,
         contents: impl Into<Vec<u8>>,
@@ -133,11 +132,6 @@ impl MediaItem {
     /// Get the MIME type.
     pub fn mime_type(&self) -> &str {
         &self.mime_type
-    }
-
-    /// Get the original path.
-    pub fn path(&self) -> &Path {
-        &self.path
     }
 
     /// Get the contents.
@@ -377,29 +371,6 @@ impl CommonState {
     /// Get all logs.
     pub fn get_logs(&self) -> Vec<LogMessage> {
         self.logs.lock().unwrap().clone()
-    }
-
-    /// Clear all logs.
-    pub fn clear_logs(&self) {
-        self.logs.lock().unwrap().clear()
-    }
-
-    /// Check if any errors were logged.
-    pub fn has_errors(&self) -> bool {
-        self.logs
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|log| log.level == LogLevel::Error)
-    }
-
-    /// Check if any warnings were logged.
-    pub fn has_warnings(&self) -> bool {
-        self.logs
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|log| log.level == LogLevel::Warning)
     }
 }
 
