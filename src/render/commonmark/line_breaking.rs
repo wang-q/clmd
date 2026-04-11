@@ -10,6 +10,11 @@
 
 use crate::text::unicode;
 
+/// Check if a character is punctuation
+fn is_punctuation(c: char) -> bool {
+    crate::text::char::is_punctuation(c)
+}
+
 /// A word in the paragraph with its display width
 #[derive(Debug, Clone)]
 pub struct Word {
@@ -921,6 +926,7 @@ impl ParagraphLineBreaker {
             // Collect content from last_break_pos up to this break point
             let mut pos = 0;
             let mut prev_fragment_was_code = false;
+            let mut prev_fragment_was_atomic = false;
             for fragment in &self.fragments {
                 match fragment {
                     ContentFragment::Text { content, .. } => {
@@ -930,6 +936,7 @@ impl ParagraphLineBreaker {
                         if fragment_end <= last_break_pos {
                             // This fragment is before the current line
                             pos = fragment_end;
+                            prev_fragment_was_atomic = false;
                             continue;
                         }
 
@@ -945,16 +952,44 @@ impl ParagraphLineBreaker {
                             (break_point.position - fragment_start).min(content.len());
 
                         // For continuation lines, skip leading spaces
-                        // But preserve leading space if previous fragment was Code (for CJK spacing)
+                        // But preserve leading space if:
+                        // - previous fragment was Code (for CJK spacing)
+                        // - previous fragment was an Atomic unit like Link (to preserve space after link)
+                        //   UNLESS the space is followed by punctuation (normalize "[link] ." to "[link].")
                         let mut actual_start = if line_idx > 0
                             && start_in_fragment == 0
                             && !prev_fragment_was_code
+                            && !prev_fragment_was_atomic
                         {
                             // Find first non-space character
                             content[start_in_fragment..end_in_fragment]
                                 .find(|c: char| !c.is_whitespace())
                                 .map(|i| start_in_fragment + i)
                                 .unwrap_or(start_in_fragment)
+                        } else if line_idx > 0
+                            && start_in_fragment == 0
+                            && prev_fragment_was_atomic
+                        {
+                            // Previous fragment was atomic (e.g., link)
+                            // Check if the text starts with spaces followed by punctuation
+                            // If so, skip the spaces to normalize "[link] ." to "[link]."
+                            let trimmed =
+                                content[start_in_fragment..end_in_fragment].trim_start();
+                            if !trimmed.is_empty() {
+                                let first_char = trimmed.chars().next().unwrap();
+                                if is_punctuation(first_char) {
+                                    // Space before punctuation - skip the spaces
+                                    content[start_in_fragment..end_in_fragment]
+                                        .find(|c: char| !c.is_whitespace())
+                                        .map(|i| start_in_fragment + i)
+                                        .unwrap_or(start_in_fragment)
+                                } else {
+                                    // Space before word - preserve the space
+                                    start_in_fragment
+                                }
+                            } else {
+                                start_in_fragment
+                            }
                         } else {
                             start_in_fragment
                         };
@@ -977,6 +1012,7 @@ impl ParagraphLineBreaker {
 
                         pos = fragment_end;
                         prev_fragment_was_code = false;
+                        prev_fragment_was_atomic = false;
                     }
                     ContentFragment::Atomic { content, kind, .. } => {
                         let fragment_start = pos;
@@ -985,6 +1021,7 @@ impl ParagraphLineBreaker {
                         if fragment_end <= last_break_pos {
                             // This fragment is before the current line
                             pos = fragment_end;
+                            prev_fragment_was_atomic = true;
                             continue;
                         }
 
@@ -1001,6 +1038,7 @@ impl ParagraphLineBreaker {
 
                         pos = fragment_end;
                         prev_fragment_was_code = matches!(kind, AtomicKind::Code);
+                        prev_fragment_was_atomic = true;
                     }
                 }
 

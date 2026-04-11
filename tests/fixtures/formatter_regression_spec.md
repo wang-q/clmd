@@ -486,6 +486,22 @@ All tools use a unified syntax to identify fields (columns). See
 ````````````````````````````````
 
 
+```````````````````````````````` example(Link Trailing Space: 1) options(margin[100])
+All tools use a unified syntax to identify fields (columns). See [Field Syntax Documentation](help/fields.md).
+.
+All tools use a unified syntax to identify fields (columns). See
+[Field Syntax Documentation](help/fields.md).
+````````````````````````````````
+
+
+```````````````````````````````` example(Link Trailing Space: 1) options(margin[100])
+All tools use a unified syntax to identify fields (columns). See [Field Syntax Documentation](help/fields.md) .
+.
+All tools use a unified syntax to identify fields (columns). See
+[Field Syntax Documentation](help/fields.md).
+````````````````````````````````
+
+
 ### Issue: Space after inline code should also be preserved
 
 Similar to links, spaces after inline code spans should be preserved.
