@@ -103,15 +103,6 @@ impl NodeArena {
         }
     }
 
-    /// Create a new arena with capacity
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            nodes: Vec::with_capacity(capacity),
-            max_nodes: 0,
-            total_allocations: 0,
-        }
-    }
-
     /// Try to allocate a new node and return its ID
     ///
     /// # Panics

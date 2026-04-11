@@ -10,35 +10,33 @@ use std::collections::HashSet;
 /// Maximum recursion depth for tree traversal to prevent stack overflow.
 const MAX_TRAVERSE_DEPTH: usize = 1000;
 
-/// Traversal order for generic traversal.
+/// Traversal order for generic traversal (internal use only).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TraverseOrder {
-    /// Pre-order: visit node before children
+enum TraverseOrder {
     PreOrder,
-    /// Post-order: visit children before node
     PostOrder,
 }
 
 /// Event types for tree traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
-    /// Entering a node.
+    /// Entering a node during traversal.
     Enter,
-    /// Exiting a node.
+    /// Exiting a node during traversal.
     Exit,
 }
 
-/// A traversal event.
+/// A traversal event produced during tree walking.
 #[derive(Debug, Clone, Copy)]
 pub struct TraverseEvent {
-    /// The node ID.
+    /// The node ID this event refers to.
     pub node_id: NodeId,
-    /// The event type.
+    /// The type of event (enter or exit).
     pub event_type: EventType,
 }
 
 impl TraverseEvent {
-    /// Create a new enter event.
+    /// Create a new enter event for the given node.
     pub fn enter(node_id: NodeId) -> Self {
         Self {
             node_id,
@@ -46,7 +44,7 @@ impl TraverseEvent {
         }
     }
 
-    /// Create a new exit event.
+    /// Create a new exit event for the given node.
     pub fn exit(node_id: NodeId) -> Self {
         Self {
             node_id,
@@ -55,7 +53,7 @@ impl TraverseEvent {
     }
 }
 
-/// Trait for traversing the AST.
+/// Trait for traversing the AST in various orders.
 pub trait Traverse {
     /// Traverse the tree in pre-order (root, then children).
     fn traverse_pre_order<F>(&self, root: NodeId, f: F)
@@ -67,7 +65,7 @@ pub trait Traverse {
     where
         F: FnMut(&NodeValue);
 
-    /// Traverse the tree with events (enter/exit).
+    /// Traverse the tree with enter/exit events.
     fn traverse_with_events<F>(&self, root: NodeId, f: F)
     where
         F: FnMut(&NodeValue, EventType);
@@ -126,10 +124,6 @@ impl Traverse for NodeArena {
 }
 
 impl NodeArena {
-    /// Generic recursive traversal implementation.
-    ///
-    /// This method consolidates the common traversal logic to reduce code duplication.
-    /// It handles depth limits, cycle detection, and delegates to the callback at appropriate times.
     fn traverse_recursive_generic<F>(
         &self,
         node_id: NodeId,
@@ -152,7 +146,6 @@ impl NodeArena {
             return;
         }
 
-        // Check for circular reference
         if visited.contains(&node_id) {
             eprintln!(
                 "Warning: Circular reference detected at node {}. Stopping traversal.",
@@ -164,19 +157,16 @@ impl NodeArena {
         if let Some(node) = self.try_get(node_id) {
             visited.insert(node_id);
 
-            // Pre-order: visit node before children
             if order == TraverseOrder::PreOrder {
                 f(&node.value, None);
             }
 
-            // Traverse children using the linked list structure
             let mut child_id = node.first_child;
             while let Some(child) = child_id {
                 self.traverse_recursive_generic(child, depth + 1, visited, order, f);
                 child_id = self.try_get(child).and_then(|n| n.next);
             }
 
-            // Post-order: visit node after children
             if order == TraverseOrder::PostOrder {
                 f(&node.value, None);
             }
@@ -242,7 +232,6 @@ impl NodeArena {
             return;
         }
 
-        // Check for circular reference
         if visited.contains(&node_id) {
             eprintln!(
                 "Warning: Circular reference detected at node {}. Stopping traversal.",
@@ -255,7 +244,6 @@ impl NodeArena {
             visited.insert(node_id);
             f(&node.value, EventType::Enter);
 
-            // Traverse children using the linked list structure
             let mut child_id = node.first_child;
             while let Some(child) = child_id {
                 self.traverse_with_events_recursive(child, depth + 1, visited, f);
@@ -288,7 +276,6 @@ impl NodeArena {
             return;
         }
 
-        // Check for circular reference
         if visited.contains(&node_id) {
             eprintln!(
                 "Warning: Circular reference detected at node {}. Stopping traversal.",
@@ -297,7 +284,6 @@ impl NodeArena {
             return;
         }
 
-        // Collect child IDs first to avoid borrow issues
         let child_ids: Vec<NodeId> = if let Some(node) = self.try_get(node_id) {
             let mut ids = Vec::new();
             let mut child_id = node.first_child;
@@ -310,13 +296,11 @@ impl NodeArena {
             return;
         };
 
-        // Apply function to current node
         visited.insert(node_id);
         if let Some(node) = self.try_get_mut(node_id) {
             f(&mut node.value);
         }
 
-        // Now recurse into children
         for child_id in child_ids {
             self.traverse_pre_order_mut_recursive(child_id, depth + 1, visited, f);
         }
@@ -344,7 +328,6 @@ impl NodeArena {
             return;
         }
 
-        // Check for circular reference
         if visited.contains(&node_id) {
             eprintln!(
                 "Warning: Circular reference detected at node {}. Stopping traversal.",
@@ -353,7 +336,6 @@ impl NodeArena {
             return;
         }
 
-        // Collect child IDs first to avoid borrow issues
         let child_ids: Vec<NodeId> = if let Some(node) = self.try_get(node_id) {
             let mut ids = Vec::new();
             let mut child_id = node.first_child;
@@ -368,12 +350,10 @@ impl NodeArena {
 
         visited.insert(node_id);
 
-        // First recurse into children
         for child_id in child_ids {
             self.traverse_post_order_mut_recursive(child_id, depth + 1, visited, f);
         }
 
-        // Then apply function to current node
         if let Some(node) = self.try_get_mut(node_id) {
             f(&mut node.value);
         }
@@ -382,73 +362,19 @@ impl NodeArena {
     }
 }
 
-/// Iterator for traversing the tree with events.
-#[derive(Debug)]
-pub struct EventIterator<'a> {
-    arena: &'a NodeArena,
-    stack: Vec<(NodeId, EventType)>,
-}
-
-impl<'a> EventIterator<'a> {
-    /// Create a new event iterator starting from the given root.
-    pub fn new(arena: &'a NodeArena, root: NodeId) -> Self {
-        let mut stack = Vec::new();
-        if root != INVALID_NODE_ID {
-            stack.push((root, EventType::Enter));
-        }
-        Self { arena, stack }
-    }
-}
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = TraverseEvent;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (node_id, event_type) = self.stack.pop()?;
-
-        if event_type == EventType::Enter {
-            // Push exit event first (will be processed after children)
-            self.stack.push((node_id, EventType::Exit));
-
-            // Push children in reverse order so they're processed left-to-right
-            if let Some(node) = self.arena.try_get(node_id) {
-                // Collect all children first
-                let mut children = Vec::new();
-                let mut child_id = node.first_child;
-                while let Some(child) = child_id {
-                    children.push(child);
-                    child_id = self.arena.try_get(child).and_then(|n| n.next);
-                }
-                // Push in reverse order
-                for child in children.into_iter().rev() {
-                    self.stack.push((child, EventType::Enter));
-                }
-            }
-        }
-
-        Some(TraverseEvent {
-            node_id,
-            event_type,
-        })
-    }
-}
-
-/// Extension trait for NodeArena to provide additional traversal methods.
+/// Extension trait for NodeArena to provide additional traversal iterators.
 pub trait TraverseExt {
-    /// Get an iterator over all descendants.
+    /// Get an iterator over all descendants of the given node (depth-first).
     fn descendants_iter(&self, root: NodeId) -> DescendantIter<'_>;
-
-    /// Get an iterator over all children.
+    /// Get an iterator over children of the given node.
     fn children_iter(&self, node_id: NodeId) -> ChildIter<'_>;
-
-    /// Get an iterator over all ancestors.
+    /// Get an iterator over ancestors of the given node.
     fn ancestors_iter(&self, node_id: NodeId) -> AncestorIter<'_>;
-
-    /// Get an iterator over siblings.
+    /// Get an iterator over siblings of the given node (excluding itself).
     fn siblings_iter(&self, node_id: NodeId) -> SiblingIter<'_>;
 }
 
-/// Iterator over descendants.
+/// Iterator over descendants in depth-first order.
 #[derive(Debug)]
 pub struct DescendantIter<'a> {
     arena: &'a NodeArena,
@@ -477,7 +403,7 @@ impl<'a> Iterator for DescendantIter<'a> {
     }
 }
 
-/// Iterator over children.
+/// Iterator over direct children of a node.
 #[derive(Debug)]
 pub struct ChildIter<'a> {
     arena: &'a NodeArena,
@@ -498,7 +424,7 @@ impl<'a> Iterator for ChildIter<'a> {
     }
 }
 
-/// Iterator over ancestors.
+/// Iterator over ancestors of a node (rootward).
 #[derive(Debug)]
 pub struct AncestorIter<'a> {
     arena: &'a NodeArena,
@@ -519,7 +445,7 @@ impl<'a> Iterator for AncestorIter<'a> {
     }
 }
 
-/// Iterator over siblings.
+/// Iterator over siblings of a node (excluding the node itself).
 #[derive(Debug)]
 pub struct SiblingIter<'a> {
     arena: &'a NodeArena,
