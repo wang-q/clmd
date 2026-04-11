@@ -304,13 +304,20 @@ impl ParagraphLineBreaker {
                 None
             };
 
+            // Get the next non-whitespace character for context-aware punctuation handling
+            // This is needed for characters like slash that may be part of a word (e.g., "I/O")
+            let next_char = char_iter
+                .peek()
+                .map(|(_, c)| *c)
+                .or_else(|| text[byte_pos + char_str.len()..].chars().next());
+
             // Check if we can break at this character position
             let break_opportunity = if c.is_whitespace() {
                 // Always break after whitespace (left affinity)
                 Some(Affinity::Left)
             } else {
                 // Check punctuation affinity for break opportunity
-                get_punctuation_affinity(&char_str, prev_char)
+                get_punctuation_affinity(&char_str, prev_char, next_char)
             };
 
             if let Some(affinity) = break_opportunity {
@@ -1145,9 +1152,11 @@ impl ParagraphLineBreaker {
 /// # Arguments
 /// * `char_str` - The character as a string
 /// * `prev_char` - The previous character in the text (for context-aware decisions)
+/// * `next_char` - The next character in the text (for context-aware decisions)
 fn get_punctuation_affinity(
     char_str: &str,
     prev_char: Option<char>,
+    next_char: Option<char>,
 ) -> Option<Affinity> {
     // Check if the previous character is CJK (affects how we treat ASCII punctuation)
     let prev_is_cjk = prev_char.map_or(false, crate::text::unicode::is_cjk);
@@ -1182,7 +1191,18 @@ fn get_punctuation_affinity(
             }
         }
 
-        "/" | "\\" => Some(Affinity::Right),
+        "/" | "\\" => {
+            // Check if the slash is part of a word (e.g., "I/O-bound", "and/or")
+            // If both prev and next characters are alphanumeric, don't break
+            let prev_is_alphanumeric = prev_char.map_or(false, |c| c.is_alphanumeric());
+            let next_is_alphanumeric = next_char.map_or(false, |c| c.is_alphanumeric());
+            if prev_is_alphanumeric && next_is_alphanumeric {
+                // Slash is part of a word, don't break here
+                None
+            } else {
+                Some(Affinity::Right)
+            }
+        }
 
         // CJK punctuation with special handling
         "\u{3001}" | "\u{3002}" | "\u{ff0c}" | "\u{ff0e}" | "\u{ff01}" | "\u{ff1f}"

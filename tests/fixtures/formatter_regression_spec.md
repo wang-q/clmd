@@ -181,6 +181,16 @@ and more text after the comma.
 ````````````````````````````````
 
 
+```````````````````````````````` example(Punctuation: 4) options(margin[100])
+**Trade-offs**: Virtual function calls (`vtable`) have a tiny overhead compared to inlined code in
+extremely high-frequency loops (e.g., 10 calls per row), but this is usually negligible in I/O-bound
+CLI tools.
+.
+**Trade-offs**: Virtual function calls (`vtable`) have a tiny overhead compared to inlined code
+in extremely high-frequency loops (e.g., 10 calls per row), but this is usually negligible in
+I/O-bound CLI tools.
+````````````````````````````````
+
 ## Mixed Content Issues
 
 ### Issue: Mixed content with links, emphasis, and code
