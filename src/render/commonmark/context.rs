@@ -162,21 +162,6 @@ pub trait NodeFormatterContext {
     /// Add a word to the paragraph line breaker
     fn add_paragraph_word(&mut self, text: &str);
 
-    /// Start an unbreakable unit in the paragraph line breaker
-    fn start_paragraph_unit(
-        &mut self,
-        kind: crate::render::commonmark::line_breaking::UnitKind,
-        marker_width: usize,
-    ) -> Option<crate::render::commonmark::line_breaking::UnitHandle>;
-
-    /// End an unbreakable unit in the paragraph line breaker
-    fn end_paragraph_unit(
-        &mut self,
-        handle: crate::render::commonmark::line_breaking::UnitHandle,
-        content_width: usize,
-        marker_width: usize,
-    );
-
     /// Add an unbreakable unit with markers (prefix, content, suffix)
     fn add_paragraph_unbreakable_unit(
         &mut self,
@@ -186,28 +171,11 @@ pub trait NodeFormatterContext {
         suffix: &str,
     );
 
-    /// Add an atomic unit (internal absolutely no breaks)
-    fn add_paragraph_atomic(
-        &mut self,
-        content: &str,
-        kind: crate::render::commonmark::AtomicKind,
-    );
-
     /// Add a hard line break to the paragraph line breaker
     fn add_paragraph_hard_break(&mut self);
 
     /// Check if paragraph line breaking is active
     fn is_paragraph_line_breaking(&self) -> bool;
-
-    /// Remove trailing space from the paragraph line breaker
-    /// This is used before adding markdown markers to remove unwanted spaces
-    fn remove_paragraph_trailing_space(&mut self);
-
-    /// Check if the paragraph line breaker ends with whitespace
-    fn paragraph_ends_with_whitespace(&self) -> bool;
-
-    /// Check if the paragraph line breaker ends with CJK character
-    fn paragraph_ends_with_cjk(&self) -> bool;
 }
 
 /// A sub-context for nested formatting operations
@@ -392,24 +360,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.add_paragraph_word(text);
     }
 
-    fn start_paragraph_unit(
-        &mut self,
-        kind: crate::render::commonmark::line_breaking::UnitKind,
-        marker_width: usize,
-    ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
-        self.parent.start_paragraph_unit(kind, marker_width)
-    }
-
-    fn end_paragraph_unit(
-        &mut self,
-        handle: crate::render::commonmark::line_breaking::UnitHandle,
-        content_width: usize,
-        marker_width: usize,
-    ) {
-        self.parent
-            .end_paragraph_unit(handle, content_width, marker_width);
-    }
-
     fn add_paragraph_unbreakable_unit(
         &mut self,
         kind: crate::render::commonmark::line_breaking::UnitKind,
@@ -421,76 +371,12 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
             .add_paragraph_unbreakable_unit(kind, prefix, content, suffix);
     }
 
-    fn add_paragraph_atomic(
-        &mut self,
-        content: &str,
-        kind: crate::render::commonmark::AtomicKind,
-    ) {
-        self.parent.add_paragraph_atomic(content, kind);
-    }
-
     fn add_paragraph_hard_break(&mut self) {
         self.parent.add_paragraph_hard_break();
     }
 
     fn is_paragraph_line_breaking(&self) -> bool {
         self.parent.is_paragraph_line_breaking()
-    }
-
-    fn remove_paragraph_trailing_space(&mut self) {
-        self.parent.remove_paragraph_trailing_space();
-    }
-
-    fn paragraph_ends_with_whitespace(&self) -> bool {
-        self.parent.paragraph_ends_with_whitespace()
-    }
-
-    fn paragraph_ends_with_cjk(&self) -> bool {
-        self.parent.paragraph_ends_with_cjk()
-    }
-}
-
-/// Trait for translation placeholder generators
-///
-/// This trait is used to generate placeholders for translation spans.
-pub trait TranslationPlaceholderGenerator {
-    /// Get a placeholder for the given index
-    ///
-    /// The index is 1-based and should be unique within the document.
-    fn get_placeholder(&self, index: usize) -> String;
-}
-
-/// Default translation placeholder generator
-#[derive(Debug)]
-pub struct DefaultPlaceholderGenerator {
-    format: String,
-}
-
-impl DefaultPlaceholderGenerator {
-    /// Create a new default placeholder generator
-    pub fn new() -> Self {
-        Self {
-            format: "_{}_".to_string(),
-        }
-    }
-
-    /// Create a new generator with a custom format
-    pub fn with_format(format: impl Into<String>) -> Self {
-        Self {
-            format: format.into(),
-        }
-    }
-}
-
-impl Default for DefaultPlaceholderGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
-    fn get_placeholder(&self, index: usize) -> String {
-        self.format.replace("{}", &index.to_string())
     }
 }
 
@@ -647,22 +533,6 @@ mod tests {
 
         fn add_paragraph_word(&mut self, _text: &str) {}
 
-        fn start_paragraph_unit(
-            &mut self,
-            _kind: crate::render::commonmark::line_breaking::UnitKind,
-            _marker_width: usize,
-        ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
-            None
-        }
-
-        fn end_paragraph_unit(
-            &mut self,
-            _handle: crate::render::commonmark::line_breaking::UnitHandle,
-            _content_width: usize,
-            _marker_width: usize,
-        ) {
-        }
-
         fn add_paragraph_unbreakable_unit(
             &mut self,
             _kind: crate::render::commonmark::line_breaking::UnitKind,
@@ -672,41 +542,11 @@ mod tests {
         ) {
         }
 
-        fn add_paragraph_atomic(
-            &mut self,
-            _content: &str,
-            _kind: crate::render::commonmark::AtomicKind,
-        ) {
-        }
-
         fn add_paragraph_hard_break(&mut self) {}
 
         fn is_paragraph_line_breaking(&self) -> bool {
             false
         }
-
-        fn remove_paragraph_trailing_space(&mut self) {}
-
-        fn paragraph_ends_with_whitespace(&self) -> bool {
-            false
-        }
-
-        fn paragraph_ends_with_cjk(&self) -> bool {
-            false
-        }
-    }
-
-    #[test]
-    fn test_default_placeholder_generator() {
-        let generator = DefaultPlaceholderGenerator::new();
-        assert_eq!(generator.get_placeholder(1), "_1_");
-        assert_eq!(generator.get_placeholder(42), "_42_");
-    }
-
-    #[test]
-    fn test_custom_placeholder_generator() {
-        let generator = DefaultPlaceholderGenerator::with_format("[{}]");
-        assert_eq!(generator.get_placeholder(1), "[1]");
     }
 
     #[test]

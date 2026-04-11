@@ -484,20 +484,6 @@ mod tests {
         }
         fn add_paragraph_text(&mut self, _text: &str) {}
         fn add_paragraph_word(&mut self, _text: &str) {}
-        fn start_paragraph_unit(
-            &mut self,
-            _kind: crate::render::commonmark::line_breaking::UnitKind,
-            _marker_width: usize,
-        ) -> Option<crate::render::commonmark::line_breaking::UnitHandle> {
-            None
-        }
-        fn end_paragraph_unit(
-            &mut self,
-            _handle: crate::render::commonmark::line_breaking::UnitHandle,
-            _content_width: usize,
-            _marker_width: usize,
-        ) {
-        }
         fn add_paragraph_unbreakable_unit(
             &mut self,
             _kind: crate::render::commonmark::line_breaking::UnitKind,
@@ -507,20 +493,7 @@ mod tests {
         ) {
         }
         fn add_paragraph_hard_break(&mut self) {}
-        fn add_paragraph_atomic(
-            &mut self,
-            _content: &str,
-            _kind: crate::render::commonmark::AtomicKind,
-        ) {
-        }
         fn is_paragraph_line_breaking(&self) -> bool {
-            false
-        }
-        fn remove_paragraph_trailing_space(&mut self) {}
-        fn paragraph_ends_with_whitespace(&self) -> bool {
-            false
-        }
-        fn paragraph_ends_with_cjk(&self) -> bool {
             false
         }
     }

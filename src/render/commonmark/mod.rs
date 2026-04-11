@@ -33,10 +33,7 @@ pub use crate::options::format::{
     ListSpacing, NumberedMarker, TrailingMarker,
 };
 pub use commonmark_formatter::CommonMarkNodeFormatter;
-pub use context::{
-    DefaultPlaceholderGenerator, NodeFormatterContext, SubFormatterContext,
-    TranslationPlaceholderGenerator,
-};
+pub use context::{NodeFormatterContext, SubFormatterContext};
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
@@ -64,8 +61,6 @@ pub struct Formatter {
     node_formatters: node::ComposedNodeFormatter,
     /// Phased formatters
     phased_formatters: phase::ComposedPhasedFormatter,
-    /// Translation placeholder generator
-    placeholder_generator: Box<dyn context::TranslationPlaceholderGenerator>,
 }
 
 impl std::fmt::Debug for Formatter {
@@ -90,7 +85,6 @@ impl Formatter {
             options,
             node_formatters: node::ComposedNodeFormatter::new(),
             phased_formatters: phase::ComposedPhasedFormatter::new(),
-            placeholder_generator: Box::new(context::DefaultPlaceholderGenerator::new()),
         }
     }
 
@@ -105,14 +99,6 @@ impl Formatter {
         formatter: Box<dyn phase::PhasedNodeFormatter>,
     ) {
         self.phased_formatters.add_formatter(formatter);
-    }
-
-    /// Set the placeholder generator
-    pub fn set_placeholder_generator(
-        &mut self,
-        generator: Box<dyn context::TranslationPlaceholderGenerator>,
-    ) {
-        self.placeholder_generator = generator;
     }
 
     /// Render a document
@@ -708,27 +694,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
-    fn start_paragraph_unit(
-        &mut self,
-        kind: line_breaking::UnitKind,
-        marker_width: usize,
-    ) -> Option<line_breaking::UnitHandle> {
-        self.paragraph_line_breaker
-            .as_mut()
-            .map(|breaker| breaker.start_unit(kind, marker_width))
-    }
-
-    fn end_paragraph_unit(
-        &mut self,
-        handle: line_breaking::UnitHandle,
-        content_width: usize,
-        marker_width: usize,
-    ) {
-        if let Some(ref mut breaker) = self.paragraph_line_breaker {
-            breaker.end_unit(handle, content_width, marker_width);
-        }
-    }
-
     fn add_paragraph_unbreakable_unit(
         &mut self,
         kind: line_breaking::UnitKind,
@@ -747,16 +712,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         }
     }
 
-    fn add_paragraph_atomic(&mut self, content: &str, kind: AtomicKind) {
-        if let Some(ref mut breaker) = self.paragraph_line_breaker {
-            breaker.add_atomic(content, kind);
-        }
-        // Also add to text collection buffer if active
-        if let Some(ref mut buffer) = self.text_collection_buffer {
-            buffer.push_str(content);
-        }
-    }
-
     fn add_paragraph_hard_break(&mut self) {
         if let Some(ref mut breaker) = self.paragraph_line_breaker {
             breaker.add_hard_break();
@@ -766,26 +721,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
     fn is_paragraph_line_breaking(&self) -> bool {
         // Return true if either paragraph line breaker is active or we're collecting text
         self.paragraph_line_breaker.is_some() || self.text_collection_buffer.is_some()
-    }
-
-    fn remove_paragraph_trailing_space(&mut self) {
-        if let Some(ref mut breaker) = self.paragraph_line_breaker {
-            breaker.remove_trailing_space();
-        }
-    }
-
-    fn paragraph_ends_with_whitespace(&self) -> bool {
-        self.paragraph_line_breaker
-            .as_ref()
-            .map(|breaker| breaker.ends_with_whitespace())
-            .unwrap_or(false)
-    }
-
-    fn paragraph_ends_with_cjk(&self) -> bool {
-        self.paragraph_line_breaker
-            .as_ref()
-            .map(|breaker| breaker.ends_with_cjk())
-            .unwrap_or(false)
     }
 }
 
