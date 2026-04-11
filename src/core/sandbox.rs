@@ -7,8 +7,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::core::error::ClmdError;
-
 /// Sandbox mode configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SandboxMode {
@@ -69,33 +67,9 @@ impl SandboxPolicy {
         self
     }
 
-    /// Add a blocked path.
-    pub fn block_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.blocked_paths.insert(path.as_ref().to_path_buf());
-        self
-    }
-
-    /// Disable network access.
-    pub fn without_network(mut self) -> Self {
-        self.allow_network = false;
-        self
-    }
-
     /// Disable file writes.
     pub fn without_writes(mut self) -> Self {
         self.allow_writes = false;
-        self
-    }
-
-    /// Set maximum file size.
-    pub fn with_max_file_size(mut self, size: usize) -> Self {
-        self.max_file_size = Some(size);
-        self
-    }
-
-    /// Set maximum total read bytes.
-    pub fn with_max_total_read(mut self, size: usize) -> Self {
-        self.max_total_read = Some(size);
         self
     }
 
@@ -140,18 +114,5 @@ impl SandboxPolicy {
     /// Check if file writes are allowed.
     pub fn are_writes_allowed(&self) -> bool {
         self.allow_writes
-    }
-
-    /// Validate file size.
-    pub fn validate_file_size(&self, size: usize) -> Result<(), ClmdError> {
-        if let Some(max) = self.max_file_size {
-            if size > max {
-                return Err(ClmdError::sandbox_error(format!(
-                    "File size {} exceeds maximum allowed {}",
-                    size, max
-                )));
-            }
-        }
-        Ok(())
     }
 }

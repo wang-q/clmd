@@ -80,7 +80,7 @@ pub struct Attr {
 }
 
 /// Format specifier for raw blocks and inlines.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Format {
     /// HTML format
     Html,
@@ -88,8 +88,6 @@ pub enum Format {
     Latex,
     /// Markdown format
     Markdown,
-    /// Other format with name
-    Other(String),
 }
 
 /// A block-level element.
@@ -138,9 +136,6 @@ pub enum Block {
 
     /// Div with attributes and content
     Div(Attr, Vec<Block>),
-
-    /// Null block (placeholder)
-    Null,
 }
 
 /// An inline element.
@@ -216,8 +211,6 @@ pub enum ListNumberStyle {
     /// Default style (decimal)
     #[default]
     DefaultStyle,
-    /// Example format
-    Example,
     /// Decimal numbers
     Decimal,
     /// Lowercase Roman numerals
@@ -240,8 +233,6 @@ pub enum ListNumberDelim {
     Period,
     /// Parenthesis delimiter
     OneParen,
-    /// Both parentheses
-    TwoParens,
 }
 
 /// Alignment for table cells.
@@ -307,6 +298,4 @@ pub enum CitationMode {
     AuthorInText,
     /// Suppress author
     SuppressAuthor,
-    /// Normal citation
-    NormalCitation,
 }

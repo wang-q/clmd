@@ -37,8 +37,8 @@ pub use ast::{Block, Document, Inline};
 pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position};
 pub use nodes::NodeValue;
 pub use traverse::{
-    AncestorIter, ChildIter, DescendantIter, EventIterator, Query, SiblingIter,
-    Traverse, TraverseEvent, TraverseExt,
+    AncestorIter, ChildIter, DescendantIter, EventIterator, SiblingIter, Traverse,
+    TraverseEvent, TraverseExt,
 };
 
 // Re-export monad types

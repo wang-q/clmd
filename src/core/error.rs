@@ -133,38 +133,6 @@ pub enum ClmdError {
     #[error("{0}")]
     Other(String),
 
-    /// Circular reference error.
-    #[error("Circular reference detected: {0}")]
-    CircularReference(String),
-
-    /// Invalid argument error.
-    #[error("Invalid argument: {0}")]
-    InvalidArgument(String),
-
-    /// Unsupported operation error.
-    #[error("Unsupported operation: {0}")]
-    UnsupportedOperation(String),
-
-    /// Timeout error.
-    #[error("Operation timed out: {0}")]
-    Timeout(String),
-
-    /// Network error.
-    #[error("Network error: {0}")]
-    Network(String),
-
-    /// Permission denied error.
-    #[error("Permission denied: {0}")]
-    PermissionDenied(String),
-
-    /// Already exists error.
-    #[error("Resource already exists: {0}")]
-    AlreadyExists(String),
-
-    /// Not supported error.
-    #[error("Not supported: {0}")]
-    NotSupported(String),
-
     /// Warning (non-fatal error).
     #[error("Warning: {0}")]
     Warning(String),
@@ -209,16 +177,6 @@ impl ClmdError {
         Self::Io(message.into())
     }
 
-    /// Create a sandbox error.
-    pub fn sandbox_error<S: Into<String>>(message: S) -> Self {
-        Self::Sandbox(message.into())
-    }
-
-    /// Create a circular reference error.
-    pub fn circular_reference<S: Into<String>>(message: S) -> Self {
-        Self::CircularReference(message.into())
-    }
-
     /// Create a feature not enabled error.
     pub fn feature_not_enabled<S: Into<String>>(feature: S) -> Self {
         Self::FeatureNotEnabled(feature.into())
@@ -254,6 +212,11 @@ impl ClmdError {
         Self::Config(message.into())
     }
 
+    /// Create a sandbox error.
+    pub fn sandbox_error<S: Into<String>>(message: S) -> Self {
+        Self::Sandbox(message.into())
+    }
+
     /// Create an unsupported extension error.
     pub fn unsupported_extension<E: Into<String>, F: Into<String>>(
         extension: E,
@@ -283,33 +246,15 @@ impl From<std::fmt::Error> for ClmdError {
 pub enum LimitKind {
     /// Maximum input size.
     InputSize,
-    /// Maximum line length.
-    LineLength,
     /// Maximum nesting depth.
     NestingDepth,
-    /// Maximum number of list items.
-    ListItems,
-    /// Maximum number of links.
-    Links,
-    /// Maximum number of emphasis markers.
-    Emphasis,
-    /// Maximum table cells.
-    TableCells,
-    /// Maximum table rows.
-    TableRows,
 }
 
 impl fmt::Display for LimitKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InputSize => write!(f, "input size"),
-            Self::LineLength => write!(f, "line length"),
             Self::NestingDepth => write!(f, "nesting depth"),
-            Self::ListItems => write!(f, "list items"),
-            Self::Links => write!(f, "links"),
-            Self::Emphasis => write!(f, "emphasis"),
-            Self::TableCells => write!(f, "table cells"),
-            Self::TableRows => write!(f, "table rows"),
         }
     }
 }
@@ -431,24 +376,6 @@ impl ParserLimits {
             max_table_cells: 0,
             max_table_rows: 0,
         }
-    }
-
-    /// Set maximum input size.
-    pub fn with_max_input_size(mut self, size: usize) -> Self {
-        self.max_input_size = size;
-        self
-    }
-
-    /// Set maximum line length.
-    pub fn with_max_line_length(mut self, length: usize) -> Self {
-        self.max_line_length = length;
-        self
-    }
-
-    /// Set maximum nesting depth.
-    pub fn with_max_nesting_depth(mut self, depth: usize) -> Self {
-        self.max_nesting_depth = depth;
-        self
     }
 }
 

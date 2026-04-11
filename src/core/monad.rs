@@ -30,6 +30,7 @@ pub fn share_monad(io: ClmdIO) -> SharedMonad {
 }
 
 /// Verbosity level for logging.
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Verbosity {
     /// Silent - no output.
