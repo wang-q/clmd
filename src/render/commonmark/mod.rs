@@ -40,9 +40,7 @@ pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFn, NodeFormattingHandler,
     NodeType,
 };
-pub use phase::{
-    ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter, SimplePhasedFormatter,
-};
+pub use phase::{ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter};
 pub use writer::MarkdownWriter;
 
 use crate::core::arena::{NodeArena, NodeId};

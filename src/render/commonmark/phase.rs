@@ -5,7 +5,7 @@
 
 use crate::core::arena::NodeId;
 use crate::render::commonmark::context::NodeFormatterContext;
-use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler};
+use crate::render::commonmark::node::NodeFormatter;
 use crate::render::commonmark::writer::MarkdownWriter;
 
 // ============================================================================
@@ -109,26 +109,6 @@ impl ComposedPhasedFormatter {
             }
         }
     }
-
-    /// Get all phases used by any formatter
-    pub fn get_all_phases(&self) -> Vec<FormattingPhase> {
-        let mut phases = Vec::new();
-        for formatter in &self.formatters {
-            for phase in formatter.get_formatting_phases() {
-                if !phases.contains(&phase) {
-                    phases.push(phase);
-                }
-            }
-        }
-        phases.sort_by_key(|p| match p {
-            FormattingPhase::Collect => 0,
-            FormattingPhase::DocumentFirst => 1,
-            FormattingPhase::DocumentTop => 2,
-            FormattingPhase::Document => 3,
-            FormattingPhase::DocumentBottom => 4,
-        });
-        phases
-    }
 }
 
 impl Default for ComposedPhasedFormatter {
@@ -137,99 +117,7 @@ impl Default for ComposedPhasedFormatter {
     }
 }
 
-impl NodeFormatter for ComposedPhasedFormatter {
-    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-        self.formatters
-            .iter()
-            .flat_map(|f| f.get_node_formatting_handlers())
-            .collect()
-    }
-}
 
-impl PhasedNodeFormatter for ComposedPhasedFormatter {
-    fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
-        self.get_all_phases()
-    }
-
-    fn render_document(
-        &self,
-        context: &mut dyn NodeFormatterContext,
-        writer: &mut MarkdownWriter,
-        root: NodeId,
-        phase: FormattingPhase,
-    ) {
-        self.render_phase(context, writer, root, phase);
-    }
-}
-
-// ============================================================================
-// Simple Phased Formatter
-// ============================================================================
-
-/// A simple phased formatter that only participates in specific phases
-#[allow(clippy::type_complexity)]
-pub struct SimplePhasedFormatter {
-    phases: Vec<FormattingPhase>,
-    render_fn: Box<
-        dyn Fn(
-                &mut dyn NodeFormatterContext,
-                &mut MarkdownWriter,
-                NodeId,
-                FormattingPhase,
-            ) + Send
-            + Sync,
-    >,
-}
-
-impl std::fmt::Debug for SimplePhasedFormatter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SimplePhasedFormatter")
-            .field("phases", &self.phases)
-            .finish_non_exhaustive()
-    }
-}
-
-impl SimplePhasedFormatter {
-    /// Create a new simple phased formatter
-    pub fn new<F>(phases: Vec<FormattingPhase>, render_fn: F) -> Self
-    where
-        F: Fn(
-                &mut dyn NodeFormatterContext,
-                &mut MarkdownWriter,
-                NodeId,
-                FormattingPhase,
-            ) + Send
-            + Sync
-            + 'static,
-    {
-        Self {
-            phases,
-            render_fn: Box::new(render_fn),
-        }
-    }
-}
-
-impl NodeFormatter for SimplePhasedFormatter {
-    fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-        Vec::new()
-    }
-}
-
-impl PhasedNodeFormatter for SimplePhasedFormatter {
-    fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
-        self.phases.clone()
-    }
-
-    fn render_document(
-        &self,
-        context: &mut dyn NodeFormatterContext,
-        writer: &mut MarkdownWriter,
-        root: NodeId,
-        phase: FormattingPhase,
-    ) {
-        (self.render_fn)(context, writer, root, phase);
-    }
-}
 
 // ============================================================================
 // Tests
