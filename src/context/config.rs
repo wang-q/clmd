@@ -7,7 +7,6 @@ pub use crate::options::serde::{
 };
 
 use crate::core::error::{ClmdError, ClmdResult};
-use crate::ext::flags::ExtensionFlags;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -36,16 +35,6 @@ impl Config {
             }
         }
         None
-    }
-
-    /// Get extensions as bitflags
-    pub fn get_extensions(&self) -> ExtensionFlags {
-        self.extensions.to_extensions()
-    }
-
-    /// Set extensions from bitflags
-    pub fn set_extensions(&mut self, ext: ExtensionFlags) {
-        self.extensions = ExtensionConfig::from_extensions(ext);
     }
 
     /// Apply configuration to Options
