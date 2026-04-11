@@ -976,10 +976,21 @@ impl ParagraphLineBreaker {
                             && !prev_fragment_was_atomic
                         {
                             // Find first non-space character
-                            content[start_in_fragment..end_in_fragment]
+                            // When content is entirely whitespace (e.g., SoftBreak space),
+                            // skip it only if the previous line ends with punctuation,
+                            // since punctuation should not be followed by a leading space on continuation
+                            match content[start_in_fragment..end_in_fragment]
                                 .find(|c: char| !c.is_whitespace())
-                                .map(|i| start_in_fragment + i)
-                                .unwrap_or(start_in_fragment)
+                            {
+                                Some(i) => start_in_fragment + i,
+                                None => {
+                                    if result_ends_with_punct {
+                                        end_in_fragment
+                                    } else {
+                                        start_in_fragment
+                                    }
+                                }
+                            }
                         } else if line_idx > 0
                             && start_in_fragment == 0
                             && prev_fragment_was_atomic
