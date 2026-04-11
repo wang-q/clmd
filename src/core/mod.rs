@@ -25,7 +25,7 @@ pub use arena::{
 };
 pub use error::{ClmdError, ClmdResult, LimitKind, ParserLimits, Position};
 pub use nodes::NodeValue;
-pub use traverse::{Traverse, TraverseEvent, TraverseExt};
+pub use traverse::TraverseExt;
 
 // Re-export sandbox types
 pub use sandbox::{SandboxMode, SandboxPolicy};

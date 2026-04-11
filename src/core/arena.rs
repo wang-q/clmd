@@ -94,15 +94,6 @@ impl NodeArena {
         }
     }
 
-    /// Create a new arena with limits.
-    pub fn with_limits(_max_depth: usize, max_nodes: usize) -> Self {
-        Self {
-            nodes: Vec::with_capacity(32),
-            max_nodes,
-            total_allocations: 0,
-        }
-    }
-
     /// Try to allocate a new node and return its ID
     ///
     /// # Panics
@@ -229,21 +220,6 @@ impl NodeArena {
     /// ```
     pub fn try_get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
         self.nodes.get_mut(id as usize)
-    }
-
-    /// Get the root node (document) - always ID 0
-    pub fn root(&self) -> NodeId {
-        0
-    }
-
-    /// Check if a node ID is valid
-    pub fn is_valid(&self, id: NodeId) -> bool {
-        (id as usize) < self.nodes.len()
-    }
-
-    /// Get the maximum number of nodes allowed.
-    pub fn max_nodes(&self) -> usize {
-        self.max_nodes
     }
 
     /// Get the number of nodes in the arena
@@ -769,17 +745,6 @@ mod tests {
     }
 
     #[test]
-    fn test_arena_alloc() {
-        let mut arena = NodeArena::new();
-        let node = Node::with_value(NodeValue::Document);
-        let id = arena.alloc(node);
-
-        assert_eq!(id, 0);
-        assert_eq!(arena.len(), 1);
-        assert!(arena.is_valid(id));
-    }
-
-    #[test]
     fn test_tree_operations() {
         let mut arena = NodeArena::new();
 
@@ -881,29 +846,6 @@ mod tests {
     }
 
     #[test]
-    fn test_arena_with_limits() {
-        let mut arena = NodeArena::with_limits(10, 5);
-
-        assert_eq!(arena.max_nodes(), 5);
-
-        // Should be able to allocate up to 5 nodes
-        for _ in 0..5 {
-            arena.alloc(Node::with_value(NodeValue::Paragraph));
-        }
-
-        assert_eq!(arena.len(), 5);
-
-        // 6th allocation should panic
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let mut arena = NodeArena::with_limits(10, 5);
-            for _ in 0..6 {
-                arena.alloc(Node::with_value(NodeValue::Paragraph));
-            }
-        }));
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_siblings_iterator() {
         let mut arena = NodeArena::new();
 
@@ -980,71 +922,5 @@ mod tests {
         // Test preceding siblings of child1 (none)
         let preceding: Vec<NodeId> = arena.preceding_siblings(child1).collect();
         assert!(preceding.is_empty());
-    }
-
-    #[test]
-    fn test_traverse() {
-        use crate::core::traverse::{EventType, Traverse};
-
-        let mut arena = NodeArena::new();
-
-        // Create tree:
-        // root
-        //   ├── child1
-        //   │     └── grandchild
-        //   └── child2
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let grandchild = arena.alloc(Node::with_value(NodeValue::make_text("test")));
-
-        TreeOps::append_child(&mut arena, root, child1);
-        TreeOps::append_child(&mut arena, root, child2);
-        TreeOps::append_child(&mut arena, child1, grandchild);
-
-        // Collect traverse events
-        let mut events: Vec<(NodeId, bool)> = Vec::new();
-        arena.traverse_with_events(root, |_, event_type| {
-            events.push((
-                events.len() as u32, // placeholder, will be fixed below
-                event_type == EventType::Enter,
-            ));
-        });
-
-        // Verify traversal visited all nodes
-        // traverse_with_events visits each node twice (enter + exit)
-        // We have 4 nodes, so 8 events
-        assert_eq!(events.len(), 8);
-    }
-
-    #[test]
-    fn test_traverse_mut() {
-        use crate::core::traverse::Traverse;
-
-        let mut arena = NodeArena::new();
-
-        // Create tree: root -> [child1, child2]
-        let root = arena.alloc(Node::with_value(NodeValue::Document));
-        let child1 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-        let child2 = arena.alloc(Node::with_value(NodeValue::Paragraph));
-
-        TreeOps::append_child(&mut arena, root, child1);
-        TreeOps::append_child(&mut arena, root, child2);
-
-        // Traverse and modify nodes
-        let mut visited = Vec::new();
-        arena.traverse_pre_order_mut(root, |value| {
-            if matches!(value, NodeValue::Paragraph) {
-                *value = NodeValue::BlockQuote;
-            }
-            visited.push(true);
-        });
-
-        // Should visit all 3 nodes
-        assert_eq!(visited.len(), 3);
-
-        // Verify modifications
-        assert!(matches!(arena.get(child1).value, NodeValue::BlockQuote));
-        assert!(matches!(arena.get(child2).value, NodeValue::BlockQuote));
     }
 }

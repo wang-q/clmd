@@ -53,26 +53,6 @@ impl Default for SandboxPolicy {
 }
 
 impl SandboxPolicy {
-    /// Create a new sandbox policy with the given mode.
-    pub fn new(mode: SandboxMode) -> Self {
-        Self {
-            mode,
-            ..Default::default()
-        }
-    }
-
-    /// Add an allowed path.
-    pub fn allow_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.allowed_paths.insert(path.as_ref().to_path_buf());
-        self
-    }
-
-    /// Disable file writes.
-    pub fn without_writes(mut self) -> Self {
-        self.allow_writes = false;
-        self
-    }
-
     /// Check if a path is allowed.
     pub fn is_path_allowed(&self, path: &Path, resource_paths: &[PathBuf]) -> bool {
         // Check blocked paths first
@@ -104,15 +84,5 @@ impl SandboxPolicy {
                 false
             }
         }
-    }
-
-    /// Check if network access is allowed.
-    pub fn is_network_allowed(&self) -> bool {
-        self.allow_network
-    }
-
-    /// Check if file writes are allowed.
-    pub fn are_writes_allowed(&self) -> bool {
-        self.allow_writes
     }
 }

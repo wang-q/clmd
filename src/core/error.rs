@@ -305,26 +305,6 @@ impl LogMessage {
         }
     }
 
-    /// Create an error message.
-    pub fn error<S: Into<String>>(message: S) -> Self {
-        Self::new(LogLevel::Error, message)
-    }
-
-    /// Create a warning message.
-    pub fn warning<S: Into<String>>(message: S) -> Self {
-        Self::new(LogLevel::Warning, message)
-    }
-
-    /// Create an info message.
-    pub fn info<S: Into<String>>(message: S) -> Self {
-        Self::new(LogLevel::Info, message)
-    }
-
-    /// Create a debug message.
-    pub fn debug<S: Into<String>>(message: S) -> Self {
-        Self::new(LogLevel::Debug, message)
-    }
-
     /// Set the source file.
     pub fn with_source(mut self, source: impl Into<String>) -> Self {
         self.source = Some(source.into());
