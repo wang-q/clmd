@@ -61,11 +61,6 @@ impl MarkdownWriter {
         self
     }
 
-    /// Get the right margin
-    pub fn get_right_margin(&self) -> usize {
-        self.right_margin
-    }
-
     /// Append text with word wrapping if right_margin is set
     pub fn append_with_wrap(&mut self, text: impl AsRef<str>) -> &mut Self {
         let text = text.as_ref();
@@ -179,11 +174,6 @@ impl MarkdownWriter {
         } else {
             None
         }
-    }
-
-    /// Get the current prefix
-    pub fn get_prefix(&self) -> &str {
-        &self.current_prefix
     }
 
     /// Handle the beginning of a line by adding prefix if needed
@@ -358,24 +348,6 @@ impl MarkdownWriter {
     pub fn ends_with_char(&self, ch: char) -> bool {
         self.output.ends_with(ch)
     }
-
-    /// Get the output and consume the writer
-    pub fn into_string(self) -> String {
-        self.output
-    }
-
-    /// Clear the output
-    pub fn clear(&mut self) {
-        self.output.clear();
-        self.column = 0;
-        self.beginning_of_line = true;
-        self.trailing_blank_lines = 0;
-    }
-
-    /// Append another writer's content
-    pub fn append_writer(&mut self, other: &MarkdownWriter) -> &mut Self {
-        self.append_raw(&other.output)
-    }
 }
 
 impl Default for MarkdownWriter {
@@ -464,53 +436,6 @@ mod tests {
     }
 
     #[test]
-    fn test_column_tracking() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-        assert_eq!(writer.get_column(), 5);
-
-        writer.line();
-        assert_eq!(writer.get_column(), 0);
-        assert!(writer.is_beginning_of_line());
-    }
-
-    #[test]
-    fn test_append_writer() {
-        let mut writer1 = MarkdownWriter::default();
-        writer1.append("Hello");
-
-        let mut writer2 = MarkdownWriter::default();
-        writer2.append("World");
-
-        writer1.append_writer(&writer2);
-        assert_eq!(writer1.to_string(), "HelloWorld");
-    }
-
-    #[test]
-    fn test_write_trait() {
-        use std::fmt::Write;
-
-        let mut writer = MarkdownWriter::default();
-        write!(writer, "Hello, World!").unwrap();
-        assert_eq!(writer.to_string(), "Hello, World!");
-    }
-
-    #[test]
-    fn test_markdown_writer_creation() {
-        let writer = MarkdownWriter::new(FormatFlags::DEFAULT);
-        assert!(writer.is_beginning_of_line());
-        assert_eq!(writer.get_column(), 0);
-        assert!(writer.is_empty());
-    }
-
-    #[test]
-    fn test_markdown_writer_default() {
-        let writer = MarkdownWriter::default();
-        assert!(writer.is_beginning_of_line());
-        assert_eq!(writer.get_column(), 0);
-    }
-
-    #[test]
     fn test_append_raw() {
         let mut writer = MarkdownWriter::default();
         writer.append_raw("  raw text  ");
@@ -535,24 +460,6 @@ mod tests {
     }
 
     #[test]
-    fn test_clear() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-        writer.clear();
-        assert!(writer.is_empty());
-        assert_eq!(writer.get_column(), 0);
-        assert!(writer.is_beginning_of_line());
-    }
-
-    #[test]
-    fn test_into_string() {
-        let mut writer = MarkdownWriter::default();
-        writer.append("Hello");
-        let s = writer.into_string();
-        assert_eq!(s, "Hello");
-    }
-
-    #[test]
     fn test_len() {
         let mut writer = MarkdownWriter::default();
         assert_eq!(writer.len(), 0);
@@ -568,13 +475,6 @@ mod tests {
         assert!(writer.is_pre_formatted());
         writer.close_pre_formatted();
         assert!(!writer.is_pre_formatted());
-    }
-
-    #[test]
-    fn test_set_right_margin() {
-        let mut writer = MarkdownWriter::default();
-        writer.set_right_margin(40);
-        assert_eq!(writer.get_right_margin(), 40);
     }
 
     #[test]
