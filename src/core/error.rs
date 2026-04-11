@@ -177,11 +177,6 @@ impl ClmdError {
         Self::Io(message.into())
     }
 
-    /// Create a feature not enabled error.
-    pub fn feature_not_enabled<S: Into<String>>(feature: S) -> Self {
-        Self::FeatureNotEnabled(feature.into())
-    }
-
     /// Create a resource not found error.
     pub fn resource_not_found<S: Into<String>>(resource: S) -> Self {
         Self::ResourceNotFound(resource.into())
@@ -202,30 +197,9 @@ impl ClmdError {
         Self::UnknownWriter(format.into())
     }
 
-    /// Create a transform error.
-    pub fn transform_error<S: Into<String>>(message: S) -> Self {
-        Self::Transform(message.into())
-    }
-
     /// Create a config error.
     pub fn config_error<S: Into<String>>(message: S) -> Self {
         Self::Config(message.into())
-    }
-
-    /// Create a sandbox error.
-    pub fn sandbox_error<S: Into<String>>(message: S) -> Self {
-        Self::Sandbox(message.into())
-    }
-
-    /// Create an unsupported extension error.
-    pub fn unsupported_extension<E: Into<String>, F: Into<String>>(
-        extension: E,
-        format: F,
-    ) -> Self {
-        Self::UnsupportedExtension {
-            extension: extension.into(),
-            format: format.into(),
-        }
     }
 }
 
@@ -303,19 +277,6 @@ impl LogMessage {
             line: None,
             column: None,
         }
-    }
-
-    /// Set the source file.
-    pub fn with_source(mut self, source: impl Into<String>) -> Self {
-        self.source = Some(source.into());
-        self
-    }
-
-    /// Set the position.
-    pub fn with_position(mut self, line: usize, column: usize) -> Self {
-        self.line = Some(line);
-        self.column = Some(column);
-        self
     }
 }
 

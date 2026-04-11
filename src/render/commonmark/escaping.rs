@@ -11,8 +11,8 @@
 //! - Link URLs: escape parentheses and spaces
 //! - HTML: no escaping needed
 
+use crate::core::arena::TraverseExt;
 use crate::core::nodes::NodeValue;
-use crate::core::traverse::TraverseExt;
 use crate::render::commonmark::core::NodeFormatterContext;
 use crate::text::char::is_punctuation;
 

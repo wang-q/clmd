@@ -3,9 +3,8 @@
 //! This module contains handlers for list elements like List and Item,
 //! and related helper functions.
 
-use crate::core::arena::NodeId;
+use crate::core::arena::{NodeId, TraverseExt};
 use crate::core::nodes::NodeList;
-use crate::core::traverse::TraverseExt;
 use crate::options::format::{BulletMarker, FormatOptions, ListSpacing, NumberedMarker};
 use crate::render::commonmark::core::NodeFormatterContext;
 

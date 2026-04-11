@@ -12,9 +12,8 @@
 //! - All GFM table alignments (left, right, center, none)
 //! - Escaped pipe characters `\|`
 
-use crate::core::arena::NodeId;
+use crate::core::arena::{NodeId, TraverseExt};
 use crate::core::nodes::TableAlignment;
-use crate::core::traverse::TraverseExt;
 use crate::render::commonmark::escaping::{
     escape_markdown_for_table_simple, escape_string, escape_url,
 };

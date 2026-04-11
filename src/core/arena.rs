@@ -227,27 +227,12 @@ impl NodeArena {
         self.nodes.len()
     }
 
-    /// Check if the arena is empty
-    pub fn is_empty(&self) -> bool {
-        self.nodes.is_empty()
-    }
-
     /// Returns an iterator over all nodes in the arena.
     ///
     /// The iterator yields `(NodeId, &Node)` tuples.
     pub fn iter(&self) -> impl Iterator<Item = (NodeId, &Node)> {
         self.nodes
             .iter()
-            .enumerate()
-            .map(|(i, node)| (i as NodeId, node))
-    }
-
-    /// Returns a mutable iterator over all nodes in the arena.
-    ///
-    /// The iterator yields `(NodeId, &mut Node)` tuples.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
-        self.nodes
-            .iter_mut()
             .enumerate()
             .map(|(i, node)| (i as NodeId, node))
     }
@@ -649,6 +634,74 @@ impl<'a> Iterator for PrecedingSiblingsIterator<'a> {
             self.current = self.arena.get(node_id).prev;
             node_id
         })
+    }
+}
+
+/// Extension trait for NodeArena to provide traversal iterators.
+pub trait TraverseExt {
+    /// Get an iterator over children of the given node.
+    fn children_iter(&self, node_id: NodeId) -> ChildIter<'_>;
+    /// Get an iterator over ancestors of the given node.
+    fn ancestors_iter(&self, node_id: NodeId) -> AncestorIter<'_>;
+}
+
+/// Iterator over direct children of a node.
+#[derive(Debug)]
+pub struct ChildIter<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for ChildIter<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current?;
+        if let Some(node) = self.arena.try_get(current) {
+            self.current = node.next;
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+/// Iterator over ancestors of a node (rootward).
+#[derive(Debug)]
+pub struct AncestorIter<'a> {
+    arena: &'a NodeArena,
+    current: Option<NodeId>,
+}
+
+impl<'a> Iterator for AncestorIter<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current?;
+        if let Some(node) = self.arena.try_get(current) {
+            self.current = node.parent;
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+impl TraverseExt for NodeArena {
+    fn children_iter(&self, node_id: NodeId) -> ChildIter<'_> {
+        let first_child = self.try_get(node_id).and_then(|n| n.first_child);
+        ChildIter {
+            arena: self,
+            current: first_child,
+        }
+    }
+
+    fn ancestors_iter(&self, node_id: NodeId) -> AncestorIter<'_> {
+        let parent = self.try_get(node_id).and_then(|n| n.parent);
+        AncestorIter {
+            arena: self,
+            current: parent,
+        }
     }
 }
 

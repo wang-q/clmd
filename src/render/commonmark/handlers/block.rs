@@ -3,9 +3,8 @@
 //! This module contains handlers for block-level elements like paragraphs,
 //! headings, block quotes, code blocks, and thematic breaks.
 
-use crate::core::arena::NodeId;
+use crate::core::arena::{NodeId, TraverseExt};
 use crate::core::nodes::{NodeCodeBlock, NodeHtmlBlock};
-use crate::core::traverse::TraverseExt;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::core::NodeFormatterContext;
 use crate::render::commonmark::escaping::compute_fence_length;
