@@ -6,8 +6,7 @@
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
-
-use crate::render::commonmark::node::NodeValueType;
+use crate::render::commonmark::node::NodeType;
 use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::writer::MarkdownWriter;
 
@@ -63,15 +62,14 @@ pub trait NodeFormatterContext {
     }
 
     /// Check if a node has a child of a specific type
-    fn has_child_of_type(&self, node_id: NodeId, node_type: NodeValueType) -> bool {
-        use crate::render::commonmark::node::NodeValueType;
+    fn has_child_of_type(&self, node_id: NodeId, node_type: NodeType) -> bool {
         let arena = self.get_arena();
         let node = arena.get(node_id);
         if let Some(first_child) = node.first_child {
             let mut current = Some(first_child);
             while let Some(child_id) = current {
                 let child = arena.get(child_id);
-                if NodeValueType::from_node_value(&child.value) == node_type {
+                if std::mem::discriminant(&child.value) == node_type {
                     return true;
                 }
                 // Recursively check grandchildren
@@ -88,7 +86,7 @@ pub trait NodeFormatterContext {
     ///
     /// Returns an iterator over all nodes of the given type in the document,
     /// in depth-first order.
-    fn get_nodes_of_type(&self, node_type: NodeValueType) -> Vec<NodeId>;
+    fn get_nodes_of_type(&self, node_type: NodeType) -> Vec<NodeId>;
 
     // Table data collection methods
 
@@ -130,7 +128,7 @@ pub trait NodeFormatterContext {
     fn render_children_to_string(&mut self, node_id: NodeId) -> String;
 
     /// Get nodes of multiple types
-    fn get_nodes_of_types(&self, node_types: &[NodeValueType]) -> Vec<NodeId>;
+    fn get_nodes_of_types(&self, node_types: &[NodeType]) -> Vec<NodeId>;
 
     /// Get the block quote-like prefix predicate
     ///
@@ -385,11 +383,11 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.current_node.or_else(|| self.parent.get_current_node())
     }
 
-    fn get_nodes_of_type(&self, node_type: NodeValueType) -> Vec<NodeId> {
+    fn get_nodes_of_type(&self, node_type: NodeType) -> Vec<NodeId> {
         self.parent.get_nodes_of_type(node_type)
     }
 
-    fn get_nodes_of_types(&self, node_types: &[NodeValueType]) -> Vec<NodeId> {
+    fn get_nodes_of_types(&self, node_types: &[NodeType]) -> Vec<NodeId> {
         self.parent.get_nodes_of_types(node_types)
     }
 
@@ -634,9 +632,8 @@ impl TranslationPlaceholderGenerator for DefaultPlaceholderGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::arena::{Node, NodeArena, TreeOps};
+    use crate::core::arena::{Node, NodeArena};
     use crate::core::nodes::NodeValue;
-    use crate::options::format::FormatFlags;
 
     /// Mock implementation of NodeFormatterContext for testing
     struct MockContext {
@@ -698,11 +695,11 @@ mod tests {
             self.current_node
         }
 
-        fn get_nodes_of_type(&self, _node_type: NodeValueType) -> Vec<NodeId> {
+        fn get_nodes_of_type(&self, _node_type: NodeType) -> Vec<NodeId> {
             vec![]
         }
 
-        fn get_nodes_of_types(&self, _node_types: &[NodeValueType]) -> Vec<NodeId> {
+        fn get_nodes_of_types(&self, _node_types: &[NodeType]) -> Vec<NodeId> {
             vec![]
         }
 
@@ -1106,7 +1103,7 @@ mod tests {
         let _ = sub.get_formatting_phase();
         let _ = sub.get_formatter_options();
         let _ = sub.get_arena();
-        let _ = sub.get_nodes_of_type(NodeValueType::Document);
+        let _ = sub.get_nodes_of_type(std::mem::discriminant(&NodeValue::Document));
         let _ = sub.get_block_quote_like_prefix_chars();
     }
 

@@ -6,7 +6,7 @@
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::context::NodeFormatterContext;
-use crate::render::commonmark::node::{NodeFormattingHandler, NodeValueType};
+use crate::render::commonmark::node::{NodeFormattingHandler, NodeType};
 use crate::render::commonmark::writer::MarkdownWriter;
 use std::fmt;
 
@@ -66,24 +66,21 @@ impl std::error::Error for FormatterError {}
 ///
 /// ```ignore
 /// use clmd::render::commonmark::handler_utils::create_simple_handler;
-/// use clmd::render::commonmark::node::NodeValueType;
+/// use clmd::core::nodes::NodeValue;
 ///
-/// let handler = create_simple_handler(NodeValueType::Document, |value, ctx, writer| {
+/// let handler = create_simple_handler(std::mem::discriminant(&NodeValue::Document), |value, ctx, writer| {
 ///     // Handle document node
 /// });
 /// ```
 #[inline]
-pub fn create_simple_handler<F>(
-    node_type: NodeValueType,
-    handler: F,
-) -> NodeFormattingHandler
+pub fn create_simple_handler<F>(node_type: NodeType, handler: F) -> NodeFormattingHandler
 where
     F: Fn(&NodeValue, &mut dyn NodeFormatterContext, &mut MarkdownWriter)
         + Send
         + Sync
         + 'static,
 {
-    NodeFormattingHandler::new(node_type, Box::new(handler))
+    NodeFormattingHandler::new(node_type, handler)
 }
 
 /// Create a handler with both open and close formatting
@@ -95,10 +92,10 @@ where
 ///
 /// ```ignore
 /// use clmd::render::commonmark::handler_utils::create_handler_with_close;
-/// use clmd::render::commonmark::node::NodeValueType;
+/// use clmd::core::nodes::NodeValue;
 ///
 /// let handler = create_handler_with_close(
-///     NodeValueType::Paragraph,
+///     std::mem::discriminant(&NodeValue::Paragraph),
 ///     |value, ctx, writer| {
 ///         // Opening logic
 ///     },
@@ -109,7 +106,7 @@ where
 /// ```
 #[inline]
 pub fn create_handler_with_close<Open, Close>(
-    node_type: NodeValueType,
+    node_type: NodeType,
     on_open: Open,
     on_close: Close,
 ) -> NodeFormattingHandler
@@ -123,7 +120,7 @@ where
         + Sync
         + 'static,
 {
-    NodeFormattingHandler::with_close(node_type, Box::new(on_open), Box::new(on_close))
+    NodeFormattingHandler::with_close(node_type, on_open, on_close)
 }
 
 // ============================================================================
@@ -386,20 +383,28 @@ mod tests {
 
     #[test]
     fn test_create_simple_handler() {
-        let handler =
-            create_simple_handler(NodeValueType::Document, |_value, _ctx, _writer| {
+        let handler = create_simple_handler(
+            std::mem::discriminant(&NodeValue::Document),
+            |_value, _ctx, _writer| {
                 // Test handler
-            });
-        assert_eq!(handler.node_type, NodeValueType::Document);
+            },
+        );
+        assert_eq!(
+            handler.node_type,
+            std::mem::discriminant(&NodeValue::Document)
+        );
     }
 
     #[test]
     fn test_create_handler_with_close() {
         let handler = create_handler_with_close(
-            NodeValueType::Paragraph,
+            std::mem::discriminant(&NodeValue::Paragraph),
             |_value, _ctx, _writer| {},
             |_value, _ctx, _writer| {},
         );
-        assert_eq!(handler.node_type, NodeValueType::Paragraph);
+        assert_eq!(
+            handler.node_type,
+            std::mem::discriminant(&NodeValue::Paragraph)
+        );
     }
 }

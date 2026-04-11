@@ -36,9 +36,7 @@ use crate::render::commonmark::handlers::list::{
 use crate::render::commonmark::handlers::table::{
     collect_cell_text_content, render_formatted_table,
 };
-use crate::render::commonmark::node::{
-    NodeFormatter, NodeFormattingHandler, NodeValueType,
-};
+use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler};
 use crate::render::commonmark::phase::{FormattingPhase, PhasedNodeFormatter};
 use crate::render::commonmark::writer::MarkdownWriter;
 
@@ -128,13 +126,16 @@ impl NodeFormatter for CommonMarkNodeFormatter {
     fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
         vec![
             // Document - simple handler with no-op
-            create_simple_handler(NodeValueType::Document, |_value, _ctx, _writer| {
-                // Document is handled at the top level
-            }),
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::Document),
+                |_value, _ctx, _writer| {
+                    // Document is handled at the top level
+                },
+            ),
             // Block elements
             // Paragraph - handler with close
             create_handler_with_close(
-                NodeValueType::Paragraph,
+                std::mem::discriminant(&NodeValue::Paragraph),
                 |_value, ctx, _writer| {
                     // Paragraph opening - start paragraph line breaking if enabled
                     if let NodeValue::Paragraph = _value {
@@ -228,7 +229,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Heading - handler with close
             create_handler_with_close(
-                NodeValueType::Heading,
+                std::mem::discriminant(&NodeValue::Heading(
+                    crate::core::nodes::NodeHeading::default(),
+                )),
                 |value, ctx, writer| {
                     if let NodeValue::Heading(heading) = value {
                         let options = ctx.get_formatter_options();
@@ -322,7 +325,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // BlockQuote - handler with close
             create_handler_with_close(
-                NodeValueType::BlockQuote,
+                std::mem::discriminant(&NodeValue::BlockQuote),
                 |_value, ctx, writer| {
                     writer.push_prefix("> ");
                     ctx.set_in_block_quote(true);
@@ -337,14 +340,19 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // CodeBlock - simple handler
-            create_simple_handler(NodeValueType::CodeBlock, |value, ctx, writer| {
-                if let NodeValue::CodeBlock(code_block) = value {
-                    render_code_block(code_block, ctx, writer);
-                }
-            }),
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::CodeBlock(Box::default())),
+                |value, ctx, writer| {
+                    if let NodeValue::CodeBlock(code_block) = value {
+                        render_code_block(code_block, ctx, writer);
+                    }
+                },
+            ),
             // List - handler with close
             create_handler_with_close(
-                NodeValueType::List,
+                std::mem::discriminant(&NodeValue::List(
+                    crate::core::nodes::NodeList::default(),
+                )),
                 |value, ctx, _writer| {
                     if let NodeValue::List(list) = value {
                         // Determine effective tightness based on list_spacing option and content
@@ -384,7 +392,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Item - handler with close
             create_handler_with_close(
-                NodeValueType::Item,
+                std::mem::discriminant(&NodeValue::Item(
+                    crate::core::nodes::NodeList::default(),
+                )),
                 |value, ctx, writer| {
                     let options = ctx.get_formatter_options();
 
@@ -510,7 +520,9 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // ThematicBreak - simple handler
             create_simple_handler(
-                NodeValueType::ThematicBreak,
+                std::mem::discriminant(&NodeValue::ThematicBreak(
+                    crate::core::nodes::NodeThematicBreak::default(),
+                )),
                 |value, _ctx, writer| {
                     if let NodeValue::ThematicBreak(tb) = value {
                         // Use the original marker from the parsed document
@@ -523,135 +535,149 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // HtmlBlock - simple handler
-            create_simple_handler(NodeValueType::HtmlBlock, |value, ctx, writer| {
-                if let NodeValue::HtmlBlock(html) = value {
-                    render_html_block(html, ctx, writer);
-                }
-            }),
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::HtmlBlock(Box::default())),
+                |value, ctx, writer| {
+                    if let NodeValue::HtmlBlock(html) = value {
+                        render_html_block(html, ctx, writer);
+                    }
+                },
+            ),
             // Inline elements
             // Text - simple handler
-            create_simple_handler(NodeValueType::Text, |value, ctx, writer| {
-                if let NodeValue::Text(text) = value {
-                    let text_str = text.as_ref();
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::Text(Box::default())),
+                |value, ctx, writer| {
+                    if let NodeValue::Text(text) = value {
+                        let text_str = text.as_ref();
 
-                    // Check if we're in a task list item and need to skip the task marker
-                    let processed_text = if is_in_task_list_item(ctx) {
-                        skip_task_marker(text_str)
-                    } else {
-                        text_str.to_string()
-                    };
+                        // Check if we're in a task list item and need to skip the task marker
+                        let processed_text = if is_in_task_list_item(ctx) {
+                            skip_task_marker(text_str)
+                        } else {
+                            text_str.to_string()
+                        };
 
-                    // Check if previous and next siblings are markdown markers
-                    let (prev_is_marker, next_is_marker) = check_sibling_markers(ctx);
+                        // Check if previous and next siblings are markdown markers
+                        let (prev_is_marker, next_is_marker) =
+                            check_sibling_markers(ctx);
 
-                    // Check if previous sibling is a Link (for CJK spacing)
-                    let prev_is_link_node = prev_is_link(ctx);
+                        // Check if previous sibling is a Link (for CJK spacing)
+                        let prev_is_link_node = prev_is_link(ctx);
 
-                    // Apply CJK spacing by default
-                    // NOTE: We apply CJK spacing even when using paragraph line breaking
-                    // to ensure proper spacing around markdown markers
-                    let cjk_text =
-                        crate::text::unicode::add_cjk_spacing(&processed_text);
+                        // Apply CJK spacing by default
+                        // NOTE: We apply CJK spacing even when using paragraph line breaking
+                        // to ensure proper spacing around markdown markers
+                        let cjk_text =
+                            crate::text::unicode::add_cjk_spacing(&processed_text);
 
-                    // Adjust spacing around markdown markers for CJK text
-                    // This removes spaces between CJK characters and markdown markers
-                    let mut final_text = adjust_cjk_marker_spacing(
-                        &cjk_text,
-                        prev_is_marker,
-                        next_is_marker,
-                    );
+                        // Adjust spacing around markdown markers for CJK text
+                        // This removes spaces between CJK characters and markdown markers
+                        let mut final_text = adjust_cjk_marker_spacing(
+                            &cjk_text,
+                            prev_is_marker,
+                            next_is_marker,
+                        );
 
-                    // If previous sibling is a Link and this text starts with ASCII,
-                    // add a leading space for CJK spacing
-                    if prev_is_link_node && !final_text.is_empty() {
-                        if let Some(first_char) = final_text.chars().next() {
-                            if first_char.is_ascii_alphanumeric() {
-                                final_text = format!(" {}", final_text);
+                        // If previous sibling is a Link and this text starts with ASCII,
+                        // add a leading space for CJK spacing
+                        if prev_is_link_node && !final_text.is_empty() {
+                            if let Some(first_char) = final_text.chars().next() {
+                                if first_char.is_ascii_alphanumeric() {
+                                    final_text = format!(" {}", final_text);
+                                }
                             }
                         }
-                    }
 
-                    // Check if we're using paragraph line breaking
-                    if ctx.is_paragraph_line_breaking() {
-                        // Add text to paragraph line breaker
-                        ctx.add_paragraph_text(&final_text);
-                    } else {
-                        // Use context-aware escaping
-                        let escaped = escape_text(&final_text, ctx);
-                        // Use append_with_wrap for text wrapping when right_margin is set
-                        // This enables line folding at the specified width
-                        writer.append_with_wrap(&escaped);
-                    }
-                }
-            }),
-            // Code - simple handler
-            create_simple_handler(NodeValueType::Code, |value, ctx, writer| {
-                if let NodeValue::Code(code) = value {
-                    // Calculate the required fence length based on content
-                    // Need to account for backticks in the content
-                    let fence_len = compute_fence_length(&code.literal, 1);
-                    let backticks = "`".repeat(fence_len);
-
-                    // Determine if we need padding (spaces around content)
-                    // Padding is needed when:
-                    // 1. Content starts or ends with a backtick
-                    // 2. Content starts or ends with a space
-                    let needs_leading_space =
-                        code.literal.starts_with('`') || code.literal.starts_with(' ');
-                    let needs_trailing_space =
-                        code.literal.ends_with('`') || code.literal.ends_with(' ');
-
-                    // Check if we're using the new paragraph line breaking system
-                    if ctx.is_paragraph_line_breaking() {
-                        // Add inline code as unbreakable unit
-                        let prefix = backticks.clone();
-                        let suffix = backticks.clone();
-                        let content = if needs_leading_space || needs_trailing_space {
-                            let mut c = String::new();
-                            if needs_leading_space {
-                                c.push(' ');
-                            }
-                            c.push_str(&code.literal);
-                            if needs_trailing_space {
-                                c.push(' ');
-                            }
-                            c
+                        // Check if we're using paragraph line breaking
+                        if ctx.is_paragraph_line_breaking() {
+                            // Add text to paragraph line breaker
+                            ctx.add_paragraph_text(&final_text);
                         } else {
-                            code.literal.to_string()
-                        };
-                        ctx.add_paragraph_unbreakable_unit(
+                            // Use context-aware escaping
+                            let escaped = escape_text(&final_text, ctx);
+                            // Use append_with_wrap for text wrapping when right_margin is set
+                            // This enables line folding at the specified width
+                            writer.append_with_wrap(&escaped);
+                        }
+                    }
+                },
+            ),
+            // Code - simple handler
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::Code(Box::default())),
+                |value, ctx, writer| {
+                    if let NodeValue::Code(code) = value {
+                        // Calculate the required fence length based on content
+                        // Need to account for backticks in the content
+                        let fence_len = compute_fence_length(&code.literal, 1);
+                        let backticks = "`".repeat(fence_len);
+
+                        // Determine if we need padding (spaces around content)
+                        // Padding is needed when:
+                        // 1. Content starts or ends with a backtick
+                        // 2. Content starts or ends with a space
+                        let needs_leading_space = code.literal.starts_with('`')
+                            || code.literal.starts_with(' ');
+                        let needs_trailing_space =
+                            code.literal.ends_with('`') || code.literal.ends_with(' ');
+
+                        // Check if we're using the new paragraph line breaking system
+                        if ctx.is_paragraph_line_breaking() {
+                            // Add inline code as unbreakable unit
+                            let prefix = backticks.clone();
+                            let suffix = backticks.clone();
+                            let content = if needs_leading_space || needs_trailing_space
+                            {
+                                let mut c = String::new();
+                                if needs_leading_space {
+                                    c.push(' ');
+                                }
+                                c.push_str(&code.literal);
+                                if needs_trailing_space {
+                                    c.push(' ');
+                                }
+                                c
+                            } else {
+                                code.literal.to_string()
+                            };
+                            ctx.add_paragraph_unbreakable_unit(
                             crate::render::commonmark::line_breaking::UnitKind::InlineCode,
                             &prefix,
                             &content,
                             &suffix,
                         );
-                    } else {
-                        writer.append(&backticks);
+                        } else {
+                            writer.append(&backticks);
 
-                        if needs_leading_space {
-                            writer.append(" ");
+                            if needs_leading_space {
+                                writer.append(" ");
+                            }
+
+                            // For code content, we don't escape - output as-is
+                            writer.append_raw(&code.literal);
+
+                            if needs_trailing_space {
+                                writer.append(" ");
+                            }
+
+                            writer.append(&backticks);
                         }
-
-                        // For code content, we don't escape - output as-is
-                        writer.append_raw(&code.literal);
-
-                        if needs_trailing_space {
-                            writer.append(" ");
-                        }
-
-                        writer.append(&backticks);
                     }
-                }
-            }),
+                },
+            ),
             // Emph - handler with close
             create_handler_with_close(
-                NodeValueType::Emph,
+                std::mem::discriminant(&NodeValue::Emph),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
                         // Check if this emphasis contains nested strong
                         // If so, don't use atomic handling to avoid conflicts
                         if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(node_id, NodeValueType::Strong) {
+                            if ctx.has_child_of_type(
+                                node_id,
+                                std::mem::discriminant(&NodeValue::Strong),
+                            ) {
                                 // Nested emphasis - use normal word handling
                                 ctx.add_paragraph_word("*");
                             } else {
@@ -667,7 +693,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     if ctx.is_paragraph_line_breaking() {
                         // Check if this emphasis contains nested strong
                         if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(node_id, NodeValueType::Strong) {
+                            if ctx.has_child_of_type(
+                                node_id,
+                                std::mem::discriminant(&NodeValue::Strong),
+                            ) {
                                 // Nested emphasis - use normal word handling
                                 ctx.add_paragraph_word("*");
                             } else {
@@ -691,12 +720,15 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Strong - handler with close
             create_handler_with_close(
-                NodeValueType::Strong,
+                std::mem::discriminant(&NodeValue::Strong),
                 |_value, ctx, _writer| {
                     if ctx.is_paragraph_line_breaking() {
                         // Check if this strong contains nested emphasis
                         if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(node_id, NodeValueType::Emph) {
+                            if ctx.has_child_of_type(
+                                node_id,
+                                std::mem::discriminant(&NodeValue::Emph),
+                            ) {
                                 // Nested strong - use normal word handling
                                 ctx.add_paragraph_word("**");
                             } else {
@@ -724,7 +756,10 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                     if ctx.is_paragraph_line_breaking() {
                         // Check if this strong contains nested emphasis
                         if let Some(node_id) = ctx.get_current_node() {
-                            if ctx.has_child_of_type(node_id, NodeValueType::Emph) {
+                            if ctx.has_child_of_type(
+                                node_id,
+                                std::mem::discriminant(&NodeValue::Emph),
+                            ) {
                                 // Nested strong - use normal word handling
                                 ctx.add_paragraph_word("**");
                             } else {
@@ -747,116 +782,106 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             NodeFormattingHandler::with_close(
-                NodeValueType::Link,
-                Box::new(
-                    |_value: &NodeValue,
-                     ctx: &mut dyn NodeFormatterContext,
-                     _writer: &mut MarkdownWriter| {
-                        // When line breaking is active, we need to handle link specially
+                std::mem::discriminant(&NodeValue::Link(Box::default())),
+                |_value: &NodeValue,
+                 ctx: &mut dyn NodeFormatterContext,
+                 _writer: &mut MarkdownWriter| {
+                    // When line breaking is active, we need to handle link specially
+                    if ctx.is_paragraph_line_breaking() {
+                        // For paragraph line breaking, we collect the entire link as a unit
+                        // Skip rendering children here - we'll collect them in the close handler
+                        ctx.set_skip_children(true);
+                    } else {
+                        _writer.append("[");
+                    }
+                },
+                |value: &NodeValue,
+                 ctx: &mut dyn NodeFormatterContext,
+                 writer: &mut MarkdownWriter| {
+                    if let NodeValue::Link(link) = value {
                         if ctx.is_paragraph_line_breaking() {
-                            // For paragraph line breaking, we collect the entire link as a unit
-                            // Skip rendering children here - we'll collect them in the close handler
-                            ctx.set_skip_children(true);
-                        } else {
-                            _writer.append("[");
-                        }
-                    },
-                ),
-                Box::new(
-                    |value: &NodeValue,
-                     ctx: &mut dyn NodeFormatterContext,
-                     writer: &mut MarkdownWriter| {
-                        if let NodeValue::Link(link) = value {
-                            if ctx.is_paragraph_line_breaking() {
-                                // Collect link text from children
-                                if let Some(node_id) = ctx.get_current_node() {
-                                    let link_text =
-                                        ctx.render_children_to_string(node_id);
-                                    // Build the complete link as an unbreakable unit
-                                    // Format: [link_text](url "title")
-                                    let full_link = if link.title.is_empty() {
-                                        format!("[{}]({})", link_text, link.url)
-                                    } else {
-                                        format!(
-                                            "[{}]({} \"{}\")",
-                                            link_text, link.url, link.title
-                                        )
-                                    };
-                                    // Add as an unbreakable unit
-                                    // This ensures the link is not split across lines
-                                    ctx.add_paragraph_unbreakable_unit(
+                            // Collect link text from children
+                            if let Some(node_id) = ctx.get_current_node() {
+                                let link_text = ctx.render_children_to_string(node_id);
+                                // Build the complete link as an unbreakable unit
+                                // Format: [link_text](url "title")
+                                let full_link = if link.title.is_empty() {
+                                    format!("[{}]({})", link_text, link.url)
+                                } else {
+                                    format!(
+                                        "[{}]({} \"{}\")",
+                                        link_text, link.url, link.title
+                                    )
+                                };
+                                // Add as an unbreakable unit
+                                // This ensures the link is not split across lines
+                                ctx.add_paragraph_unbreakable_unit(
                                         crate::render::commonmark::line_breaking::UnitKind::Link,
                                         "",
                                         &full_link,
                                         "",
                                     );
-                                }
-                                // Re-enable children rendering
-                                ctx.set_skip_children(false);
-                            } else {
-                                // Close the link text bracket
-                                writer.append("]");
-                                // Then add the URL/title
-                                render_link_url(&link.url, &link.title, ctx, writer);
                             }
+                            // Re-enable children rendering
+                            ctx.set_skip_children(false);
+                        } else {
+                            // Close the link text bracket
+                            writer.append("]");
+                            // Then add the URL/title
+                            render_link_url(&link.url, &link.title, ctx, writer);
                         }
-                    },
-                ),
+                    }
+                },
             ),
             NodeFormattingHandler::with_close(
-                NodeValueType::Image,
-                Box::new(
-                    |_value: &NodeValue,
-                     ctx: &mut dyn NodeFormatterContext,
-                     _writer: &mut MarkdownWriter| {
-                        // When line breaking is active, we need to handle image specially
+                std::mem::discriminant(&NodeValue::Image(Box::default())),
+                |_value: &NodeValue,
+                 ctx: &mut dyn NodeFormatterContext,
+                 _writer: &mut MarkdownWriter| {
+                    // When line breaking is active, we need to handle image specially
+                    if ctx.is_paragraph_line_breaking() {
+                        // For paragraph line breaking, we collect the entire image as a unit
+                        // Skip rendering children here - we'll collect them in the close handler
+                        ctx.set_skip_children(true);
+                    } else {
+                        _writer.append("![");
+                    }
+                },
+                |value: &NodeValue,
+                 ctx: &mut dyn NodeFormatterContext,
+                 writer: &mut MarkdownWriter| {
+                    if let NodeValue::Image(link) = value {
                         if ctx.is_paragraph_line_breaking() {
-                            // For paragraph line breaking, we collect the entire image as a unit
-                            // Skip rendering children here - we'll collect them in the close handler
-                            ctx.set_skip_children(true);
-                        } else {
-                            _writer.append("![");
-                        }
-                    },
-                ),
-                Box::new(
-                    |value: &NodeValue,
-                     ctx: &mut dyn NodeFormatterContext,
-                     writer: &mut MarkdownWriter| {
-                        if let NodeValue::Image(link) = value {
-                            if ctx.is_paragraph_line_breaking() {
-                                // Collect alt text from children
-                                if let Some(node_id) = ctx.get_current_node() {
-                                    let alt_text =
-                                        ctx.render_children_to_string(node_id);
-                                    // Build the complete image as an unbreakable unit
-                                    // Format: ![alt_text](url "title")
-                                    let full_image = if link.title.is_empty() {
-                                        format!("![{}]({})", alt_text, link.url)
-                                    } else {
-                                        format!(
-                                            "![{}]({} \"{}\")",
-                                            alt_text, link.url, link.title
-                                        )
-                                    };
-                                    // Add as a single word (unbreakable)
-                                    ctx.add_paragraph_word(&full_image);
-                                }
-                                // Re-enable children rendering
-                                ctx.set_skip_children(false);
-                            } else {
-                                // Close the image alt bracket
-                                writer.append("]");
-                                // Then add the URL/title
-                                render_image_url(&link.url, &link.title, ctx, writer);
+                            // Collect alt text from children
+                            if let Some(node_id) = ctx.get_current_node() {
+                                let alt_text = ctx.render_children_to_string(node_id);
+                                // Build the complete image as an unbreakable unit
+                                // Format: ![alt_text](url "title")
+                                let full_image = if link.title.is_empty() {
+                                    format!("![{}]({})", alt_text, link.url)
+                                } else {
+                                    format!(
+                                        "![{}]({} \"{}\")",
+                                        alt_text, link.url, link.title
+                                    )
+                                };
+                                // Add as a single word (unbreakable)
+                                ctx.add_paragraph_word(&full_image);
                             }
+                            // Re-enable children rendering
+                            ctx.set_skip_children(false);
+                        } else {
+                            // Close the image alt bracket
+                            writer.append("]");
+                            // Then add the URL/title
+                            render_image_url(&link.url, &link.title, ctx, writer);
                         }
-                    },
-                ),
+                    }
+                },
             ),
             // Strikethrough - handler with close
             create_handler_with_close(
-                NodeValueType::Strikethrough,
+                std::mem::discriminant(&NodeValue::Strikethrough),
                 |_value, _ctx, writer| {
                     writer.append("~~");
                 },
@@ -865,67 +890,76 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // SoftBreak - simple handler
-            create_simple_handler(NodeValueType::SoftBreak, |_value, ctx, writer| {
-                // Based on flexmark-java's SoftLineBreak handling:
-                // 1. In tight lists, soft breaks become spaces
-                // 2. If keepSoftLineBreaks is enabled, preserve the break
-                // 3. Otherwise, convert to space (for wrapping) or line break
-                let options = ctx.get_formatter_options();
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::SoftBreak),
+                |_value, ctx, writer| {
+                    // Based on flexmark-java's SoftLineBreak handling:
+                    // 1. In tight lists, soft breaks become spaces
+                    // 2. If keepSoftLineBreaks is enabled, preserve the break
+                    // 3. Otherwise, convert to space (for wrapping) or line break
+                    let options = ctx.get_formatter_options();
 
-                // Check if we're using the new paragraph line breaking system
-                if ctx.is_paragraph_line_breaking() {
-                    // Add space for soft break
-                    ctx.add_paragraph_text(" ");
-                } else if ctx.is_in_tight_list() {
-                    // In tight lists, soft breaks become spaces
-                    writer.append(" ");
-                } else if options.keep_soft_line_breaks {
-                    // Preserve soft line breaks if configured
-                    writer.line();
-                } else {
-                    // Default: convert soft break to space for wrapping
-                    // The formatter will handle line wrapping based on right_margin
-                    let right_margin = options.right_margin;
-                    if right_margin > 0 {
-                        // With right margin set, use space for potential wrapping
+                    // Check if we're using the new paragraph line breaking system
+                    if ctx.is_paragraph_line_breaking() {
+                        // Add space for soft break
+                        ctx.add_paragraph_text(" ");
+                    } else if ctx.is_in_tight_list() {
+                        // In tight lists, soft breaks become spaces
                         writer.append(" ");
+                    } else if options.keep_soft_line_breaks {
+                        // Preserve soft line breaks if configured
+                        writer.line();
                     } else {
-                        // Without right margin, use line break
+                        // Default: convert soft break to space for wrapping
+                        // The formatter will handle line wrapping based on right_margin
+                        let right_margin = options.right_margin;
+                        if right_margin > 0 {
+                            // With right margin set, use space for potential wrapping
+                            writer.append(" ");
+                        } else {
+                            // Without right margin, use line break
+                            writer.line();
+                        }
+                    }
+                },
+            ),
+            // HardBreak - simple handler
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::HardBreak),
+                |_value, ctx, writer| {
+                    // Based on flexmark-java's HardLineBreak handling:
+                    // 1. If keepHardLineBreaks is enabled, preserve as \\ at end of line
+                    // 2. Otherwise, use two spaces at end of line (standard Markdown)
+                    let options = ctx.get_formatter_options();
+
+                    // Check if we're using the new paragraph line breaking system
+                    if ctx.is_paragraph_line_breaking() {
+                        // Add hard break to paragraph line breaker
+                        ctx.add_paragraph_hard_break();
+                    } else if options.keep_hard_line_breaks {
+                        // Use backslash style for hard breaks
+                        writer.append("\\");
+                        writer.line();
+                    } else {
+                        // Standard: two spaces at end of line
+                        writer.append("  ");
                         writer.line();
                     }
-                }
-            }),
-            // HardBreak - simple handler
-            create_simple_handler(NodeValueType::HardBreak, |_value, ctx, writer| {
-                // Based on flexmark-java's HardLineBreak handling:
-                // 1. If keepHardLineBreaks is enabled, preserve as \\ at end of line
-                // 2. Otherwise, use two spaces at end of line (standard Markdown)
-                let options = ctx.get_formatter_options();
-
-                // Check if we're using the new paragraph line breaking system
-                if ctx.is_paragraph_line_breaking() {
-                    // Add hard break to paragraph line breaker
-                    ctx.add_paragraph_hard_break();
-                } else if options.keep_hard_line_breaks {
-                    // Use backslash style for hard breaks
-                    writer.append("\\");
-                    writer.line();
-                } else {
-                    // Standard: two spaces at end of line
-                    writer.append("  ");
-                    writer.line();
-                }
-            }),
+                },
+            ),
             // HtmlInline - simple handler
-            create_simple_handler(NodeValueType::HtmlInline, |value, _ctx, writer| {
-                if let NodeValue::HtmlInline(html) = value {
-                    writer.append(html);
-                }
-            }),
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::HtmlInline(Box::default())),
+                |value, _ctx, writer| {
+                    if let NodeValue::HtmlInline(html) = value {
+                        writer.append(html);
+                    }
+                },
+            ),
             // Table elements
             // Table - handler with close
             create_handler_with_close(
-                NodeValueType::Table,
+                std::mem::discriminant(&NodeValue::Table(Box::default())),
                 |value, ctx, _writer| {
                     // Table opening - start collecting data
                     if let NodeValue::Table(table) = value {
@@ -941,7 +975,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // TableRow - handler with close
             create_handler_with_close(
-                NodeValueType::TableRow,
+                std::mem::discriminant(&NodeValue::TableRow(false)),
                 |_value, ctx, _writer| {
                     // Row opening - add new row to collection
                     ctx.add_table_row();
@@ -952,7 +986,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // TableCell - handler with close
             create_handler_with_close(
-                NodeValueType::TableCell,
+                std::mem::discriminant(&NodeValue::TableCell),
                 |_value, ctx, _writer| {
                     // Cell opening - if collecting table, skip rendering children
                     // They will be collected on close
@@ -973,7 +1007,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             ),
             // Footnote elements
             create_simple_handler(
-                NodeValueType::FootnoteReference,
+                std::mem::discriminant(&NodeValue::FootnoteReference(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::FootnoteReference(footnote) = value {
                         writer.append(format!("[^{}]", footnote.name));
@@ -981,7 +1015,7 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             create_simple_handler(
-                NodeValueType::FootnoteDefinition,
+                std::mem::discriminant(&NodeValue::FootnoteDefinition(Box::default())),
                 |value, _ctx, writer| {
                     if let NodeValue::FootnoteDefinition(footnote) = value {
                         writer.append(format!("[^{}]:", footnote.name));
@@ -989,22 +1023,30 @@ impl NodeFormatter for CommonMarkNodeFormatter {
                 },
             ),
             // Task items
-            create_simple_handler(NodeValueType::TaskItem, |value, _ctx, writer| {
-                if let NodeValue::TaskItem(task) = value {
-                    if task.symbol.is_some() {
-                        writer.append_raw("[x] ");
-                    } else {
-                        writer.append_raw("[ ] ");
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::TaskItem(
+                    crate::core::nodes::NodeTaskItem::default(),
+                )),
+                |value, _ctx, writer| {
+                    if let NodeValue::TaskItem(task) = value {
+                        if task.symbol.is_some() {
+                            writer.append_raw("[x] ");
+                        } else {
+                            writer.append_raw("[ ] ");
+                        }
                     }
-                }
-            }),
+                },
+            ),
             // Shortcode emoji
-            create_simple_handler(NodeValueType::ShortCode, |value, _ctx, writer| {
-                if let NodeValue::ShortCode(shortcode) = value {
-                    // Output the original shortcode format
-                    writer.append(format!(":{}:", shortcode.code));
-                }
-            }),
+            create_simple_handler(
+                std::mem::discriminant(&NodeValue::ShortCode(Box::default())),
+                |value, _ctx, writer| {
+                    if let NodeValue::ShortCode(shortcode) = value {
+                        // Output the original shortcode format
+                        writer.append(format!(":{}:", shortcode.code));
+                    }
+                },
+            ),
         ]
     }
 }
@@ -1160,14 +1202,14 @@ mod tests {
 
         fn get_nodes_of_type(
             &self,
-            _node_type: crate::render::commonmark::node::NodeValueType,
+            _node_type: crate::render::commonmark::node::NodeType,
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }
 
         fn get_nodes_of_types(
             &self,
-            _node_types: &[crate::render::commonmark::node::NodeValueType],
+            _node_types: &[crate::render::commonmark::node::NodeType],
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }

@@ -864,14 +864,14 @@ mod tests {
 
         fn get_nodes_of_type(
             &self,
-            _node_type: crate::render::commonmark::node::NodeValueType,
+            _node_type: crate::render::commonmark::node::NodeType,
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }
 
         fn get_nodes_of_types(
             &self,
-            _node_types: &[crate::render::commonmark::node::NodeValueType],
+            _node_types: &[crate::render::commonmark::node::NodeType],
         ) -> Vec<crate::core::arena::NodeId> {
             vec![]
         }

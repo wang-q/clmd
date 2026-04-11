@@ -41,7 +41,7 @@ pub use context::{
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
-    NodeFormattingHandler, NodeValueType,
+    NodeFormattingHandler, NodeType,
 };
 pub use phase::{
     ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter, SimplePhasedFormatter,
@@ -51,6 +51,7 @@ pub use writer::MarkdownWriter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use std::collections::HashMap;
+use std::mem::Discriminant;
 
 /// Main Markdown formatter
 ///
@@ -167,12 +168,12 @@ pub struct MainFormatterContext<'a> {
     formatters: &'a node::ComposedNodeFormatter,
     /// Current formatting phase
     phase: phase::FormattingPhase,
-    /// Handler map: node type -> list of handlers
-    handler_map: HashMap<node::NodeValueType, Vec<node::NodeFormattingHandler>>,
+    /// Handler map: node type discriminant -> list of handlers
+    handler_map: HashMap<Discriminant<NodeValue>, Vec<node::NodeFormattingHandler>>,
     /// Current node being rendered
     current_node: Option<NodeId>,
-    /// Handler delegation stack
-    handler_stack: Vec<(node::NodeValueType, usize)>,
+    /// Handler delegation stack (discriminant, handler_index)
+    handler_stack: Vec<(Discriminant<NodeValue>, usize)>,
     /// Tight list context
     tight_list: bool,
     /// List nesting level
@@ -181,8 +182,8 @@ pub struct MainFormatterContext<'a> {
     in_block_quote: bool,
     /// Block quote nesting level
     block_quote_nesting: usize,
-    /// Collected nodes by type
-    collected_nodes: HashMap<node::NodeValueType, Vec<NodeId>>,
+    /// Collected nodes by type discriminant
+    collected_nodes: HashMap<Discriminant<NodeValue>, Vec<NodeId>>,
     /// Table data collection
     table_rows: Vec<Vec<String>>,
     /// Table alignments
@@ -308,14 +309,14 @@ impl<'a> MainFormatterContext<'a> {
     fn collect_nodes_recursive(
         &mut self,
         node_id: NodeId,
-        node_classes: &[node::NodeValueType],
+        node_classes: &[Discriminant<NodeValue>],
     ) {
         let node = self.arena.get(node_id);
-        let node_type = node::NodeValueType::from_node_value(&node.value);
+        let node_discriminant = std::mem::discriminant(&node.value);
 
-        if node_classes.contains(&node_type) {
+        if node_classes.contains(&node_discriminant) {
             self.collected_nodes
-                .entry(node_type)
+                .entry(node_discriminant)
                 .or_default()
                 .push(node_id);
         }
@@ -380,7 +381,7 @@ impl<'a> MainFormatterContext<'a> {
         handler_index: usize,
     ) {
         let node = self.arena.get(node_id);
-        let node_type = node::NodeValueType::from_node_value(&node.value);
+        let node_discriminant = std::mem::discriminant(&node.value);
 
         // Check for HTML comment that might be a format control comment
         if let NodeValue::HtmlBlock(html) = &node.value {
@@ -419,14 +420,14 @@ impl<'a> MainFormatterContext<'a> {
         }
 
         // Check if we have handlers for this node type
-        let handlers = self.handler_map.get(&node_type);
+        let handlers = self.handler_map.get(&node_discriminant);
 
         if let Some(handler_list) = handlers {
             if handler_index < handler_list.len() {
                 let handler = handler_list[handler_index].clone();
 
                 self.current_node = Some(node_id);
-                self.handler_stack.push((node_type, handler_index));
+                self.handler_stack.push((node_discriminant, handler_index));
                 let node_value = &self.arena.get(node_id).value;
 
                 // Call the opening formatter
@@ -563,14 +564,14 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         self.current_node
     }
 
-    fn get_nodes_of_type(&self, node_type: node::NodeValueType) -> Vec<NodeId> {
+    fn get_nodes_of_type(&self, node_type: Discriminant<NodeValue>) -> Vec<NodeId> {
         self.collected_nodes
             .get(&node_type)
             .cloned()
             .unwrap_or_default()
     }
 
-    fn get_nodes_of_types(&self, node_types: &[node::NodeValueType]) -> Vec<NodeId> {
+    fn get_nodes_of_types(&self, node_types: &[Discriminant<NodeValue>]) -> Vec<NodeId> {
         let mut result = Vec::new();
         for node_type in node_types {
             if let Some(nodes) = self.collected_nodes.get(node_type) {

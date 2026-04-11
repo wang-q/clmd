@@ -5,9 +5,7 @@
 
 use crate::core::arena::NodeId;
 use crate::render::commonmark::context::NodeFormatterContext;
-use crate::render::commonmark::node::{
-    NodeFormatter, NodeFormattingHandler, NodeValueType,
-};
+use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler};
 use crate::render::commonmark::writer::MarkdownWriter;
 
 // ============================================================================
@@ -237,7 +235,7 @@ impl NodeFormatter for ComposedPhasedFormatter {
             .collect()
     }
 
-    fn get_node_classes(&self) -> Vec<NodeValueType> {
+    fn get_node_classes(&self) -> Vec<crate::render::commonmark::node::NodeType> {
         self.formatters
             .iter()
             .flat_map(|f| f.get_node_classes())
@@ -374,7 +372,7 @@ impl NodeFormatter for SimplePhasedFormatter {
         Vec::new()
     }
 
-    fn get_node_classes(&self) -> Vec<NodeValueType> {
+    fn get_node_classes(&self) -> Vec<crate::render::commonmark::node::NodeType> {
         Vec::new()
     }
 }
