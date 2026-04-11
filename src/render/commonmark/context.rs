@@ -7,7 +7,6 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::node::NodeType;
-use crate::render::commonmark::phase::FormattingPhase;
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// Context for node formatting operations
@@ -30,15 +29,6 @@ pub trait NodeFormatterContext {
     ///
     /// Renders all child nodes of the given parent node.
     fn render_children(&mut self, node_id: NodeId);
-
-    /// Get the current formatting phase
-    fn get_formatting_phase(&self) -> FormattingPhase;
-
-    /// Delegate rendering to the next handler
-    ///
-    /// This allows a formatter to pass rendering to another handler
-    /// registered for the same node type.
-    fn delegate_render(&mut self);
 
     /// Get the formatter options
     fn get_formatter_options(&self) -> &FormatOptions;
@@ -75,12 +65,6 @@ pub trait NodeFormatterContext {
         }
         false
     }
-
-    /// Get nodes of a specific type
-    ///
-    /// Returns an iterator over all nodes of the given type in the document,
-    /// in depth-first order.
-    fn get_nodes_of_type(&self, node_type: NodeType) -> Vec<NodeId>;
 
     // Table data collection methods
 
@@ -120,20 +104,6 @@ pub trait NodeFormatterContext {
     /// This is used to capture the rendered output of child nodes
     /// without writing to the main output.
     fn render_children_to_string(&mut self, node_id: NodeId) -> String;
-
-    /// Get nodes of multiple types
-    fn get_nodes_of_types(&self, node_types: &[NodeType]) -> Vec<NodeId>;
-
-    /// Get the block quote-like prefix predicate
-    ///
-    /// Returns a function that checks if a character is a block quote-like prefix.
-    fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool>;
-
-    /// Get the block quote-like prefix characters
-    fn get_block_quote_like_prefix_chars(&self) -> &str;
-
-    /// Create a sub-context for nested rendering
-    fn create_sub_context(&self) -> Box<dyn NodeFormatterContext>;
 
     /// Check if we're currently in a tight list context
     fn is_in_tight_list(&self) -> bool;
@@ -315,14 +285,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
         self.parent.render_children(node_id);
     }
 
-    fn get_formatting_phase(&self) -> FormattingPhase {
-        self.parent.get_formatting_phase()
-    }
-
-    fn delegate_render(&mut self) {
-        self.parent.delegate_render();
-    }
-
     fn get_formatter_options(&self) -> &FormatOptions {
         self.parent.get_formatter_options()
     }
@@ -333,27 +295,6 @@ impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
 
     fn get_current_node(&self) -> Option<NodeId> {
         self.current_node.or_else(|| self.parent.get_current_node())
-    }
-
-    fn get_nodes_of_type(&self, node_type: NodeType) -> Vec<NodeId> {
-        self.parent.get_nodes_of_type(node_type)
-    }
-
-    fn get_nodes_of_types(&self, node_types: &[NodeType]) -> Vec<NodeId> {
-        self.parent.get_nodes_of_types(node_types)
-    }
-
-    fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-        self.parent.get_block_quote_like_prefix_predicate()
-    }
-
-    fn get_block_quote_like_prefix_chars(&self) -> &str {
-        self.parent.get_block_quote_like_prefix_chars()
-    }
-
-    fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-        // Cannot create a sub-context from a sub-context
-        panic!("Cannot create nested sub-contexts");
     }
 
     fn is_in_tight_list(&self) -> bool {
@@ -599,14 +540,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn get_formatting_phase(&self) -> FormattingPhase {
-            FormattingPhase::Document
-        }
-
-        fn delegate_render(&mut self) {
-            unimplemented!()
-        }
-
         fn get_formatter_options(&self) -> &FormatOptions {
             &self.options
         }
@@ -617,26 +550,6 @@ mod tests {
 
         fn get_current_node(&self) -> Option<NodeId> {
             self.current_node
-        }
-
-        fn get_nodes_of_type(&self, _node_type: NodeType) -> Vec<NodeId> {
-            vec![]
-        }
-
-        fn get_nodes_of_types(&self, _node_types: &[NodeType]) -> Vec<NodeId> {
-            vec![]
-        }
-
-        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-            Box::new(|c| c == '>')
-        }
-
-        fn get_block_quote_like_prefix_chars(&self) -> &str {
-            ">"
-        }
-
-        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            unimplemented!()
         }
 
         fn is_in_tight_list(&self) -> bool {
@@ -922,18 +835,6 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_context_block_quote_prefix() {
-        let ctx = MockContext::new();
-
-        assert_eq!(ctx.get_block_quote_like_prefix_chars(), ">");
-
-        let predicate = ctx.get_block_quote_like_prefix_predicate();
-        assert!(predicate('>'));
-        assert!(!predicate(' '));
-        assert!(!predicate('-'));
-    }
-
-    #[test]
     fn test_sub_formatter_context_new() {
         let mut parent = MockContext::new();
         let sub = SubFormatterContext::new(&mut parent);
@@ -1004,19 +905,8 @@ mod tests {
         let sub = SubFormatterContext::new(&mut parent);
 
         // These should delegate to parent without panicking
-        let _ = sub.get_formatting_phase();
         let _ = sub.get_formatter_options();
         let _ = sub.get_arena();
-        let _ = sub.get_nodes_of_type(std::mem::discriminant(&NodeValue::Document));
-        let _ = sub.get_block_quote_like_prefix_chars();
-    }
-
-    #[test]
-    #[should_panic(expected = "Cannot create nested sub-contexts")]
-    fn test_sub_formatter_context_create_sub_context_panics() {
-        let mut parent = MockContext::new();
-        let sub = SubFormatterContext::new(&mut parent);
-        let _ = sub.create_sub_context();
     }
 
     #[test]

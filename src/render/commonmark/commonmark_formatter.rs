@@ -1180,14 +1180,6 @@ mod tests {
             panic!("Not implemented")
         }
 
-        fn get_formatting_phase(
-            &self,
-        ) -> crate::render::commonmark::phase::FormattingPhase {
-            crate::render::commonmark::phase::FormattingPhase::Document
-        }
-
-        fn delegate_render(&mut self) {}
-
         fn get_formatter_options(&self) -> &crate::options::format::FormatOptions {
             panic!("Not implemented")
         }
@@ -1198,32 +1190,6 @@ mod tests {
 
         fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
             None
-        }
-
-        fn get_nodes_of_type(
-            &self,
-            _node_type: crate::render::commonmark::node::NodeType,
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-
-        fn get_nodes_of_types(
-            &self,
-            _node_types: &[crate::render::commonmark::node::NodeType],
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-
-        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-            Box::new(|c| c == '>')
-        }
-
-        fn get_block_quote_like_prefix_chars(&self) -> &str {
-            ">"
-        }
-
-        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            panic!("Not implemented")
         }
 
         fn is_in_tight_list(&self) -> bool {

@@ -507,14 +507,6 @@ mod tests {
         fn render_children(&mut self, _node_id: crate::core::arena::NodeId) {
             // No-op for mock
         }
-        fn get_formatting_phase(
-            &self,
-        ) -> crate::render::commonmark::phase::FormattingPhase {
-            crate::render::commonmark::phase::FormattingPhase::Document
-        }
-        fn delegate_render(&mut self) {
-            // No-op for mock
-        }
         fn get_formatter_options(&self) -> &FormatOptions {
             &self.options
         }
@@ -524,27 +516,6 @@ mod tests {
         }
         fn get_current_node(&self) -> Option<crate::core::arena::NodeId> {
             None
-        }
-        fn get_nodes_of_type(
-            &self,
-            _node_type: NodeType,
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-        fn get_nodes_of_types(
-            &self,
-            _node_types: &[NodeType],
-        ) -> Vec<crate::core::arena::NodeId> {
-            vec![]
-        }
-        fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-            Box::new(|_| false)
-        }
-        fn get_block_quote_like_prefix_chars(&self) -> &str {
-            ""
-        }
-        fn create_sub_context(&self) -> Box<dyn NodeFormatterContext> {
-            Box::new(Self::new())
         }
         fn is_in_tight_list(&self) -> bool {
             false

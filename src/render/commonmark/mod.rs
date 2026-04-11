@@ -535,23 +535,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
         let _ = node_id;
     }
 
-    fn get_formatting_phase(&self) -> phase::FormattingPhase {
-        self.phase
-    }
-
-    fn delegate_render(&mut self) {
-        // Handler delegation is used when a formatter wants to pass rendering
-        // to the next handler registered for the same node type.
-        //
-        // This implementation uses the handler_stack to track the current
-        // handler index and calls the next handler if available.
-        if self.handler_stack.last().copied().is_some() {
-            // The actual delegation happens in render_with_handler_index
-            // by calling the next handler index
-            self.delegation_requested = true;
-        }
-    }
-
     fn get_formatter_options(&self) -> &FormatOptions {
         self.options
     }
@@ -562,35 +545,6 @@ impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
 
     fn get_current_node(&self) -> Option<NodeId> {
         self.current_node
-    }
-
-    fn get_nodes_of_type(&self, node_type: Discriminant<NodeValue>) -> Vec<NodeId> {
-        self.collected_nodes
-            .get(&node_type)
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    fn get_nodes_of_types(&self, node_types: &[Discriminant<NodeValue>]) -> Vec<NodeId> {
-        let mut result = Vec::new();
-        for node_type in node_types {
-            if let Some(nodes) = self.collected_nodes.get(node_type) {
-                result.extend(nodes);
-            }
-        }
-        result
-    }
-
-    fn get_block_quote_like_prefix_predicate(&self) -> Box<dyn Fn(char) -> bool> {
-        Box::new(|c| c == '>')
-    }
-
-    fn get_block_quote_like_prefix_chars(&self) -> &str {
-        ">"
-    }
-
-    fn create_sub_context(&self) -> Box<dyn context::NodeFormatterContext> {
-        panic!("Cannot create sub-context from immutable reference");
     }
 
     fn is_in_tight_list(&self) -> bool {
