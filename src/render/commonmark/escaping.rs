@@ -27,7 +27,7 @@ const LINE_START_SPECIAL_CHARS: &[char] =
     &['#', '>', '-', '+', '*', '=', '|', '`', '~', '<'];
 
 /// Check if a character needs escaping in the given context
-pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
+fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
     if !is_markdown_special_char(ch) {
         return false;
     }
@@ -145,6 +145,11 @@ pub fn need_to_escape(ch: char, context: &dyn NodeFormatterContext) -> bool {
 /// Check if a character is a Markdown special character
 fn is_markdown_special_char(ch: char) -> bool {
     MARKDOWN_SPECIAL_CHARS.contains(&ch)
+}
+
+#[cfg(test)]
+fn is_markdown_special_char_for_test(ch: char) -> bool {
+    is_markdown_special_char(ch)
 }
 
 /// Check if we're inside a code context (code block or code span)
@@ -455,12 +460,12 @@ mod tests {
 
     #[test]
     fn test_is_markdown_special_char() {
-        assert!(is_markdown_special_char('\\'));
-        assert!(is_markdown_special_char('*'));
-        assert!(is_markdown_special_char('_'));
-        assert!(is_markdown_special_char('['));
-        assert!(!is_markdown_special_char('a'));
-        assert!(!is_markdown_special_char(' '));
+        assert!(is_markdown_special_char_for_test('\\'));
+        assert!(is_markdown_special_char_for_test('*'));
+        assert!(is_markdown_special_char_for_test('_'));
+        assert!(is_markdown_special_char_for_test('['));
+        assert!(!is_markdown_special_char_for_test('a'));
+        assert!(!is_markdown_special_char_for_test(' '));
     }
 
     #[test]

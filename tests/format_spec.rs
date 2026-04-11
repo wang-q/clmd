@@ -130,9 +130,6 @@ fn apply_spec_options(options: &mut FormatOptions, option_str: &str) {
         "max-blank-lines-3" => options.max_blank_lines = 3,
         "no-tailing-blanks" => options.max_trailing_blank_lines = 0,
 
-        // Format control
-        "formatter-tags-enabled" => options.formatter_tags_enabled = true,
-
         // Parse options (not formatter options, but we track them)
         "parse-github" => {}
         "parse-fixed-indent" => {}

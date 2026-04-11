@@ -307,16 +307,6 @@ pub struct FormatOptions {
     pub thematic_break_marker: char,
     /// Format flags
     pub format_flags: FormatFlags,
-
-    // Format control options
-    /// Enable formatter control comments
-    pub formatter_tags_enabled: bool,
-    /// Accept regex in formatter tags
-    pub formatter_tags_accept_regex: bool,
-    /// Formatter on tag
-    pub formatter_on_tag: String,
-    /// Formatter off tag
-    pub formatter_off_tag: String,
 }
 
 impl Default for FormatOptions {
@@ -365,11 +355,6 @@ impl Default for FormatOptions {
             thematic_break: None,
             thematic_break_marker: '*',
             format_flags: FormatFlags::DEFAULT,
-
-            formatter_tags_enabled: true,
-            formatter_tags_accept_regex: false,
-            formatter_on_tag: "formatter:on".to_string(),
-            formatter_off_tag: "formatter:off".to_string(),
         }
     }
 }
@@ -458,24 +443,6 @@ impl FormatOptions {
         self
     }
 
-    /// Set formatter tags enabled
-    pub fn with_formatter_tags_enabled(mut self, value: bool) -> Self {
-        self.formatter_tags_enabled = value;
-        self
-    }
-
-    /// Set formatter on tag
-    pub fn with_formatter_on_tag(mut self, value: impl Into<String>) -> Self {
-        self.formatter_on_tag = value.into();
-        self
-    }
-
-    /// Set formatter off tag
-    pub fn with_formatter_off_tag(mut self, value: impl Into<String>) -> Self {
-        self.formatter_off_tag = value.into();
-        self
-    }
-
     /// Set thematic break
     pub fn with_thematic_break(mut self, value: impl Into<String>) -> Self {
         self.thematic_break = Some(value.into());
@@ -511,7 +478,6 @@ mod tests {
         assert!(opts.list_renumber_items);
         assert!(opts.setext_heading_equalize_marker);
         assert!(opts.fenced_code_match_closing_marker);
-        assert!(opts.formatter_tags_enabled);
     }
 
     #[test]

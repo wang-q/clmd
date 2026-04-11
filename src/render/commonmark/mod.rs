@@ -18,7 +18,6 @@
 pub mod commonmark_formatter;
 pub mod context;
 pub mod escaping;
-pub mod format_control;
 pub mod handler_utils;
 pub mod handlers;
 pub mod line_breaking;
@@ -161,8 +160,6 @@ struct MainFormatterContext<'a> {
     collecting_table: bool,
     /// Whether to skip rendering children (for table cells)
     skip_children: bool,
-    /// Format control processor for formatter:on/off comments
-    format_control: format_control::FormatControlProcessor,
     /// Whether delegation was requested by the current handler
     delegation_requested: bool,
     /// Paragraph line breaker for AST-based line breaking
@@ -191,7 +188,6 @@ impl<'a> MainFormatterContext<'a> {
         options: &'a FormatOptions,
         formatters: &'a node::ComposedNodeFormatter,
     ) -> Self {
-        let format_control = format_control::FormatControlProcessor::new(options);
         let mut context = Self {
             arena,
             options,
@@ -208,24 +204,12 @@ impl<'a> MainFormatterContext<'a> {
             table_alignments: Vec::new(),
             collecting_table: false,
             skip_children: false,
-            format_control,
             delegation_requested: false,
             paragraph_line_breaker: None,
             text_collection_buffer: None,
         };
         context.build_handler_map();
         context
-    }
-
-    /// Check if formatting is currently off
-    fn is_formatting_off(&self) -> bool {
-        self.format_control.is_formatting_off()
-    }
-
-    /// Process an HTML comment for format control
-    /// Returns true if the comment was a format control comment
-    fn process_format_control_comment(&mut self, comment_text: &str) -> bool {
-        self.format_control.process_comment(comment_text)
     }
 
     /// Build the handler map from all formatters
@@ -257,42 +241,6 @@ impl<'a> MainFormatterContext<'a> {
     ) {
         let node = self.arena.get(node_id);
         let node_discriminant = std::mem::discriminant(&node.value);
-
-        // Check for HTML comment that might be a format control comment
-        if let NodeValue::HtmlBlock(html) = &node.value {
-            let literal = &html.literal;
-            // Check if this is an HTML comment
-            if literal.trim().starts_with("<!--") && literal.trim().ends_with("-->") {
-                let was_format_control = self.process_format_control_comment(literal);
-                if was_format_control {
-                    // Output the comment as-is
-                    for line in literal.lines() {
-                        markdown.append(line);
-                        markdown.line();
-                    }
-                    return;
-                }
-            }
-        }
-
-        // Check for inline HTML comment
-        if let NodeValue::HtmlInline(html) = &node.value {
-            let literal = html.as_ref();
-            if literal.trim().starts_with("<!--") && literal.trim().ends_with("-->") {
-                let was_format_control = self.process_format_control_comment(literal);
-                if was_format_control {
-                    // Output the comment as-is
-                    markdown.append(literal);
-                    return;
-                }
-            }
-        }
-
-        // If formatting is off, render content without formatting
-        if self.is_formatting_off() {
-            self.render_unformatted(node_id, markdown);
-            return;
-        }
 
         // Check if we have handlers for this node type
         let handlers = self.handler_map.get(&node_discriminant);
@@ -338,44 +286,6 @@ impl<'a> MainFormatterContext<'a> {
         } else {
             // No handler registered, render children
             self.render_children(node_id, markdown);
-        }
-    }
-
-    /// Render a node without any formatting (for format-off regions)
-    fn render_unformatted(
-        &mut self,
-        node_id: NodeId,
-        markdown: &mut writer::MarkdownWriter,
-    ) {
-        let node = self.arena.get(node_id);
-
-        // For text nodes, output the literal text
-        match &node.value {
-            NodeValue::Text(text) => {
-                markdown.append_raw(text.as_ref());
-            }
-            NodeValue::HtmlBlock(html) => {
-                markdown.append_raw(&html.literal);
-                markdown.line();
-            }
-            NodeValue::HtmlInline(html) => {
-                markdown.append_raw(html);
-            }
-            NodeValue::SoftBreak => {
-                markdown.line();
-            }
-            NodeValue::HardBreak => {
-                markdown.append_raw("  ");
-                markdown.line();
-            }
-            _ => {
-                // For other nodes, recursively render children
-                let mut child_id = node.first_child;
-                while let Some(child) = child_id {
-                    self.render_unformatted(child, markdown);
-                    child_id = self.arena.get(child).next;
-                }
-            }
         }
     }
 
