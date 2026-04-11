@@ -1,7 +1,4 @@
 //! Node formatter context trait definitions
-//!
-//! This module defines the context trait for node formatters,
-//! inspired by flexmark-java's NodeFormatterContext interface.
 
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
@@ -9,21 +6,11 @@ use crate::options::format::FormatOptions;
 use crate::render::commonmark::node::NodeType;
 
 /// Context for node formatting operations
-///
-/// This trait provides the interface that node formatters use to
-/// interact with the formatting system, including rendering nodes,
-/// accessing configuration, and managing output.
 pub trait NodeFormatterContext {
     /// Render a specific node
-    ///
-    /// This should be used to render child nodes. Be careful not to
-    /// pass the node that is currently being rendered, as that would
-    /// result in infinite recursion.
     fn render(&mut self, node_id: NodeId);
 
     /// Render the children of a node
-    ///
-    /// Renders all child nodes of the given parent node.
     fn render_children(&mut self, node_id: NodeId);
 
     /// Get the formatter options
@@ -52,7 +39,6 @@ pub trait NodeFormatterContext {
                 if std::mem::discriminant(&child.value) == node_type {
                     return true;
                 }
-                // Recursively check grandchildren
                 if self.has_child_of_type(child_id, node_type) {
                     return true;
                 }
@@ -65,26 +51,18 @@ pub trait NodeFormatterContext {
     // Table data collection methods
 
     /// Start collecting table data
-    ///
-    /// Called when entering a table node to begin collecting row and cell data.
     fn start_table_collection(
         &mut self,
         alignments: Vec<crate::core::nodes::TableAlignment>,
     );
 
     /// Add a table row
-    ///
-    /// Called when entering a table row.
     fn add_table_row(&mut self);
 
     /// Add a table cell
-    ///
-    /// Called when rendering a table cell with its content.
     fn add_table_cell(&mut self, content: String);
 
     /// Get collected table data and clear it
-    ///
-    /// Called when exiting a table node to get all collected data for formatting.
     fn take_table_data(
         &mut self,
     ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)>;
@@ -96,9 +74,6 @@ pub trait NodeFormatterContext {
     fn set_skip_children(&mut self, skip: bool);
 
     /// Render children to a string and return the content
-    ///
-    /// This is used to capture the rendered output of child nodes
-    /// without writing to the main output.
     fn render_children_to_string(&mut self, node_id: NodeId) -> String;
 
     /// Check if we're currently in a tight list context
@@ -144,9 +119,9 @@ pub trait NodeFormatterContext {
             .is_some_and(|node_id| self.get_arena().get(node_id).next.is_some())
     }
 
-    // ParagraphLineBreaker methods
+    // Paragraph line breaking methods
 
-    /// Start paragraph line breaking with the new AST-based breaker
+    /// Start paragraph line breaking
     fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String);
 
     /// Finish paragraph line breaking and return formatted text
@@ -158,7 +133,7 @@ pub trait NodeFormatterContext {
     /// Add a word to the paragraph line breaker
     fn add_paragraph_word(&mut self, text: &str);
 
-    /// Add an unbreakable unit with markers (prefix, content, suffix)
+    /// Add an unbreakable unit with markers
     fn add_paragraph_unbreakable_unit(
         &mut self,
         kind: crate::render::commonmark::line_breaking::UnitKind,

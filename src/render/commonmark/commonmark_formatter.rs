@@ -1,22 +1,9 @@
 //! CommonMark node formatter implementation
 //!
-//! This module provides a NodeFormatter implementation for CommonMark output,
-//! migrating the existing commonmark.rs functionality to the formatter framework.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use clmd::render::commonmark::CommonMarkNodeFormatter;
-//! use clmd::options::format::FormatOptions;
-//!
-//! let formatter = CommonMarkNodeFormatter::new();
-//! let options = FormatOptions::new().with_right_margin(80);
-//! let formatter = CommonMarkNodeFormatter::with_options(options);
-//! ```
+//! This module provides a NodeFormatter implementation for CommonMark output.
 
-use crate::core::arena::NodeId;
 use crate::core::nodes::NodeValue;
-use crate::options::format::{FormatOptions, HeadingStyle};
+use crate::options::format::HeadingStyle;
 use crate::render::commonmark::context::NodeFormatterContext;
 use crate::render::commonmark::escaping::{compute_fence_length, escape_text};
 use crate::render::commonmark::handler_utils::{
@@ -72,15 +59,7 @@ use crate::render::commonmark::writer::MarkdownWriter;
 pub struct CommonMarkNodeFormatter;
 
 impl CommonMarkNodeFormatter {
-    /// Create a new CommonMark formatter with default options
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use clmd::render::commonmark::CommonMarkNodeFormatter;
-    ///
-    /// let formatter = CommonMarkNodeFormatter::new();
-    /// ```
+    /// Create a new CommonMark formatter
     pub fn new() -> Self {
         Self
     }
