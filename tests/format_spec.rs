@@ -173,9 +173,7 @@ fn format_markdown(input: &str, options: &FormatOptions) -> String {
     let (arena, root) = parse_document(input, &parse_options);
 
     let mut formatter = Formatter::with_options(options.clone());
-    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::with_options(
-        options.clone(),
-    )));
+    formatter.add_node_formatter(Box::new(CommonMarkNodeFormatter::new()));
 
     formatter.render(&arena, root)
 }

@@ -404,9 +404,6 @@ mod tests {
     }
 
     impl NodeFormatterContext for MockContext {
-        fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
-            &mut self.writer
-        }
         fn render(&mut self, _node_id: crate::core::arena::NodeId) {
             // No-op for mock
         }

@@ -37,7 +37,6 @@ use crate::render::commonmark::handlers::table::{
     collect_cell_text_content, render_formatted_table,
 };
 use crate::render::commonmark::node::{NodeFormatter, NodeFormattingHandler};
-use crate::render::commonmark::phase::{FormattingPhase, PhasedNodeFormatter};
 use crate::render::commonmark::writer::MarkdownWriter;
 
 /// CommonMark node formatter
@@ -83,27 +82,6 @@ impl CommonMarkNodeFormatter {
     /// let formatter = CommonMarkNodeFormatter::new();
     /// ```
     pub fn new() -> Self {
-        Self
-    }
-
-    /// Create a new CommonMark formatter with custom options
-    ///
-    /// # Arguments
-    ///
-    /// * `_options` - Formatter options for customizing output (currently unused)
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use clmd::render::commonmark::CommonMarkNodeFormatter;
-    /// use clmd::options::format::FormatOptions;
-    ///
-    /// let options = FormatOptions::new()
-    ///     .with_right_margin(80)
-    ///     .with_keep_hard_line_breaks(true);
-    /// let formatter = CommonMarkNodeFormatter::with_options(options);
-    /// ```
-    pub fn with_options(_options: FormatOptions) -> Self {
         Self
     }
 }
@@ -1037,30 +1015,6 @@ impl NodeFormatter for CommonMarkNodeFormatter {
     }
 }
 
-impl PhasedNodeFormatter for CommonMarkNodeFormatter {
-    fn get_formatting_phases(&self) -> Vec<FormattingPhase> {
-        // Support all formatting phases as defined in flexmark-java
-        vec![
-            FormattingPhase::Collect,
-            FormattingPhase::DocumentFirst,
-            FormattingPhase::DocumentTop,
-            FormattingPhase::Document,
-            FormattingPhase::DocumentBottom,
-        ]
-    }
-
-    fn render_document(
-        &self,
-        _context: &mut dyn NodeFormatterContext,
-        _writer: &mut MarkdownWriter,
-        _root: NodeId,
-        _phase: FormattingPhase,
-    ) {
-        // Phased rendering is currently a placeholder for future implementation
-        // The actual rendering is handled by node handlers in the Document phase
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1070,12 +1024,6 @@ mod tests {
     struct MockContext;
 
     impl NodeFormatterContext for MockContext {
-        fn get_markdown_writer(
-            &mut self,
-        ) -> &mut crate::render::commonmark::writer::MarkdownWriter {
-            panic!("Not implemented")
-        }
-
         fn render(&mut self, _node_id: crate::core::arena::NodeId) {
             panic!("Not implemented")
         }
@@ -1197,16 +1145,6 @@ mod tests {
     }
 
     #[test]
-    fn test_commonmark_formatter_with_options() {
-        let options = FormatOptions::new()
-            .with_right_margin(80)
-            .with_keep_hard_line_breaks(true);
-        let formatter = CommonMarkNodeFormatter::with_options(options);
-        let handlers = formatter.get_node_formatting_handlers();
-        assert!(!handlers.is_empty());
-    }
-
-    #[test]
     fn test_escape_text() {
         let ctx = MockContext;
         assert_eq!(escape_text("*text*", &ctx), "\\*text\\*");
@@ -1221,19 +1159,6 @@ mod tests {
         let ctx = MockContext;
         assert_eq!(escape_text("plain text", &ctx), "plain text");
         assert_eq!(escape_text("123", &ctx), "123");
-    }
-
-    #[test]
-    fn test_phased_formatter_phases() {
-        let formatter = CommonMarkNodeFormatter::new();
-        let phases = formatter.get_formatting_phases();
-        // Now supports all 5 formatting phases as per flexmark-java
-        assert_eq!(phases.len(), 5);
-        assert!(phases.contains(&FormattingPhase::Collect));
-        assert!(phases.contains(&FormattingPhase::DocumentFirst));
-        assert!(phases.contains(&FormattingPhase::DocumentTop));
-        assert!(phases.contains(&FormattingPhase::Document));
-        assert!(phases.contains(&FormattingPhase::DocumentBottom));
     }
 
     #[test]

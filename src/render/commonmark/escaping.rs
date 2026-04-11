@@ -547,12 +547,6 @@ mod tests {
     struct MockParagraphContext;
 
     impl NodeFormatterContext for MockParagraphContext {
-        fn get_markdown_writer(
-            &mut self,
-        ) -> &mut crate::render::commonmark::writer::MarkdownWriter {
-            panic!("Not implemented")
-        }
-
         fn render(&mut self, _node_id: crate::core::arena::NodeId) {
             panic!("Not implemented")
         }

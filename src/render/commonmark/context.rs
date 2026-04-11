@@ -7,7 +7,6 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::format::FormatOptions;
 use crate::render::commonmark::node::NodeType;
-use crate::render::commonmark::writer::MarkdownWriter;
 
 /// Context for node formatting operations
 ///
@@ -15,9 +14,6 @@ use crate::render::commonmark::writer::MarkdownWriter;
 /// interact with the formatting system, including rendering nodes,
 /// accessing configuration, and managing output.
 pub trait NodeFormatterContext {
-    /// Get the Markdown writer for output
-    fn get_markdown_writer(&mut self) -> &mut MarkdownWriter;
-
     /// Render a specific node
     ///
     /// This should be used to render child nodes. Be careful not to
@@ -178,208 +174,6 @@ pub trait NodeFormatterContext {
     fn is_paragraph_line_breaking(&self) -> bool;
 }
 
-/// A sub-context for nested formatting operations
-pub struct SubFormatterContext<'a> {
-    /// Reference to the parent context
-    parent: &'a mut dyn NodeFormatterContext,
-    /// The Markdown writer
-    markdown: MarkdownWriter,
-    /// The current node being rendered
-    current_node: Option<NodeId>,
-    /// Whether we're in a tight list
-    tight_list: bool,
-    /// List nesting level
-    list_nesting: usize,
-    /// Whether we're in a block quote
-    in_block_quote: bool,
-    /// Block quote nesting level
-    block_quote_nesting: usize,
-}
-
-impl<'a> std::fmt::Debug for SubFormatterContext<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SubFormatterContext")
-            .field("current_node", &self.current_node)
-            .field("tight_list", &self.tight_list)
-            .field("list_nesting", &self.list_nesting)
-            .field("in_block_quote", &self.in_block_quote)
-            .field("block_quote_nesting", &self.block_quote_nesting)
-            .finish_non_exhaustive()
-    }
-}
-
-impl<'a> SubFormatterContext<'a> {
-    /// Create a new sub-context
-    pub fn new(parent: &'a mut dyn NodeFormatterContext) -> Self {
-        let markdown = MarkdownWriter::new(parent.get_formatter_options().format_flags);
-        Self {
-            parent,
-            markdown,
-            current_node: None,
-            tight_list: false,
-            list_nesting: 0,
-            in_block_quote: false,
-            block_quote_nesting: 0,
-        }
-    }
-
-    /// Create a new sub-context with a specific writer
-    pub fn with_writer(
-        parent: &'a mut dyn NodeFormatterContext,
-        markdown: MarkdownWriter,
-    ) -> Self {
-        Self {
-            parent,
-            markdown,
-            current_node: None,
-            tight_list: false,
-            list_nesting: 0,
-            in_block_quote: false,
-            block_quote_nesting: 0,
-        }
-    }
-}
-
-impl<'a> NodeFormatterContext for SubFormatterContext<'a> {
-    fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
-        &mut self.markdown
-    }
-
-    fn render(&mut self, node_id: NodeId) {
-        self.parent.render(node_id);
-    }
-
-    fn render_children(&mut self, node_id: NodeId) {
-        self.parent.render_children(node_id);
-    }
-
-    fn get_formatter_options(&self) -> &FormatOptions {
-        self.parent.get_formatter_options()
-    }
-
-    fn get_arena(&self) -> &NodeArena {
-        self.parent.get_arena()
-    }
-
-    fn get_current_node(&self) -> Option<NodeId> {
-        self.current_node.or_else(|| self.parent.get_current_node())
-    }
-
-    fn is_in_tight_list(&self) -> bool {
-        self.tight_list
-    }
-
-    fn set_tight_list(&mut self, tight: bool) {
-        self.tight_list = tight;
-    }
-
-    fn get_list_nesting_level(&self) -> usize {
-        self.list_nesting
-    }
-
-    fn increment_list_nesting(&mut self) {
-        self.list_nesting += 1;
-    }
-
-    fn decrement_list_nesting(&mut self) {
-        if self.list_nesting > 0 {
-            self.list_nesting -= 1;
-        }
-    }
-
-    fn is_in_block_quote(&self) -> bool {
-        self.in_block_quote
-    }
-
-    fn set_in_block_quote(&mut self, in_block_quote: bool) {
-        self.in_block_quote = in_block_quote;
-    }
-
-    fn get_block_quote_nesting_level(&self) -> usize {
-        self.block_quote_nesting
-    }
-
-    fn increment_block_quote_nesting(&mut self) {
-        self.block_quote_nesting += 1;
-    }
-
-    fn decrement_block_quote_nesting(&mut self) {
-        if self.block_quote_nesting > 0 {
-            self.block_quote_nesting -= 1;
-        }
-    }
-
-    // Table data collection methods - delegate to parent
-
-    fn start_table_collection(
-        &mut self,
-        alignments: Vec<crate::core::nodes::TableAlignment>,
-    ) {
-        self.parent.start_table_collection(alignments);
-    }
-
-    fn add_table_row(&mut self) {
-        self.parent.add_table_row();
-    }
-
-    fn add_table_cell(&mut self, content: String) {
-        self.parent.add_table_cell(content);
-    }
-
-    fn take_table_data(
-        &mut self,
-    ) -> Option<(Vec<Vec<String>>, Vec<crate::core::nodes::TableAlignment>)> {
-        self.parent.take_table_data()
-    }
-
-    fn is_collecting_table(&self) -> bool {
-        self.parent.is_collecting_table()
-    }
-
-    fn set_skip_children(&mut self, skip: bool) {
-        self.parent.set_skip_children(skip);
-    }
-
-    fn render_children_to_string(&mut self, node_id: NodeId) -> String {
-        self.parent.render_children_to_string(node_id)
-    }
-
-    fn start_paragraph_line_breaking(&mut self, max_width: usize, prefix: String) {
-        self.parent.start_paragraph_line_breaking(max_width, prefix);
-    }
-
-    fn finish_paragraph_line_breaking(&mut self) -> Option<String> {
-        self.parent.finish_paragraph_line_breaking()
-    }
-
-    fn add_paragraph_text(&mut self, text: &str) {
-        self.parent.add_paragraph_text(text);
-    }
-
-    fn add_paragraph_word(&mut self, text: &str) {
-        self.parent.add_paragraph_word(text);
-    }
-
-    fn add_paragraph_unbreakable_unit(
-        &mut self,
-        kind: crate::render::commonmark::line_breaking::UnitKind,
-        prefix: &str,
-        content: &str,
-        suffix: &str,
-    ) {
-        self.parent
-            .add_paragraph_unbreakable_unit(kind, prefix, content, suffix);
-    }
-
-    fn add_paragraph_hard_break(&mut self) {
-        self.parent.add_paragraph_hard_break();
-    }
-
-    fn is_paragraph_line_breaking(&self) -> bool {
-        self.parent.is_paragraph_line_breaking()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,10 +208,6 @@ mod tests {
     }
 
     impl NodeFormatterContext for MockContext {
-        fn get_markdown_writer(&mut self) -> &mut MarkdownWriter {
-            unimplemented!()
-        }
-
         fn render(&mut self, _node_id: NodeId) {
             unimplemented!()
         }
@@ -672,92 +462,5 @@ mod tests {
         // Set current node to document (no parent)
         ctx.current_node = Some(doc);
         assert!(ctx.get_current_node_parent().is_none());
-    }
-
-    #[test]
-    fn test_sub_formatter_context_new() {
-        let mut parent = MockContext::new();
-        let sub = SubFormatterContext::new(&mut parent);
-
-        assert!(sub.get_current_node().is_none());
-        assert!(!sub.is_in_tight_list());
-        assert_eq!(sub.get_list_nesting_level(), 0);
-        assert!(!sub.is_in_block_quote());
-        assert_eq!(sub.get_block_quote_nesting_level(), 0);
-    }
-
-    #[test]
-    fn test_sub_formatter_context_tight_list() {
-        let mut parent = MockContext::new();
-        let mut sub = SubFormatterContext::new(&mut parent);
-
-        sub.set_tight_list(true);
-        assert!(sub.is_in_tight_list());
-
-        sub.set_tight_list(false);
-        assert!(!sub.is_in_tight_list());
-    }
-
-    #[test]
-    fn test_sub_formatter_context_list_nesting() {
-        let mut parent = MockContext::new();
-        let mut sub = SubFormatterContext::new(&mut parent);
-
-        assert_eq!(sub.get_list_nesting_level(), 0);
-
-        sub.increment_list_nesting();
-        assert_eq!(sub.get_list_nesting_level(), 1);
-
-        sub.increment_list_nesting();
-        assert_eq!(sub.get_list_nesting_level(), 2);
-
-        sub.decrement_list_nesting();
-        assert_eq!(sub.get_list_nesting_level(), 1);
-
-        sub.decrement_list_nesting();
-        assert_eq!(sub.get_list_nesting_level(), 0);
-
-        // Should not go below 0
-        sub.decrement_list_nesting();
-        assert_eq!(sub.get_list_nesting_level(), 0);
-    }
-
-    #[test]
-    fn test_sub_formatter_context_block_quote() {
-        let mut parent = MockContext::new();
-        let mut sub = SubFormatterContext::new(&mut parent);
-
-        assert!(!sub.is_in_block_quote());
-
-        sub.set_in_block_quote(true);
-        assert!(sub.is_in_block_quote());
-
-        sub.increment_block_quote_nesting();
-        assert_eq!(sub.get_block_quote_nesting_level(), 1);
-
-        sub.decrement_block_quote_nesting();
-        assert_eq!(sub.get_block_quote_nesting_level(), 0);
-    }
-
-    #[test]
-    fn test_sub_formatter_context_delegates_to_parent() {
-        let mut parent = MockContext::new();
-        let sub = SubFormatterContext::new(&mut parent);
-
-        // These should delegate to parent without panicking
-        let _ = sub.get_formatter_options();
-        let _ = sub.get_arena();
-    }
-
-    #[test]
-    fn test_sub_formatter_context_current_node_fallback() {
-        let mut parent = MockContext::new();
-        let doc = parent.arena.alloc(Node::with_value(NodeValue::Document));
-        parent.current_node = Some(doc);
-
-        let sub = SubFormatterContext::new(&mut parent);
-
-        // Should fall back to parent's current node
-        assert_eq!(sub.get_current_node(), Some(doc));
     }
 }

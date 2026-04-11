@@ -33,7 +33,7 @@ pub use crate::options::format::{
     ListSpacing, NumberedMarker, TrailingMarker,
 };
 pub use commonmark_formatter::CommonMarkNodeFormatter;
-pub use context::{NodeFormatterContext, SubFormatterContext};
+pub use context::NodeFormatterContext;
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
@@ -473,10 +473,6 @@ impl<'a> MainFormatterContext<'a> {
 }
 
 impl<'a> context::NodeFormatterContext for MainFormatterContext<'a> {
-    fn get_markdown_writer(&mut self) -> &mut writer::MarkdownWriter {
-        panic!("MainFormatterContext doesn't have a direct writer; use render() instead")
-    }
-
     fn render(&mut self, node_id: NodeId) {
         // This is a no-op in the main context because rendering
         // is done through render() with a writer
