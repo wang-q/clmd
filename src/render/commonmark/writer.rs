@@ -308,29 +308,9 @@ impl MarkdownWriter {
         self
     }
 
-    /// Check if in pre-formatted mode
-    pub fn is_pre_formatted(&self) -> bool {
-        self.pre_formatted
-    }
-
-    /// Get the current column position
-    pub fn get_column(&self) -> usize {
-        self.column
-    }
-
     /// Get whether we're at the beginning of a line
     pub fn is_beginning_of_line(&self) -> bool {
         self.beginning_of_line
-    }
-
-    /// Get the current output length
-    pub fn len(&self) -> usize {
-        self.output.len()
-    }
-
-    /// Check if the output is empty
-    pub fn is_empty(&self) -> bool {
-        self.output.is_empty()
     }
 
     /// Get the output as a string
@@ -457,24 +437,6 @@ mod tests {
         writer.force_newline();
         writer.append("Hello");
         assert_eq!(writer.to_string(), "\nHello");
-    }
-
-    #[test]
-    fn test_len() {
-        let mut writer = MarkdownWriter::default();
-        assert_eq!(writer.len(), 0);
-        writer.append("Hello");
-        assert_eq!(writer.len(), 5);
-    }
-
-    #[test]
-    fn test_is_pre_formatted() {
-        let mut writer = MarkdownWriter::default();
-        assert!(!writer.is_pre_formatted());
-        writer.open_pre_formatted();
-        assert!(writer.is_pre_formatted());
-        writer.close_pre_formatted();
-        assert!(!writer.is_pre_formatted());
     }
 
     #[test]
