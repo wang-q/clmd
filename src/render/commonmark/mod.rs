@@ -155,8 +155,6 @@ struct MainFormatterContext<'a> {
     in_block_quote: bool,
     /// Block quote nesting level
     block_quote_nesting: usize,
-    /// Collected nodes by type discriminant
-    collected_nodes: HashMap<Discriminant<NodeValue>, Vec<NodeId>>,
     /// Table data collection
     table_rows: Vec<Vec<String>>,
     /// Table alignments
@@ -208,7 +206,6 @@ impl<'a> MainFormatterContext<'a> {
             list_nesting: 0,
             in_block_quote: false,
             block_quote_nesting: 0,
-            collected_nodes: HashMap::new(),
             table_rows: Vec::new(),
             table_alignments: Vec::new(),
             collecting_table: false,
@@ -219,18 +216,17 @@ impl<'a> MainFormatterContext<'a> {
             text_collection_buffer: None,
         };
         context.build_handler_map();
-        context.collect_nodes();
         context
     }
 
     /// Check if formatting is currently off
-    pub fn is_formatting_off(&self) -> bool {
+    fn is_formatting_off(&self) -> bool {
         self.format_control.is_formatting_off()
     }
 
     /// Process an HTML comment for format control
     /// Returns true if the comment was a format control comment
-    pub fn process_format_control_comment(&mut self, comment_text: &str) -> bool {
+    fn process_format_control_comment(&mut self, comment_text: &str) -> bool {
         self.format_control.process_comment(comment_text)
     }
 
@@ -244,81 +240,9 @@ impl<'a> MainFormatterContext<'a> {
         }
     }
 
-    /// Collect nodes by type for quick access
-    fn collect_nodes(&mut self) {
-        // Only collect nodes if there are interested formatters
-        let node_classes = self.formatters.get_all_node_classes();
-        if node_classes.is_empty() {
-            return;
-        }
-
-        // Find the document root and collect nodes
-        if let Some(root) = self.find_document_root() {
-            self.collect_nodes_recursive(root, &node_classes);
-        }
-    }
-
-    /// Recursively collect nodes of interest
-    fn collect_nodes_recursive(
-        &mut self,
-        node_id: NodeId,
-        node_classes: &[Discriminant<NodeValue>],
-    ) {
-        let node = self.arena.get(node_id);
-        let node_discriminant = std::mem::discriminant(&node.value);
-
-        if node_classes.contains(&node_discriminant) {
-            self.collected_nodes
-                .entry(node_discriminant)
-                .or_default()
-                .push(node_id);
-        }
-
-        // Recursively collect from children
-        let mut child_id = node.first_child;
-        while let Some(child) = child_id {
-            self.collect_nodes_recursive(child, node_classes);
-            child_id = self.arena.get(child).next;
-        }
-    }
-
-    /// Find the document root node
-    fn find_document_root(&self) -> Option<NodeId> {
-        // Try to find the document node (should be node 0)
-        if let Some(_node) = self.arena.try_get(0) {
-            if matches!(_node.value, crate::core::nodes::NodeValue::Document) {
-                return Some(0);
-            }
-        }
-
-        // Otherwise, find any node and trace back to root
-        // Use arena's actual length instead of hardcoded limit
-        let node_count = self.arena.len();
-        for i in 0..node_count {
-            let node_id = i as NodeId;
-            if let Some(_node) = self.arena.try_get(node_id) {
-                let mut current = node_id;
-                loop {
-                    let n = self.arena.get(current);
-                    if let Some(parent) = n.parent {
-                        current = parent;
-                    } else {
-                        return Some(current);
-                    }
-                }
-            }
-        }
-        None
-    }
-
     /// Set the current formatting phase
-    pub fn set_phase(&mut self, phase: phase::FormattingPhase) {
+    fn set_phase(&mut self, phase: phase::FormattingPhase) {
         self.phase = phase;
-    }
-
-    /// Set the current node
-    pub fn set_current_node(&mut self, node_id: Option<NodeId>) {
-        self.current_node = node_id;
     }
 
     /// Render a node using the appropriate handler

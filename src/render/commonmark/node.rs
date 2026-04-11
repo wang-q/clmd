@@ -106,14 +106,6 @@ pub trait NodeFormatter: Send + Sync {
     ///
     /// Returns a list of handlers that map node types to formatting functions.
     fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler>;
-
-    /// Get the node types this formatter is interested in
-    ///
-    /// These node types will be collected during the document traversal
-    /// for quick access without re-traversing the AST.
-    fn get_node_classes(&self) -> Vec<NodeType> {
-        Vec::new()
-    }
 }
 
 /// A composed node formatter that combines multiple formatters
@@ -149,14 +141,6 @@ impl ComposedNodeFormatter {
             .flat_map(|f| f.get_node_formatting_handlers())
             .collect()
     }
-
-    /// Get all node classes from all formatters
-    pub fn get_all_node_classes(&self) -> Vec<NodeType> {
-        self.formatters
-            .iter()
-            .flat_map(|f| f.get_node_classes())
-            .collect()
-    }
 }
 
 impl Default for ComposedNodeFormatter {
@@ -168,10 +152,6 @@ impl Default for ComposedNodeFormatter {
 impl NodeFormatter for ComposedNodeFormatter {
     fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
         self.get_all_handlers()
-    }
-
-    fn get_node_classes(&self) -> Vec<NodeType> {
-        self.get_all_node_classes()
     }
 }
 
@@ -284,7 +264,6 @@ mod tests {
     fn test_composed_formatter_new() {
         let composed = ComposedNodeFormatter::new();
         assert_eq!(composed.get_all_handlers().len(), 0);
-        assert_eq!(composed.get_all_node_classes().len(), 0);
     }
 
     #[test]
@@ -332,31 +311,6 @@ mod tests {
     }
 
     #[test]
-    fn test_composed_formatter_get_node_classes() {
-        struct TestFormatter;
-        impl NodeFormatter for TestFormatter {
-            fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-                vec![]
-            }
-
-            fn get_node_classes(&self) -> Vec<NodeType> {
-                vec![
-                    std::mem::discriminant(&NodeValue::Paragraph),
-                    std::mem::discriminant(&NodeValue::Heading(
-                        crate::core::nodes::NodeHeading::default(),
-                    )),
-                ]
-            }
-        }
-
-        let mut composed = ComposedNodeFormatter::new();
-        composed.add_formatter(Box::new(TestFormatter));
-
-        let classes = composed.get_all_node_classes();
-        assert_eq!(classes.len(), 2);
-    }
-
-    #[test]
     fn test_composed_formatter_debug() {
         let composed = ComposedNodeFormatter::new();
         let debug_str = format!("{:?}", composed);
@@ -373,15 +327,10 @@ mod tests {
                     |_, _, _| {},
                 )]
             }
-
-            fn get_node_classes(&self) -> Vec<NodeType> {
-                vec![std::mem::discriminant(&NodeValue::Paragraph)]
-            }
         }
 
         let formatter = SimpleFormatter;
         assert_eq!(formatter.get_node_formatting_handlers().len(), 1);
-        assert_eq!(formatter.get_node_classes().len(), 1);
     }
 
     // Mock context for testing - provides safe default implementations

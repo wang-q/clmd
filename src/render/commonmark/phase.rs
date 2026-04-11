@@ -144,13 +144,6 @@ impl NodeFormatter for ComposedPhasedFormatter {
             .flat_map(|f| f.get_node_formatting_handlers())
             .collect()
     }
-
-    fn get_node_classes(&self) -> Vec<crate::render::commonmark::node::NodeType> {
-        self.formatters
-            .iter()
-            .flat_map(|f| f.get_node_classes())
-            .collect()
-    }
 }
 
 impl PhasedNodeFormatter for ComposedPhasedFormatter {
@@ -218,10 +211,6 @@ impl SimplePhasedFormatter {
 
 impl NodeFormatter for SimplePhasedFormatter {
     fn get_node_formatting_handlers(&self) -> Vec<NodeFormattingHandler> {
-        Vec::new()
-    }
-
-    fn get_node_classes(&self) -> Vec<crate::render::commonmark::node::NodeType> {
         Vec::new()
     }
 }

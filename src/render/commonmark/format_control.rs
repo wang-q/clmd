@@ -31,10 +31,6 @@ pub struct FormatControlProcessor {
     formatter_off_regex: Option<Regex>,
     /// Current state: whether formatting is off
     formatting_off: bool,
-    /// Whether formatting was just turned off (for one-time detection)
-    just_turned_off: bool,
-    /// Whether formatting was just turned on (for one-time detection)
-    just_turned_on: bool,
 }
 
 impl FormatControlProcessor {
@@ -62,8 +58,6 @@ impl FormatControlProcessor {
             formatter_on_regex,
             formatter_off_regex,
             formatting_off: false,
-            just_turned_off: false,
-            just_turned_on: false,
         }
     }
 
@@ -76,10 +70,6 @@ impl FormatControlProcessor {
     ///
     /// Returns true if the comment was a format control comment.
     pub fn process_comment(&mut self, comment_text: &str) -> bool {
-        // Reset the just-turned flags
-        self.just_turned_off = false;
-        self.just_turned_on = false;
-
         if !self.formatter_tags_enabled {
             return false;
         }
@@ -96,20 +86,14 @@ impl FormatControlProcessor {
         if self.formatter_tags_accept_regex {
             if let Some(ref on_regex) = self.formatter_on_regex {
                 if on_regex.is_match(content) {
-                    if self.formatting_off {
-                        self.formatting_off = false;
-                        self.just_turned_on = true;
-                    }
+                    self.formatting_off = false;
                     return true;
                 }
             }
 
             if let Some(ref off_regex) = self.formatter_off_regex {
                 if off_regex.is_match(content) {
-                    if !self.formatting_off {
-                        self.formatting_off = true;
-                        self.just_turned_off = true;
-                    }
+                    self.formatting_off = true;
                     return true;
                 }
             }
@@ -117,19 +101,13 @@ impl FormatControlProcessor {
 
         // Check for exact match with formatter off tag
         if content == self.formatter_off_tag {
-            if !self.formatting_off {
-                self.formatting_off = true;
-                self.just_turned_off = true;
-            }
+            self.formatting_off = true;
             return true;
         }
 
         // Check for exact match with formatter on tag
         if content == self.formatter_on_tag {
-            if self.formatting_off {
-                self.formatting_off = false;
-                self.just_turned_on = true;
-            }
+            self.formatting_off = false;
             return true;
         }
 
