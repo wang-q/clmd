@@ -1031,8 +1031,8 @@ fn get_punctuation_affinity(
         "/" | "\\" => {
             // Check if the slash is part of a word (e.g., "I/O-bound", "and/or")
             // If both prev and next characters are alphanumeric, don't break
-            let prev_is_alphanumeric = prev_char.map_or(false, |c| c.is_alphanumeric());
-            let next_is_alphanumeric = next_char.map_or(false, |c| c.is_alphanumeric());
+            let prev_is_alphanumeric = prev_char.is_some_and(|c| c.is_alphanumeric());
+            let next_is_alphanumeric = next_char.is_some_and(|c| c.is_alphanumeric());
             if prev_is_alphanumeric && next_is_alphanumeric {
                 // Slash is part of a word, don't break here
                 None
