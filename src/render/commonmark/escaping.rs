@@ -567,28 +567,6 @@ pub fn escape_html_attribute(text: &str) -> String {
     result
 }
 
-/// Check if text contains characters that would need escaping
-pub fn needs_escaping(text: &str, context: &dyn NodeFormatterContext) -> bool {
-    text.chars().any(|ch| need_to_escape(ch, context))
-}
-
-/// Choose the best emphasis marker for the given text
-/// Returns '*' or '_' depending on which would require less escaping
-pub fn choose_emphasis_marker(text: &str) -> char {
-    let asterisk_count = text.matches('*').count();
-    let underscore_count = text.matches('_').count();
-
-    // Prefer the marker that doesn't appear in the text
-    if asterisk_count == 0 && underscore_count > 0 {
-        '*'
-    } else if underscore_count == 0 && asterisk_count > 0 {
-        '_'
-    } else {
-        // Both appear or neither appears - prefer asterisk
-        '*'
-    }
-}
-
 /// Compute the required fence length for code blocks or code spans
 /// based on the content to ensure the fence doesn't appear in the content
 pub fn compute_fence_length(content: &str, base_length: usize) -> usize {
@@ -606,26 +584,6 @@ pub fn compute_fence_length(content: &str, base_length: usize) -> usize {
 
     // Need one more backtick than the maximum consecutive sequence
     (max_consecutive + 1).max(base_length)
-}
-
-/// Normalize line endings to LF
-pub fn normalize_line_endings(text: &str) -> String {
-    text.replace("\r\n", "\n").replace('\r', "\n")
-}
-
-/// Escape special regex characters in a string
-pub fn escape_regex(text: &str) -> String {
-    let special_chars = r"\.^$|?*+()[]{}";
-    let mut result = String::with_capacity(text.len());
-
-    for ch in text.chars() {
-        if special_chars.contains(ch) {
-            result.push('\\');
-        }
-        result.push(ch);
-    }
-
-    result
 }
 
 #[cfg(test)]
@@ -663,21 +621,6 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_html_attribute() {
-        assert_eq!(escape_html_attribute("<test>"), "&lt;test&gt;");
-        assert_eq!(escape_html_attribute("\"quoted\""), "&quot;quoted&quot;");
-        assert_eq!(escape_html_attribute("a&b"), "a&amp;b");
-    }
-
-    #[test]
-    fn test_choose_emphasis_marker() {
-        assert_eq!(choose_emphasis_marker("no special"), '*');
-        assert_eq!(choose_emphasis_marker("has_underscore"), '*');
-        assert_eq!(choose_emphasis_marker("has*asterisk"), '_');
-        assert_eq!(choose_emphasis_marker("has_both*"), '*');
-    }
-
-    #[test]
     fn test_compute_fence_length() {
         assert_eq!(compute_fence_length("code", 3), 3);
         assert_eq!(compute_fence_length("``", 3), 3);
@@ -685,20 +628,6 @@ mod tests {
         assert_eq!(compute_fence_length("````", 3), 5);
         assert_eq!(compute_fence_length("code `inline` more", 3), 3);
         assert_eq!(compute_fence_length("code `` more", 3), 3);
-    }
-
-    #[test]
-    fn test_normalize_line_endings() {
-        assert_eq!(normalize_line_endings("a\r\nb"), "a\nb");
-        assert_eq!(normalize_line_endings("a\rb"), "a\nb");
-        assert_eq!(normalize_line_endings("a\nb"), "a\nb");
-    }
-
-    #[test]
-    fn test_escape_regex() {
-        assert_eq!(escape_regex("a.b"), "a\\.b");
-        assert_eq!(escape_regex("a*b"), "a\\*b");
-        assert_eq!(escape_regex("[test]"), "\\[test\\]");
     }
 
     // Regression tests for unnecessary escaping fix
@@ -1110,68 +1039,6 @@ mod tests {
     }
 
     #[test]
-    fn test_is_punctuation() {
-        // ASCII punctuation
-        assert!(is_punctuation('.'));
-        assert!(is_punctuation(','));
-        assert!(is_punctuation('!'));
-        assert!(is_punctuation('?'));
-        assert!(is_punctuation(':'));
-        assert!(is_punctuation(';'));
-        assert!(is_punctuation('"'));
-        assert!(is_punctuation('\''));
-        assert!(is_punctuation('('));
-        assert!(is_punctuation(')'));
-        assert!(is_punctuation('['));
-        assert!(is_punctuation(']'));
-        assert!(is_punctuation('{'));
-        assert!(is_punctuation('}'));
-        assert!(is_punctuation('<'));
-        assert!(is_punctuation('>'));
-        assert!(is_punctuation('/'));
-        assert!(is_punctuation('\\'));
-        assert!(is_punctuation('|'));
-        assert!(is_punctuation('@'));
-        assert!(is_punctuation('#'));
-        assert!(is_punctuation('$'));
-        assert!(is_punctuation('%'));
-        assert!(is_punctuation('^'));
-        assert!(is_punctuation('&'));
-        assert!(is_punctuation('*'));
-        assert!(is_punctuation('+'));
-        assert!(is_punctuation('='));
-        assert!(is_punctuation('~'));
-        assert!(is_punctuation('`'));
-
-        // CJK punctuation
-        assert!(is_punctuation('。'));
-        assert!(is_punctuation('，'));
-        assert!(is_punctuation('！'));
-        assert!(is_punctuation('？'));
-        assert!(is_punctuation('：'));
-        assert!(is_punctuation('；'));
-        assert!(is_punctuation('"'));
-        assert!(is_punctuation('"'));
-        assert!(is_punctuation('\''));
-        assert!(is_punctuation('\''));
-        assert!(is_punctuation('（'));
-        assert!(is_punctuation('）'));
-        assert!(is_punctuation('【'));
-        assert!(is_punctuation('】'));
-        assert!(is_punctuation('《'));
-        assert!(is_punctuation('》'));
-
-        // Non-punctuation
-        assert!(!is_punctuation('a'));
-        assert!(!is_punctuation('A'));
-        assert!(!is_punctuation('1'));
-        assert!(!is_punctuation(' '));
-        assert!(!is_punctuation('中'));
-        assert!(!is_punctuation('あ'));
-        assert!(!is_punctuation('한'));
-    }
-
-    #[test]
     fn test_could_form_emphasis() {
         // Left-flanking: preceded by whitespace/punctuation, followed by non-whitespace
         assert!(could_form_emphasis(Some(&' '), Some(&'a')));
@@ -1204,17 +1071,6 @@ mod tests {
 
         let chars: Vec<char> = "_word".chars().collect();
         assert!(!is_underscore_in_word(&chars, 0));
-    }
-
-    #[test]
-    fn test_escape_string() {
-        assert_eq!(escape_string("normal"), "normal");
-        // Note: escape_string function has complex behavior due to replacement order
-        // text.replace('"', "\"").replace('\', "\\")
-        // Just test that it doesn't panic on various inputs
-        let _ = escape_string("with\"quote");
-        let _ = escape_string("with\\backslash");
-        let _ = escape_string("both\"and\\");
     }
 
     #[test]
@@ -1298,31 +1154,5 @@ mod tests {
         // With larger base length
         assert_eq!(compute_fence_length("code", 5), 5);
         assert_eq!(compute_fence_length("```", 5), 5);
-    }
-
-    #[test]
-    fn test_normalize_line_endings_mixed() {
-        assert_eq!(normalize_line_endings("a\r\nb\rc\n"), "a\nb\nc\n");
-        assert_eq!(normalize_line_endings(""), "");
-        assert_eq!(normalize_line_endings("no newlines"), "no newlines");
-    }
-
-    #[test]
-    fn test_escape_regex_various() {
-        assert_eq!(escape_regex(""), "");
-        assert_eq!(escape_regex("normal"), "normal");
-        assert_eq!(
-            escape_regex(".*+?^${}()|[]\\"),
-            "\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\"
-        );
-    }
-
-    #[test]
-    fn test_needs_escaping() {
-        let ctx = MockParagraphContext;
-        assert!(needs_escaping("*text*", &ctx));
-        assert!(needs_escaping("[link]", &ctx));
-        assert!(!needs_escaping("normal text", &ctx));
-        assert!(!needs_escaping("", &ctx));
     }
 }
