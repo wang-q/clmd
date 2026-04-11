@@ -15,6 +15,52 @@ fn is_punctuation(c: char) -> bool {
     crate::text::char::is_punctuation(c)
 }
 
+fn is_cjk_opening_bracket(c: char) -> bool {
+    matches!(
+        c,
+        '(' | '[' | '{' // ASCII opening brackets (also checked for Left affinity)
+            | '\u{ff08}' // （
+            | '\u{ff3b}' // 【
+            | '\u{ff5b}' // 〔
+            | '\u{300c}' // 「
+            | '\u{300e}' // 『
+            | '\u{3008}' // 〈
+            | '\u{300a}' // 《
+            | '\u{3010}' // 【
+            | '\u{3014}' // 〔
+    )
+}
+
+fn is_cjk_closing_bracket(c: char) -> bool {
+    matches!(
+        c,
+        '\u{ff09}' // ）
+            | '\u{ff3d}' // 】
+            | '\u{ff5d}' // 〕
+            | '\u{300d}' // 」
+            | '\u{300f}' // 』
+            | '\u{3009}' // 〉
+            | '\u{300b}' // 》
+            | '\u{3011}' // 】
+            | '\u{3015}' // 〕
+    )
+}
+
+fn is_ascii_opening_bracket(c: char) -> bool {
+    matches!(c, '(' | '[' | '{')
+}
+
+fn is_ascii_closing_bracket(c: char) -> bool {
+    matches!(c, ')' | ']' | '}')
+}
+
+fn is_cjk_punct_that_should_pull_back(c: char) -> bool {
+    matches!(
+        c,
+        '，' | '。' | '、' | '；' | '：' | '）' | '」' | '』' | '”'
+    )
+}
+
 /// A word in the paragraph with its display width
 #[derive(Debug, Clone)]
 pub struct Word {
@@ -444,149 +490,7 @@ impl ParagraphLineBreaker {
             return Vec::new();
         }
 
-        // Helper function to check if a break at this position should be prevented
-        // We should NOT break if:
-        // - Left affinity: the character BEFORE the break is a CJK opening bracket AND next fragment is atomic
-        // - Right affinity: the character AFTER the break is a CJK opening bracket AND prev fragment ended with CJK
-        let should_prevent_break = |pos: usize, affinity: Affinity| -> bool {
-            let mut current_pos = 0usize;
-            let mut prev_fragment_end_char: Option<char> = None;
-            let mut next_fragment_start_char: Option<char> = None;
-            let mut containing_idx: Option<usize> = None;
-            let mut idx = 0usize;
-
-            // First pass: find the fragment containing pos and get adjacent characters
-            for fragment in &self.fragments {
-                match fragment {
-                    ContentFragment::Text { content, .. } => {
-                        let fragment_end = current_pos + content.len();
-                        if pos > current_pos && pos <= fragment_end {
-                            let char_pos = pos - current_pos;
-                            if char_pos > 0 {
-                                // The character before the break
-                                prev_fragment_end_char =
-                                    content[..char_pos].chars().last();
-                            }
-                            if char_pos < content.len() {
-                                // The character at/after the break position
-                                next_fragment_start_char =
-                                    content[char_pos..].chars().next();
-                            }
-                            containing_idx = Some(idx);
-                            break;
-                        }
-                        // Track the last character of this text fragment for cross-fragment checking
-                        if !content.is_empty() {
-                            prev_fragment_end_char = content.chars().last();
-                        }
-                        current_pos = fragment_end;
-                    }
-                    ContentFragment::Atomic { content, .. } => {
-                        let fragment_end = current_pos + content.len();
-                        if pos > current_pos && pos <= fragment_end {
-                            let char_pos = pos - current_pos;
-                            if char_pos > 0 {
-                                // Inside the atomic fragment, before the break
-                                prev_fragment_end_char =
-                                    content[..char_pos].chars().last();
-                            }
-                            // For atomic fragments at this position, we need to check the character
-                            // that would be after the break point - but atomic fragments have no breaks inside
-                            containing_idx = Some(idx);
-                            break;
-                        }
-                        current_pos = fragment_end;
-                    }
-                }
-                idx += 1;
-            }
-
-            let Some(_containing_idx) = containing_idx else {
-                return false;
-            };
-
-            match affinity {
-                Affinity::Left => {
-                    // For Left affinity, we break AFTER a character
-                    // The character after the break is `next_fragment_start_char`
-                    // We should prevent breaking if `next_fragment_start_char` is a CJK opening bracket
-                    // BUT only if the character before the break is NOT whitespace
-                    // (allow break after whitespace even if next char is opening bracket)
-                    let is_cjk_opening_bracket =
-                        next_fragment_start_char.map_or(false, |c| {
-                            matches!(
-                                c,
-                                '(' | '[' | '{'
-                                | '\u{ff08}' // （
-                                | '\u{ff3b}' // 【
-                                | '\u{ff5b}' //【
-                                | '\u{300c}' // 「
-                                | '\u{300e}' // 『
-                                | '\u{3008}' // 〈
-                                | '\u{300a}' // 《
-                                | '\u{3010}' // 【
-                                | '\u{3014}' // 〔
-                            )
-                        });
-
-                    // Check if the character before the break is whitespace
-                    let prev_is_whitespace =
-                        prev_fragment_end_char.map_or(false, |c| c.is_whitespace());
-
-                    // Prevent break after CJK opening bracket, but allow if preceded by whitespace
-                    // This allows "CJK text (" to break at the space, not after the "("
-                    is_cjk_opening_bracket && !prev_is_whitespace
-                }
-                Affinity::Right => {
-                    // For Right affinity, we break BEFORE a character
-                    // The character before the break is `prev_fragment_end_char`
-
-                    // Special case: ASCII close bracket followed by CJK open bracket
-                    // e.g., "...)（..." - should break before ), not before （
-                    let is_prev_ascii_close_bracket = prev_fragment_end_char
-                        .map_or(false, |c| matches!(c, ')' | ']' | '}'));
-                    let is_next_cjk_open_bracket =
-                        next_fragment_start_char.map_or(false, |c| {
-                            matches!(
-                                c,
-                                '\u{ff08}' // （
-                                 | '\u{ff3b}' // 【
-                                 | '\u{ff5b}' //【
-                                 | '\u{300c}' // 「
-                                 | '\u{300e}' // 『
-                                 | '\u{3008}' // 〈
-                                 | '\u{300a}' // 《
-                                 | '\u{3010}' // 【
-                                 | '\u{3014}' // 〔
-                            )
-                        });
-
-                    if is_prev_ascii_close_bracket && is_next_cjk_open_bracket {
-                        return true; // Prevent break before CJK open bracket when preceded by ASCII close bracket
-                    }
-
-                    // Check if next char is a CJK opening bracket - if so, allow break
-                    if is_next_cjk_open_bracket {
-                        return false; // Allow break before CJK opening bracket
-                    }
-
-                    // For Right affinity, we generally want to allow breaks before punctuation
-                    // even if preceded by CJK. The CJK line breaking rules allow breaks between
-                    // any two characters, so we should not prevent breaks here.
-                    // Only prevent break if the next character is a CJK punctuation that should
-                    // stay with the previous text.
-                    let is_next_cjk_punct = next_fragment_start_char
-                        .map_or(false, |c| crate::text::char::is_cjk_punctuation(c));
-
-                    is_next_cjk_punct
-                }
-            }
-        };
-
-        // Build the list of break positions
-        // Each entry is (position, width_before)
         let mut break_positions: Vec<(usize, usize)> = vec![(0, 0)];
-
         let mut current_pos = 0;
         let mut current_width = 0;
 
@@ -599,16 +503,11 @@ impl ParagraphLineBreaker {
                     break_widths,
                     ..
                 } => {
-                    // Add break points within this text fragment
                     for (i, &(bp, affinity)) in break_points.iter().enumerate() {
                         let absolute_pos = current_pos + bp;
-
-                        // Skip break points that would leave a CJK opening bracket at end of line
-                        // followed by an atomic unit (like inline code)
-                        if should_prevent_break(absolute_pos, affinity) {
+                        if self.should_prevent_break(absolute_pos, affinity) {
                             continue;
                         }
-
                         let absolute_width = if i < break_widths.len() {
                             break_widths[i]
                         } else {
@@ -624,19 +523,11 @@ impl ParagraphLineBreaker {
                     width,
                     kind,
                 } => {
-                    // For atomic units, we can break before and after, but not inside
-                    // Break before (only if not at the very beginning)
                     if current_pos > 0 {
-                        // Always add break point before atomic units
-                        // The cost function will penalize breaking after opening brackets
-                        // if that's not desirable, allowing the algorithm to choose optimally
                         break_positions.push((current_pos, current_width));
                     }
-                    // Break after
                     current_pos += atomic_content.len();
                     current_width += width;
-                    // For Code and Link, don't add break after to preserve spacing
-                    // This prevents breaking right after code spans or links
                     if !matches!(kind, AtomicKind::Code | AtomicKind::Link) {
                         break_positions.push((current_pos, current_width));
                     }
@@ -644,7 +535,6 @@ impl ParagraphLineBreaker {
             }
         }
 
-        // Ensure the end position is included
         if break_positions
             .last()
             .map_or(true, |(pos, _)| *pos != self.current_position)
@@ -652,131 +542,12 @@ impl ParagraphLineBreaker {
             break_positions.push((self.current_position, self.current_width));
         }
 
-        // Sort and deduplicate
         break_positions.sort_by_key(|(pos, _)| *pos);
         break_positions.dedup_by_key(|(pos, _)| *pos);
 
-        // Helper function to get the first non-whitespace character at or after a position
-        let get_next_char_at = |pos: usize| -> Option<char> {
-            let mut current_pos = 0;
-            for fragment in &self.fragments {
-                match fragment {
-                    ContentFragment::Text { content, .. } => {
-                        let fragment_start = current_pos;
-                        let fragment_end = current_pos + content.len();
-                        if pos < fragment_end {
-                            // The position is in or before this fragment
-                            let start_in_fragment = if pos >= fragment_start {
-                                pos - fragment_start
-                            } else {
-                                0
-                            };
-                            return content[start_in_fragment..]
-                                .chars()
-                                .find(|c| !c.is_whitespace());
-                        }
-                        current_pos = fragment_end;
-                    }
-                    ContentFragment::Atomic { content, .. } => {
-                        let fragment_start = current_pos;
-                        let fragment_end = current_pos + content.len();
-                        if pos < fragment_end {
-                            // The position is in or before this fragment
-                            let start_in_fragment = if pos >= fragment_start {
-                                pos - fragment_start
-                            } else {
-                                0
-                            };
-                            return content[start_in_fragment..]
-                                .chars()
-                                .find(|c| !c.is_whitespace());
-                        }
-                        current_pos = fragment_end;
-                    }
-                }
-            }
-            None
-        };
-
-        // Helper function to get the last non-whitespace character before a position
-        let get_prev_char_at = |pos: usize| -> Option<char> {
-            let mut current_pos = 0;
-            for fragment in &self.fragments {
-                match fragment {
-                    ContentFragment::Text { content, .. } => {
-                        let fragment_start = current_pos;
-                        let fragment_end = current_pos + content.len();
-                        if pos > fragment_start && pos <= fragment_end {
-                            // The position is within this fragment
-                            let end_in_fragment = pos - fragment_start;
-                            if end_in_fragment > 0 {
-                                return content[..end_in_fragment]
-                                    .chars()
-                                    .rev()
-                                    .find(|c| !c.is_whitespace());
-                            }
-                        } else if pos <= fragment_start {
-                            // We've gone past the position, stop searching
-                            break;
-                        }
-                        current_pos = fragment_end;
-                    }
-                    ContentFragment::Atomic { content, .. } => {
-                        let fragment_start = current_pos;
-                        let fragment_end = current_pos + content.len();
-                        if pos > fragment_start && pos <= fragment_end {
-                            // The position is within this fragment
-                            let end_in_fragment = pos - fragment_start;
-                            if end_in_fragment > 0 {
-                                return content[..end_in_fragment]
-                                    .chars()
-                                    .rev()
-                                    .find(|c| !c.is_whitespace());
-                            }
-                        } else if pos <= fragment_start {
-                            // We've gone past the position, stop searching
-                            break;
-                        }
-                        current_pos = fragment_end;
-                    }
-                }
-            }
-            None
-        };
-
-        // Helper function to check if the segment from start_pos to end_pos contains
-        // an atomic unit that overflows max_width
-        let segment_has_overflowing_atomic =
-            |start_pos: usize, end_pos: usize| -> bool {
-                let mut current_pos = 0;
-                for fragment in &self.fragments {
-                    match fragment {
-                        ContentFragment::Text { content, .. } => {
-                            let fragment_end = current_pos + content.len();
-                            current_pos = fragment_end;
-                        }
-                        ContentFragment::Atomic { content, width, .. } => {
-                            let fragment_start = current_pos;
-                            let fragment_end = current_pos + content.len();
-                            // Check if this atomic unit overlaps with the segment
-                            // and overflows max_width
-                            let overlaps =
-                                fragment_start < end_pos && fragment_end > start_pos;
-                            if overlaps && *width > self.max_width {
-                                return true;
-                            }
-                            current_pos = fragment_end;
-                        }
-                    }
-                }
-                false
-            };
-
-        // Dynamic programming to find optimal breaks
         let n = break_positions.len();
         let mut best_cost: Vec<f64> = vec![f64::INFINITY; n];
         let mut best_prev: Vec<usize> = vec![0; n];
-
         best_cost[0] = 0.0;
 
         for i in 1..n {
@@ -784,103 +555,31 @@ impl ParagraphLineBreaker {
                 let line_width = break_positions[i].1 - break_positions[j].1;
                 let start_pos = break_positions[j].0;
                 let end_pos = break_positions[i].0;
+                let pos = break_positions[i].0;
 
-                // Check if this segment fits
                 let cost = if line_width <= self.max_width {
-                    // Standard Knuth-Plass: penalize slack quadratically
                     let slack = self.max_width - line_width;
+                    let at_atomic_start = self.is_at_atomic_start(pos);
+                    let next_char = self.find_non_ws_char_after(pos);
+                    let prev_char = self.find_non_ws_char_before(pos);
 
-                    // Helper function to check if position is at the start of an atomic unit
-                    let is_at_atomic_start = |pos: usize| -> bool {
-                        let mut current_pos = 0;
-                        for fragment in &self.fragments {
-                            match fragment {
-                                ContentFragment::Text { content, .. } => {
-                                    let fragment_end = current_pos + content.len();
-                                    if pos > current_pos && pos < fragment_end {
-                                        // Position is inside a text fragment
-                                        return false;
-                                    }
-                                    current_pos = fragment_end;
-                                }
-                                ContentFragment::Atomic { content, .. } => {
-                                    let fragment_start = current_pos;
-                                    let fragment_end = current_pos + content.len();
-                                    if pos == fragment_start {
-                                        // Position is at the start of an atomic unit
-                                        return true;
-                                    }
-                                    if pos > fragment_start && pos < fragment_end {
-                                        // Position is inside an atomic unit
-                                        return false;
-                                    }
-                                    current_pos = fragment_end;
-                                }
-                            }
-                        }
-                        false
-                    };
+                    let punctuation_penalty = Self::compute_punctuation_penalty(
+                        next_char,
+                        prev_char,
+                        at_atomic_start,
+                    );
 
-                    // Additional penalty for breaking before or after punctuation
-                    let next_char = get_next_char_at(break_positions[i].0);
-                    let prev_char = get_prev_char_at(break_positions[i].0);
-                    let at_atomic_start = is_at_atomic_start(break_positions[i].0);
-
-                    let punctuation_penalty = if let Some(c) = next_char {
-                        // Don't penalize breaking before opening brackets if the next thing is an atomic unit
-                        // (like a link or code span) - we want to break before atomic units
-
-                        if matches!(
-                            c,
-                            '，' | '。' | '、' | '；' | '：' | '）' | '」' | '』' | '”'
-                        ) {
-                            10000.0 // Very heavy penalty for breaking before CJK punctuation
-                        } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
-                            5000.0 // Heavy penalty for breaking before ASCII punctuation
-                        } else if matches!(c, '(' | '[' | '{') && !at_atomic_start {
-                            5000.0 // Heavy penalty for breaking before ASCII opening brackets
-                                   // But only if not at the start of an atomic unit
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        0.0
-                    } + if let Some(c) = prev_char {
-                        // Penalty for breaking after opening brackets
-                        if matches!(
-                            c,
-                            '(' | '[' | '{' | '（' | '【' | '「' | '『' | '《' | '〈'
-                        ) {
-                            5000.0 // Heavy penalty for breaking after opening brackets
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        0.0
-                    };
-
-                    // For the last line, don't penalize shortness
                     let is_last_line = i == n - 1;
-                    let cost = if is_last_line {
+                    if is_last_line {
                         best_cost[j] + slack as f64 * 0.1 + punctuation_penalty
                     } else {
                         best_cost[j] + (slack as f64).powi(2) + punctuation_penalty
-                    };
-
-                    cost
+                    }
                 } else {
-                    // Line overflows - this is bad, but we may have to accept it
-                    // for unbreakable content
                     let overflow = line_width - self.max_width;
-
-                    // If this segment contains an overflowing atomic unit,
-                    // we should prefer longer segments (smaller j) to minimize the number of overflow lines
-                    let has_overflowing_atomic =
-                        segment_has_overflowing_atomic(start_pos, end_pos);
-
-                    if has_overflowing_atomic {
-                        // Prefer longer lines when containing overflowing atomic units
-                        // Use a negative cost based on line width to encourage longer lines
+                    let has_overflowing =
+                        self.has_overflowing_atomic_in_range(start_pos, end_pos);
+                    if has_overflowing {
                         best_cost[j] + (overflow as f64).powi(2) * 100.0
                             - (line_width as f64 * 0.001)
                     } else {
@@ -895,10 +594,8 @@ impl ParagraphLineBreaker {
             }
         }
 
-        // Backtrack to find the optimal breaks
         let mut breaks = Vec::new();
         let mut i = n - 1;
-
         while i > 0 {
             let prev = best_prev[i];
             let line_width = break_positions[i].1 - break_positions[prev].1;
@@ -911,6 +608,343 @@ impl ParagraphLineBreaker {
 
         breaks.reverse();
         breaks
+    }
+
+    fn compute_punctuation_penalty(
+        next_char: Option<char>,
+        prev_char: Option<char>,
+        at_atomic_start: bool,
+    ) -> f64 {
+        let next_penalty = if let Some(c) = next_char {
+            if is_cjk_punct_that_should_pull_back(c) {
+                10000.0
+            } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
+                5000.0
+            } else if is_ascii_opening_bracket(c) && !at_atomic_start {
+                5000.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let prev_penalty = if let Some(c) = prev_char {
+            if is_ascii_opening_bracket(c) || is_cjk_opening_bracket(c) {
+                5000.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        next_penalty + prev_penalty
+    }
+
+    fn find_containing_fragment_info(
+        &self,
+        pos: usize,
+    ) -> Option<(usize, Option<char>, Option<char>)> {
+        let mut current_pos = 0;
+        let mut prev_char: Option<char> = None;
+        for (idx, fragment) in self.fragments.iter().enumerate() {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_end = current_pos + content.len();
+                    if pos > current_pos && pos <= fragment_end {
+                        let char_pos = pos - current_pos;
+                        let before = if char_pos > 0 {
+                            Some(content[..char_pos].chars().last().unwrap())
+                        } else {
+                            prev_char
+                        };
+                        let after = if char_pos < content.len() {
+                            content[char_pos..].chars().next()
+                        } else {
+                            None
+                        };
+                        return Some((idx, before, after));
+                    }
+                    if !content.is_empty() {
+                        prev_char = content.chars().last();
+                    }
+                    current_pos = fragment_end;
+                }
+                ContentFragment::Atomic { content, .. } => {
+                    let fragment_end = current_pos + content.len();
+                    if pos > current_pos && pos <= fragment_end {
+                        let char_pos = pos - current_pos;
+                        let before = if char_pos > 0 {
+                            Some(content[..char_pos].chars().last().unwrap())
+                        } else {
+                            prev_char
+                        };
+                        return Some((idx, before, None));
+                    }
+                    if !content.is_empty() {
+                        prev_char = content.chars().last();
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+        None
+    }
+
+    fn should_prevent_break(&self, pos: usize, affinity: Affinity) -> bool {
+        let Some((_idx, prev_char, next_char)) = self.find_containing_fragment_info(pos)
+        else {
+            return false;
+        };
+
+        match affinity {
+            Affinity::Left => {
+                let is_cjk_open = next_char.map_or(false, is_cjk_opening_bracket);
+                let prev_is_ws = prev_char.map_or(false, |c| c.is_whitespace());
+                is_cjk_open && !prev_is_ws
+            }
+            Affinity::Right => {
+                let is_prev_ascii_close =
+                    prev_char.map_or(false, is_ascii_closing_bracket);
+                let is_next_cjk_open = next_char.map_or(false, is_cjk_opening_bracket);
+
+                if is_prev_ascii_close && is_next_cjk_open {
+                    return true;
+                }
+                if is_next_cjk_open {
+                    return false;
+                }
+                next_char.map_or(false, |c| crate::text::char::is_cjk_punctuation(c))
+            }
+        }
+    }
+
+    fn find_non_ws_char_after(&self, pos: usize) -> Option<char> {
+        let mut current_pos = 0;
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_end = current_pos + content.len();
+                    if pos < fragment_end {
+                        let start = if pos >= current_pos {
+                            pos - current_pos
+                        } else {
+                            0
+                        };
+                        return content[start..].chars().find(|c| !c.is_whitespace());
+                    }
+                    current_pos = fragment_end;
+                }
+                ContentFragment::Atomic { content, .. } => {
+                    let fragment_end = current_pos + content.len();
+                    if pos < fragment_end {
+                        let start = if pos >= current_pos {
+                            pos - current_pos
+                        } else {
+                            0
+                        };
+                        return content[start..].chars().find(|c| !c.is_whitespace());
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+        None
+    }
+
+    fn find_non_ws_char_before(&self, pos: usize) -> Option<char> {
+        let mut current_pos = 0;
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos + content.len();
+                    if pos > fragment_start && pos <= fragment_end {
+                        let end_in_frag = pos - fragment_start;
+                        if end_in_frag > 0 {
+                            return content[..end_in_frag]
+                                .chars()
+                                .rev()
+                                .find(|c| !c.is_whitespace());
+                        }
+                    } else if pos <= fragment_start {
+                        break;
+                    }
+                    current_pos = fragment_end;
+                }
+                ContentFragment::Atomic { content, .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos + content.len();
+                    if pos > fragment_start && pos <= fragment_end {
+                        let end_in_frag = pos - fragment_start;
+                        if end_in_frag > 0 {
+                            return content[..end_in_frag]
+                                .chars()
+                                .rev()
+                                .find(|c| !c.is_whitespace());
+                        }
+                    } else if pos <= fragment_start {
+                        break;
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+        None
+    }
+
+    fn has_overflowing_atomic_in_range(&self, start_pos: usize, end_pos: usize) -> bool {
+        let mut current_pos = 0;
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    current_pos += content.len();
+                }
+                ContentFragment::Atomic { content, width, .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos + content.len();
+                    let overlaps = fragment_start < end_pos && fragment_end > start_pos;
+                    if overlaps && *width > self.max_width {
+                        return true;
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+        false
+    }
+
+    fn is_at_atomic_start(&self, pos: usize) -> bool {
+        let mut current_pos = 0;
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_end = current_pos + content.len();
+                    if pos > current_pos && pos < fragment_end {
+                        return false;
+                    }
+                    current_pos = fragment_end;
+                }
+                ContentFragment::Atomic { .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos
+                        + match fragment {
+                            ContentFragment::Atomic { content, .. } => content.len(),
+                            _ => unreachable!(),
+                        };
+                    if pos == fragment_start {
+                        return true;
+                    }
+                    if pos > fragment_start && pos < fragment_end {
+                        return false;
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+        false
+    }
+
+    fn compute_actual_start(
+        &self,
+        line_idx: usize,
+        start_in_fragment: usize,
+        end_in_fragment: usize,
+        content: &str,
+        prev_fragment_was_code: bool,
+        prev_fragment_was_atomic: bool,
+        result_ends_with_punct: bool,
+    ) -> usize {
+        if line_idx == 0 {
+            return start_in_fragment;
+        }
+
+        if start_in_fragment != 0 {
+            return start_in_fragment;
+        }
+
+        if !prev_fragment_was_code && !prev_fragment_was_atomic {
+            match content[start_in_fragment..end_in_fragment]
+                .find(|c: char| !c.is_whitespace())
+            {
+                Some(i) => start_in_fragment + i,
+                None => {
+                    if result_ends_with_punct {
+                        end_in_fragment
+                    } else {
+                        start_in_fragment
+                    }
+                }
+            }
+        } else if prev_fragment_was_atomic {
+            let trimmed = content[start_in_fragment..end_in_fragment].trim_start();
+            if !trimmed.is_empty() {
+                let first_char = trimmed.chars().next().unwrap();
+                if is_punctuation(first_char) {
+                    content[start_in_fragment..end_in_fragment]
+                        .find(|c: char| !c.is_whitespace())
+                        .map(|i| start_in_fragment + i)
+                        .unwrap_or(start_in_fragment)
+                } else {
+                    start_in_fragment
+                }
+            } else if result_ends_with_punct {
+                end_in_fragment
+            } else {
+                start_in_fragment
+            }
+        } else if result_ends_with_punct {
+            content[start_in_fragment..end_in_fragment]
+                .find(|c: char| !c.is_whitespace())
+                .map(|i| start_in_fragment + i)
+                .unwrap_or(start_in_fragment)
+        } else {
+            start_in_fragment
+        }
+    }
+
+    fn try_pull_back_punctuation(
+        &self,
+        result: &mut String,
+        break_position: usize,
+    ) -> usize {
+        let mut pos = 0;
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_start = pos;
+                    let fragment_end = pos + content.len();
+
+                    if break_position >= fragment_start && break_position < fragment_end
+                    {
+                        let start_in_fragment = break_position - fragment_start;
+                        if let Some(punct) = content[start_in_fragment..]
+                            .chars()
+                            .find(|c| !c.is_whitespace())
+                            .filter(|c| is_cjk_punct_that_should_pull_back(*c))
+                        {
+                            result.push(punct);
+                            return punct.len_utf8();
+                        }
+                        break;
+                    }
+                    pos = fragment_end;
+                }
+                ContentFragment::Atomic { .. } => {
+                    let fragment_end = pos
+                        + match fragment {
+                            ContentFragment::Atomic { content, .. } => content.len(),
+                            _ => unreachable!(),
+                        };
+                    if break_position >= pos && break_position < fragment_end {
+                        break;
+                    }
+                    pos = fragment_end;
+                }
+            }
+        }
+        0
     }
 
     /// Format the paragraph with optimal line breaks
@@ -958,82 +992,27 @@ impl ParagraphLineBreaker {
                         let end_in_fragment =
                             (break_point.position - fragment_start).min(content.len());
 
-                        // For continuation lines, skip leading spaces
-                        // But preserve leading space if:
-                        // - previous fragment was Code (for CJK spacing)
-                        // - previous fragment was an Atomic unit like Link (to preserve space after link)
-                        //   UNLESS the space is followed by punctuation (normalize "[link] ." to "[link].")
-                        // - OR the result ends with punctuation - always skip spaces on continuation line
                         let result_trimmed = result.trim_end();
                         let result_ends_with_punct = result_trimmed
                             .chars()
                             .last()
                             .map_or(false, |c| is_punctuation(c));
 
-                        let mut actual_start = if line_idx > 0
-                            && start_in_fragment == 0
-                            && !prev_fragment_was_code
-                            && !prev_fragment_was_atomic
-                        {
-                            // Find first non-space character
-                            // When content is entirely whitespace (e.g., SoftBreak space),
-                            // skip it only if the previous line ends with punctuation,
-                            // since punctuation should not be followed by a leading space on continuation
-                            match content[start_in_fragment..end_in_fragment]
-                                .find(|c: char| !c.is_whitespace())
-                            {
-                                Some(i) => start_in_fragment + i,
-                                None => {
-                                    if result_ends_with_punct {
-                                        end_in_fragment
-                                    } else {
-                                        start_in_fragment
-                                    }
-                                }
-                            }
-                        } else if line_idx > 0
-                            && start_in_fragment == 0
-                            && prev_fragment_was_atomic
-                        {
-                            // Previous fragment was atomic (e.g., link or code)
-                            // Check if the text starts with spaces followed by punctuation
-                            // If so, skip the spaces to normalize "[link] ." to "[link]."
-                            let trimmed =
-                                content[start_in_fragment..end_in_fragment].trim_start();
-                            if !trimmed.is_empty() {
-                                let first_char = trimmed.chars().next().unwrap();
-                                if is_punctuation(first_char) {
-                                    // Space before punctuation - skip the spaces
-                                    content[start_in_fragment..end_in_fragment]
-                                        .find(|c: char| !c.is_whitespace())
-                                        .map(|i| start_in_fragment + i)
-                                        .unwrap_or(start_in_fragment)
-                                } else {
-                                    // Space before word - preserve the space
-                                    start_in_fragment
-                                }
-                            } else {
-                                start_in_fragment
-                            }
-                        } else if line_idx > 0 && result_ends_with_punct {
-                            // Result ends with punctuation (e.g., comma)
-                            // Skip leading spaces on continuation line
-                            content[start_in_fragment..end_in_fragment]
-                                .find(|c: char| !c.is_whitespace())
-                                .map(|i| start_in_fragment + i)
-                                .unwrap_or(start_in_fragment)
-                        } else {
-                            start_in_fragment
-                        };
+                        let mut actual_start = self.compute_actual_start(
+                            line_idx,
+                            start_in_fragment,
+                            end_in_fragment,
+                            content,
+                            prev_fragment_was_code,
+                            prev_fragment_was_atomic,
+                            result_ends_with_punct,
+                        );
 
-                        // If result ends with '(' (possibly with trailing spaces),
-                        // skip leading spaces in this fragment
-                        // This handles cases like "( 4.8GB)" -> "(4.8GB)"
                         if result_trimmed.ends_with('(') {
                             actual_start = content[actual_start..end_in_fragment]
                                 .find(|c: char| !c.is_whitespace())
                                 .map(|i| actual_start + i)
-                                .unwrap_or(end_in_fragment); // If all spaces, skip to end
+                                .unwrap_or(end_in_fragment);
                         }
 
                         if actual_start < content.len() && end_in_fragment > actual_start
@@ -1090,60 +1069,9 @@ impl ParagraphLineBreaker {
 
                 // Check if the next line starts with CJK punctuation
                 // If so, we need to pull it back to this line (CJK typography rule)
-                let next_pos = break_point.position;
-                let mut pos = 0;
-                let mut found_punctuation = None;
-
-                for fragment in &self.fragments {
-                    match fragment {
-                        ContentFragment::Text { content, .. } => {
-                            let fragment_start = pos;
-                            let fragment_end = pos + content.len();
-
-                            if next_pos >= fragment_start && next_pos < fragment_end {
-                                // The break point is in this text fragment
-                                let start_in_fragment = next_pos - fragment_start;
-                                // Find the first non-whitespace character
-                                found_punctuation = content[start_in_fragment..]
-                                    .chars()
-                                    .find(|c| !c.is_whitespace())
-                                    .filter(|c| {
-                                        matches!(
-                                            c,
-                                            '，' | '。'
-                                                | '、'
-                                                | '；'
-                                                | '：'
-                                                | '）'
-                                                | '」'
-                                                | '』'
-                                                | '”'
-                                        )
-                                    });
-                                break;
-                            }
-                            pos = fragment_end;
-                        }
-                        ContentFragment::Atomic { content, .. } => {
-                            let fragment_start = pos;
-                            let fragment_end = pos + content.len();
-
-                            if next_pos >= fragment_start && next_pos < fragment_end {
-                                // The break point is in this atomic fragment
-                                // Don't pull back atomic content
-                                break;
-                            }
-                            pos = fragment_end;
-                        }
-                    }
-                }
-
-                // If we found a CJK punctuation at the start of the next line, pull it back
-                if let Some(punct) = found_punctuation {
-                    result.push(punct);
-                    // Update last_break_pos to skip this punctuation
-                    last_break_pos += punct.len_utf8();
-                }
+                let pull_back =
+                    self.try_pull_back_punctuation(&mut result, break_point.position);
+                last_break_pos += pull_back;
 
                 result.push('\n');
             }
