@@ -22,7 +22,7 @@ pub mod handler_utils;
 pub mod handlers;
 pub mod line_breaking;
 pub mod node;
-pub mod phase;
+
 pub mod writer;
 
 // Re-export commonly used types
@@ -39,7 +39,7 @@ pub use node::{
     ComposedNodeFormatter, NodeFormatter, NodeFormatterFn, NodeFormattingHandler,
     NodeType,
 };
-pub use phase::{ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter};
+
 pub use writer::MarkdownWriter;
 
 use crate::core::arena::{NodeArena, NodeId};
@@ -56,8 +56,6 @@ pub struct Formatter {
     options: FormatOptions,
     /// Node formatters
     node_formatters: node::ComposedNodeFormatter,
-    /// Phased formatters
-    phased_formatters: phase::ComposedPhasedFormatter,
 }
 
 impl std::fmt::Debug for Formatter {
@@ -65,7 +63,6 @@ impl std::fmt::Debug for Formatter {
         f.debug_struct("Formatter")
             .field("options", &self.options)
             .field("node_formatters", &self.node_formatters)
-            .field("phased_formatters", &self.phased_formatters)
             .finish_non_exhaustive()
     }
 }
@@ -81,7 +78,6 @@ impl Formatter {
         Self {
             options,
             node_formatters: node::ComposedNodeFormatter::new(),
-            phased_formatters: phase::ComposedPhasedFormatter::new(),
         }
     }
 
@@ -100,23 +96,8 @@ impl Formatter {
         let mut context =
             MainFormatterContext::new(arena, &self.options, &self.node_formatters);
 
-        // Execute pre-document phases
-        for phase in phase::FormattingPhase::before_document() {
-            context.set_phase(*phase);
-            self.phased_formatters
-                .render_phase(&mut context, &mut writer, root, *phase);
-        }
-
         // Main document rendering
-        context.set_phase(phase::FormattingPhase::Document);
         context.render(root, &mut writer);
-
-        // Execute post-document phases
-        for phase in phase::FormattingPhase::after_document() {
-            context.set_phase(*phase);
-            self.phased_formatters
-                .render_phase(&mut context, &mut writer, root, *phase);
-        }
 
         writer.to_string()
     }
@@ -136,8 +117,6 @@ struct MainFormatterContext<'a> {
     options: &'a FormatOptions,
     /// Node formatters
     formatters: &'a node::ComposedNodeFormatter,
-    /// Current formatting phase
-    phase: phase::FormattingPhase,
     /// Handler map: node type discriminant -> list of handlers
     handler_map: HashMap<Discriminant<NodeValue>, Vec<node::NodeFormattingHandler>>,
     /// Current node being rendered
@@ -171,7 +150,6 @@ struct MainFormatterContext<'a> {
 impl<'a> std::fmt::Debug for MainFormatterContext<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MainFormatterContext")
-            .field("phase", &self.phase)
             .field("current_node", &self.current_node)
             .field("tight_list", &self.tight_list)
             .field("list_nesting", &self.list_nesting)
@@ -192,7 +170,6 @@ impl<'a> MainFormatterContext<'a> {
             arena,
             options,
             formatters,
-            phase: phase::FormattingPhase::Document,
             handler_map: HashMap::new(),
             current_node: None,
             handler_stack: Vec::new(),
@@ -220,11 +197,6 @@ impl<'a> MainFormatterContext<'a> {
                 .or_default()
                 .push(handler);
         }
-    }
-
-    /// Set the current formatting phase
-    fn set_phase(&mut self, phase: phase::FormattingPhase) {
-        self.phase = phase;
     }
 
     /// Render a node using the appropriate handler
