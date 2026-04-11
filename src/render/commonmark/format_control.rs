@@ -156,49 +156,6 @@ impl FormatControlProcessor {
 
         false
     }
-
-    /// Get the formatter on tag
-    pub fn get_formatter_on_tag(&self) -> &str {
-        &self.formatter_on_tag
-    }
-
-    /// Get the formatter off tag
-    pub fn get_formatter_off_tag(&self) -> &str {
-        &self.formatter_off_tag
-    }
-
-    /// Check if formatter tags are enabled
-    pub fn are_formatter_tags_enabled(&self) -> bool {
-        self.formatter_tags_enabled
-    }
-
-    /// Check if formatter tags accept regex
-    pub fn are_formatter_tags_regex_enabled(&self) -> bool {
-        self.formatter_tags_accept_regex
-    }
-
-    /// Reset the formatting state to on
-    pub fn reset(&mut self) {
-        self.formatting_off = false;
-        self.just_turned_off = false;
-        self.just_turned_on = false;
-    }
-
-    /// Clear the just-turned flags
-    pub fn clear_just_turned_flags(&mut self) {
-        self.just_turned_off = false;
-        self.just_turned_on = false;
-    }
-
-    /// Check if a node is in a formatting region (not in a format-off area)
-    ///
-    /// This method checks the document structure to determine if the given
-    /// content should be formatted based on preceding format control comments.
-    pub fn is_formatting_region(&self) -> bool {
-        // For now, this is a simplified implementation
-        // A full implementation would need to track the position in the document
-        !self.formatting_off
-    }
 }
 
 #[cfg(test)]
@@ -207,16 +164,6 @@ mod tests {
 
     fn create_test_options() -> FormatOptions {
         FormatOptions::default()
-    }
-
-    #[test]
-    fn test_default_tags() {
-        let options = create_test_options();
-        let processor = FormatControlProcessor::new(&options);
-
-        assert!(processor.are_formatter_tags_enabled());
-        assert_eq!(processor.get_formatter_on_tag(), "formatter:on");
-        assert_eq!(processor.get_formatter_off_tag(), "formatter:off");
     }
 
     #[test]
@@ -270,20 +217,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reset() {
-        let options = create_test_options();
-        let mut processor = FormatControlProcessor::new(&options);
-
-        processor.process_comment("<!-- formatter:off -->");
-        assert!(processor.is_formatting_off());
-
-        processor.reset();
-        assert!(processor.is_formatting_on());
-        assert!(!processor.is_just_turned_off());
-        assert!(!processor.is_just_turned_on());
-    }
-
-    #[test]
     fn test_disabled_tags() {
         let mut options = create_test_options();
         options.formatter_tags_enabled = false;
@@ -293,40 +226,6 @@ mod tests {
         let result = processor.process_comment("<!-- formatter:off -->");
         assert!(!result);
         assert!(processor.is_formatting_on());
-    }
-
-    #[test]
-    fn test_clear_just_turned_flags() {
-        let options = create_test_options();
-        let mut processor = FormatControlProcessor::new(&options);
-
-        // Turn off formatting
-        processor.process_comment("<!-- formatter:off -->");
-        assert!(processor.is_just_turned_off());
-
-        // Clear flags
-        processor.clear_just_turned_flags();
-        assert!(!processor.is_just_turned_off());
-        assert!(!processor.is_just_turned_on());
-    }
-
-    #[test]
-    fn test_is_formatting_region() {
-        let options = create_test_options();
-        let processor = FormatControlProcessor::new(&options);
-
-        // Initially formatting is on
-        assert!(processor.is_formatting_region());
-    }
-
-    #[test]
-    fn test_is_formatting_region_off() {
-        let options = create_test_options();
-        let mut processor = FormatControlProcessor::new(&options);
-
-        // Turn off formatting
-        processor.process_comment("<!-- formatter:off -->");
-        assert!(!processor.is_formatting_region());
     }
 
     #[test]
@@ -396,81 +295,6 @@ mod tests {
     }
 
     #[test]
-    fn test_are_formatter_tags_regex_enabled() {
-        let mut options = create_test_options();
-        options.formatter_tags_accept_regex = true;
-
-        let processor = FormatControlProcessor::new(&options);
-        assert!(processor.are_formatter_tags_regex_enabled());
-    }
-
-    #[test]
-    fn test_regex_mode_disabled() {
-        let mut options = create_test_options();
-        options.formatter_tags_accept_regex = false;
-
-        let processor = FormatControlProcessor::new(&options);
-        assert!(!processor.are_formatter_tags_regex_enabled());
-    }
-
-    #[test]
-    fn test_clone_processor() {
-        let options = create_test_options();
-        let processor = FormatControlProcessor::new(&options);
-
-        let cloned = processor.clone();
-        assert_eq!(
-            processor.get_formatter_on_tag(),
-            cloned.get_formatter_on_tag()
-        );
-        assert_eq!(
-            processor.get_formatter_off_tag(),
-            cloned.get_formatter_off_tag()
-        );
-        assert_eq!(
-            processor.are_formatter_tags_enabled(),
-            cloned.are_formatter_tags_enabled()
-        );
-    }
-
-    #[test]
-    fn test_processor_debug() {
-        let options = create_test_options();
-        let processor = FormatControlProcessor::new(&options);
-
-        let debug_str = format!("{:?}", processor);
-        assert!(debug_str.contains("FormatControlProcessor"));
-    }
-
-    #[test]
-    fn test_reset_when_already_on() {
-        let options = create_test_options();
-        let mut processor = FormatControlProcessor::new(&options);
-
-        // Reset when already on
-        processor.reset();
-        assert!(processor.is_formatting_on());
-        assert!(!processor.is_just_turned_off());
-        assert!(!processor.is_just_turned_on());
-    }
-
-    #[test]
-    fn test_reset_after_turn_off() {
-        let options = create_test_options();
-        let mut processor = FormatControlProcessor::new(&options);
-
-        // Turn off
-        processor.process_comment("<!-- formatter:off -->");
-        assert!(processor.is_formatting_off());
-
-        // Reset
-        processor.reset();
-        assert!(processor.is_formatting_on());
-        assert!(!processor.is_just_turned_off());
-        assert!(!processor.is_just_turned_on());
-    }
-
-    #[test]
     fn test_consecutive_comments() {
         let options = create_test_options();
         let mut processor = FormatControlProcessor::new(&options);
@@ -489,31 +313,5 @@ mod tests {
         let result3 = processor.process_comment("<!-- formatter:on -->");
         assert!(result3);
         assert!(processor.is_formatting_on());
-    }
-
-    #[test]
-    fn test_custom_tags() {
-        let mut options = create_test_options();
-        options.formatter_on_tag = "format:on".to_string();
-        options.formatter_off_tag = "format:off".to_string();
-
-        let mut processor = FormatControlProcessor::new(&options);
-
-        assert_eq!(processor.get_formatter_on_tag(), "format:on");
-        assert_eq!(processor.get_formatter_off_tag(), "format:off");
-
-        // Custom off tag
-        let result = processor.process_comment("<!-- format:off -->");
-        assert!(result);
-        assert!(processor.is_formatting_off());
-
-        // Custom on tag
-        let result = processor.process_comment("<!-- format:on -->");
-        assert!(result);
-        assert!(processor.is_formatting_on());
-
-        // Old tags should not work
-        let result = processor.process_comment("<!-- formatter:off -->");
-        assert!(!result);
     }
 }
