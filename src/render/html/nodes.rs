@@ -91,12 +91,8 @@ impl<'a> HtmlRenderer<'a> {
                 } else {
                     self.cr();
                 }
-                // HTML blocks are output as raw HTML, but filtered if tagfilter is enabled
-                if self.options.extension.tagfilter {
-                    self.lit(&filter_html(&html_block.literal));
-                } else {
-                    self.lit(&html_block.literal);
-                }
+                // HTML blocks are output as raw HTML, with tag filtering always enabled
+                self.lit(&filter_html(&html_block.literal));
                 self.lit("\n");
             }
             NodeValue::Paragraph => {
@@ -167,11 +163,7 @@ impl<'a> HtmlRenderer<'a> {
                 self.lit("</code>");
             }
             NodeValue::HtmlInline(literal) => {
-                if self.options.extension.tagfilter {
-                    self.lit(&filter_html(literal.as_ref()));
-                } else {
-                    self.lit(literal.as_ref());
-                }
+                self.lit(&filter_html(literal.as_ref()));
             }
             NodeValue::Emph => {
                 self.lit("<em>");

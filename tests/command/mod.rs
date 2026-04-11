@@ -287,18 +287,6 @@ pub fn run_command_test(test: &CommandTest) -> CommandTestResult {
             "--smart" => {
                 options.parse.smart = true;
             }
-            "--table" => {
-                options.extension.table = true;
-            }
-            "--strikethrough" => {
-                options.extension.strikethrough = true;
-            }
-            "--tasklist" => {
-                options.extension.tasklist = true;
-            }
-            "--autolink" => {
-                options.extension.autolink = true;
-            }
             _ => {}
         }
         i += 1;

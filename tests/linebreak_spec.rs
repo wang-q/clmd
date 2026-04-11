@@ -5,8 +5,6 @@ use clmd::{markdown_to_commonmark, Options};
 fn format_with_width(md: &str, width: usize) -> String {
     let mut options = Options::default();
     options.render.width = width;
-    options.extension.table = true;
-    options.extension.tasklist = true;
     markdown_to_commonmark(md, &options)
 }
 

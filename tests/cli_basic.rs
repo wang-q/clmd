@@ -144,9 +144,9 @@ fn test_cli_safe_mode() {
 }
 
 #[test]
-fn test_cli_unknown_extension_warning() {
+fn test_cli_all_extensions_enabled() {
     let mut child = clmd_bin()
-        .args(["-e", "unknown_extension", "to", "html"])
+        .args(["to", "html"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -155,11 +155,16 @@ fn test_cli_unknown_extension_warning() {
 
     {
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stdin.write_all(b"test").expect("Failed to write to stdin");
+        stdin
+            .write_all(b"| table | header |\n|---|---|\n| data | value |")
+            .expect("Failed to write to stdin");
     }
 
     let output = child.wait_with_output().expect("Failed to read stdout");
     assert!(output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("Warning: unknown extension"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("<table>"),
+        "Tables should be enabled by default"
+    );
 }

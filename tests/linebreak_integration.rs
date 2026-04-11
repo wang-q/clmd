@@ -3,9 +3,9 @@
 //! These tests verify the line breaking behavior using the full formatter API.
 
 use clmd::options::format::FormatOptions;
-use clmd::options::Options as ParseOptions;
 use clmd::parse::parse_document;
 use clmd::render::commonmark::Formatter;
+use clmd::Options;
 use std::fs;
 
 mod test_utils;
@@ -13,17 +13,11 @@ use test_utils::spec_parser::parse_formatter_spec_file;
 
 /// Apply spec options to ParseOptions and FormatOptions
 fn apply_spec_options(
-    parse_options: &mut ParseOptions,
+    parse_options: &mut Options,
     options: &mut FormatOptions,
     option_str: &str,
 ) {
     match option_str {
-        // Extension options
-        "extension[table]" => parse_options.extension.table = true,
-        "extension[strikethrough]" => parse_options.extension.strikethrough = true,
-        "extension[autolink]" => parse_options.extension.autolink = true,
-        "extension[tasklist]" => parse_options.extension.tasklist = true,
-
         _ => {
             // Handle margin[N] format
             if option_str.starts_with("margin[") {
@@ -40,7 +34,7 @@ fn apply_spec_options(
 /// Format markdown input using the given options
 fn format_markdown(
     input: &str,
-    parse_options: &ParseOptions,
+    parse_options: &Options,
     format_options: &FormatOptions,
 ) -> String {
     let (arena, root) = parse_document(input, parse_options);
@@ -52,7 +46,7 @@ fn format_markdown(
 
 /// Run a single formatter spec example
 fn run_formatter_example(example: &test_utils::spec_parser::FormatterSpecExample) {
-    let mut parse_options = ParseOptions::default();
+    let mut parse_options = Options::default();
     let mut format_options = FormatOptions::default();
 
     for opt in &example.options {
@@ -101,7 +95,7 @@ fn run_formatter_spec_file(spec_file: &str) {
             Err(_) => {
                 failed += 1;
                 if failures.len() < 10 {
-                    let mut parse_options = ParseOptions::default();
+                    let mut parse_options = Options::default();
                     let mut format_options = FormatOptions::default();
                     for opt in &example.options {
                         apply_spec_options(&mut parse_options, &mut format_options, opt);

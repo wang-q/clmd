@@ -41,17 +41,17 @@
 //!
 //! # Using Options
 //!
-//! You can enable GFM extensions and configure rendering:
+//! You can configure rendering options:
 //!
 //! ```ignore
 //! use clmd::{markdown_to_html, Options};
 //!
 //! let mut options = Options::default();
-//! options.extension.table = true;
+//! options.render.hardbreaks = true;
 //!
-//! let markdown = "| a | b |\n|---|---|\n| c | d |";
+//! let markdown = "# Hello\n\n**Bold** text";
 //! let html = markdown_to_html(markdown, &options);
-//! assert!(html.contains("<table>"));
+//! assert!(html.contains("<h1>"));
 //! ```
 //!
 //! # Parser Limits
@@ -119,41 +119,6 @@
 //! // Or query for specific node types
 //! let headings: Vec<_> = arena.find_all(root, |v| matches!(v, NodeValue::Heading(_)));
 //! ```
-//!
-//! # GFM Extensions
-//!
-//! Enable GitHub Flavored Markdown extensions:
-//!
-//! ```ignore
-//! use clmd::{markdown_to_html, Options};
-//!
-//! let mut options = Options::default();
-//! options.extension.table = true;
-//! options.extension.strikethrough = true;
-//! options.extension.tasklist = true;
-//! options.extension.autolink = true;
-//! options.extension.footnotes = true;
-//!
-//! // Tables
-//! let table = "| a | b |\n|---|---|\n| c | d |";
-//! let html = markdown_to_html(table, &options);
-//! assert!(html.contains("<table>"));
-//!
-//! // Strikethrough
-//! let strike = "~~deleted~~";
-//! let html = markdown_to_html(strike, &options);
-//! assert!(html.contains("<del>"));
-//!
-//! // Task lists
-//! let task = "- [x] Done\n- [ ] Todo";
-//! let html = markdown_to_html(task, &options);
-//! assert!(html.contains("checkbox"));
-//!
-//! // Autolinks
-//! let autolink = "Visit https://example.com";
-//! let html = markdown_to_html(autolink, &options);
-//! assert!(html.contains("<a href="));
-//! ```
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
@@ -202,16 +167,14 @@ pub mod html_utils {
 /// Options for the Markdown parser and renderer.
 ///
 /// This module provides configuration options for parsing and rendering
-/// Markdown documents. It includes options for extensions, parsing behavior,
-/// and rendering output.
+/// Markdown documents. All extensions are enabled by default.
 ///
 /// # Example
 ///
 /// ```ignore
-/////! use clmd::options::{Options, OutputFormat};
+/// use clmd::Options;
 ///
 /// let mut options = Options::default();
-/// options.extension.table = true;
 /// options.parse.smart = true;
 /// ```
 pub mod options;
@@ -305,13 +268,9 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 /// use clmd::Options;
 ///
 /// let mut options = Options::default();
-/// options.extension.table = true;
 /// options.render.hardbreaks = true;
 /// ```
 pub use options::Options;
-
-/// Re-export Extension options.
-pub use options::Extension;
 
 /// Re-export ResolvedReference.
 pub use options::ResolvedReference;
@@ -682,8 +641,8 @@ mod tests {
 
     #[test]
     fn test_tagfilter_extension() {
-        let mut options = Options::default();
-        options.extension.tagfilter = true;
+        // Tag filtering is always enabled by default
+        let options = Options::default();
 
         // Test that dangerous HTML tags are filtered
         let html = markdown_to_html("<script>alert('xss')</script>", &options);

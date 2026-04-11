@@ -1,4 +1,4 @@
-//! Configuration for the parser and renderer. Extensions affect both.
+//! Configuration for the parser and renderer.
 //!
 //! This module provides a comrak-style Options API for configuring
 //! Markdown parsing and rendering behavior.
@@ -9,12 +9,9 @@
 //! use clmd::Options;
 //!
 //! let mut options = Options::default();
-//! options.extension.table = true;
-//! options.extension.strikethrough = true;
 //! options.render.hardbreaks = true;
 //! ```
 
-mod extension;
 pub mod format;
 mod parse;
 mod render;
@@ -22,7 +19,6 @@ pub mod serde;
 mod traits;
 mod types;
 
-pub use extension::Extension;
 pub use format::{
     Alignment, BlockQuoteMarker, BulletMarker, CodeFenceMarker, DiscretionaryText,
     ElementPlacement, ElementPlacementSort, FormatFlags, FormatOptions, HeadingStyle,
@@ -45,7 +41,7 @@ use bon::Builder;
 /// Umbrella options struct for the Markdown parser and renderer.
 ///
 /// This struct provides a convenient way to configure all aspects of
-/// Markdown parsing and rendering.
+/// Markdown parsing and rendering. All extensions are enabled by default.
 ///
 /// The lifetime parameter `'c` allows options to hold references to
 /// external data such as URL rewriters and broken link callbacks.
@@ -56,17 +52,13 @@ use bon::Builder;
 /// use clmd::Options;
 ///
 /// let mut options = Options::default();
-/// options.extension.table = true;
-/// options.extension.strikethrough = true;
+/// options.render.hardbreaks = true;
 ///
 /// let html = clmd::markdown_to_html("Hello **world**!", &options);
 /// assert!(html.contains("<strong>world</strong>"));
 /// ```
 #[derive(Debug, Clone, Builder, Arbitrary, Default)]
 pub struct Options<'c> {
-    /// Enable CommonMark extensions.
-    pub extension: Extension<'c>,
-
     /// Configure parse-time options.
     pub parse: ParseOptions<'c>,
 
@@ -110,8 +102,6 @@ mod tests {
     #[test]
     fn test_default_options() {
         let options = Options::default();
-        assert!(!options.extension.strikethrough);
-        assert!(!options.extension.table);
         assert!(!options.parse.smart);
         assert!(!options.render.hardbreaks);
     }
@@ -119,11 +109,10 @@ mod tests {
     #[test]
     fn test_options_builder() {
         let options = Options::builder()
-            .extension(Extension::default())
             .parse(ParseOptions::default())
             .render(RenderOptions::default())
             .build();
-        assert!(!options.extension.table);
+        assert!(options.format.heading_style == HeadingStyle::AsIs);
     }
 
     #[test]

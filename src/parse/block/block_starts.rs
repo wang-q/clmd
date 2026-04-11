@@ -1170,11 +1170,6 @@ impl<'a> BlockParser<'a> {
         container: NodeId,
         _maybe_lazy: bool,
     ) -> BlockStartResult {
-        // Check if table extension is enabled
-        if !self.options.extension.table {
-            return BlockStartResult::None;
-        }
-
         // Tables can't be indented
         if indented {
             return BlockStartResult::None;

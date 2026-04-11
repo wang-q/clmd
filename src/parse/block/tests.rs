@@ -945,8 +945,7 @@ fn test_html_block_indented() {
 #[test]
 fn test_table_basic() {
     let mut arena = NodeArena::new();
-    let mut options = Options::default();
-    options.extension.table = true;
+    let options = Options::default();
 
     let input = "| Header |\n|--------|";
     let doc = BlockParser::parse_with_options(&mut arena, input, options);
@@ -961,8 +960,7 @@ fn test_table_basic() {
 #[test]
 fn test_table_with_alignment() {
     let mut arena = NodeArena::new();
-    let mut options = Options::default();
-    options.extension.table = true;
+    let options = Options::default();
 
     let input = "| Left | Center | Right |\n|:-----|:------:|------:|";
     let doc = BlockParser::parse_with_options(&mut arena, input, options);
@@ -971,23 +969,6 @@ fn test_table_with_alignment() {
     assert!(matches!(
         arena.get(first_child.unwrap()).value,
         NodeValue::Table(_)
-    ));
-}
-
-#[test]
-fn test_table_disabled() {
-    let mut arena = NodeArena::new();
-    let mut options = Options::default();
-    options.extension.table = false;
-
-    let input = "| Header |\n|--------|";
-    let doc = BlockParser::parse_with_options(&mut arena, input, options);
-    let first_child = arena.get(doc).first_child;
-    assert!(first_child.is_some());
-    // Should be paragraph when table extension is disabled
-    assert!(matches!(
-        arena.get(first_child.unwrap()).value,
-        NodeValue::Paragraph
     ));
 }
 

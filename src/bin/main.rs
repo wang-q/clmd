@@ -88,33 +88,11 @@ Examples:
         config.apply_to_options(&mut options);
     }
 
-    // Handle extensions (command line overrides config file)
-    if let Some(extensions) = matches.get_many::<String>("extension") {
-        for ext in extensions {
-            match ext.as_str() {
-                "table" => options.extension.table = true,
-                "strikethrough" => options.extension.strikethrough = true,
-                "tasklist" => options.extension.tasklist = true,
-                "footnotes" => options.extension.footnotes = true,
-                "autolink" => options.extension.autolink = true,
-                "tagfilter" => options.extension.tagfilter = true,
-                "superscript" => options.extension.superscript = true,
-                "subscript" => options.extension.subscript = true,
-                "underline" => options.extension.underline = true,
-                "highlight" => options.extension.highlight = true,
-                "math" => options.extension.math_dollars = true,
-                "wikilink" => options.extension.wikilinks_title_after_pipe = true,
-                "spoiler" => options.extension.spoiler = true,
-                "alerts" => options.extension.alerts = true,
-                _ => eprintln!("Warning: unknown extension '{}'", ext),
-            }
-        }
-    }
+    // All extensions are enabled by default
 
     // Handle safe mode (command line overrides config file)
     if matches.get_flag("safe") {
         options.render.r#unsafe = false;
-        options.extension.tagfilter = true;
     }
 
     match matches.subcommand() {

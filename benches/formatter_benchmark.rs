@@ -172,8 +172,7 @@ fn bench_tables(c: &mut Criterion) {
     let mut group = c.benchmark_group("formatter_tables");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        let mut opts = Options::default();
-        opts.extension.table = true;
+        let opts = Options::default();
         b.iter(|| markdown_to_commonmark(black_box(&input), &opts))
     });
     group.finish();
@@ -278,8 +277,7 @@ fn hello() {
     let mut group = c.benchmark_group("formatter_mixed_content");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("markdown_to_commonmark", |b| {
-        let mut opts = Options::default();
-        opts.extension.table = true;
+        let opts = Options::default();
         b.iter(|| markdown_to_commonmark(black_box(input), &opts))
     });
     group.finish();

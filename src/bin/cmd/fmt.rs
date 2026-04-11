@@ -72,8 +72,6 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
 
     let mut fmt_options = options.clone();
     fmt_options.render.width = width;
-    fmt_options.extension.table = true;
-    fmt_options.extension.tasklist = true;
 
     let mut cm = clmd::markdown_to_commonmark(&input_for_format, &fmt_options);
 

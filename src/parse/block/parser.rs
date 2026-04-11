@@ -319,8 +319,8 @@ impl<'a> BlockParser<'a> {
 
         // Check if smart punctuation is enabled
         let smart = self.options.parse.smart;
-        // Check if math dollars is enabled
-        let math_dollars = self.options.extension.math_dollars;
+        // Math dollars is always enabled
+        let math_dollars = true;
 
         // Process each leaf block
         for (node_id, content, line) in leaf_blocks {

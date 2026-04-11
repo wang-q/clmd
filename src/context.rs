@@ -467,26 +467,7 @@ impl Config {
 
     /// Apply configuration to Options
     pub fn apply_to_options(&self, options: &mut crate::Options) {
-        options.extension.table = self.extensions.table;
-        options.extension.strikethrough = self.extensions.strikethrough;
-        options.extension.tasklist = self.extensions.tasklist;
-        options.extension.footnotes = self.extensions.footnotes;
-        options.extension.autolink = self.extensions.autolink;
-        options.extension.tagfilter = self.extensions.tagfilter;
-        options.extension.superscript = self.extensions.superscript;
-        options.extension.subscript = self.extensions.subscript;
-        options.extension.underline = self.extensions.underline;
-        options.extension.highlight = self.extensions.highlight;
-        options.extension.insert = self.extensions.insert;
-        options.extension.math_dollars = self.extensions.math;
-        options.extension.wikilinks_title_after_pipe = self.extensions.wikilink;
-        options.extension.spoiler = self.extensions.spoiler;
-        options.extension.greentext = self.extensions.greentext;
-        options.extension.alerts = self.extensions.alerts;
-        options.extension.multiline_block_quotes =
-            self.extensions.multiline_block_quotes;
-        options.extension.description_lists = self.extensions.description_lists;
-        options.extension.shortcodes = self.extensions.shortcodes;
+        // All extensions are enabled by default, no need to configure them
 
         options.parse.smart = self.parse.smart;
         options.parse.relaxed_tasklist_matching = self.parse.relaxed_tasklist_matching;

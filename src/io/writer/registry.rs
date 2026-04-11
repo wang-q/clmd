@@ -364,9 +364,6 @@ impl Writer for HtmlWriter {
     ) -> ClmdResult<String> {
         let mut render_options = crate::options::Options::default();
         render_options.render.sourcepos = options.output_sourcepos;
-        render_options.extension.tagfilter = options
-            .extensions
-            .contains(crate::ext::flags::ExtensionFlags::TAGFILTER);
         Ok(crate::render::html::render(arena, root, &render_options))
     }
 
