@@ -5,11 +5,13 @@
 //! a specific type of node.
 
 pub mod block;
+pub mod container;
 pub mod inline;
 pub mod list;
 pub mod table;
 
 pub use block::*;
+pub use container::*;
 pub use inline::*;
 pub use list::*;
 pub use table::*;

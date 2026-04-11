@@ -3,24 +3,23 @@
 //! This module provides a NodeFormatter implementation for CommonMark output.
 
 use crate::core::nodes::NodeValue;
-use crate::options::format::HeadingStyle;
 use crate::render::commonmark::core::{
     NodeFormatter, NodeFormatterContext, NodeFormattingHandler,
 };
 use crate::render::commonmark::escaping::{compute_fence_length, escape_text};
 use crate::render::commonmark::handler_utils::{
-    adjust_cjk_marker_spacing, calculate_block_quote_prefixes, check_sibling_markers,
-    prev_is_link,
+    adjust_cjk_marker_spacing, check_sibling_markers, prev_is_link,
 };
-use crate::render::commonmark::handlers::block::{
-    calculate_heading_content_length, render_code_block, render_html_block,
+use crate::render::commonmark::handlers::block::{render_code_block, render_html_block};
+use crate::render::commonmark::handlers::container::{
+    render_block_quote_close, render_block_quote_open, render_heading_close,
+    render_heading_open, render_paragraph_close, render_paragraph_open,
 };
 use crate::render::commonmark::handlers::inline::{render_image_url, render_link_url};
 use crate::render::commonmark::handlers::list::{
-    calculate_effective_list_tightness, calculate_list_item_prefixes,
-    count_list_ancestors, format_list_item_marker_with_number_and_options,
-    get_item_number_in_list, is_empty_list_item, is_in_task_list_item,
-    is_task_item_checked, skip_task_marker,
+    calculate_effective_list_tightness, count_list_ancestors,
+    format_list_item_marker_with_number_and_options, get_item_number_in_list,
+    is_empty_list_item, is_in_task_list_item, is_task_item_checked, skip_task_marker,
 };
 use crate::render::commonmark::handlers::table::{
     collect_cell_text_content, render_formatted_table,
@@ -80,208 +79,22 @@ impl NodeFormatter for CommonMarkNodeFormatter {
             // Paragraph - handler with close
             NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Paragraph),
-                |_value, ctx, _writer| {
-                    // Paragraph opening - start paragraph line breaking if enabled
-                    if let NodeValue::Paragraph = _value {
-                        let options = ctx.get_formatter_options();
-                        // Only enable line breaking if right_margin is set
-                        if options.right_margin > 0 {
-                            // Calculate nesting levels
-                            let _list_nesting = ctx.get_list_nesting_level();
-                            let block_quote_nesting =
-                                ctx.get_block_quote_nesting_level();
-
-                            // Determine which prefix to use and calculate marker width
-                            let (prefix, marker_width) = if ctx.is_parent_list_item() {
-                                // List item: use continuation prefix and calculate marker width
-                                let (_, cont_prefix) = calculate_list_item_prefixes(ctx);
-                                let marker_width = cont_prefix.len();
-                                (cont_prefix, marker_width)
-                            } else if block_quote_nesting > 0 {
-                                // Block quote: use block quote prefix
-                                let (_, cont_prefix) =
-                                    calculate_block_quote_prefixes(ctx);
-                                let marker_width = cont_prefix.len();
-                                (cont_prefix, marker_width)
-                            } else {
-                                // Regular paragraph: no prefix
-                                (String::new(), 0)
-                            };
-
-                            // Calculate available width considering marker width
-                            let max_width =
-                                options.right_margin.saturating_sub(marker_width);
-                            // Ensure max_width is at least MIN_LINE_BREAKING_WIDTH to avoid degenerate cases
-                            let max_width = max_width.max(crate::render::commonmark::handler_utils::MIN_LINE_BREAKING_WIDTH);
-
-                            // Start the new paragraph line breaker
-                            ctx.start_paragraph_line_breaking(max_width, prefix);
-                        }
-                    }
-                },
-                |_value, ctx, writer| {
-                    // Paragraph closing - finish line breaking and output result
-                    let is_in_list_item = ctx.is_parent_list_item();
-                    let is_in_tight_list = ctx.is_in_tight_list();
-                    let has_next_sibling = ctx.has_next_sibling();
-
-                    // Check if we were collecting text for paragraph line breaking
-                    if ctx.is_paragraph_line_breaking() {
-                        if let Some(formatted_text) =
-                            ctx.finish_paragraph_line_breaking()
-                        {
-                            // Output the formatted text with optimal line breaks
-                            writer.append_raw(&formatted_text);
-                        }
-                    } else {
-                        // Flush any remaining text in the word wrap buffer
-                        // This ensures trailing spaces are preserved
-                        writer.flush_word_wrap_buffer();
-                    }
-
-                    // Add line break after paragraph
-                    if is_in_list_item {
-                        // Paragraph is inside a list item
-                        if is_in_tight_list {
-                            // Tight list: minimal spacing
-                            if has_next_sibling {
-                                // More content follows, add single line
-                                writer.line();
-                            }
-                            // If last child, let the list item handler manage spacing
-                        } else {
-                            // Loose list: blank line between paragraphs
-                            if has_next_sibling {
-                                writer.blank_line();
-                            } else {
-                                // Last paragraph in list item
-                                writer.line();
-                            }
-                        }
-                    } else if is_in_tight_list {
-                        // Paragraph in tight list context but not directly in item
-                        // (e.g., nested content)
-                        if has_next_sibling {
-                            writer.line();
-                        }
-                    } else {
-                        // Normal paragraph outside lists
-                        // Add blank line after paragraph
-                        writer.blank_line();
-                    }
-                },
+                render_paragraph_open,
+                render_paragraph_close,
             ),
             // Heading - handler with close
             NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::Heading(
                     crate::core::nodes::NodeHeading::default(),
                 )),
-                |value, ctx, writer| {
-                    if let NodeValue::Heading(heading) = value {
-                        let options = ctx.get_formatter_options();
-
-                        // Determine heading style
-                        let use_setext = match options.heading_style {
-                            HeadingStyle::Setext => heading.level <= 2,
-                            HeadingStyle::Atx => false,
-                            HeadingStyle::AsIs => heading.setext,
-                        };
-
-                        if use_setext {
-                            // Setext style - no prefix needed, marker comes after content
-                            // Store that we're using setext style for the close handler
-                        } else {
-                            // ATX style
-                            let hashes = "#".repeat(heading.level as usize);
-                            if options.space_after_atx_marker {
-                                writer.append_raw(format!("{} ", hashes));
-                            } else {
-                                writer.append_raw(hashes);
-                            }
-                        }
-                    }
-                },
-                |value, ctx, writer| {
-                    if let NodeValue::Heading(heading) = value {
-                        let options = ctx.get_formatter_options();
-                        let heading_style = options.heading_style;
-                        let min_setext_marker_length = options.min_setext_marker_length;
-                        let setext_equalize_marker =
-                            options.setext_heading_equalize_marker;
-
-                        // Determine heading style
-                        let use_setext = match heading_style {
-                            HeadingStyle::Setext => heading.level <= 2,
-                            HeadingStyle::Atx => false,
-                            HeadingStyle::AsIs => heading.setext,
-                        };
-
-                        if use_setext {
-                            // Add Setext underline
-                            let marker = if heading.level == 1 { '=' } else { '-' };
-                            writer.line();
-
-                            // Calculate underline length based on content
-                            // We need to get the content that was just rendered
-                            let content_len =
-                                if let Some(node_id) = ctx.get_current_node() {
-                                    // Calculate content length from children
-                                    calculate_heading_content_length(ctx, node_id)
-                                } else {
-                                    min_setext_marker_length
-                                };
-
-                            // Calculate marker length
-                            let underline_len = if setext_equalize_marker {
-                                // Equalize marker to match content length
-                                content_len.max(min_setext_marker_length)
-                            } else {
-                                // Use minimum marker length
-                                min_setext_marker_length
-                            };
-
-                            writer.append(marker.to_string().repeat(underline_len));
-                        } else {
-                            // ATX style - handle trailing markers
-                            match options.atx_heading_trailing_marker {
-                                crate::options::format::TrailingMarker::Add => {
-                                    // Add trailing hashes
-                                    let hashes = "#".repeat(heading.level as usize);
-                                    writer.append_raw(format!(" {}", hashes));
-                                }
-                                crate::options::format::TrailingMarker::Remove => {
-                                    // No trailing hashes
-                                }
-                                crate::options::format::TrailingMarker::AsIs => {
-                                    // Keep as-is (no additional handling needed)
-                                }
-                                crate::options::format::TrailingMarker::Equalize => {
-                                    // Equalize trailing marker to match opening
-                                    let hashes = "#".repeat(heading.level as usize);
-                                    writer.append_raw(format!(" {}", hashes));
-                                }
-                            }
-                        }
-                    }
-                    // Heading closing - add blank line after heading
-                    writer.blank_line();
-                },
+                render_heading_open,
+                render_heading_close,
             ),
             // BlockQuote - handler with close
             NodeFormattingHandler::with_close(
                 std::mem::discriminant(&NodeValue::BlockQuote),
-                |_value, ctx, writer| {
-                    writer.push_prefix("> ");
-                    ctx.set_in_block_quote(true);
-                    ctx.increment_block_quote_nesting();
-                },
-                |_value, ctx, writer| {
-                    writer.pop_prefix();
-                    ctx.decrement_block_quote_nesting();
-                    if ctx.get_block_quote_nesting_level() == 0 {
-                        ctx.set_in_block_quote(false);
-                    }
-                },
+                render_block_quote_open,
+                render_block_quote_close,
             ),
             // CodeBlock - simple handler
             NodeFormattingHandler::new(
