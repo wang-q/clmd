@@ -154,7 +154,7 @@ fn is_markdown_special_char_for_test(ch: char) -> bool {
 
 /// Check if we're inside a code context (code block or code span)
 fn is_in_code_context(context: &dyn NodeFormatterContext) -> bool {
-    context.get_current_node().map_or(false, |node_id| {
+    context.get_current_node().is_some_and(|node_id| {
         context.get_arena().ancestors_iter(node_id).any(|id| {
             let node = context.get_arena().get(id);
             matches!(node.value, NodeValue::Code(_) | NodeValue::CodeBlock(_))
@@ -200,7 +200,7 @@ fn is_followed_by_bracket(_context: &dyn NodeFormatterContext) -> bool {
 
 /// Check if we're inside a table
 fn is_inside_table(context: &dyn NodeFormatterContext) -> bool {
-    context.get_current_node().map_or(false, |node_id| {
+    context.get_current_node().is_some_and(|node_id| {
         context.get_arena().ancestors_iter(node_id).any(|id| {
             let node = context.get_arena().get(id);
             matches!(
@@ -218,7 +218,7 @@ fn is_in_link_url_context(context: &dyn NodeFormatterContext) -> bool {
     // The URL is rendered after the link text, so we need to track this
     // For now, we check if the current node is inside a Link/Image
     // A more precise implementation would track the exact rendering phase
-    context.get_current_node().map_or(false, |node_id| {
+    context.get_current_node().is_some_and(|node_id| {
         context.get_arena().ancestors_iter(node_id).any(|id| {
             let node = context.get_arena().get(id);
             matches!(node.value, NodeValue::Link(_) | NodeValue::Image(_))
@@ -386,7 +386,7 @@ fn is_underscore_in_word(chars: &[char], pos: usize) -> bool {
 
 /// Check if we're inside an emphasis or strong node
 fn is_part_of_emphasis_node(context: &dyn NodeFormatterContext) -> bool {
-    context.get_current_node().map_or(false, |node_id| {
+    context.get_current_node().is_some_and(|node_id| {
         context.get_arena().ancestors_iter(node_id).any(|id| {
             let node = context.get_arena().get(id);
             matches!(node.value, NodeValue::Emph | NodeValue::Strong)

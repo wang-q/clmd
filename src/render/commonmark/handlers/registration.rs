@@ -547,12 +547,10 @@ pub fn register_list_handlers() -> Vec<NodeFormattingHandler> {
                     if !is_last_item {
                         writer.line();
                     }
+                } else if !is_last_item {
+                    writer.blank_line();
                 } else {
-                    if !is_last_item {
-                        writer.blank_line();
-                    } else {
-                        writer.line();
-                    }
+                    writer.line();
                 }
             },
         ),

@@ -166,25 +166,23 @@ impl ParagraphLineBreaker {
 
     /// Remove trailing space from the last text fragment
     pub fn remove_trailing_space(&mut self) {
-        if let Some(last_fragment) = self.fragments.last_mut() {
-            if let ContentFragment::Text {
-                content,
-                width,
-                break_points,
-                break_widths,
-            } = last_fragment
-            {
-                if content.ends_with(' ') {
-                    *content = content.trim_end().to_string();
-                    *width = unicode::width(content) as usize;
-                    self.current_position -= 1;
-                    self.current_width -= 1;
-                    // Remove any break point at the end
-                    if let Some(&(last_bp, _)) = break_points.last() {
-                        if last_bp >= content.len() {
-                            break_points.pop();
-                            break_widths.pop();
-                        }
+        if let Some(ContentFragment::Text {
+            content,
+            width,
+            break_points,
+            break_widths,
+        }) = self.fragments.last_mut()
+        {
+            if content.ends_with(' ') {
+                *content = content.trim_end().to_string();
+                *width = unicode::width(content) as usize;
+                self.current_position -= 1;
+                self.current_width -= 1;
+                // Remove any break point at the end
+                if let Some(&(last_bp, _)) = break_points.last() {
+                    if last_bp >= content.len() {
+                        break_points.pop();
+                        break_widths.pop();
                     }
                 }
             }
@@ -195,7 +193,7 @@ impl ParagraphLineBreaker {
     pub fn ends_with_whitespace(&self) -> bool {
         self.fragments
             .last()
-            .map_or(false, |fragment| match fragment {
+            .is_some_and(|fragment| match fragment {
                 ContentFragment::Text { content, .. } => {
                     content.ends_with(|c: char| c.is_whitespace())
                 }
@@ -507,9 +505,9 @@ impl ParagraphLineBreaker {
         let next_penalty = if let Some(c) = next_char {
             if is_cjk_punct_that_should_pull_back(c) {
                 10000.0
-            } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}') {
-                5000.0
-            } else if is_ascii_opening_bracket(c) && !at_atomic_start {
+            } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}')
+                || (is_ascii_opening_bracket(c) && !at_atomic_start)
+            {
                 5000.0
             } else {
                 0.0
@@ -589,14 +587,14 @@ impl ParagraphLineBreaker {
 
         match affinity {
             Affinity::Left => {
-                let is_cjk_open = next_char.map_or(false, is_cjk_opening_bracket);
-                let prev_is_ws = prev_char.map_or(false, |c| c.is_whitespace());
+                let is_cjk_open = next_char.is_some_and(is_cjk_opening_bracket);
+                let prev_is_ws = prev_char.is_some_and(|c| c.is_whitespace());
                 is_cjk_open && !prev_is_ws
             }
             Affinity::Right => {
                 let is_prev_ascii_close =
-                    prev_char.map_or(false, is_ascii_closing_bracket);
-                let is_next_cjk_open = next_char.map_or(false, is_cjk_opening_bracket);
+                    prev_char.is_some_and(is_ascii_closing_bracket);
+                let is_next_cjk_open = next_char.is_some_and(is_cjk_opening_bracket);
 
                 if is_prev_ascii_close && is_next_cjk_open {
                     return true;
@@ -604,7 +602,7 @@ impl ParagraphLineBreaker {
                 if is_next_cjk_open {
                     return false;
                 }
-                next_char.map_or(false, |c| crate::text::char::is_cjk_punctuation(c))
+                next_char.is_some_and(crate::text::char::is_cjk_punctuation)
             }
         }
     }
@@ -616,11 +614,7 @@ impl ParagraphLineBreaker {
                 ContentFragment::Text { content, .. } => {
                     let fragment_end = current_pos + content.len();
                     if pos < fragment_end {
-                        let start = if pos >= current_pos {
-                            pos - current_pos
-                        } else {
-                            0
-                        };
+                        let start = pos.saturating_sub(current_pos);
                         return content[start..].chars().find(|c| !c.is_whitespace());
                     }
                     current_pos = fragment_end;
@@ -628,11 +622,7 @@ impl ParagraphLineBreaker {
                 ContentFragment::Atomic { content, .. } => {
                     let fragment_end = current_pos + content.len();
                     if pos < fragment_end {
-                        let start = if pos >= current_pos {
-                            pos - current_pos
-                        } else {
-                            0
-                        };
+                        let start = pos.saturating_sub(current_pos);
                         return content[start..].chars().find(|c| !c.is_whitespace());
                     }
                     current_pos = fragment_end;
@@ -859,7 +849,7 @@ impl ParagraphLineBreaker {
                     let line_ends_punct = line_trimmed
                         .chars()
                         .last()
-                        .map_or(prev_line_ends_with_punct, |c| is_punctuation(c));
+                        .map_or(prev_line_ends_with_punct, is_punctuation);
 
                     let actual_start = self.compute_actual_start(
                         line_idx,
@@ -921,7 +911,7 @@ impl ParagraphLineBreaker {
             .trim_end()
             .chars()
             .last()
-            .map_or(false, |c| is_punctuation(c));
+            .is_some_and(is_punctuation);
 
         (
             line_content,
@@ -967,7 +957,7 @@ impl ParagraphLineBreaker {
                     .trim_end()
                     .chars()
                     .last()
-                    .map_or(false, |c| is_punctuation(c));
+                    .is_some_and(is_punctuation);
 
                 lines.push(line_content);
                 lines.push('\n'.to_string());
@@ -996,7 +986,7 @@ fn get_punctuation_affinity(
     next_char: Option<char>,
 ) -> Option<Affinity> {
     // Check if the previous character is CJK (affects how we treat ASCII punctuation)
-    let prev_is_cjk = prev_char.map_or(false, crate::text::unicode::is_cjk);
+    let prev_is_cjk = prev_char.is_some_and(crate::text::unicode::is_cjk);
 
     match char_str {
         // ASCII punctuation that can appear in both CJK and English contexts

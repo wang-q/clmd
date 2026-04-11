@@ -227,6 +227,11 @@ impl NodeArena {
         self.nodes.len()
     }
 
+    /// Returns true if the arena contains no nodes
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     /// Returns an iterator over all nodes in the arena.
     ///
     /// The iterator yields `(NodeId, &Node)` tuples.

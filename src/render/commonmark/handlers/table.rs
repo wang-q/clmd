@@ -342,9 +342,7 @@ pub fn parse_row_cells(line: &str) -> Vec<Cell> {
         }
     }
 
-    if !line.ends_with('|') {
-        cells.push(cell.into());
-    } else if !cell.is_empty() {
+    if !line.ends_with('|') || !cell.is_empty() {
         cells.push(cell.into());
     }
 

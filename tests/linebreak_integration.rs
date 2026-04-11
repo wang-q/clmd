@@ -13,7 +13,7 @@ use test_utils::spec_parser::parse_formatter_spec_file;
 
 /// Apply spec options to ParseOptions and FormatOptions
 fn apply_spec_options(
-    parse_options: &mut Options,
+    _parse_options: &mut Options,
     options: &mut FormatOptions,
     option_str: &str,
 ) {

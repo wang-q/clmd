@@ -96,8 +96,6 @@ pub fn find_toc_boundaries(input: &str) -> Option<TocBoundaries> {
                             .unwrap_or(false)
                     {
                         content_end += line.len() + 1;
-                    } else if trimmed.is_empty() {
-                        break;
                     } else {
                         break;
                     }
