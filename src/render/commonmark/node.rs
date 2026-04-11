@@ -114,14 +114,6 @@ pub trait NodeFormatter: Send + Sync {
     fn get_node_classes(&self) -> Vec<NodeType> {
         Vec::new()
     }
-
-    /// Get the block quote-like prefix character
-    ///
-    /// Returns a character that should be treated like a block quote prefix
-    /// for indentation purposes.
-    fn get_block_quote_like_prefix_char(&self) -> Option<char> {
-        None
-    }
 }
 
 /// A composed node formatter that combines multiple formatters
@@ -385,16 +377,11 @@ mod tests {
             fn get_node_classes(&self) -> Vec<NodeType> {
                 vec![std::mem::discriminant(&NodeValue::Paragraph)]
             }
-
-            fn get_block_quote_like_prefix_char(&self) -> Option<char> {
-                Some('>')
-            }
         }
 
         let formatter = SimpleFormatter;
         assert_eq!(formatter.get_node_formatting_handlers().len(), 1);
         assert_eq!(formatter.get_node_classes().len(), 1);
-        assert_eq!(formatter.get_block_quote_like_prefix_char(), Some('>'));
     }
 
     // Mock context for testing - provides safe default implementations

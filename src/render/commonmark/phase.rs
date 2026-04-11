@@ -241,13 +241,6 @@ impl NodeFormatter for ComposedPhasedFormatter {
             .flat_map(|f| f.get_node_classes())
             .collect()
     }
-
-    fn get_block_quote_like_prefix_char(&self) -> Option<char> {
-        self.formatters
-            .iter()
-            .filter_map(|f| f.get_block_quote_like_prefix_char())
-            .next()
-    }
 }
 
 impl PhasedNodeFormatter for ComposedPhasedFormatter {
