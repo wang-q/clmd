@@ -31,21 +31,6 @@ fn is_cjk_opening_bracket(c: char) -> bool {
     )
 }
 
-fn is_cjk_closing_bracket(c: char) -> bool {
-    matches!(
-        c,
-        '\u{ff09}' // ）
-            | '\u{ff3d}' // 】
-            | '\u{ff5d}' // 〕
-            | '\u{300d}' // 」
-            | '\u{300f}' // 』
-            | '\u{3009}' // 〉
-            | '\u{300b}' // 》
-            | '\u{3011}' // 】
-            | '\u{3015}' // 〕
-    )
-}
-
 fn is_ascii_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '[' | '{')
 }
@@ -873,55 +858,35 @@ impl ParagraphLineBreaker {
             return start_in_fragment;
         }
 
-        if start_in_fragment != 0 {
-            if line_idx > 0 && result_ends_with_punct {
-                match content[start_in_fragment..end_in_fragment]
-                    .find(|c: char| !c.is_whitespace())
-                {
-                    Some(i) => return start_in_fragment + i,
-                    None => return end_in_fragment,
-                }
-            }
-            return start_in_fragment;
-        }
+        // Find first non-whitespace position in the content slice
+        let first_non_ws = content[start_in_fragment..end_in_fragment]
+            .find(|c: char| !c.is_whitespace())
+            .map(|i| start_in_fragment + i);
 
-        if !prev_fragment_was_code && !prev_fragment_was_atomic {
-            match content[start_in_fragment..end_in_fragment]
-                .find(|c: char| !c.is_whitespace())
-            {
-                Some(i) => start_in_fragment + i,
-                None => {
-                    if result_ends_with_punct {
-                        end_in_fragment
-                    } else {
-                        start_in_fragment
-                    }
-                }
-            }
-        } else if prev_fragment_was_atomic {
-            let trimmed = content[start_in_fragment..end_in_fragment].trim_start();
-            if !trimmed.is_empty() {
-                let first_char = trimmed.chars().next().unwrap();
-                if is_punctuation(first_char) {
-                    content[start_in_fragment..end_in_fragment]
-                        .find(|c: char| !c.is_whitespace())
-                        .map(|i| start_in_fragment + i)
-                        .unwrap_or(start_in_fragment)
+        // No non-WS content: skip entirely if prev line ended with punct
+        let actual = match first_non_ws {
+            Some(pos) => pos,
+            None => {
+                return if result_ends_with_punct {
+                    end_in_fragment
                 } else {
                     start_in_fragment
-                }
-            } else if result_ends_with_punct {
-                end_in_fragment
-            } else {
-                start_in_fragment
+                };
             }
-        } else if result_ends_with_punct {
-            content[start_in_fragment..end_in_fragment]
-                .find(|c: char| !c.is_whitespace())
-                .map(|i| start_in_fragment + i)
-                .unwrap_or(start_in_fragment)
-        } else {
+        };
+
+        // Unified rule: keep leading space only in specific cases
+        // 1. After Code fragments (CJK spacing convention — always keep)
+        // 2. After Atomic (non-code) when next char is not punctuation
+        //    (preserve normal word spacing after links/code spans)
+        let should_keep_space = prev_fragment_was_code
+            || (prev_fragment_was_atomic
+                && !is_punctuation(content[actual..].chars().next().unwrap_or('\0')));
+
+        if should_keep_space {
             start_in_fragment
+        } else {
+            actual
         }
     }
 
@@ -968,6 +933,113 @@ impl ParagraphLineBreaker {
         0
     }
 
+    /// Render a single line of output from start_pos to end_pos.
+    fn render_line(
+        &self,
+        line_idx: usize,
+        start_pos: usize,
+        end_pos: usize,
+        prev_line_ends_with_punct: bool,
+    ) -> (String, bool, bool, bool) {
+        let mut line_content = String::new();
+        let mut pos = 0;
+        let mut prev_was_code = false;
+        let mut prev_was_atomic = false;
+
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let frag_start = pos;
+                    let frag_end = pos + content.len();
+
+                    if frag_end <= start_pos {
+                        pos = frag_end;
+                        prev_was_atomic = false;
+                        continue;
+                    }
+                    if frag_start >= end_pos {
+                        break;
+                    }
+
+                    let frag_offset = start_pos.saturating_sub(frag_start);
+                    let frag_limit = (end_pos - frag_start).min(content.len());
+
+                    let line_trimmed = line_content.trim_end();
+                    let line_ends_punct = line_trimmed
+                        .chars()
+                        .last()
+                        .map_or(prev_line_ends_with_punct, |c| is_punctuation(c));
+
+                    let actual_start = self.compute_actual_start(
+                        line_idx,
+                        frag_offset,
+                        frag_limit,
+                        content,
+                        prev_was_code,
+                        prev_was_atomic,
+                        line_ends_punct,
+                    );
+
+                    // Normalize "( 4.8GB)" → "(4.8GB)"
+                    let final_start = if line_trimmed.ends_with('(') {
+                        content[actual_start..frag_limit]
+                            .find(|c: char| !c.is_whitespace())
+                            .map(|i| actual_start + i)
+                            .unwrap_or(frag_limit)
+                    } else {
+                        actual_start
+                    };
+
+                    if final_start < content.len() && frag_limit > final_start {
+                        line_content.push_str(&content[final_start..frag_limit]);
+                    }
+
+                    pos = frag_end;
+                    prev_was_code = false;
+                    prev_was_atomic = false;
+                }
+                ContentFragment::Atomic { content, kind, .. } => {
+                    let frag_start = pos;
+                    let frag_end = pos + content.len();
+
+                    if frag_end <= start_pos {
+                        pos = frag_end;
+                        prev_was_atomic = true;
+                        continue;
+                    }
+                    if frag_start >= end_pos {
+                        break;
+                    }
+
+                    if frag_start < end_pos {
+                        line_content.push_str(content);
+                    }
+
+                    pos = frag_end;
+                    prev_was_code = matches!(kind, AtomicKind::Code);
+                    prev_was_atomic = true;
+                }
+            }
+
+            if pos >= end_pos {
+                break;
+            }
+        }
+
+        let ends_with_punct = line_content
+            .trim_end()
+            .chars()
+            .last()
+            .map_or(false, |c| is_punctuation(c));
+
+        (
+            line_content,
+            prev_was_code,
+            prev_was_atomic,
+            ends_with_punct,
+        )
+    }
+
     /// Format the paragraph with optimal line breaks
     pub fn format(&self) -> String {
         let breaks = self.compute_breaks();
@@ -976,133 +1048,47 @@ impl ParagraphLineBreaker {
             return String::new();
         }
 
-        let mut result = String::new();
+        let mut lines: Vec<String> = Vec::with_capacity(breaks.len());
         let mut last_break_pos = 0;
+        let mut prev_ends_with_punct = false;
 
         for (line_idx, break_point) in breaks.iter().enumerate() {
-            // Add the prefix for continuation lines
             if line_idx > 0 {
-                result.push_str(&self.prefix);
+                lines.push(self.prefix.clone());
             }
 
-            // Collect content from last_break_pos up to this break point
-            let mut pos = 0;
-            let mut prev_fragment_was_code = false;
-            let mut prev_fragment_was_atomic = false;
-            for fragment in &self.fragments {
-                match fragment {
-                    ContentFragment::Text { content, .. } => {
-                        let fragment_start = pos;
-                        let fragment_end = pos + content.len();
+            let (mut line_content, _, _, _) = self.render_line(
+                line_idx,
+                last_break_pos,
+                break_point.position,
+                prev_ends_with_punct,
+            );
 
-                        if fragment_end <= last_break_pos {
-                            // This fragment is before the current line
-                            pos = fragment_end;
-                            prev_fragment_was_atomic = false;
-                            continue;
-                        }
-
-                        if fragment_start >= break_point.position {
-                            // This fragment is after the current line
-                            break;
-                        }
-
-                        // This fragment overlaps with the current line
-                        let start_in_fragment =
-                            last_break_pos.saturating_sub(fragment_start);
-                        let end_in_fragment =
-                            (break_point.position - fragment_start).min(content.len());
-
-                        let result_trimmed = result.trim_end();
-                        let result_ends_with_punct = result_trimmed
-                            .chars()
-                            .last()
-                            .map_or(false, |c| is_punctuation(c));
-
-                        let mut actual_start = self.compute_actual_start(
-                            line_idx,
-                            start_in_fragment,
-                            end_in_fragment,
-                            content,
-                            prev_fragment_was_code,
-                            prev_fragment_was_atomic,
-                            result_ends_with_punct,
-                        );
-
-                        if result_trimmed.ends_with('(') {
-                            actual_start = content[actual_start..end_in_fragment]
-                                .find(|c: char| !c.is_whitespace())
-                                .map(|i| actual_start + i)
-                                .unwrap_or(end_in_fragment);
-                        }
-
-                        if actual_start < content.len() && end_in_fragment > actual_start
-                        {
-                            result.push_str(&content[actual_start..end_in_fragment]);
-                        }
-
-                        pos = fragment_end;
-                        prev_fragment_was_code = false;
-                        prev_fragment_was_atomic = false;
-                    }
-                    ContentFragment::Atomic { content, kind, .. } => {
-                        let fragment_start = pos;
-                        let fragment_end = pos + content.len();
-
-                        if fragment_end <= last_break_pos {
-                            // This fragment is before the current line
-                            pos = fragment_end;
-                            prev_fragment_was_atomic = true;
-                            continue;
-                        }
-
-                        if fragment_start >= break_point.position {
-                            // This fragment is after the current line
-                            break;
-                        }
-
-                        // This fragment overlaps with the current line
-                        // Atomic units are output as a whole on the first line that contains them
-                        if fragment_start < break_point.position {
-                            result.push_str(content);
-                        }
-
-                        pos = fragment_end;
-                        prev_fragment_was_code = matches!(kind, AtomicKind::Code);
-                        prev_fragment_was_atomic = true;
-                    }
-                }
-
-                if pos >= break_point.position {
-                    break;
-                }
-            }
-
-            // Update last_break_pos for the next line
-            last_break_pos = break_point.position;
-
-            // Add newline (except for the last break)
             if line_idx < breaks.len() - 1 {
-                // Remove trailing spaces before adding newline
-                while result.ends_with(' ') {
-                    result.pop();
+                while line_content.ends_with(' ') {
+                    line_content.pop();
                 }
+                let pull_back = self
+                    .try_pull_back_punctuation(&mut line_content, break_point.position);
+                last_break_pos = break_point.position + pull_back;
 
-                // Check if the next line starts with CJK punctuation
-                // If so, we need to pull it back to this line (CJK typography rule)
-                let pull_back =
-                    self.try_pull_back_punctuation(&mut result, break_point.position);
-                last_break_pos += pull_back;
+                prev_ends_with_punct = line_content
+                    .trim_end()
+                    .chars()
+                    .last()
+                    .map_or(false, |c| is_punctuation(c));
 
-                result.push('\n');
+                lines.push(line_content);
+                lines.push('\n'.to_string());
+            } else {
+                lines.push(line_content);
             }
         }
 
-        // Remove trailing spaces from the result
+        let mut result = lines.concat();
         while result.ends_with(' ') {
             result.pop();
         }
-
         result
     }
 }
