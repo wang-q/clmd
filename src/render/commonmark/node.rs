@@ -124,27 +124,6 @@ pub trait NodeFormatter: Send + Sync {
     }
 }
 
-/// Trait for node formatters that can be created from options
-pub trait NodeFormatterFactory: Send + Sync {
-    /// Create a new node formatter
-    fn create(&self) -> Box<dyn NodeFormatter>;
-
-    /// Get the formatter classes that must be executed before this one
-    fn get_after_dependents(&self) -> Vec<&'static str> {
-        Vec::new()
-    }
-
-    /// Get the formatter classes that must be executed after this one
-    fn get_before_dependents(&self) -> Vec<&'static str> {
-        Vec::new()
-    }
-
-    /// Check if this formatter affects global scope
-    fn affects_global_scope(&self) -> bool {
-        false
-    }
-}
-
 /// A composed node formatter that combines multiple formatters
 pub struct ComposedNodeFormatter {
     formatters: Vec<Box<dyn NodeFormatter>>,
@@ -416,66 +395,6 @@ mod tests {
         assert_eq!(formatter.get_node_formatting_handlers().len(), 1);
         assert_eq!(formatter.get_node_classes().len(), 1);
         assert_eq!(formatter.get_block_quote_like_prefix_char(), Some('>'));
-    }
-
-    #[test]
-    fn test_node_formatter_factory_trait() {
-        struct TestFactory;
-        impl NodeFormatterFactory for TestFactory {
-            fn create(&self) -> Box<dyn NodeFormatter> {
-                struct DummyFormatter;
-                impl NodeFormatter for DummyFormatter {
-                    fn get_node_formatting_handlers(
-                        &self,
-                    ) -> Vec<NodeFormattingHandler> {
-                        vec![]
-                    }
-                }
-                Box::new(DummyFormatter)
-            }
-
-            fn get_after_dependents(&self) -> Vec<&'static str> {
-                vec!["OtherFormatter"]
-            }
-
-            fn get_before_dependents(&self) -> Vec<&'static str> {
-                vec!["AnotherFormatter"]
-            }
-
-            fn affects_global_scope(&self) -> bool {
-                true
-            }
-        }
-
-        let factory = TestFactory;
-        let formatter = factory.create();
-        assert_eq!(formatter.get_node_formatting_handlers().len(), 0);
-        assert_eq!(factory.get_after_dependents(), vec!["OtherFormatter"]);
-        assert_eq!(factory.get_before_dependents(), vec!["AnotherFormatter"]);
-        assert!(factory.affects_global_scope());
-    }
-
-    #[test]
-    fn test_node_formatter_factory_default_methods() {
-        struct SimpleFactory;
-        impl NodeFormatterFactory for SimpleFactory {
-            fn create(&self) -> Box<dyn NodeFormatter> {
-                struct DummyFormatter;
-                impl NodeFormatter for DummyFormatter {
-                    fn get_node_formatting_handlers(
-                        &self,
-                    ) -> Vec<NodeFormattingHandler> {
-                        vec![]
-                    }
-                }
-                Box::new(DummyFormatter)
-            }
-        }
-
-        let factory = SimpleFactory;
-        assert!(factory.get_after_dependents().is_empty());
-        assert!(factory.get_before_dependents().is_empty());
-        assert!(!factory.affects_global_scope());
     }
 
     // Mock context for testing - provides safe default implementations

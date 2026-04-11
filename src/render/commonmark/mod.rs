@@ -40,8 +40,8 @@ pub use context::{
 // Re-export line breaking types
 pub use line_breaking::{AtomicKind, ParagraphLineBreaker, UnitHandle, UnitKind, Word};
 pub use node::{
-    ComposedNodeFormatter, NodeFormatter, NodeFormatterFactory, NodeFormatterFn,
-    NodeFormattingHandler, NodeType,
+    ComposedNodeFormatter, NodeFormatter, NodeFormatterFn, NodeFormattingHandler,
+    NodeType,
 };
 pub use phase::{
     ComposedPhasedFormatter, FormattingPhase, PhasedNodeFormatter, SimplePhasedFormatter,
