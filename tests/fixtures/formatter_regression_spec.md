@@ -368,7 +368,7 @@ supercalifragilisticexpialidocious
 
 ### Issue: Multiple spaces
 
-Multiple spaces should be normalized.
+Multiple spaces should be preserved.
 
 ```````````````````````````````` example(Edge: 3) options(margin[50])
 Multiple    spaces    should    be    normalized.
@@ -379,7 +379,11 @@ Multiple    spaces    should    be    normalized.
 
 ### Issue: Trailing spaces
 
-Trailing spaces should be removed.
+Trailing spaces at the end of lines should be removed.
+In Markdown, two or more trailing spaces indicate a hard line break,
+but only when there is a subsequent line. In single-line paragraphs,
+trailing spaces have no semantic meaning and should be stripped.
+
 
 ```````````````````````````````` example(Edge: 4) options(margin[50])
 Trailing spaces should be removed.   
@@ -392,7 +396,7 @@ Trailing spaces should be removed.
 
 Unicode content should be handled correctly.
 
-```````````````````````````````` example(Edge: 5)
+```````````````````````````````` example(Edge: 6)
 Unicode: 你好世界 🌍 emoji
 .
 Unicode: 你好世界 🌍 emoji
