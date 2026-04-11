@@ -170,7 +170,7 @@ Punctuation like `,`, `.`, `;`, `:` should stay with the previous content, even 
 This is a long line with code `list.iter().cloned().collect()`, and more text after the comma.
 .
 This is a long line with code `list.iter().cloned().collect()`,
- and more text after the comma.
+and more text after the comma.
 ````````````````````````````````
 
 

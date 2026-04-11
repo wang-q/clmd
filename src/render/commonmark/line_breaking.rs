@@ -956,6 +956,13 @@ impl ParagraphLineBreaker {
                         // - previous fragment was Code (for CJK spacing)
                         // - previous fragment was an Atomic unit like Link (to preserve space after link)
                         //   UNLESS the space is followed by punctuation (normalize "[link] ." to "[link].")
+                        // - OR the result ends with punctuation - always skip spaces on continuation line
+                        let result_trimmed = result.trim_end();
+                        let result_ends_with_punct = result_trimmed
+                            .chars()
+                            .last()
+                            .map_or(false, |c| is_punctuation(c));
+
                         let mut actual_start = if line_idx > 0
                             && start_in_fragment == 0
                             && !prev_fragment_was_code
@@ -970,7 +977,7 @@ impl ParagraphLineBreaker {
                             && start_in_fragment == 0
                             && prev_fragment_was_atomic
                         {
-                            // Previous fragment was atomic (e.g., link)
+                            // Previous fragment was atomic (e.g., link or code)
                             // Check if the text starts with spaces followed by punctuation
                             // If so, skip the spaces to normalize "[link] ." to "[link]."
                             let trimmed =
@@ -990,6 +997,13 @@ impl ParagraphLineBreaker {
                             } else {
                                 start_in_fragment
                             }
+                        } else if line_idx > 0 && result_ends_with_punct {
+                            // Result ends with punctuation (e.g., comma)
+                            // Skip leading spaces on continuation line
+                            content[start_in_fragment..end_in_fragment]
+                                .find(|c: char| !c.is_whitespace())
+                                .map(|i| start_in_fragment + i)
+                                .unwrap_or(start_in_fragment)
                         } else {
                             start_in_fragment
                         };
@@ -997,7 +1011,6 @@ impl ParagraphLineBreaker {
                         // If result ends with '(' (possibly with trailing spaces),
                         // skip leading spaces in this fragment
                         // This handles cases like "( 4.8GB)" -> "(4.8GB)"
-                        let result_trimmed = result.trim_end();
                         if result_trimmed.ends_with('(') {
                             actual_start = content[actual_start..end_in_fragment]
                                 .find(|c: char| !c.is_whitespace())
