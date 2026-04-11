@@ -224,9 +224,6 @@ pub mod io;
 
 // IO submodules are accessed through `io::writer`, `io::format`
 
-/// Plugin system for extending Markdown rendering.
-pub mod plugin;
-
 /// Rendering modules for HTML, CommonMark, and other output formats.
 pub mod render;
 
@@ -313,9 +310,6 @@ pub fn parse_document(md: &str, options: &Options) -> (Arena, NodeId) {
 /// ```
 pub use options::Options;
 
-/// Re-export Plugins for customizing rendering.
-pub use options::Plugins;
-
 /// Re-export Extension options.
 pub use options::Extension;
 
@@ -365,7 +359,6 @@ pub fn is_space_or_tab(c: char) -> bool {
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -374,22 +367,22 @@ pub fn is_space_or_tab(c: char) -> bool {
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_html, Options, Plugins};
+/// use clmd::{markdown_to_html, Options};
 ///
 /// // Basic usage
-/// let html = markdown_to_html("Hello, **world**!", &Options::default(), &Plugins::default());
+/// let html = markdown_to_html("Hello, **world**!", &Options::default());
 /// assert_eq!(html, "<p>Hello, <strong>world</strong>!</p>");
 ///
 /// // With headings and lists
 /// let markdown = "# Title\n\n- Item 1\n- Item 2";
-/// let html = markdown_to_html(markdown, &Options::default(), &Plugins::default());
+/// let html = markdown_to_html(markdown, &Options::default());
 /// assert!(html.contains("<h1>"));
 /// assert!(html.contains("<ul>"));
 /// ```ignore
-pub fn markdown_to_html(md: &str, options: &Options, plugins: &Plugins<'_>) -> String {
+pub fn markdown_to_html(md: &str, options: &Options) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_html(&arena, root, options, &mut out, plugins).unwrap();
+    format_html(&arena, root, options, &mut out).unwrap();
     out
 }
 
@@ -399,7 +392,6 @@ pub fn markdown_to_html(md: &str, options: &Options, plugins: &Plugins<'_>) -> S
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -408,20 +400,16 @@ pub fn markdown_to_html(md: &str, options: &Options, plugins: &Plugins<'_>) -> S
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_commonmark, Options, Plugins};
+/// use clmd::{markdown_to_commonmark, Options};
 ///
 /// let options = Options::default();
-/// let cm = markdown_to_commonmark("Hello *world*", &options, &Plugins::default());
+/// let cm = markdown_to_commonmark("Hello *world*", &options);
 /// assert!(cm.contains("Hello"));
 /// ```ignore
-pub fn markdown_to_commonmark(
-    md: &str,
-    options: &Options,
-    plugins: &Plugins<'_>,
-) -> String {
+pub fn markdown_to_commonmark(md: &str, options: &Options) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_commonmark(&arena, root, options, &mut out, plugins).unwrap();
+    format_commonmark(&arena, root, options, &mut out).unwrap();
     out
 }
 
@@ -433,7 +421,6 @@ pub fn markdown_to_commonmark(
 ///
 /// * `md` - The Markdown text to convert
 /// * `options` - Configuration options
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -442,20 +429,16 @@ pub fn markdown_to_commonmark(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{markdown_to_commonmark_xml, Options, Plugins};
+/// use clmd::{markdown_to_commonmark_xml, Options};
 ///
 /// let options = Options::default();
-/// let xml = markdown_to_commonmark_xml("Hello *world*", &options, &Plugins::default());
+/// let xml = markdown_to_commonmark_xml("Hello *world*", &options);
 /// assert!(xml.contains("<document>"));
 /// ```ignore
-pub fn markdown_to_commonmark_xml(
-    md: &str,
-    options: &Options,
-    plugins: &Plugins<'_>,
-) -> String {
+pub fn markdown_to_commonmark_xml(md: &str, options: &Options) -> String {
     let (arena, root) = parse::parse_document(md, options);
     let mut out = String::new();
-    format_xml(&arena, root, options, &mut out, plugins).unwrap();
+    format_xml(&arena, root, options, &mut out).unwrap();
     out
 }
 
@@ -469,7 +452,6 @@ pub fn markdown_to_commonmark_xml(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -478,26 +460,20 @@ pub fn markdown_to_commonmark_xml(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_html, Options, Plugins};
+/// use clmd::{parse_document, format_html, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut html = String::new();
-/// format_html(&arena, root, &options, &mut html, &Plugins::default()).unwrap();
+/// format_html(&arena, root, &options, &mut html).unwrap();
 /// ```ignore
 pub fn format_html(
     arena: &Arena,
     root: NodeId,
     options: &Options,
     output: &mut dyn std::fmt::Write,
-    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    let highlighter = plugins.render.syntax_highlighter();
-    write!(
-        output,
-        "{}",
-        html::render_with_highlighter(arena, root, options, highlighter)
-    )
+    write!(output, "{}", html::render(arena, root, options))
 }
 
 /// Format an existing AST to CommonMark.
@@ -508,7 +484,6 @@ pub fn format_html(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -517,19 +492,18 @@ pub fn format_html(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_commonmark, Options, Plugins};
+/// use clmd::{parse_document, format_commonmark, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut cm = String::new();
-/// format_commonmark(&arena, root, &options, &mut cm, &Plugins::default()).unwrap();
+/// format_commonmark(&arena, root, &options, &mut cm).unwrap();
 /// ```ignore
 pub fn format_commonmark(
     arena: &Arena,
     root: NodeId,
     options: &Options,
     output: &mut dyn std::fmt::Write,
-    _plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
     let opts =
         options::format::FormatOptions::new().with_right_margin(options.render.width);
@@ -548,7 +522,6 @@ pub fn format_commonmark(
 /// * `root` - The root node ID
 /// * `options` - Configuration options
 /// * `output` - The output buffer to write to
-/// * `plugins` - Plugins for customizing rendering (optional, use `Plugins::default()` for none)
 ///
 /// # Returns
 ///
@@ -557,21 +530,20 @@ pub fn format_commonmark(
 /// # Example
 ///
 /// ```ignore
-/// use clmd::{parse_document, format_xml, Options, Plugins};
+/// use clmd::{parse_document, format_xml, Options};
 ///
 /// let options = Options::default();
 /// let (arena, root) = parse_document("Hello *world*", &options);
 /// let mut xml = String::new();
-/// format_xml(&arena, root, &options, &mut xml, &Plugins::default()).unwrap();
+/// format_xml(&arena, root, &options, &mut xml).unwrap();
 /// ```ignore
 pub fn format_xml(
     arena: &Arena,
     root: NodeId,
     options: &Options,
     output: &mut dyn std::fmt::Write,
-    plugins: &Plugins<'_>,
 ) -> std::fmt::Result {
-    io::writer::xml::format_document_with_plugins(arena, root, options, output, plugins)
+    io::writer::xml::format_document(arena, root, options, output)
 }
 
 /// Return the version of the crate.
@@ -599,14 +571,12 @@ pub fn version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        format_html, io, markdown_to_html, parse_document, version, Options, Plugins,
-    };
+    use crate::{format_html, io, markdown_to_html, parse_document, version, Options};
 
     #[test]
     fn test_markdown_to_html_basic() {
         let options = Options::default();
-        let html = markdown_to_html("Hello world", &options, &Plugins::default());
+        let html = markdown_to_html("Hello world", &options);
         println!("HTML output bytes: {:?}", html.as_bytes());
         assert!(html.contains("<p>Hello world</p>"));
     }
@@ -614,11 +584,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_heading() {
         let options = Options::default();
-        let html = markdown_to_html(
-            "# Heading 1\n\n## Heading 2",
-            &options,
-            &Plugins::default(),
-        );
+        let html = markdown_to_html("# Heading 1\n\n## Heading 2", &options);
         assert!(html.contains("<h1>"));
         assert!(html.contains("<h2>"));
     }
@@ -626,8 +592,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_emphasis() {
         let options = Options::default();
-        let html =
-            markdown_to_html("*italic* and **bold**", &options, &Plugins::default());
+        let html = markdown_to_html("*italic* and **bold**", &options);
         println!("HTML output: {:?}", html);
         assert!(html.contains("<em>italic</em>"));
         assert!(html.contains("<strong>bold</strong>"));
@@ -636,29 +601,21 @@ mod tests {
     #[test]
     fn test_markdown_to_html_link() {
         let options = Options::default();
-        let html = markdown_to_html(
-            "[link](https://example.com)",
-            &options,
-            &Plugins::default(),
-        );
+        let html = markdown_to_html("[link](https://example.com)", &options);
         assert!(html.contains("<a href=\"https://example.com\">"));
     }
 
     #[test]
     fn test_markdown_to_html_code_inline() {
         let options = Options::default();
-        let html = markdown_to_html("Use `code` here", &options, &Plugins::default());
+        let html = markdown_to_html("Use `code` here", &options);
         assert!(html.contains("<code>code</code>"));
     }
 
     #[test]
     fn test_markdown_to_html_code_block() {
         let options = Options::default();
-        let html = markdown_to_html(
-            "```rust\nfn main() {}\n```",
-            &options,
-            &Plugins::default(),
-        );
+        let html = markdown_to_html("```rust\nfn main() {}\n```", &options);
         assert!(html.contains("<pre>"));
         assert!(html.contains("<code"));
         assert!(html.contains("fn main() {}"));
@@ -667,7 +624,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_blockquote() {
         let options = Options::default();
-        let html = markdown_to_html("> Quote", &options, &Plugins::default());
+        let html = markdown_to_html("> Quote", &options);
         assert!(html.contains("<blockquote>"));
         assert!(html.contains("Quote"));
     }
@@ -675,7 +632,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_list() {
         let options = Options::default();
-        let html = markdown_to_html("- Item 1\n- Item 2", &options, &Plugins::default());
+        let html = markdown_to_html("- Item 1\n- Item 2", &options);
         assert!(html.contains("<ul>"));
         assert!(html.contains("Item 1"));
         assert!(html.contains("Item 2"));
@@ -684,8 +641,7 @@ mod tests {
     #[test]
     fn test_markdown_to_html_ordered_list() {
         let options = Options::default();
-        let html =
-            markdown_to_html("1. First\n2. Second", &options, &Plugins::default());
+        let html = markdown_to_html("1. First\n2. Second", &options);
         assert!(html.contains("<ol>"));
         assert!(html.contains("First"));
         assert!(html.contains("Second"));
@@ -694,15 +650,14 @@ mod tests {
     #[test]
     fn test_markdown_to_html_thematic_break() {
         let options = Options::default();
-        let html = markdown_to_html("---", &options, &Plugins::default());
+        let html = markdown_to_html("---", &options);
         assert!(html.contains("<hr"));
     }
 
     #[test]
     fn test_markdown_to_html_image() {
         let options = Options::default();
-        let html =
-            markdown_to_html("![alt text](image.png)", &options, &Plugins::default());
+        let html = markdown_to_html("![alt text](image.png)", &options);
         // Image rendering may vary between implementations
         // Just check that it doesn't panic and produces some output
         assert!(!html.is_empty());
@@ -714,7 +669,7 @@ mod tests {
         let input = "# Title\n\nParagraph with text.";
         let (arena, root) = parse_document(input, &options);
         let mut html = String::new();
-        format_html(&arena, root, &options, &mut html, &Plugins::default()).unwrap();
+        format_html(&arena, root, &options, &mut html).unwrap();
         assert!(html.contains("<h1>"));
         assert!(html.contains("Paragraph"));
     }
@@ -731,54 +686,9 @@ mod tests {
         options.extension.tagfilter = true;
 
         // Test that dangerous HTML tags are filtered
-        let html = markdown_to_html(
-            "<script>alert('xss')</script>",
-            &options,
-            &Plugins::default(),
-        );
+        let html = markdown_to_html("<script>alert('xss')</script>", &options);
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
-    }
-
-    #[cfg(feature = "syntect")]
-    #[test]
-    fn test_syntect_syntax_highlighting() {
-        use crate::plugin::syntect::SyntectAdapter;
-
-        let options = Options::default();
-        let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));
-
-        let mut plugins = Plugins::new();
-        plugins.render.set_syntax_highlighter(&adapter);
-
-        let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
-        let html = markdown_to_html(markdown, &options, &plugins);
-
-        // Should contain pre and code tags
-        assert!(html.contains("<pre"));
-        assert!(html.contains("<code"));
-
-        // With a theme, should contain styled spans
-        assert!(html.contains("<span") || html.contains("fn main"));
-    }
-
-    #[cfg(feature = "syntect")]
-    #[test]
-    fn test_syntect_css_class_mode() {
-        use crate::plugin::syntect::SyntectAdapter;
-
-        let options = Options::default();
-        let adapter = SyntectAdapter::new(None); // CSS class mode
-
-        let mut plugins = Plugins::new();
-        plugins.render.set_syntax_highlighter(&adapter);
-
-        let markdown = "```python\nprint('hello')\n```";
-        let html = markdown_to_html(markdown, &options, &plugins);
-
-        assert!(html.contains("<pre"));
-        assert!(html.contains("<code"));
-        assert!(html.contains("print"));
     }
 
     // Shortcode tests

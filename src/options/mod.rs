@@ -17,7 +17,6 @@
 mod extension;
 pub mod format;
 mod parse;
-pub mod plugins;
 mod render;
 pub mod serde;
 mod traits;
@@ -30,7 +29,6 @@ pub use format::{
     ListSpacing, NumberedMarker, TrailingMarker,
 };
 pub use parse::ParseOptions;
-pub use plugins::{Plugins, RenderPlugins};
 pub use render::RenderOptions;
 pub use serde::{
     Config, ExtensionConfig, FormatConfig, ParseConfig, RenderConfig, SyntaxConfig,

@@ -17,16 +17,16 @@ pub struct ParseOptions<'c> {
     /// Punctuation (quotes, full-stops and hyphens) are converted into 'smart' punctuation.
     ///
     /// ```ignore
-    /// use clmd::{markdown_to_html, Options, Plugins};
+    /// use clmd::{markdown_to_html, Options};
     ///
     /// let mut options = Options::default();
     /// let input = "'Hello,' \"world\" ...";
     ///
-    /// let html = markdown_to_html(input, &options, &Plugins::default());
+    /// let html = markdown_to_html(input, &options);
     /// // Without smart: <p>'Hello,' &quot;world&quot; ...</p>
     ///
     /// options.parse.smart = true;
-    /// let html = markdown_to_html(input, &options, &Plugins::default());
+    /// let html = markdown_to_html(input, &options);
     /// // With smart: <p>'Hello,' "world" …</p>
     /// ```
     pub smart: bool,

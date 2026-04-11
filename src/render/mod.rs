@@ -15,10 +15,10 @@
 //! # Example
 //!
 //! ```ignore
-//! use clmd::{markdown_to_html, options::Options, Plugins};
+//! use clmd::{markdown_to_html, options::Options};
 //!
 //! let options = Options::default();
-//! let html = markdown_to_html("# Hello\n\nWorld", &options, &Plugins::default());
+//! let html = markdown_to_html("# Hello\n\nWorld", &options);
 //! assert!(html.contains("<h1>Hello</h1>"));
 //! assert!(html.contains("<p>World</p>"));
 //! ```

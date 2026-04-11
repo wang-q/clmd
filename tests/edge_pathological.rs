@@ -5,14 +5,13 @@
 
 use clmd::markdown_to_html;
 use clmd::options::Options;
-use clmd::Plugins;
 use std::time::{Duration, Instant};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    markdown_to_html(input, &Options::default(), &Plugins::default())
+    markdown_to_html(input, &Options::default())
 }
 
 /// Helper function to run a test with timeout

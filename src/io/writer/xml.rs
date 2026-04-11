@@ -7,7 +7,7 @@ use crate::core::arena::{NodeArena, NodeId};
 use crate::core::error::ClmdResult;
 use crate::core::nodes::{ListDelimType, ListType, NodeValue};
 use crate::io::writer::shared::escape_xml;
-use crate::options::{Options, Plugins, WriterOptions};
+use crate::options::{Options, WriterOptions};
 use std::fmt;
 
 /// Write a document as XML.
@@ -17,13 +17,7 @@ pub fn write_xml(
     _options: &WriterOptions,
 ) -> ClmdResult<String> {
     let mut output = String::new();
-    format_document_with_plugins(
-        arena,
-        root,
-        &Options::default(),
-        &mut output,
-        &Plugins::default(),
-    )?;
+    format_document(arena, root, &Options::default(), &mut output)?;
     Ok(output)
 }
 
@@ -32,38 +26,28 @@ pub fn write_xml(
 /// This is a convenience function that doesn't use plugins.
 pub fn render(arena: &NodeArena, root: NodeId, _options: u32) -> String {
     let mut output = String::new();
-    format_document_with_plugins(
-        arena,
-        root,
-        &Options::default(),
-        &mut output,
-        &Plugins::default(),
-    )
-    .unwrap();
+    format_document(arena, root, &Options::default(), &mut output).unwrap();
     output
 }
 
 /// Format an AST as XML.
-///
-/// This is a convenience function that doesn't use plugins.
 pub fn format_document(
     arena: &NodeArena,
     root: NodeId,
     options: &Options,
     output: &mut dyn fmt::Write,
 ) -> fmt::Result {
-    format_document_with_plugins(arena, root, options, output, &Plugins::default())
+    format_document_impl(arena, root, options, output)
 }
 
-/// Format an AST as XML with plugins (comrak-style API).
+/// Format an AST as XML (internal implementation).
 ///
 /// This implementation uses the new NodeArena-based AST.
-pub fn format_document_with_plugins(
+fn format_document_impl(
     arena: &NodeArena,
     root: NodeId,
     options: &Options,
     output: &mut dyn fmt::Write,
-    _plugins: &Plugins<'_>,
 ) -> fmt::Result {
     output.write_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")?;
     output.write_str("<!DOCTYPE document SYSTEM \"CommonMark.dtd\">\n")?;

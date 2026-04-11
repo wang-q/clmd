@@ -1,12 +1,11 @@
 use clmd::markdown_to_html;
 use clmd::options::Options;
-use clmd::Plugins;
 use std::collections::HashMap;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
 fn md_to_html(input: &str) -> String {
-    let mut result = markdown_to_html(input, &Options::default(), &Plugins::default());
+    let mut result = markdown_to_html(input, &Options::default());
     // Remove trailing newline to match CommonMark spec test format
     while result.ends_with('\n') {
         result.pop();
@@ -18,7 +17,7 @@ fn md_to_html(input: &str) -> String {
 fn md_to_html_smart(input: &str) -> String {
     let mut opts = Options::default();
     opts.parse.smart = true;
-    let mut result = markdown_to_html(input, &opts, &Plugins::default());
+    let mut result = markdown_to_html(input, &opts);
     // Remove trailing newline to match CommonMark spec test format
     while result.ends_with('\n') {
         result.pop();

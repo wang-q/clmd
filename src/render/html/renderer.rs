@@ -2,7 +2,6 @@
 //!
 //! This module provides the main HTML renderer for the Arena-based AST.
 
-use crate::core::adapter::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::core::nodes::NodeValue;
 use crate::options::Options;
@@ -30,16 +29,10 @@ pub struct HtmlRenderer<'a> {
     pub(crate) item_child_count: Vec<usize>,
     /// Track table row index (0 = header, 1 = header end marker, 2+ = body)
     pub(crate) table_row_index: usize,
-    /// Optional syntax highlighter
-    pub(crate) syntax_highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
 }
 
 impl<'a> HtmlRenderer<'a> {
-    pub(crate) fn new(
-        arena: &'a NodeArena,
-        options: &'a Options<'a>,
-        highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
-    ) -> Self {
+    pub(crate) fn new(arena: &'a NodeArena, options: &'a Options<'a>) -> Self {
         // Optimization: pre-allocate output buffer with estimated capacity
         // Typical HTML output is about 2x the input size
         let estimated_capacity = arena.len() * 64;
@@ -55,7 +48,6 @@ impl<'a> HtmlRenderer<'a> {
             disable_tags: 0,
             item_child_count: Vec::new(),
             table_row_index: 0,
-            syntax_highlighter: highlighter,
         }
     }
 

@@ -75,11 +75,7 @@ pub fn execute(matches: &ArgMatches, options: &clmd::Options) -> anyhow::Result<
     fmt_options.extension.table = true;
     fmt_options.extension.tasklist = true;
 
-    let mut cm = clmd::markdown_to_commonmark(
-        &input_for_format,
-        &fmt_options,
-        &clmd::Plugins::default(),
-    );
+    let mut cm = clmd::markdown_to_commonmark(&input_for_format, &fmt_options);
 
     if let Some(toc_info) = toc_info {
         cm = replace_placeholder_with_toc(&cm, &toc_info, &fmt_options);

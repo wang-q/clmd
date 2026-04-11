@@ -35,7 +35,6 @@ mod nodes;
 mod table;
 mod tests;
 
-use crate::core::adapter::SyntaxHighlighterAdapter;
 use crate::core::arena::{NodeArena, NodeId};
 use crate::options::Options;
 
@@ -51,28 +50,6 @@ use crate::options::Options;
 ///
 /// The HTML output as a String
 pub fn render(arena: &NodeArena, root: NodeId, options: &Options) -> String {
-    let mut renderer = renderer::HtmlRenderer::new(arena, options, None);
-    renderer.render(root)
-}
-
-/// Render a node tree as HTML with syntax highlighter
-///
-/// # Arguments
-///
-/// * `arena` - The NodeArena containing the AST
-/// * `root` - The root node ID
-/// * `options` - Rendering options
-/// * `highlighter` - Optional syntax highlighter adapter
-///
-/// # Returns
-///
-/// The HTML output as a String
-pub fn render_with_highlighter<'a>(
-    arena: &'a NodeArena,
-    root: NodeId,
-    options: &'a Options,
-    highlighter: Option<&'a dyn SyntaxHighlighterAdapter>,
-) -> String {
-    let mut renderer = renderer::HtmlRenderer::new(arena, options, highlighter);
+    let mut renderer = renderer::HtmlRenderer::new(arena, options);
     renderer.render(root)
 }

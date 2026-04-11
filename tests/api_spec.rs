@@ -3,15 +3,13 @@
 //! These tests verify the library API using spec files.
 
 mod test_utils;
-use clmd::{markdown_to_html, unescape_string, Options, Plugins};
+use clmd::{markdown_to_html, unescape_string, Options};
 use std::fs;
 use test_utils::spec_parser::{parse_api_spec_file, ApiSpecExample};
 
 fn run_api_example(example: &ApiSpecExample) -> String {
     match example.function.as_str() {
-        "html" => {
-            markdown_to_html(&example.input, &Options::default(), &Plugins::default())
-        }
+        "html" => markdown_to_html(&example.input, &Options::default()),
         "unescape" => unescape_string(&example.input),
         _ => panic!("Unknown API function: {}", example.function),
     }

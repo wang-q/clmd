@@ -45,8 +45,6 @@
 use std::fs;
 use std::path::Path;
 
-use clmd::Plugins;
-
 /// A single command test case
 #[derive(Debug, Clone)]
 pub struct CommandTest {
@@ -308,10 +306,8 @@ pub fn run_command_test(test: &CommandTest) -> CommandTestResult {
 
     // Run conversion
     let actual = match format.as_str() {
-        "commonmark" | "markdown" => {
-            markdown_to_commonmark(&test.input, &options, &Plugins::default())
-        }
-        _ => markdown_to_html(&test.input, &options, &Plugins::default()),
+        "commonmark" | "markdown" => markdown_to_commonmark(&test.input, &options),
+        _ => markdown_to_html(&test.input, &options),
     };
 
     // Normalize output
