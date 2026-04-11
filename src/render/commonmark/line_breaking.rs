@@ -579,11 +579,24 @@ impl ParagraphLineBreaker {
                     let overflow = line_width - self.max_width;
                     let has_overflowing =
                         self.has_overflowing_atomic_in_range(start_pos, end_pos);
+                    // Extra penalty when a small overflow leaves punctuation
+                    // at end of line: prefer to break before it so the
+                    // punctuation flows to the next line
+                    let trailing_punct_penalty = if overflow <= 5 {
+                        self.find_non_ws_char_before(end_pos)
+                            .filter(|&c| matches!(c, ',' | '.' | ':' | ';'))
+                            .map_or(0.0, |_| (overflow as f64 + 5.0).powi(2) * 80.0)
+                    } else {
+                        0.0
+                    };
                     if has_overflowing {
                         best_cost[j] + (overflow as f64).powi(2) * 100.0
                             - (line_width as f64 * 0.001)
+                            + trailing_punct_penalty
                     } else {
-                        best_cost[j] + (overflow as f64).powi(2) * 100.0
+                        best_cost[j]
+                            + (overflow as f64).powi(2) * 100.0
+                            + trailing_punct_penalty
                     }
                 };
 
@@ -861,6 +874,14 @@ impl ParagraphLineBreaker {
         }
 
         if start_in_fragment != 0 {
+            if line_idx > 0 && result_ends_with_punct {
+                match content[start_in_fragment..end_in_fragment]
+                    .find(|c: char| !c.is_whitespace())
+                {
+                    Some(i) => return start_in_fragment + i,
+                    None => return end_in_fragment,
+                }
+            }
             return start_in_fragment;
         }
 

@@ -166,7 +166,7 @@ Punctuation like `,`, `.`, `;`, `:` should stay with the previous content, even 
 ````````````````````````````````
 
 
-```````````````````````````````` example(Punctuation: 2) options(margin[60])
+```````````````````````````````` example(Punctuation: 2) options(margin[65])
 This is a long line with code `list.iter().cloned().collect()`, and more text after the comma.
 .
 This is a long line with code `list.iter().cloned().collect()`,
@@ -174,7 +174,16 @@ and more text after the comma.
 ````````````````````````````````
 
 
-```````````````````````````````` example(Punctuation: 3) options(margin[100])
+```````````````````````````````` example(Punctuation: 3) options(margin[60])
+This is a long line with code `list.iter().cloned().collect()`, and more text after the comma.
+.
+This is a long line with code
+`list.iter().cloned().collect()`, and more text after the
+comma.
+````````````````````````````````
+
+
+```````````````````````````````` example(Punctuation: 4) options(margin[100])
 1. **Don't Reinvent the Wheel**: GNU Parallel is already a mature, powerful parallel task scheduler.
    Rather than implementing complex thread pools and task distribution inside `tva`, it's better to
    make `tva` the best partner for Parallel.
@@ -185,14 +194,14 @@ and more text after the comma.
 ````````````````````````````````
 
 
-```````````````````````````````` example(Punctuation: 4) options(margin[50])
+```````````````````````````````` example(Punctuation: 5) options(margin[50])
 这是一个测试，包含逗号。还有更多内容。
 .
 这是一个测试，包含逗号。还有更多内容。
 ````````````````````````````````
 
 
-```````````````````````````````` example(Punctuation: 5) options(margin[100])
+```````````````````````````````` example(Punctuation: 6) options(margin[100])
 **Trade-offs**: Virtual function calls (`vtable`) have a tiny overhead compared to inlined code in
 extremely high-frequency loops (e.g., 10 calls per row), but this is usually negligible in I/O-bound
 CLI tools.
