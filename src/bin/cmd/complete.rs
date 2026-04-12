@@ -30,6 +30,8 @@ Examples:
   clmd complete bash > /etc/bash_completion.d/clmd
   clmd complete zsh > /usr/local/share/zsh/site-functions/_clmd
   clmd complete fish > ~/.config/fish/completions/clmd.fish
+  clmd complete powershell -o ~/clmd-completion.ps1   # then add: . ~/clmd-completion.ps1 to $PROFILE
+  clmd complete elvish | slurp
   clmd complete bash -o clmd.bash
 "###,
         )
@@ -436,7 +438,10 @@ complete -c clmd -n "__fish_seen_subcommand_from complete" -a "bash zsh fish pow
 
 fn generate_powershell_completion() -> String {
     r#"# clmd PowerShell completion script
-# Add to your profile: clmd complete powershell | Out-String | Invoke-Expression
+# One-time setup (persists across sessions):
+#   clmd complete powershell -o $PROFILE/../clmd-completion.ps1; Add-Content -Path $PROFILE -Value '. "$PSCommandPath/../clmd-completion.ps1"'
+# Or for current session only:
+#   clmd complete powershell | Out-String | Invoke-Expression
 
 $script:clmdCommands = @('convert', 'extract', 'fmt', 'stats', 'toc', 'validate', 'complete')
 $script:clmdExtensions = @('table', 'strikethrough', 'tasklist', 'footnotes', 'autolink', 'tagfilter', 'superscript', 'subscript', 'underline', 'highlight', 'math', 'wikilink', 'spoiler', 'alerts')
