@@ -147,7 +147,7 @@ Tables are formatted with column alignment.
 | Bob | 25 |
 .
 | Name  | Age |
-| ----- | --- |
+|-------|-----|
 | Alice | 30  |
 | Bob   | 25  |
 ````````````````````````````````
@@ -354,7 +354,7 @@ fn hello() {
 ## Section 3: Table
 
 | Name | Value |
-| ---- | ----- |
+|------|-------|
 | One  | 1     |
 | Two  | 2     |
 
