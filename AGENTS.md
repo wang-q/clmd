@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-**当前状态**: 活跃开发中 | **主要语言**: Rust | **版本**: 0.2.1
+**当前状态**: 活跃开发中 | **主要语言**: Rust | **版本**: 0.2.4
 
 **语言约定**: 为了便于指导，本文件 (`AGENTS.md`) 使用中文编写，且**与用户交流时请使用中文**。但项目代码中的
 **所有文档注释 (doc comments)**、**行内注释**以及**提交信息**必须使用**英文**。
@@ -15,7 +15,7 @@
 
 - 100% CommonMark 和 GFM 规范兼容
 - 100% 安全 Rust 代码（无 `unsafe` 代码）
-- 支持多种渲染格式：HTML、CommonMark、XML、Typst、PDF、LaTeX、Man、DOCX、EPUB、RTF 等
+- 支持多种渲染格式：HTML、CommonMark、XML、LaTeX、Beamer、Reveal.js 等
 - 插件系统，支持自定义渲染和 syntect 语法高亮
 - 丰富的扩展功能：
   - GFM 扩展：表格、脚注、删除线、任务列表、自动链接、标签过滤
@@ -24,12 +24,8 @@
   - 短代码：Emoji 短代码支持
 - 内存高效的 AST 实现，基于 Arena 内存分配
 - 提供便捷的 API 和迭代器用于 AST 遍历和操作
-- 支持 HTML 到 Markdown 的转换
 - 内置 Markdown 格式化工具
 - 配置文件支持（TOML 格式）
-- Unicode 显示宽度计算
-- 多格式文档读写支持（BibTeX、LaTeX 等）
-- 幻灯片格式支持（Reveal.js、Beamer）
 
 ### 设计理念
 
@@ -47,46 +43,24 @@
 src/
 ├── lib.rs              # 公共 API 和选项定义
 ├── prelude.rs          # 预导入模块（推荐的用户入口）
+├── context.rs          # 上下文管理（配置、日志、媒体资源等）
 ├── bin/                # CLI 二进制入口
 │   ├── main.rs         # 主程序入口
 │   └── cmd/            # 子命令实现
-│       ├── extract/    # 提取命令
-│       ├── from/       # 格式转换命令
-│       ├── to/         # 输出格式命令
 │       ├── complete.rs # 自动补全
-│       ├── convert.rs  # 转换命令
+│       ├── extract.rs  # 提取命令（链接、图片、标题、代码、表格等）
 │       ├── fmt.rs      # 格式化命令
+│       ├── mod.rs      # 子命令模块入口
 │       ├── stats.rs    # 统计命令
+│       ├── to.rs       # 格式转换命令
 │       ├── toc.rs      # 目录生成
-│       ├── transform.rs# 文档转换
 │       ├── utils.rs    # 工具函数
 │       └── validate.rs # 验证命令
 ├── core/               # 核心类型模块
-│   ├── adapter.rs      # 适配器 trait
 │   ├── arena.rs        # 内存分配器（Arena）
-│   ├── ast.rs          # AST 类型定义
 │   ├── error.rs        # 错误处理
-│   ├── iterator.rs     # AST 遍历器
 │   ├── mod.rs          # 模块入口
-│   ├── monad.rs        # Monad 抽象
-│   ├── nodes.rs        # AST 节点定义和操作
-│   ├── sandbox.rs      # 沙箱支持
-│   ├── shared.rs       # 共享工具函数
-│   ├── state.rs        # 状态管理
-│   ├── tree.rs         # 树操作
-│   └── walk.rs         # AST 遍历
-├── context/            # 上下文管理
-│   ├── common.rs       # 通用上下文
-│   ├── config.rs       # 配置管理
-│   ├── data.rs         # 数据管理
-│   ├── io.rs           # IO 上下文
-│   ├── logging.rs      # 日志系统
-│   ├── mediabag.rs     # 媒体资源管理
-│   ├── mod.rs          # 模块入口
-│   ├── process.rs      # 进程管理
-│   ├── pure.rs         # 纯函数上下文
-│   ├── uuid.rs         # UUID 生成
-│   └── version.rs      # 版本信息
+│   └── nodes.rs        # AST 节点定义和操作
 ├── ext/                # 扩展功能
 │   ├── gfm/            # GitHub Flavored Markdown
 │   │   ├── autolink.rs # 自动链接
@@ -112,8 +86,6 @@ src/
 │   ├── flags.rs        # 扩展标志
 │   └── mod.rs          # 扩展模块入口
 ├── io/                 # IO 操作模块
-│   ├── convert/        # 格式转换
-│   │   └── mod.rs      # HTML 到 Markdown 转换
 │   ├── format/         # 格式支持
 │   │   ├── css.rs      # CSS 处理
 │   │   ├── csv.rs      # CSV 格式
@@ -122,23 +94,26 @@ src/
 │   │   ├── slides.rs   # 幻灯片格式
 │   │   ├── tex.rs      # TeX 格式
 │   │   └── xml.rs      # XML 格式
-│   ├── reader/         # 多格式文档读取器
-│   │   ├── bibtex.rs   # BibTeX 读取
-│   │   ├── latex.rs    # LaTeX 读取
-│   │   ├── mod.rs      # 读取器入口
-│   │   └── registry.rs # 读取器注册表
 │   ├── writer/         # 多格式文档写入器
 │   │   ├── beamer.rs   # Beamer 输出
 │   │   ├── bibtex.rs   # BibTeX 输出
-│   │   ├── docx.rs     # DOCX 输出
-│   │   ├── epub.rs     # EPUB 输出
+│   │   ├── html_renderer.rs # HTML 渲染辅助
+│   │   ├── latex.rs    # LaTeX 输出
+│   │   ├── latex_shared.rs  # LaTeX 共享代码
 │   │   ├── mod.rs      # 写入器入口
 │   │   ├── registry.rs # 写入器注册表
 │   │   ├── revealjs.rs # Reveal.js 输出
-│   │   └── rtf.rs      # RTF 输出
-│   ├── format_impl.rs  # 格式实现
-│   ├── from_impl.rs    # 转换实现
-│   └── mod.rs          # IO 模块入口
+│   │   └── shared.rs   # 写入器共享代码
+│   ├── mod.rs          # IO 模块入口
+│   └── test_utils.rs   # 测试工具
+├── options/            # 配置选项模块
+│   ├── format.rs       # 格式化选项
+│   ├── mod.rs          # 模块入口
+│   ├── parse.rs        # 解析选项
+│   ├── render.rs       # 渲染选项
+│   ├── serde.rs        # 配置序列化/反序列化
+│   ├── traits.rs       # 选项 trait
+│   └── types.rs        # 选项类型定义
 ├── parse/              # Markdown 解析器核心
 │   ├── block/          # 块级元素解析
 │   │   ├── block_info.rs      # 块信息
@@ -161,64 +136,47 @@ src/
 │   │   ├── text.rs            # 文本处理
 │   │   └── utils.rs           # 工具函数
 │   ├── util/           # 解析工具
-│   │   ├── char.rs            # 字符处理
-│   │   ├── chunks.rs          # 文本分块
-│   │   ├── combinator.rs      # 解析组合子
-│   │   ├── primitives.rs      # 基础原语
 │   │   ├── scanners.rs        # 扫描器
-│   │   ├── sources.rs         # 源文件管理
-│   │   └── state.rs           # 解析状态
-│   ├── mod.rs          # 解析器入口
-│   └── options.rs      # 解析选项
+│   │   └── sources.rs         # 源文件管理
+│   └── mod.rs          # 解析器入口
 ├── pipeline/           # 文档转换管道
 │   └── mod.rs          # 管道模块入口
-├── plugin/             # 插件系统
-│   ├── mod.rs          # 插件入口
-│   ├── owned.rs        #  owned 插件支持
-│   └── syntect.rs      # syntect 语法高亮
 ├── render/             # 渲染器
 │   ├── commonmark/     # CommonMark 格式化器
-│   │   ├── commonmark_formatter.rs
-│   │   ├── context.rs
-│   │   ├── mod.rs
-│   │   ├── node.rs
-│   │   ├── options.rs
-│   │   ├── phase.rs
-│   │   ├── phased.rs
-│   │   ├── purpose.rs
-│   │   ├── table.rs
-│   │   ├── utils.rs
-│   │   └── writer.rs
-│   ├── format/         # 格式渲染器
-│   │   ├── docx.rs     # DOCX 渲染
-│   │   ├── html.rs     # HTML 渲染
-│   │   ├── latex.rs    # LaTeX 渲染
-│   │   ├── man.rs      # Man page 渲染
-│   │   ├── mod.rs      # 格式渲染入口
-│   │   ├── pdf.rs      # PDF 渲染
-│   │   ├── typst.rs    # Typst 渲染
-│   │   └── xml.rs      # XML 渲染
-│   ├── mod.rs          # 渲染器入口
-│   └── renderer.rs     # 渲染器 trait
+│   │   ├── context.rs       # 渲染上下文
+│   │   ├── core.rs          # 核心格式化逻辑
+│   │   ├── escaping.rs      # 转义处理
+│   │   ├── formatter.rs     # 格式化器主逻辑
+│   │   ├── handler_utils.rs # 处理器工具
+│   │   ├── line_breaking.rs # 换行处理
+│   │   ├── mod.rs           # 模块入口
+│   │   ├── writer.rs        # 写入器
+│   │   └── handlers/        # 节点处理器
+│   │       ├── block.rs     # 块级处理器
+│   │       ├── container.rs # 容器处理器
+│   │       ├── inline.rs    # 内联处理器
+│   │       ├── list.rs      # 列表处理器
+│   │       ├── mod.rs       # 处理器入口
+│   │       ├── registration.rs # 处理器注册
+│   │       └── table.rs     # 表格处理器
+│   ├── html/           # HTML 渲染器
+│   │   ├── code.rs     # 代码渲染
+│   │   ├── escaping.rs # HTML 转义
+│   │   ├── footnote.rs # 脚注渲染
+│   │   ├── mod.rs      # 模块入口
+│   │   ├── nodes.rs    # 节点渲染
+│   │   ├── renderer.rs # 渲染器主逻辑
+│   │   ├── table.rs    # 表格渲染
+│   │   └── tests.rs    # 测试
+│   └── mod.rs          # 渲染器入口
 ├── template/           # 模板系统
 │   └── mod.rs          # 模板入口
-├── text/               # 文本处理工具
-│   ├── asciify.rs      # ASCII 转换
-│   ├── char.rs         # 字符处理
-│   ├── emoji.rs        # Emoji 支持
-│   ├── html_utils.rs   # HTML 工具
-│   ├── mod.rs          # 文本模块入口
-│   ├── roff_char.rs    # Roff 字符
-│   ├── sequence.rs     # 序列处理
-│   ├── strings.rs      # 字符串工具
-│   ├── unicode_width.rs# Unicode 宽度
-│   └── uri.rs          # URI 处理
-└── util/               # 工具模块
-    ├── filter/         # 过滤器系统
-    │   └── mod.rs
-    ├── transform/      # 文档转换工具
-    │   └── mod.rs
-    └── mod.rs          # 工具入口
+└── text/               # 文本处理工具
+    ├── char.rs         # 字符处理
+    ├── html_utils.rs   # HTML 工具
+    ├── mod.rs          # 文本模块入口
+    ├── unicode.rs      # Unicode 处理
+    └── uri.rs          # URI 处理
 ```
 
 ### 模块访问路径
@@ -226,9 +184,8 @@ src/
 - 核心类型通过 `clmd::core::*` 访问（如 `clmd::core::arena::NodeArena`）
 - 便捷导入通过 `clmd::prelude::*` 提供常用类型
 - 解析器通过 `clmd::parse` 访问
-- IO 模块通过 `clmd::io` 访问，包含 `reader`、`writer`、`format`、`convert` 子模块
-- 格式相关功能通过 `clmd::io::format` 访问
-- HTML 到 Markdown 转换通过 `clmd::from` 访问
+- IO 模块通过 `clmd::io` 访问，包含 `writer`、`format` 子模块
+- 配置选项通过 `clmd::options` 访问
 - 测试统一在 `#[cfg(test)]` 模块中，位于各源文件底部
 
 ## 构建命令
