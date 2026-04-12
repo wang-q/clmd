@@ -242,6 +242,15 @@ Complex mixed content should be formatted correctly.
 ````````````````````````````````
 
 
+```````````````````````````````` example(Mixed Content: 4) options(margin[100])
+- **[GNU Datamash](https://www.gnu.org/software/datamash/)** (C):
+    * Excellent for statistical operations (groupby, pivot) on TSV files.
+.
+- **[GNU Datamash](https://www.gnu.org/software/datamash/)** (C):
+    - Excellent for statistical operations (groupby, pivot) on TSV files.
+````````````````````````````````
+
+
 ## List Item Issues
 
 ### Issue: Line breaking in list items

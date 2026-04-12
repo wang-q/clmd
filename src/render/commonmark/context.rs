@@ -318,6 +318,9 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         // Temporarily disable paragraph line breaking to avoid double-adding text
         let old_line_breaker = self.paragraph_line_breaker.take();
 
+        // Check if this is a nested call (parent buffer exists)
+        let is_nested = self.text_collection_buffer.is_some();
+
         // Set up text collection buffer
         self.text_collection_buffer = Some(String::new());
 
@@ -327,8 +330,14 @@ impl<'a> NodeFormatterContext for MainFormatterContext<'a> {
         // Render children to the temporary writer
         self.render_children(node_id, &mut temp_writer);
 
-        // Collect the text and clear the buffer
+        // Collect the text from our buffer
         let result = self.text_collection_buffer.take().unwrap_or_default();
+
+        if is_nested {
+            // For nested calls, restore parent buffer (don't propagate child content
+            // to parent since the caller will handle it via return value + add_paragraph_unbreakable_unit)
+            self.text_collection_buffer = Some(String::new()); // Empty parent buffer restored
+        }
 
         // Restore paragraph line breaker
         self.paragraph_line_breaker = old_line_breaker;
