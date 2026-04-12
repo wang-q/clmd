@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.2.4 - 2026-04-12
+
 ### Major Changes
 - **Codebase Simplification**: Removed plugin system, HTML-to-Markdown conversion, transform subcommand, and unused output formats (DOCX, EPUB)
 - **Core Module Restructuring**: Consolidated traversal, context, and core modules; simplified AST and error types
