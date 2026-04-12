@@ -251,6 +251,23 @@ Complex mixed content should be formatted correctly.
 ````````````````````````````````
 
 
+```````````````````````````````` example(Mixed Content: 5) options(margin[60])
+- **Pipeable**: Tools read from stdin and write to stdout by default, enabling powerful pipelines:
+  ```bash
+  tva filter --gt score:0.9 data.tsv |
+      tva select name,score |
+      tva sort -k score
+  ```
+.
+- **Pipeable**: Tools read from stdin and write to stdout
+  by default, enabling powerful pipelines:
+  ```bash
+  tva filter --gt score:0.9 data.tsv |
+    tva select name,score |
+    tva sort -k score
+  ```
+````````````````````````````````
+
 ## List Item Issues
 
 ### Issue: Line breaking in list items

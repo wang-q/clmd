@@ -317,6 +317,46 @@ pub fn is_list_loose(
 
     let list = arena.get(list_node_id);
 
+    // Check if the list contains complex block-level elements like code blocks.
+    // For such lists, use the AST's tight property which correctly reflects
+    // the parsing result according to CommonMark spec.
+    // This fixes issues where item_contains_blank_lines() incorrectly marks
+    // lists with Paragraph + CodeBlock as loose.
+    let has_complex_blocks = {
+        let mut child_id = list.first_child;
+        let mut found = false;
+        while let Some(item_id) = child_id {
+            let item = arena.get(item_id);
+            if matches!(item.value, NodeValue::Item(..)) {
+                let mut item_child_id = item.first_child;
+                while let Some(child) = item_child_id {
+                    let child_node = arena.get(child);
+                    match &child_node.value {
+                        NodeValue::CodeBlock(_) | NodeValue::HtmlBlock(_) => {
+                            found = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                    item_child_id = child_node.next;
+                }
+                if found {
+                    break;
+                }
+            }
+            child_id = item.next;
+        }
+        found
+    };
+
+    if has_complex_blocks {
+        // Use the AST's tight property for lists with complex blocks
+        if let NodeValue::List(list_data) = &list.value {
+            return !list_data.tight;
+        }
+    }
+
+    // Original logic for simple lists (backward compatibility)
     let mut prev_item_had_blank_line = false;
     let mut child_id = list.first_child;
 

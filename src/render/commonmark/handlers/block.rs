@@ -29,7 +29,7 @@ pub fn render_code_block(
 /// Render a fenced code block
 pub fn render_fenced_code_block(
     code_block: &NodeCodeBlock,
-    _ctx: &dyn NodeFormatterContext,
+    ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
     options: &FormatOptions,
 ) {
@@ -46,6 +46,15 @@ pub fn render_fenced_code_block(
     } else {
         base_length
     };
+
+    // Check if we're inside a list item to handle indentation properly
+    let is_in_list_item = ctx.is_parent_list_item();
+    let is_last_child = !ctx.has_next_sibling();
+
+    // Add indentation if inside a list item
+    if is_in_list_item {
+        writer.push_prefix("  ");
+    }
 
     let fence = fence_char.to_string().repeat(fence_len);
     writer.append(&fence);
@@ -87,16 +96,41 @@ pub fn render_fenced_code_block(
         base_length
     };
     writer.append(fence_char.to_string().repeat(closing_fence_len));
-    writer.blank_line();
+
+    // Pop the list item indentation prefix
+    if is_in_list_item {
+        writer.pop_prefix();
+    }
+
+    // Add appropriate spacing after the code block
+    // If it's the last child of a list item, let the Item handler manage spacing
+    // Otherwise, add a line break (not a blank line to keep it in the list)
+    if is_in_list_item {
+        if !is_last_child {
+            writer.line();
+        }
+        // If last child, Item handler will add appropriate spacing
+    } else {
+        writer.blank_line();
+    }
 }
 
 /// Render an indented code block
 pub fn render_indented_code_block(
     code_block: &NodeCodeBlock,
-    _ctx: &dyn NodeFormatterContext,
+    ctx: &dyn NodeFormatterContext,
     writer: &mut MarkdownWriter,
     options: &FormatOptions,
 ) {
+    // Check if we're inside a list item to handle indentation properly
+    let is_in_list_item = ctx.is_parent_list_item();
+    let is_last_child = !ctx.has_next_sibling();
+
+    // Add indentation if inside a list item
+    if is_in_list_item {
+        writer.push_prefix("  ");
+    }
+
     let code_content = if options.indented_code_minimize_indent {
         minimize_indent(&code_block.literal)
     } else {
@@ -117,7 +151,20 @@ pub fn render_indented_code_block(
             }
         }
     }
-    writer.blank_line();
+
+    // Pop the list item indentation prefix
+    if is_in_list_item {
+        writer.pop_prefix();
+    }
+
+    // Add appropriate spacing after the code block
+    if is_in_list_item {
+        if !is_last_child {
+            writer.line();
+        }
+    } else {
+        writer.blank_line();
+    }
 }
 
 /// Minimize the indentation of code block content
