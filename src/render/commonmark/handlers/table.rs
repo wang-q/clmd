@@ -139,6 +139,7 @@ pub fn render_formatted_table(
     rows: &[Vec<String>],
     alignments: &[TableAlignment],
     writer: &mut MarkdownWriter,
+    padding: bool,
 ) {
     let rows: Vec<&Vec<String>> = rows.iter().filter(|row| !row.is_empty()).collect();
 
@@ -167,7 +168,7 @@ pub fn render_formatted_table(
 
     let line_refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
 
-    let formatted = format_table_lines(&line_refs, alignments);
+    let formatted = format_table_lines(&line_refs, alignments, padding);
 
     for line in formatted.lines() {
         writer.append(line);
@@ -235,19 +236,45 @@ fn get_col_max_widths(
 }
 
 /// Returns the formatted string for a delimiter cell.
-fn format_delimiter_cell(alignment: TableAlignment, width: usize) -> String {
-    match alignment {
-        TableAlignment::Center => {
-            format!(" :{}: ", "-".repeat(width.saturating_sub(2)))
+fn format_delimiter_cell(
+    alignment: TableAlignment,
+    width: usize,
+    padding: bool,
+) -> String {
+    if padding {
+        // Padded style with spaces around content
+        match alignment {
+            TableAlignment::Center => {
+                format!(" :{}: ", "-".repeat(width.saturating_sub(2)))
+            }
+            TableAlignment::Left => {
+                format!(" :{} ", "-".repeat(width.saturating_sub(1)))
+            }
+            TableAlignment::Right => {
+                format!(" {}: ", "-".repeat(width.saturating_sub(1)))
+            }
+            TableAlignment::None => {
+                format!(" {} ", "-".repeat(width))
+            }
         }
-        TableAlignment::Left => {
-            format!(" :{} ", "-".repeat(width.saturating_sub(1)))
-        }
-        TableAlignment::Right => {
-            format!(" {}: ", "-".repeat(width.saturating_sub(1)))
-        }
-        TableAlignment::None => {
-            format!(" {} ", "-".repeat(width))
+    } else {
+        // Compact style without extra spaces (default)
+        // Only alignment markers (colons) are added, no padding spaces
+        // Width is increased by 2 to match the spaces added by align_cell (" {}{} ")
+        let width = width + 2;
+        match alignment {
+            TableAlignment::Center => {
+                format!(":{}:", "-".repeat(width.saturating_sub(2)))
+            }
+            TableAlignment::Left => {
+                format!(":{}", "-".repeat(width.saturating_sub(1)))
+            }
+            TableAlignment::Right => {
+                format!("{}:", "-".repeat(width.saturating_sub(1)))
+            }
+            TableAlignment::None => {
+                format!("{}", "-".repeat(width))
+            }
         }
     }
 }
@@ -257,6 +284,7 @@ fn format_delimiter_cell(alignment: TableAlignment, width: usize) -> String {
 fn get_normalized_delimiter_row(
     alignments: &[TableAlignment],
     column_max_widths: &[usize],
+    padding: bool,
 ) -> Vec<String> {
     assert_eq!(
         alignments.len(),
@@ -267,7 +295,7 @@ fn get_normalized_delimiter_row(
     alignments
         .iter()
         .zip(column_max_widths.iter())
-        .map(|(alignment, width)| format_delimiter_cell(*alignment, *width))
+        .map(|(alignment, width)| format_delimiter_cell(*alignment, *width, padding))
         .collect()
 }
 
@@ -379,11 +407,16 @@ fn format_row(
 ///
 /// - `lines`: The table lines (header, delimiter, and data rows)
 /// - `alignments`: Column alignments parsed from the delimiter row
+/// - `padding`: Whether to add spaces around delimiter cell content
 ///
 /// # Returns
 ///
 /// The formatted table as a string.
-pub fn format_table_lines(lines: &[&str], alignments: &[TableAlignment]) -> String {
+pub fn format_table_lines(
+    lines: &[&str],
+    alignments: &[TableAlignment],
+    padding: bool,
+) -> String {
     if lines.len() < 2 {
         return lines.join("\n");
     }
@@ -397,7 +430,8 @@ pub fn format_table_lines(lines: &[&str], alignments: &[TableAlignment]) -> Stri
 
     let column_max_widths = get_col_max_widths(&content_rows, alignments);
 
-    let delimiter_cells = get_normalized_delimiter_row(alignments, &column_max_widths);
+    let delimiter_cells =
+        get_normalized_delimiter_row(alignments, &column_max_widths, padding);
     let delimiter_row = format!("|{}|", delimiter_cells.join("|"));
 
     let mut formatted_rows: Vec<String> = Vec::new();
@@ -470,10 +504,42 @@ mod tests {
 
     #[test]
     fn test_format_delimiter_cell() {
-        assert_eq!(format_delimiter_cell(TableAlignment::None, 3), " --- ");
-        assert_eq!(format_delimiter_cell(TableAlignment::Left, 4), " :--- ");
-        assert_eq!(format_delimiter_cell(TableAlignment::Right, 4), " ---: ");
-        assert_eq!(format_delimiter_cell(TableAlignment::Center, 5), " :---: ");
+        // Test with padding = true (padded style)
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::None, 3, true),
+            " --- "
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Left, 4, true),
+            " :--- "
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Right, 4, true),
+            " ---: "
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Center, 5, true),
+            " :---: "
+        );
+
+        // Test with padding = false (compact style, default)
+        // Width is increased by 2 to match align_cell's spaces
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::None, 3, false),
+            "-----"
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Left, 4, false),
+            ":-----"
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Right, 4, false),
+            "-----:"
+        );
+        assert_eq!(
+            format_delimiter_cell(TableAlignment::Center, 5, false),
+            ":-----:"
+        );
     }
 
     #[test]
@@ -533,8 +599,8 @@ mod tests {
     fn test_format_table_lines_basic() {
         let lines = vec!["| A | B |", "|---|---|", "| C | D |"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A   | B   |\n| --- | --- |\n| C   | D   |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A   | B   |\n|-----|-----|\n| C   | D   |";
         assert_eq!(result, expected);
     }
 
@@ -546,9 +612,9 @@ mod tests {
             TableAlignment::Center,
             TableAlignment::Right,
         ];
-        let result = format_table_lines(&lines, &alignments);
+        let result = format_table_lines(&lines, &alignments, false);
         let expected =
-            "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
+            "| A    |   B   |    C |\n|:-----|:-----:|-----:|\n| a    |   b   |    c |";
         assert_eq!(result, expected);
     }
 
@@ -556,8 +622,8 @@ mod tests {
     fn test_format_table_lines_unicode() {
         let lines = vec!["| ✅ | ❌ |", "|---|---|", "| 🦀 | 🔥 |"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| ✅  | ❌  |\n| --- | --- |\n| 🦀  | 🔥  |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| ✅  | ❌  |\n|-----|-----|\n| 🦀  | 🔥  |";
         assert_eq!(result, expected);
     }
 
@@ -569,8 +635,8 @@ mod tests {
             "| 测试 | test    |",
         ];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| 中文 | English |\n| ---- | ------- |\n| 测试 | test    |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| 中文 | English |\n|------|---------|\n| 测试 | test    |";
         assert_eq!(result, expected);
     }
 
@@ -578,8 +644,8 @@ mod tests {
     fn test_format_table_lines_width_expansion() {
         let lines = vec!["| A | B |", "|---|---|", "| Longer | C |"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A      | B   |\n| ------ | --- |\n| Longer | C   |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A      | B   |\n|--------|-----|\n| Longer | C   |";
         assert_eq!(result, expected);
     }
 
@@ -587,9 +653,9 @@ mod tests {
     fn test_format_table_lines_idempotent() {
         let lines = vec!["| A | B |", "|---|---|", "| C | D |"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let first_pass = format_table_lines(&lines, &alignments);
+        let first_pass = format_table_lines(&lines, &alignments, false);
         let lines2: Vec<&str> = first_pass.lines().collect();
-        let second_pass = format_table_lines(&lines2, &alignments);
+        let second_pass = format_table_lines(&lines2, &alignments, false);
         assert_eq!(first_pass, second_pass);
     }
 
@@ -597,8 +663,8 @@ mod tests {
     fn test_crlf_handling() {
         let lines = vec!["|A|B|", "|-|-|", "|C|D|"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A   | B   |\n| --- | --- |\n| C   | D   |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A   | B   |\n|-----|-----|\n| C   | D   |";
         assert_eq!(result, expected);
     }
 
@@ -606,8 +672,8 @@ mod tests {
     fn test_two_row_table() {
         let lines = vec!["A | B", "| - | -|"];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A   | B   |\n| --- | --- |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A   | B   |\n|-----|-----|";
         assert_eq!(result, expected);
     }
 
@@ -615,8 +681,8 @@ mod tests {
     fn test_empty_cell() {
         let lines = vec!["| A | B |", "|:-|:-|", "| | D"];
         let alignments = vec![TableAlignment::Left, TableAlignment::Left];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A    | B    |\n| :--- | :--- |\n|      | D    |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A    | B    |\n|:-----|:-----|\n|      | D    |";
         assert_eq!(result, expected);
     }
 
@@ -624,8 +690,8 @@ mod tests {
     fn test_escaped_pipe_in_code() {
         let lines = vec!["| A | B |", "|:-|:-|", "`\\|` | D"];
         let alignments = vec![TableAlignment::Left, TableAlignment::Left];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A    | B    |\n| :--- | :--- |\n| `\\|` | D    |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A    | B    |\n|:-----|:-----|\n| `\\|` | D    |";
         assert_eq!(result, expected);
     }
 
@@ -633,8 +699,8 @@ mod tests {
     fn test_weird_unicode() {
         let lines = vec!["| |", "|-|", "|Ԣ|"];
         let alignments = vec![TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "|     |\n| --- |\n| Ԣ   |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "|     |\n|-----|\n| Ԣ   |";
         assert_eq!(result, expected);
     }
 
@@ -648,8 +714,8 @@ mod tests {
             "| Error | ❌ |",
         ];
         let alignments = vec![TableAlignment::None, TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| Type  | Status |\n| ----- | ------ |\n| Test  | ✅     |\n| Warn  | ⚠️     |\n| Error | ❌     |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| Type  | Status |\n|-------|--------|\n| Test  | ✅     |\n| Warn  | ⚠️     |\n| Error | ❌     |";
         assert_eq!(result, expected);
     }
 
@@ -657,13 +723,13 @@ mod tests {
     fn test_trailing_pipe_variations() {
         let lines1 = vec!["| A | B |", "|:-|:-|", "| C | D | E"];
         let alignments = vec![TableAlignment::Left, TableAlignment::Left];
-        let result1 = format_table_lines(&lines1, &alignments);
-        let expected1 = "| A    | B    |\n| :--- | :--- |\n| C    | D    | E |";
+        let result1 = format_table_lines(&lines1, &alignments, false);
+        let expected1 = "| A    | B    |\n|:-----|:-----|\n| C    | D    | E |";
         assert_eq!(result1, expected1);
 
         let lines2 = vec!["| A | B |", "|:-|:-|", "| C | D | E |"];
-        let result2 = format_table_lines(&lines2, &alignments);
-        let expected2 = "| A    | B    |\n| :--- | :--- |\n| C    | D    | E |";
+        let result2 = format_table_lines(&lines2, &alignments, false);
+        let expected2 = "| A    | B    |\n|:-----|:-----|\n| C    | D    | E |";
         assert_eq!(result2, expected2);
     }
 
@@ -675,9 +741,9 @@ mod tests {
             TableAlignment::Center,
             TableAlignment::Right,
         ];
-        let result = format_table_lines(&lines, &alignments);
+        let result = format_table_lines(&lines, &alignments, false);
         let expected =
-            "| A    |   B   |    C |\n| :--- | :---: | ---: |\n| a    |   b   |    c |";
+            "| A    |   B   |    C |\n|:-----|:-----:|-----:|\n| a    |   b   |    c |";
         assert_eq!(result, expected);
     }
 
@@ -685,8 +751,8 @@ mod tests {
     fn test_single_column_table() {
         let lines = vec!["| Header |", "|--------|", "| Cell 1 |", "| Cell 2 |"];
         let alignments = vec![TableAlignment::None];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| Header |\n| ------ |\n| Cell 1 |\n| Cell 2 |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| Header |\n|--------|\n| Cell 1 |\n| Cell 2 |";
         assert_eq!(result, expected);
     }
 
@@ -702,8 +768,8 @@ mod tests {
             TableAlignment::Left,
             TableAlignment::Left,
         ];
-        let result = format_table_lines(&lines, &alignments);
-        let expected = "| A    | VeryLongHeader | C          |\n| :--- | :------------- | :--------- |\n| X    | Y              | ZZZZZZZZZZ |";
+        let result = format_table_lines(&lines, &alignments, false);
+        let expected = "| A    | VeryLongHeader | C          |\n|:-----|:---------------|:-----------|\n| X    | Y              | ZZZZZZZZZZ |";
         assert_eq!(result, expected);
     }
 }

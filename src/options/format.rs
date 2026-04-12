@@ -272,6 +272,11 @@ pub struct FormatOptions {
     pub thematic_break_marker: char,
     /// Format flags
     pub format_flags: FormatFlags,
+
+    // Table options
+    /// Add padding spaces around table delimiter cells (e.g., "| :--- |" vs "|:---|")
+    /// Default: false (compact style without extra spaces)
+    pub table_delimiter_padding: bool,
 }
 
 impl Default for FormatOptions {
@@ -320,6 +325,9 @@ impl Default for FormatOptions {
             thematic_break: None,
             thematic_break_marker: '*',
             format_flags: FormatFlags::DEFAULT,
+
+            // Table options
+            table_delimiter_padding: false,
         }
     }
 }

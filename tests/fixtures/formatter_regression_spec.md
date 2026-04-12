@@ -589,14 +589,14 @@ read carefully.
 
 ```````````````````````````````` example(Table Escape: 1) options(margin[100])
 | Feature       | CSV (RFC 4180)        | TSV (Simple)      |
-|:--------------|:----------------------|:------------------|
+|:--------------|:----------------------| :---------------- |
 | **Delimiter** | `,` (variable)        | `\t` (fixed)      |
 | **Quotes**    | Supports `"` wrapping | **Not supported** |
 | **Escapes**   | `""` escapes quotes   | None              |
 | **Newlines**  | Allowed in fields     | **Not allowed**   |
 .
 | Feature       | CSV (RFC 4180)        | TSV (Simple)      |
-| :------------ | :-------------------- | :---------------- |
+|:--------------|:----------------------|:------------------|
 | **Delimiter** | `,` (variable)        | `\t` (fixed)      |
 | **Quotes**    | Supports `"` wrapping | **Not supported** |
 | **Escapes**   | `""` escapes quotes   | None              |

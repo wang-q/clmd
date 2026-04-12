@@ -572,7 +572,8 @@ pub fn register_table_handlers() -> Vec<NodeFormattingHandler> {
             },
             |_value, ctx, writer| {
                 if let Some((rows, alignments)) = ctx.take_table_data() {
-                    render_formatted_table(&rows, &alignments, writer);
+                    let padding = ctx.get_formatter_options().table_delimiter_padding;
+                    render_formatted_table(&rows, &alignments, writer, padding);
                 }
             },
         ),
