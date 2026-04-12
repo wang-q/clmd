@@ -76,7 +76,7 @@ _clmd() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="convert extract fmt stats toc validate transform complete help"
+    local commands="convert extract fmt stats toc validate complete help"
 
     # Global options
     local global_opts="-c --config -e --extension --safe -h --help -V --version"
@@ -113,10 +113,6 @@ _clmd() {
                     ;;
                 validate)
                     _clmd_validate
-                    return 0
-                    ;;
-                transform)
-                    _clmd_transform
                     return 0
                     ;;
                 complete)
@@ -189,19 +185,6 @@ _clmd_validate() {
     _filedir
 }
 
-_clmd_transform() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local subcommands="shift-headings normalize-links strip"
-
-    if [[ ${COMP_CWORD} -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "${subcommands}" -- ${cur}) )
-    else
-        local opts="-o --output -s --shift --base-url -i --in-place --comments --footnotes --links --images -h --help"
-        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-        _filedir
-    fi
-}
-
 complete -F _clmd clmd
 "#.to_string()
 }
@@ -244,9 +227,6 @@ _clmd() {
                 validate)
                     _clmd_validate
                     ;;
-                transform)
-                    _clmd_transform
-                    ;;
                 complete)
                     _clmd_complete
                     ;;
@@ -263,7 +243,6 @@ _clmd_commands() {
         'stats:Show statistics about Markdown document'
         'toc:Generate table of contents'
         'validate:Validate Markdown document'
-        'transform:Transform Markdown document structure'
         'complete:Generate shell completion scripts'
         'help:Show help'
     )
@@ -364,29 +343,6 @@ _clmd_validate() {
         '1:input file:_files -g "*.md"'
 }
 
-_clmd_transform() {
-    _arguments \
-        '1: :_clmd_transform_subcommands' \
-        '(-o --output)'{-o,--output}'[Output file]:output file:_files' \
-        '(-i --in-place)'{-i,--in-place}'[Edit file in-place]' \
-        '(-s --shift)'{-s,--shift}'[Number of levels to shift]:shift:' \
-        '--base-url[Base URL for relative links]:url:' \
-        '--comments[Remove HTML comments]' \
-        '--footnotes[Remove footnotes]' \
-        '--links[Remove links]' \
-        '--images[Remove images]' \
-        '2:input file:_files -g "*.md"'
-}
-
-_clmd_transform_subcommands() {
-    local subcommands=(
-        'shift-headings:Shift heading levels'
-        'normalize-links:Normalize link formats'
-        'strip:Remove specific elements'
-    )
-    _describe -t subcommands 'transform subcommands' subcommands
-}
-
 _clmd_complete() {
     _arguments \
         '(-o --output)'{-o,--output}'[Output file]:output file:_files' \
@@ -418,7 +374,6 @@ complete -c clmd -n "__fish_use_subcommand" -a "fmt" -d "Format Markdown"
 complete -c clmd -n "__fish_use_subcommand" -a "stats" -d "Show statistics"
 complete -c clmd -n "__fish_use_subcommand" -a "toc" -d "Generate table of contents"
 complete -c clmd -n "__fish_use_subcommand" -a "validate" -d "Validate document"
-complete -c clmd -n "__fish_use_subcommand" -a "transform" -d "Transform document"
 complete -c clmd -n "__fish_use_subcommand" -a "complete" -d "Generate shell completions"
 
 # Convert subcommand
@@ -473,19 +428,6 @@ complete -c clmd -n "__fish_seen_subcommand_from validate" -l check-images -d "C
 complete -c clmd -n "__fish_seen_subcommand_from validate" -l check-refs -d "Check references"
 complete -c clmd -n "__fish_seen_subcommand_from validate" -l strict -d "Enable all checks"
 
-# Transform subcommand
-complete -c clmd -n "__fish_seen_subcommand_from transform; and not __fish_seen_subcommand_from shift-headings normalize-links strip" -a "shift-headings" -d "Shift heading levels"
-complete -c clmd -n "__fish_seen_subcommand_from transform; and not __fish_seen_subcommand_from shift-headings normalize-links strip" -a "normalize-links" -d "Normalize links"
-complete -c clmd -n "__fish_seen_subcommand_from transform; and not __fish_seen_subcommand_from shift-headings normalize-links strip" -a "strip" -d "Remove elements"
-complete -c clmd -n "__fish_seen_subcommand_from transform" -s o -l output -d "Output file" -r
-complete -c clmd -n "__fish_seen_subcommand_from transform" -s i -l in-place -d "Edit file in-place"
-complete -c clmd -n "__fish_seen_subcommand_from transform" -s s -l shift -d "Levels to shift" -r
-complete -c clmd -n "__fish_seen_subcommand_from transform" -l base-url -d "Base URL" -r
-complete -c clmd -n "__fish_seen_subcommand_from transform" -l comments -d "Remove comments"
-complete -c clmd -n "__fish_seen_subcommand_from transform" -l footnotes -d "Remove footnotes"
-complete -c clmd -n "__fish_seen_subcommand_from transform" -l links -d "Remove links"
-complete -c clmd -n "__fish_seen_subcommand_from transform" -l images -d "Remove images"
-
 # Complete subcommand
 complete -c clmd -n "__fish_seen_subcommand_from complete" -s o -l output -d "Output file" -r
 complete -c clmd -n "__fish_seen_subcommand_from complete" -a "bash zsh fish powershell elvish" -d "Shell type"
@@ -496,7 +438,7 @@ fn generate_powershell_completion() -> String {
     r#"# clmd PowerShell completion script
 # Add to your profile: clmd complete powershell | Out-String | Invoke-Expression
 
-$script:clmdCommands = @('convert', 'extract', 'fmt', 'stats', 'toc', 'validate', 'transform', 'complete')
+$script:clmdCommands = @('convert', 'extract', 'fmt', 'stats', 'toc', 'validate', 'complete')
 $script:clmdExtensions = @('table', 'strikethrough', 'tasklist', 'footnotes', 'autolink', 'tagfilter', 'superscript', 'subscript', 'underline', 'highlight', 'math', 'wikilink', 'spoiler', 'alerts')
 $script:clmdFormats = @('html', 'xml', 'latex', 'man', 'typst', 'pdf', 'docx', 'epub', 'rtf', 'commonmark')
 
@@ -531,13 +473,6 @@ Register-ArgumentCompleter -Native -CommandName clmd -ScriptBlock {
                     }
             }
         }
-        'transform' {
-            if ($commands.Count -eq 1) {
-                @('shift-headings', 'normalize-links', 'strip') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
-                    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-                }
-            }
-        }
         'complete' {
             @('bash', 'zsh', 'fish', 'powershell', 'elvish') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
                 [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
@@ -559,7 +494,7 @@ fn generate_elvish_completion() -> String {
 # Add to your rc.elv: eval (clmd complete elvish | slurp)
 
 set edit:completion:arg-completer[clmd] = {|@args|
-    var commands = [convert extract fmt stats toc validate transform complete]
+    var commands = [convert extract fmt stats toc validate complete]
     var extensions = [table strikethrough tasklist footnotes autolink tagfilter superscript subscript underline highlight math wikilink spoiler alerts]
     var formats = [html xml latex man typst pdf docx epub rtf commonmark]
 
@@ -573,8 +508,6 @@ set edit:completion:arg-completer[clmd] = {|@args|
                 put to from
             } elif (eq $cmd extract) {
                 put links images headings code tables footnotes yaml-front-matter task-items
-            } elif (eq $cmd transform) {
-                put shift-headings normalize-links strip
             } elif (eq $cmd complete) {
                 put bash zsh fish powershell elvish
             }

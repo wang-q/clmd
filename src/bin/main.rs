@@ -36,7 +36,6 @@ fn main() -> anyhow::Result<()> {
         .subcommand(cmd::toc::make_subcommand())
         .subcommand(cmd::fmt::make_subcommand())
         .subcommand(cmd::validate::make_subcommand())
-        .subcommand(cmd::transform::make_subcommand())
         .subcommand(cmd::complete::make_subcommand())
         .after_help(
             r###"Subcommand groups:
@@ -45,7 +44,6 @@ fn main() -> anyhow::Result<()> {
 * Formatting: fmt
 * Extraction: extract (links, images, headings, code, tables, footnotes, yaml-front-matter, task-items)
 * Analysis: stats, validate
-* Transformation: transform (shift-headings, normalize-links, strip)
 * Utilities: toc, complete
 
 Configuration:
@@ -60,7 +58,6 @@ Examples:
   clmd extract tables input.md --format csv
   clmd stats input.md --readability
   clmd validate input.md --strict
-  clmd transform shift-headings input.md -s -1
   clmd complete bash > /etc/bash_completion.d/clmd
   clmd fmt input.md
   clmd toc input.md
@@ -102,9 +99,6 @@ Examples:
         Some(("toc", sub_matches)) => cmd::toc::execute(sub_matches, &options),
         Some(("fmt", sub_matches)) => cmd::fmt::execute(sub_matches, &options),
         Some(("validate", sub_matches)) => cmd::validate::execute(sub_matches, &options),
-        Some(("transform", sub_matches)) => {
-            cmd::transform::execute(sub_matches, &options)
-        }
         Some(("complete", sub_matches)) => cmd::complete::execute(sub_matches, &options),
         _ => unreachable!(),
     }
