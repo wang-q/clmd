@@ -331,8 +331,9 @@ pub fn escape_text(text: &str, context: &dyn NodeFormatterContext) -> String {
 /// Escape text for table cell content (simple version without context)
 ///
 /// This version is used when context is not available (e.g., in collect_cell_text_content).
-/// In table cells, only the pipe character (|) needs to be escaped.
-/// All other Markdown characters are preserved as valid inline elements.
+/// In table cells, only the pipe character (|) needs to be escaped when preceded by backslash.
+/// All other characters including standalone backslashes are preserved as-is to avoid
+/// double-escaping issues with literal text like \t, \n, etc.
 pub fn escape_markdown_for_table_simple(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let chars: Vec<char> = text.chars().collect();
@@ -342,17 +343,18 @@ pub fn escape_markdown_for_table_simple(text: &str) -> String {
         let c = chars[i];
         match c {
             '\\' => {
-                // Check if this backslash is escaping a pipe character
+                // Only preserve backslash-pipe sequences (\|) which are escaped pipes
+                // Standalone backslashes are kept as-is to avoid double-escaping
                 let next_char = chars.get(i + 1);
                 if next_char == Some(&'|') {
-                    // This backslash is escaping a pipe - preserve the sequence
+                    // This is an escaped pipe - preserve it as-is
                     result.push(c);
                     result.push('|');
                     i += 2;
                 } else {
-                    // Escape the backslash itself
-                    result.push('\\');
-                    result.push('\\');
+                    // Standalone backslash - keep it as-is (don't escape)
+                    // This preserves literal text like \t, \n, \path, etc.
+                    result.push(c);
                     i += 1;
                 }
             }
@@ -575,11 +577,9 @@ mod tests {
             "cell1 | cell2"
         );
 
-        // Test backslash escaping - backslash is escaped unless it's escaping a pipe
-        assert_eq!(
-            escape_markdown_for_table_simple("path\\file"),
-            "path\\\\file"
-        );
+        // Test backslash handling - standalone backslashes are preserved as-is
+        // to avoid double-escaping issues with literal text like \t, \n, \path, etc.
+        assert_eq!(escape_markdown_for_table_simple("path\\file"), "path\\file");
         // Backslash before pipe is preserved
         assert_eq!(
             escape_markdown_for_table_simple("cell \\| cell"),
