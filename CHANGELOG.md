@@ -2,6 +2,22 @@
 
 ## Unreleased - ReleaseDate
 
+### Major Changes
+- **Codebase Simplification**: Removed plugin system, HTML-to-Markdown conversion, transform subcommand, and unused output formats (DOCX, EPUB)
+- **Core Module Restructuring**: Consolidated traversal, context, and core modules; simplified AST and error types
+
+### Bug Fixes
+- **Nested Formatting**: Fixed text buffer propagation issues with nested atomic structures (e.g., Strong containing Link)
+- **List Code Blocks**: Improved formatting of code blocks within list items, preserving proper indentation
+- **Line Breaking**: Fixed character lookup in `get_prev_char_at` for correct break point detection in comma-separated lists
+
+### Technical Improvements
+- Removed phased formatting system, formatter control tags, and NodeFormatterFactory trait
+- Simplified CommonMark formatter initialization and context handling
+- Consolidated text processing modules (CJK, unicode, character utilities)
+- Migrated to spec-based test framework with comprehensive regression tests
+- Improved code readability and simplified conditions across the codebase
+
 ## 0.2.3 - 2026-04-10
 
 ### Major Changes
