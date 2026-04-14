@@ -443,11 +443,23 @@ impl ParagraphLineBreaker {
                         at_atomic_start,
                     );
 
+                    // Check if the next line would start with a list marker
+                    // If so, add a penalty to avoid creating sublists
+                    // This is important even for the first break to avoid creating
+                    // sublists when wrapping list item content
+                    let list_marker_penalty = self.check_list_marker_at_start(pos);
+
                     let is_last_line = i == n - 1;
                     if is_last_line {
-                        best_cost[j] + slack as f64 * 0.1 + punctuation_penalty
+                        best_cost[j]
+                            + slack as f64 * 0.1
+                            + punctuation_penalty
+                            + list_marker_penalty
                     } else {
-                        best_cost[j] + (slack as f64).powi(2) + punctuation_penalty
+                        best_cost[j]
+                            + (slack as f64).powi(2)
+                            + punctuation_penalty
+                            + list_marker_penalty
                     }
                 } else {
                     let overflow = line_width - self.max_width;
@@ -463,14 +475,19 @@ impl ParagraphLineBreaker {
                     } else {
                         0.0
                     };
+                    // Check if the next line would start with a list marker
+                    // This is also important in overflow case to avoid creating sublists
+                    let list_marker_penalty = self.check_list_marker_at_start(pos);
                     if has_overflowing {
                         best_cost[j] + (overflow as f64).powi(2) * 100.0
                             - (line_width as f64 * 0.001)
                             + trailing_punct_penalty
+                            + list_marker_penalty
                     } else {
                         best_cost[j]
                             + (overflow as f64).powi(2) * 100.0
                             + trailing_punct_penalty
+                            + list_marker_penalty
                     }
                 };
 
@@ -686,6 +703,82 @@ impl ParagraphLineBreaker {
         None
     }
 
+    /// Check if the content at the given position would start with a list marker
+    /// when placed at the beginning of a continuation line.
+    /// Returns a penalty value if it would create a sublist.
+    fn check_list_marker_at_start(&self, pos: usize) -> f64 {
+        // Collect all text content from pos onwards to check for list marker pattern
+        let mut collected = String::new();
+        let mut current_pos = 0;
+        let mut started = false;
+
+        for fragment in &self.fragments {
+            match fragment {
+                ContentFragment::Text { content, .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos + content.len();
+
+                    if !started {
+                        if pos <= fragment_end {
+                            let start = pos.saturating_sub(fragment_start);
+                            collected.push_str(&content[start..]);
+                            started = true;
+                        }
+                    } else {
+                        collected.push_str(content);
+                    }
+                    current_pos = fragment_end;
+                }
+                ContentFragment::Atomic { content, .. } => {
+                    let fragment_start = current_pos;
+                    let fragment_end = current_pos + content.len();
+
+                    if !started {
+                        if pos <= fragment_end {
+                            let start = pos.saturating_sub(fragment_start);
+                            collected.push_str(&content[start..]);
+                            started = true;
+                        }
+                    } else {
+                        collected.push_str(content);
+                    }
+                    current_pos = fragment_end;
+                }
+            }
+        }
+
+        // Now check if the collected text starts with a list marker
+        let mut chars = collected.chars().peekable();
+
+        // Skip leading whitespace
+        while let Some(&c) = chars.peek() {
+            if c.is_whitespace() {
+                chars.next();
+            } else {
+                break;
+            }
+        }
+
+        // Check if first non-whitespace char is a list marker
+        if let Some(&first) = chars.peek() {
+            if matches!(first, '-' | '+' | '*') {
+                chars.next();
+                // Check if followed by whitespace (making it a list marker)
+                if let Some(&second) = chars.peek() {
+                    if second.is_whitespace() {
+                        // Very high penalty to avoid creating sublists
+                        return 1000000.0;
+                    }
+                } else {
+                    // End of content after marker
+                    return 1000000.0;
+                }
+            }
+        }
+
+        0.0
+    }
+
     fn has_overflowing_atomic_in_range(&self, start_pos: usize, end_pos: usize) -> bool {
         let mut current_pos = 0;
         for fragment in &self.fragments {
@@ -771,11 +864,14 @@ impl ParagraphLineBreaker {
 
         // Unified rule: keep leading space only in specific cases
         // 1. After Code fragments (CJK spacing convention — always keep)
-        // 2. After Atomic (non-code) when next char is not punctuation
-        //    (preserve normal word spacing after links/code spans)
+        // 2. After Atomic (non-code) when next char is not punctuation AND we're not at a break point
+        //    (preserve normal word spacing after links/code spans, but not when breaking)
+        // Note: When breaking after a hyphen in list items, we don't want to keep the space
+        // because the prefix already provides the indentation
         let should_keep_space = prev_fragment_was_code
             || (prev_fragment_was_atomic
-                && !is_punctuation(content[actual..].chars().next().unwrap_or('\0')));
+                && !is_punctuation(content[actual..].chars().next().unwrap_or('\0'))
+                && start_in_fragment == 0); // Only keep space if we're at the start of a fragment
 
         if should_keep_space {
             start_in_fragment
@@ -1033,26 +1129,61 @@ fn get_punctuation_affinity(
 
         // Punctuation marks that are often part of words/identifiers when
         // surrounded by word content (no whitespace separation)
-        "/" | "\\" | "." | "-" | "_" | "@" | "#" | "+" | "=" | "~" | ":" => {
+        "/" | "\\" | "." | "_" | "@" | "#" | "=" | "~" | ":" => {
             // A character is part of a "word" if it's not whitespace and not a bracket
             // This treats continuous sequences of letters, digits, and punctuation as words
-            // Examples: "commonmark.js", "../path", "well-known", "C++", "key=value"
+            // Examples: "commonmark.js", "../path", "well-known", "key=value"
             // But: "Hello . world" (spaces around dot) - dot is not part of a word
             fn is_word_char(c: char) -> bool {
                 !c.is_whitespace() && !matches!(c, '(' | ')' | '[' | ']' | '{' | '}')
             }
             let prev_is_word = prev_char.is_some_and(is_word_char);
             let next_is_word = next_char.is_some_and(is_word_char);
+
+            // Special case for "/" in URLs: allow break after "/" to prevent overly long lines
+            // This handles cases like "https://github.com/commonmark/commonmark.js"
+            if char_str == "/" && prev_char == Some('/') {
+                // Allow break after "/" in URLs (e.g., "https://" or "//")
+                return Some(Affinity::Right);
+            }
+
+            // Special case for ":" (colon): always allow break after it
+            // This is important for cases like "本地路径：../commonmark.js"
+            if char_str == ":" {
+                return Some(Affinity::Left);
+            }
+
             if prev_is_word && next_is_word {
                 // This punctuation is surrounded by word content, don't break here
                 None
             } else {
                 // Use default affinity based on punctuation type
                 match char_str {
-                    "/" | "\\" | "-" | "+" | "=" | "~" => Some(Affinity::Right),
-                    "." | "_" | "@" | "#" | ":" => Some(Affinity::Left),
+                    "/" | "\\" | "=" | "~" => Some(Affinity::Right),
+                    "." | "_" | "@" | "#" => Some(Affinity::Left),
                     _ => Some(Affinity::Right),
                 }
+            }
+        }
+
+        // List marker characters and hyphen
+        // Note: We allow breaking after these characters to avoid creating sublists
+        // when the line is wrapped. The formatter will handle the continuation line
+        // properly by adding the appropriate prefix.
+        "-" | "+" | "*" => {
+            // Check if this is part of a word (e.g., "-0.31.2" in version numbers)
+            // If both prev and next are alphanumeric or certain word chars, it's part of a word
+            let is_part_of_word = prev_char
+                .is_some_and(|c| c.is_alphanumeric() || c == '.' || c == '_')
+                && next_char.is_some_and(|c| c.is_alphanumeric());
+
+            if is_part_of_word {
+                // Don't break within words
+                None
+            } else {
+                // Allow breaking after these characters
+                // Use Left affinity so we break after the character, not before
+                Some(Affinity::Left)
             }
         }
 
@@ -1373,6 +1504,42 @@ mod tests {
         assert!(
             result.contains("../"),
             "'../' should be preserved, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_list_item_with_hyphen_break() {
+        // Test case from formatter_regression_spec.md Punctuation:3
+        // When breaking a list item, we should break after the hyphen
+        // to avoid creating a sublist
+        let mut breaker = ParagraphLineBreaker::new(60, "  ".to_string());
+
+        // Simulate the actual formatter behavior:
+        // - List marker "- " as text
+        // - Link as atomic unit
+        // - Text " - 本地路径：../commonmark.js-0.31.2"
+        breaker.add_text("- ");
+        breaker.add_atomic(
+            "[commonmark.js 源码](https://github.com/commonmark/commonmark.js)",
+            AtomicKind::Link,
+        );
+        breaker.add_text(" - 本地路径：../commonmark.js-0.31.2");
+
+        let result = breaker.format();
+
+        // Should break after the hyphen, not before
+        // Expected: "- [link] -\n  本地路径：..."
+        // Not: "- [link]\n  - 本地路径：..."
+        assert!(
+            !result.contains("\n  - 本地"),
+            "Should not create sublist, got: {:?}",
+            result
+        );
+        // The hyphen should be at the end of the first line
+        assert!(
+            result.contains(" -\n"),
+            "Should break after hyphen, got: {:?}",
             result
         );
     }

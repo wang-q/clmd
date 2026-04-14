@@ -42,7 +42,8 @@ cargo build
 
 - [CommonMark 规范](https://spec.commonmark.org/)
 - [cmark 源码](https://github.com/commonmark/cmark) - 本地路径：../cmark-0.31.2
-- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：../commonmark.js-0.31.2
+- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：
+  ../commonmark.js-0.31.2
 - [flexmark-java 源码](https://github.com/vsch/flexmark-java) - 本地路径：../flexmark-java-0.64.6
 
 ## 参考代码文件
