@@ -4,8 +4,11 @@ use std::collections::HashMap;
 use std::fs;
 
 /// Helper function to convert markdown to HTML with default options
+/// Enables unsafe mode to allow raw HTML blocks (required for CommonMark spec compliance)
 fn md_to_html(input: &str) -> String {
-    let mut result = markdown_to_html(input, &Options::default());
+    let mut opts = Options::default();
+    opts.render.r#unsafe = true;
+    let mut result = markdown_to_html(input, &opts);
     // Remove trailing newline to match CommonMark spec test format
     while result.ends_with('\n') {
         result.pop();

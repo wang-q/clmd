@@ -91,8 +91,14 @@ impl<'a> HtmlRenderer<'a> {
                 } else {
                     self.cr();
                 }
-                // HTML blocks are output as raw HTML, with tag filtering always enabled
-                self.lit(&filter_html(&html_block.literal));
+                // HTML blocks are output as raw HTML
+                // When unsafe option is enabled, output raw HTML without filtering
+                // Otherwise, apply GFM tagfilter for security
+                if self.options.render.r#unsafe {
+                    self.lit(&html_block.literal);
+                } else {
+                    self.lit(&filter_html(&html_block.literal));
+                }
                 self.lit("\n");
             }
             NodeValue::Paragraph => {
