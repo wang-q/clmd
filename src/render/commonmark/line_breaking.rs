@@ -502,13 +502,26 @@ impl ParagraphLineBreaker {
         prev_char: Option<char>,
         at_atomic_start: bool,
     ) -> f64 {
+        // A character is part of a "word" if it's not whitespace and not a bracket
+        fn is_word_char(c: char) -> bool {
+            !c.is_whitespace() && !matches!(c, '(' | ')' | '[' | ']' | '{' | '}')
+        }
+
         let next_penalty = if let Some(c) = next_char {
             if is_cjk_punct_that_should_pull_back(c) {
                 10000.0
             } else if matches!(c, ',' | '.' | ';' | ':' | ')' | ']' | '}')
                 || (is_ascii_opening_bracket(c) && !at_atomic_start)
             {
-                5000.0
+                // If the next char is part of a word (and prev_char is also word content),
+                // don't penalize breaking before it
+                // This handles cases like "file.txt", "../path" where we want to break
+                // before the word, not in the middle of it
+                if is_word_char(c) && prev_char.is_some_and(is_word_char) {
+                    0.0
+                } else {
+                    5000.0
+                }
             } else {
                 0.0
             }
@@ -991,7 +1004,7 @@ fn get_punctuation_affinity(
     match char_str {
         // ASCII punctuation that can appear in both CJK and English contexts
         // When in CJK context, treat them like CJK punctuation
-        "," | "." | "!" | "?" | ";" | ":" => {
+        "," | "!" | "?" | ";" => {
             if prev_is_cjk {
                 // In CJK context, stay with the left side (CJK rule)
                 Some(Affinity::Left)
@@ -1018,16 +1031,28 @@ fn get_punctuation_affinity(
             }
         }
 
-        "/" | "\\" => {
-            // Check if the slash is part of a word (e.g., "I/O-bound", "and/or")
-            // If both prev and next characters are alphanumeric, don't break
-            let prev_is_alphanumeric = prev_char.is_some_and(|c| c.is_alphanumeric());
-            let next_is_alphanumeric = next_char.is_some_and(|c| c.is_alphanumeric());
-            if prev_is_alphanumeric && next_is_alphanumeric {
-                // Slash is part of a word, don't break here
+        // Punctuation marks that are often part of words/identifiers when
+        // surrounded by word content (no whitespace separation)
+        "/" | "\\" | "." | "-" | "_" | "@" | "#" | "+" | "=" | "~" | ":" => {
+            // A character is part of a "word" if it's not whitespace and not a bracket
+            // This treats continuous sequences of letters, digits, and punctuation as words
+            // Examples: "commonmark.js", "../path", "well-known", "C++", "key=value"
+            // But: "Hello . world" (spaces around dot) - dot is not part of a word
+            fn is_word_char(c: char) -> bool {
+                !c.is_whitespace() && !matches!(c, '(' | ')' | '[' | ']' | '{' | '}')
+            }
+            let prev_is_word = prev_char.is_some_and(is_word_char);
+            let next_is_word = next_char.is_some_and(is_word_char);
+            if prev_is_word && next_is_word {
+                // This punctuation is surrounded by word content, don't break here
                 None
             } else {
-                Some(Affinity::Right)
+                // Use default affinity based on punctuation type
+                match char_str {
+                    "/" | "\\" | "-" | "+" | "=" | "~" => Some(Affinity::Right),
+                    "." | "_" | "@" | "#" | ":" => Some(Affinity::Left),
+                    _ => Some(Affinity::Right),
+                }
             }
         }
 
@@ -1285,6 +1310,69 @@ mod tests {
         assert!(
             result.contains("This is a\n"),
             "Expected 'This is a' followed by newline, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_dot_in_filename_not_breaking() {
+        // Test that dot in filenames like "commonmark.js" doesn't cause a break
+        // The dot should be treated as part of the word when surrounded by alphanumeric chars
+        let mut breaker = ParagraphLineBreaker::new(50, String::new());
+        breaker.add_text("- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：../commonmark.js-0.31.2");
+        let result = breaker.format();
+        println!("Result: {:?}", result);
+        // The filename "commonmark.js" should not be split at the dot
+        assert!(
+            !result.contains("commonmark.\n"),
+            "Dot in filename should not cause break, got: {:?}",
+            result
+        );
+        assert!(
+            result.contains("commonmark.js"),
+            "Filename 'commonmark.js' should be preserved, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_dot_in_word_vs_sentence_end() {
+        // Dot at end of sentence should allow break
+        let mut breaker = ParagraphLineBreaker::new(20, String::new());
+        breaker.add_text("Hello world. This is a test.");
+        let result = breaker.format();
+        println!("Sentence result: {:?}", result);
+        // Should break after sentence-ending dots
+        assert!(result.contains(".\n") || result.lines().count() >= 1);
+
+        // Dot in filename should not break
+        let mut breaker2 = ParagraphLineBreaker::new(20, String::new());
+        breaker2.add_text("See file.txt for details");
+        let result2 = breaker2.format();
+        println!("Filename result: {:?}", result2);
+        assert!(
+            !result2.contains("file.\n"),
+            "Dot in 'file.txt' should not cause break, got: {:?}",
+            result2
+        );
+    }
+
+    #[test]
+    fn test_dot_slash_path_not_breaking() {
+        // Test that "../" in paths is not split
+        // This is the regression test case from formatter_regression_spec.md
+        let mut breaker = ParagraphLineBreaker::new(100, String::new());
+        breaker.add_text("- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：../commonmark.js-0.31.2");
+        let result = breaker.format();
+        // The "../" should not be split
+        assert!(
+            !result.contains("..\n/"),
+            "'../' should not be split, got: {:?}",
+            result
+        );
+        assert!(
+            result.contains("../"),
+            "'../' should be preserved, got: {:?}",
             result
         );
     }

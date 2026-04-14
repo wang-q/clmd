@@ -200,8 +200,10 @@ comma.
 这是一个测试，包含逗号。还有更多内容。
 ````````````````````````````````
 
+### Issue: Punctuation inside word
 
-```````````````````````````````` example(Punctuation: 6) options(margin[100])
+
+```````````````````````````````` example(Punctuation: 1) options(margin[100])
 **Trade-offs**: Virtual function calls (`vtable`) have a tiny overhead compared to inlined code in
 extremely high-frequency loops (e.g., 10 calls per row), but this is usually negligible in I/O-bound
 CLI tools.
@@ -210,6 +212,15 @@ CLI tools.
 in extremely high-frequency loops (e.g., 10 calls per row), but this is usually negligible in
 I/O-bound CLI tools.
 ````````````````````````````````
+
+
+```````````````````````````````` example(Punctuation: 2) options(margin[100])
+- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：../commonmark.js-0.31.2
+.
+- [commonmark.js 源码](https://github.com/commonmark/commonmark.js) - 本地路径：
+  ../commonmark.js-0.31.2
+````````````````````````````````
+
 
 ## Mixed Content Issues
 
